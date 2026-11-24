@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { routeEdges, type EdgeRoute, type RouteEdge, type TaskBox } from "./task-graph-routes.ts";
+import {
+  edgeRoom,
+  routeEdges,
+  type EdgeRoute,
+  type RouteEdge,
+  type TaskBox,
+} from "./task-graph-routes.ts";
 
 // Columns as the graph lays them out: 200px Tasks, 44px apart. Column 0's right edge is at 200 and
 // column 1's left at 244, so a bend's vertical stands in 212–224, centred on 218.
@@ -173,6 +179,39 @@ describe("routeEdges", () => {
     );
     expect(routeOf(routes, "a>c").line).toMatch(/ L[\d.]+,-14 A/);
     expect(routeOf(routes, "d>e").line).toMatch(/ L[\d.]+,-10 A/);
+  });
+
+  it("reports how far up and down a route reaches, its stroke and head included", () => {
+    // Above a skipped column: the lane at 0, so the line's stroke reaches 0.75 above it.
+    const above = routeOf(
+      routed({ a: box(0, 0), x: box(1, 10), c: box(2, 0) }, [edge("a", "c")]),
+      "a>c",
+    );
+    expect(above).toMatchObject({ top: -0.75, bottom: 34 });
+    // Below one: the lane at 60, 0.75 more for the stroke; the head reaches 4 either side of 30.
+    const below = routeOf(
+      routed({ a: box(0, 0), x: box(1, -10), c: box(2, 0) }, [edge("a", "c")]),
+      "a>c",
+    );
+    expect(below).toMatchObject({ top: 26, bottom: 60.75 });
+  });
+
+  it("asks for room above and below the Tasks' height for the routes that run outside it", () => {
+    const routes = routeEdges(
+      new Map([
+        ["a", box(0, 0)],
+        ["x", box(1, 10)],
+        ["c", box(2, 0)],
+        ["d", box(0, 100)],
+        ["y", box(1, 90)],
+        ["e", box(2, 100)],
+      ]),
+      [edge("a", "c"), edge("d", "e")],
+    );
+    // a>c runs 10 above x (at 0), d>e 10 below y (at 160); the Tasks span 0 to 160.
+    expect(edgeRoom(routes, 160)).toEqual({ above: 1, below: 1 });
+    expect(edgeRoom(routes, 200)).toEqual({ above: 1, below: 0 });
+    expect(edgeRoom([], 160)).toEqual({ above: 0, below: 0 });
   });
 
   it("carries what the drawing needs: the edge's key, a Done blocker and one from outside", () => {

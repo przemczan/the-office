@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { latestPlanningThread, planningThreadOf } from "./initiative.js";
 import {
   initiativePlanningBrief,
   initiativePlanningInstructions,
@@ -15,7 +16,7 @@ import { startPlanningTask } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
 import type { Task } from "./task.js";
 import type { Author } from "./author.js";
-import { anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
+import { anInitiative, aPlanningThread, aTask, BEN_ITO } from "./work.fixtures.js";
 import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
 
 const prompts = defaultWorkPrompts();
@@ -24,10 +25,20 @@ const prompts = defaultWorkPrompts();
 const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
 
 const THREAD = "thread-1";
+/** The Initiative's earlier planning Thread, auto mode off. */
+const EARLIER = "thread-0";
+/** A Thread on the Initiative that isn't one of its planning Threads: a shaping Thread. */
+const SHAPING = "shaping-thread";
 const planning = anInitiative({
   state: "active",
-  planningThreadId: THREAD,
-  planningAutoMode: true,
+  planningThreads: [
+    aPlanningThread({ threadId: EARLIER, autoMode: false }),
+    aPlanningThread({
+      threadId: THREAD,
+      autoMode: true,
+      openedAt: new Date("2026-10-27T09:00:00.000Z"),
+    }),
+  ],
 });
 const first = aTask({ id: "task-a", title: "Export API", initiativeId: planning.id });
 const second = aTask({
@@ -70,19 +81,18 @@ describe("initiativePlanningProblems", () => {
     expect(initiativePlanningProblems(planning, [marked, second])).toEqual([]);
   });
 
-  it("keeps the new Thread, the auto mode and who asked on the Initiative it opens for", () => {
-    const opening = { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO };
+  const AT = new Date("2026-11-12T09:00:00.000Z");
+
+  it("keeps the new Thread, the auto mode, who asked and when on the Initiative it opens for", () => {
+    const opening = { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO, at: AT };
     const { initiative, event } = startInitiativePlanning(
       anInitiative({ state: "active" }),
       [first],
       opening,
     );
-    expect(initiative).toMatchObject({
-      planningThreadId: "thread-2",
-      planningAutoMode: false,
-      planningWithUser: false,
-      planningStartedBy: BEN_ITO,
-    });
+    expect(initiative.planningThreads).toEqual([
+      { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO, openedAt: AT },
+    ]);
     expect(event).toMatchObject({ threadId: "thread-2", autoMode: false });
     expect(() => startInitiativePlanning(anInitiative(), [first], opening)).toThrow(
       InitiativeRefused,
@@ -91,16 +101,16 @@ describe("initiativePlanningProblems", () => {
 
   it("adds the new Thread to the planning Threads it opened, keeping the earlier ones", () => {
     const { initiative } = startInitiativePlanning(
-      anInitiative({
-        state: "active",
-        planningThreadId: "thread-1",
-        planningThreadIds: ["thread-1"],
-      }),
+      anInitiative({ state: "active", planningThreads: [aPlanningThread()] }),
       [first],
-      { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO },
+      { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO, at: AT },
     );
 
-    expect(initiative.planningThreadIds).toEqual(["thread-1", "thread-2"]);
+    expect(initiative.planningThreads.map(({ threadId }) => threadId)).toEqual([
+      "thread-1",
+      "thread-2",
+    ]);
+    expect(latestPlanningThread(initiative)?.threadId).toBe("thread-2");
   });
 
   it("keeps that Plan with… opened the new Thread, until a later Plan the Initiative", () => {
@@ -109,21 +119,24 @@ describe("initiativePlanningProblems", () => {
       autoMode: false,
       withUser: true,
       by: BEN_ITO,
+      at: AT,
     }).initiative;
-    expect(withUser).toMatchObject({ planningThreadId: "thread-2", planningWithUser: true });
+    expect(latestPlanningThread(withUser)).toMatchObject({ threadId: "thread-2", withUser: true });
 
     const atOnce = startInitiativePlanning(withUser, [first], {
       threadId: "thread-3",
       autoMode: true,
       withUser: false,
       by: BEN_ITO,
+      at: AT,
     }).initiative;
-    expect(atOnce).toMatchObject({ planningThreadId: "thread-3", planningWithUser: false });
+    expect(latestPlanningThread(atOnce)).toMatchObject({ threadId: "thread-3", withUser: false });
+    expect(planningThreadOf(atOnce, "thread-2")).toMatchObject({ withUser: true });
   });
 });
 
 describe("startPlanningInInitiative", () => {
-  it("moves a Backlog Task to Planning in the Initiative's Thread and auto mode, by the Planner", () => {
+  it("moves a Backlog Task to Planning in the calling Thread and its auto mode, by the Planner", () => {
     const change = startPlanningInInitiative(planning, first, [first, second], THREAD, THE_PLANNER);
     expect(change?.task).toMatchObject({
       state: "planning",
@@ -178,7 +191,39 @@ describe("startPlanningInInitiative", () => {
     ).toBe("planning");
   });
 
-  it("refuses a Task outside the Initiative, one not in Backlog, and an earlier Thread", () => {
+  it("moves a Task to Planning from an earlier planning Thread, in that Thread's auto mode", () => {
+    const change = startPlanningInInitiative(
+      planning,
+      first,
+      [first, second],
+      EARLIER,
+      THE_PLANNER,
+    );
+
+    expect(change?.task).toMatchObject({
+      state: "planning",
+      autoMode: false,
+      initiativePlanningThreadId: EARLIER,
+    });
+  });
+
+  it("refuses a Task another planning Thread is planning, until it is marked planned there", () => {
+    const plannedThere = {
+      ...first,
+      state: "planning" as const,
+      initiativePlanningThreadId: EARLIER,
+    };
+
+    expect(() =>
+      startPlanningInInitiative(planning, plannedThere, [plannedThere], THREAD, THE_PLANNER),
+    ).toThrow(
+      new TaskRefused([
+        '"Export API" is being planned in another planning Thread: write there, or wait until it is marked planned.',
+      ]),
+    );
+  });
+
+  it("refuses a Task outside the Initiative, one not in Backlog, and a Thread that isn't a planning Thread", () => {
     const elsewhere = aTask({ initiativeId: "initiative-2" });
     expect(() =>
       startPlanningInInitiative(planning, elsewhere, [first], THREAD, THE_PLANNER),
@@ -187,9 +232,11 @@ describe("startPlanningInInitiative", () => {
     expect(() => startPlanningInInitiative(planning, ready, [ready], THREAD, THE_PLANNER)).toThrow(
       new TaskRefused(['"Export API" is in Ready; only a Task in Backlog is moved to Planning.']),
     );
-    expect(() =>
-      startPlanningInInitiative(planning, first, [first], "thread-0", THE_PLANNER),
-    ).toThrow(InitiativeRefused);
+    expect(() => startPlanningInInitiative(planning, first, [first], SHAPING, THE_PLANNER)).toThrow(
+      new InitiativeRefused([
+        "This Thread isn't one of the Initiative's planning Threads: only they plan its Tasks.",
+      ]),
+    );
   });
 
   it("changes nothing for a Task already in Planning in this Thread", () => {
@@ -244,6 +291,7 @@ describe("the Initiative's planning Thread", () => {
   it("is briefed with its record, the Tasks to plan, the Projects, the Pipelines and auto mode", () => {
     const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
+      threadId: THREAD,
       waiting: [],
       record: "Initiative: Usage exports",
       tasks: [first, second, aTask({ id: "task-c", state: "done", initiativeId: planning.id })],
@@ -300,6 +348,7 @@ describe("the Initiative's planning Thread", () => {
     });
     const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
+      threadId: THREAD,
       waiting: [],
       record: "Initiative: Usage exports",
       tasks: [first, bug],
@@ -340,7 +389,11 @@ describe("the Initiative's planning Thread", () => {
 
   it("tells the planner to follow the user's instructions on how to plan in a Plan with… Thread", () => {
     const brief = initiativePlanningBrief(prompts, {
-      initiative: { ...planning, planningWithUser: true, planningStartedBy: BEN_ITO },
+      initiative: anInitiative({
+        state: "active",
+        planningThreads: [aPlanningThread({ threadId: THREAD, withUser: true, by: BEN_ITO })],
+      }),
+      threadId: THREAD,
       waiting: [],
       record: "Initiative: Usage exports",
       tasks: [first],
@@ -357,6 +410,7 @@ describe("the Initiative's planning Thread", () => {
   it("lists each Project's own Pipelines, flagged when Broken, before the office-wide ones once", () => {
     const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
+      threadId: THREAD,
       waiting: [],
       record: "Initiative: Usage exports",
       tasks: [first, second],
@@ -397,6 +451,7 @@ describe("the Initiative's planning Thread", () => {
     const inThisThread = { state: "planning", initiativePlanningThreadId: THREAD } as const;
     const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
+      threadId: THREAD,
       waiting: [],
       record: "Initiative: Usage exports",
       tasks: [
@@ -407,17 +462,73 @@ describe("the Initiative's planning Thread", () => {
           id: "task-d",
           initiativeId: planning.id,
           state: "planning",
-          initiativePlanningThreadId: "an-earlier-thread",
+          initiativePlanningThreadId: EARLIER,
         }),
       ],
       projects: [],
       pipelines: [],
     });
-    const section = brief.slice(brief.indexOf("## Being planned here"));
+    const start = brief.indexOf("## Being planned here");
+    const section = brief.slice(start, brief.indexOf("\n## ", start + 1));
     expect(section).toContain('- "Export API" (Task task-a)');
     expect(section).toContain("(Task task-c)");
     expect(section).not.toContain("task-b");
     expect(section).not.toContain("task-d");
+  });
+
+  it("lists the other planning Threads with their dates and the Tasks each owns, read with read_threads", () => {
+    const brief = (threadId: string) =>
+      initiativePlanningBrief(prompts, {
+        initiative: planning,
+        threadId,
+        waiting: [],
+        record: "Initiative: Usage exports",
+        tasks: [
+          { ...first, state: "planning", initiativePlanningThreadId: EARLIER, markedPlanned: true },
+          { ...second, state: "ready", initiativePlanningThreadId: EARLIER },
+        ],
+        projects: [],
+        pipelines: [],
+      });
+
+    const fromTheLatest = brief(THREAD);
+    expect(fromTheLatest).toContain("## The other planning Threads");
+    expect(fromTheLatest).toContain(
+      `read it with read_threads, giving initiativeId ${planning.id} and a range from when it was opened, instead of researching again.`,
+    );
+    expect(fromTheLatest).toContain(
+      '- Thread thread-0, opened 2026-10-26T09:00:00.000Z: its Tasks are "Export API" (Task task-a, Planning, marked planned), "Export button" (Task task-b, Ready).',
+    );
+    expect(brief(EARLIER)).toContain(
+      "- Thread thread-1, opened 2026-10-27T09:00:00.000Z, the latest: it owns no Task.",
+    );
+    const alone = anInitiative({ state: "active", planningThreads: [aPlanningThread()] });
+    expect(
+      initiativePlanningBrief(prompts, {
+        initiative: alone,
+        threadId: "thread-1",
+        waiting: [],
+        record: "",
+        tasks: [first],
+        projects: [],
+        pipelines: [],
+      }),
+    ).not.toContain("## The other planning Threads");
+  });
+
+  it("is briefed with the calling Thread's auto mode and who opened it, not the latest's", () => {
+    const fromTheEarlier = initiativePlanningBrief(prompts, {
+      initiative: planning,
+      threadId: EARLIER,
+      waiting: [],
+      record: "Initiative: Usage exports",
+      tasks: [first],
+      projects: [],
+      pipelines: [],
+    });
+
+    expect(fromTheEarlier).toContain("## Auto mode\n\nOff:");
+    expect(fromTheEarlier).toContain("This planning Thread was opened by the user Ann Lee");
   });
 });
 
@@ -493,7 +604,7 @@ describe("rewriteInInitiative", () => {
     const earlier = aTask({
       ...first,
       state: "planning",
-      initiativePlanningThreadId: "thread-0",
+      initiativePlanningThreadId: EARLIER,
       markedPlanned: true,
     });
 
@@ -507,12 +618,52 @@ describe("rewriteInInitiative", () => {
     expect(change?.event.moves).toEqual([]);
   });
 
+  it("rewrites from an earlier planning Thread too, which then owns the Task in its auto mode", () => {
+    const markedInTheLatest = aTask({
+      ...first,
+      state: "planning",
+      initiativePlanningThreadId: THREAD,
+      markedPlanned: true,
+      autoMode: true,
+    });
+
+    const change = rewriteInInitiative(
+      planning,
+      markedInTheLatest,
+      EARLIER,
+      THE_PLANNER,
+      rewritten,
+    );
+
+    expect(change?.task).toMatchObject({
+      initiativePlanningThreadId: EARLIER,
+      autoMode: false,
+      markedPlanned: false,
+    });
+    const ready = aTask({ ...first, state: "ready", markedPlanned: true });
+    expect(
+      rewriteInInitiative(planning, ready, EARLIER, THE_PLANNER, rewritten)?.task,
+    ).toMatchObject({ state: "planning", initiativePlanningThreadId: EARLIER, autoMode: false });
+  });
+
+  it("refuses a write to a Task another planning Thread is planning, not yet marked planned", () => {
+    const plannedThere = aTask({ ...first, state: "planning", initiativePlanningThreadId: THREAD });
+
+    expect(() =>
+      rewriteInInitiative(planning, plannedThere, EARLIER, THE_PLANNER, rewritten),
+    ).toThrow(
+      new TaskRefused([
+        '"Export API" is being planned in another planning Thread: write there, or wait until it is marked planned.',
+      ]),
+    );
+  });
+
   it("moves nothing when the write changes nothing", () => {
     const ready = aTask({ ...first, state: "ready", plan: "A Plan the answer changed." });
     expect(rewriteInInitiative(planning, ready, THREAD, THE_PLANNER, rewritten)).toBeUndefined();
   });
 
-  it("never rewrites a started, Dropped or own-Thread Task, nor from an earlier Thread", () => {
+  it("never rewrites a started, Dropped or own-Thread Task, nor from a Thread that isn't a planning Thread", () => {
     const decisionInstead =
       "it has started and is never rewritten: open a Decision on it saying what changed and what you recommend.";
     for (const state of ["in-progress", "waiting-on-you", "paused", "done", "dropped"] as const) {
@@ -526,7 +677,7 @@ describe("rewriteInInitiative", () => {
       `"Export API" is being planned in its own planning Thread and is never rewritten from here: open a Decision on it saying what changed and what you recommend.`,
     );
     const ready = aTask({ ...first, state: "ready" });
-    expect(() => rewriteInInitiative(planning, ready, "thread-0", THE_PLANNER, rewritten)).toThrow(
+    expect(() => rewriteInInitiative(planning, ready, SHAPING, THE_PLANNER, rewritten)).toThrow(
       InitiativeRefused,
     );
   });
@@ -536,6 +687,7 @@ describe("the planning Brief's Decisions", () => {
   it("lists the Decisions open in this Thread with their Tasks, for a fresh session", () => {
     const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
+      threadId: THREAD,
       waiting: [{ taskId: first.id, question: "Which format?" }],
       record: "Initiative: Usage exports",
       tasks: [first, second],
@@ -549,6 +701,7 @@ describe("the planning Brief's Decisions", () => {
     expect(
       initiativePlanningBrief(prompts, {
         initiative: planning,
+        threadId: THREAD,
         waiting: [],
         record: "",
         tasks: [first],
@@ -562,6 +715,7 @@ describe("the planning Brief's Decisions", () => {
     const brief = (waiting: readonly OpenTaskDecision[]) =>
       initiativePlanningBrief(prompts, {
         initiative: planning,
+        threadId: THREAD,
         waiting,
         record: "Initiative: Usage exports",
         tasks: [first, second],

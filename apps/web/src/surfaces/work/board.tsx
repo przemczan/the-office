@@ -208,7 +208,6 @@ export function Board(): ReactNode {
           initiative={initiative}
           column={column}
           cards={item.cards}
-          queue={queue}
           outlined={outlined === item.initiativeId}
           landing={
             dragged !== undefined &&

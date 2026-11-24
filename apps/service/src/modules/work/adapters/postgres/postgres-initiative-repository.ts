@@ -62,7 +62,9 @@ import {
   saveTask,
   takenOrders,
   toInitiative,
+  initiativeColumns,
   initiativeRowUpdate,
+  savePlanningThreads,
   toInitiativeRow,
   toTask,
   type Transaction,
@@ -77,7 +79,10 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
   find(id: string): Promise<Initiative | undefined> {
     return readOnce(readKey("initiatives.find", id), async () => {
       if (!canBeRowId(id)) return undefined;
-      const [row] = await this.database.select().from(initiatives).where(eq(initiatives.id, id));
+      const [row] = await this.database
+        .select(initiativeColumns)
+        .from(initiatives)
+        .where(eq(initiatives.id, id));
       return row && toInitiative(row);
     });
   }
@@ -90,7 +95,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
 
   async list(): Promise<readonly Initiative[]> {
     const rows = await this.database
-      .select()
+      .select(initiativeColumns)
       .from(initiatives)
       .orderBy(desc(initiatives.createdAt), asc(initiatives.id));
     return rows.map(toInitiative);
@@ -109,7 +114,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
         .where(matches)
         .groupBy(initiatives.state),
       this.database
-        .select()
+        .select(initiativeColumns)
         .from(initiatives)
         .where(and(matches, state === "all" ? undefined : eq(initiatives.state, state)))
         // The one that ended last on top; one nothing dates sinks below every dated one.
@@ -382,7 +387,7 @@ function inProjects(projectIds: readonly string[]): SQL {
 async function heldInitiative(transaction: Transaction, id: string): Promise<Initiative> {
   if (!canBeRowId(id)) throw new InitiativeNotFound(id);
   const [row] = await transaction
-    .select()
+    .select(initiativeColumns)
     .from(initiatives)
     .where(eq(initiatives.id, id))
     .for("update");
@@ -390,11 +395,13 @@ async function heldInitiative(transaction: Transaction, id: string): Promise<Ini
   return toInitiative(row);
 }
 
+/** Its row, and the planning Threads it opened since it was read, in one transaction. */
 async function saveInitiative(transaction: Transaction, initiative: Initiative): Promise<void> {
   await transaction
     .update(initiatives)
     .set(initiativeRowUpdate(initiative))
     .where(eq(initiatives.id, initiative.id));
+  await savePlanningThreads(transaction, initiative);
 }
 
 async function heldTasksOf(transaction: Transaction, initiativeId: string): Promise<Task[]> {

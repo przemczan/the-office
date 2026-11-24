@@ -21,6 +21,8 @@ export interface ThreadHistoryQuery {
   /** Only Threads with this person, by their Role's key. */
   readonly personRole?: string | undefined;
   readonly taskId?: string | undefined;
+  /** Only the Threads on this Initiative: its shaping and planning Threads. */
+  readonly initiativeId?: string | undefined;
   readonly projectId?: string | undefined;
   /** Only messages holding this text, in any case. */
   readonly search?: string | undefined;
@@ -130,6 +132,7 @@ export class ThreadHistory {
   private async threadsAsked(query: ThreadHistoryQuery): Promise<ThreadsAsked> {
     const roleKey = given(query.personRole);
     const taskId = given(query.taskId);
+    const initiativeId = given(query.initiativeId);
     const projectId = given(query.projectId);
     const filters: string[] = [];
     if (roleKey !== undefined) {
@@ -147,21 +150,32 @@ export class ThreadHistory {
       filters.push(`on the Task "${title}"`);
       homes = [{ kind: "task", taskId }];
     }
+    if (initiativeId !== undefined) {
+      const name = await this.work.initiativeName(initiativeId);
+      if (name === undefined) {
+        return `The Office has no Initiative ${initiativeId}: read_task names a Task's Initiative by its id.`;
+      }
+      filters.push(`on the Initiative "${name}"`);
+      // A Thread is on a Task or on an Initiative, never both.
+      homes = taskId === undefined ? [{ kind: "initiative", initiativeId }] : [];
+    }
     if (projectId !== undefined) {
       if ((await this.projects.of(projectId)) === undefined) {
         return `The Office has no Project ${projectId}: list_projects gives the Projects.`;
       }
       filters.push(`in the Project ${projectId}`);
       const { taskIds, initiativeIds } = await this.work.projectWork(projectId);
+      const inProject = (home: Home): boolean =>
+        home.kind === "task"
+          ? taskIds.includes(home.taskId)
+          : home.kind === "initiative" && initiativeIds.includes(home.initiativeId);
       homes =
-        taskId === undefined
+        homes === undefined
           ? [
               ...taskIds.map((id): Home => ({ kind: "task", taskId: id })),
               ...initiativeIds.map((id): Home => ({ kind: "initiative", initiativeId: id })),
             ]
-          : taskIds.includes(taskId)
-            ? homes
-            : [];
+          : homes.filter(inProject);
     }
     return { roleKey, homes, filters };
   }

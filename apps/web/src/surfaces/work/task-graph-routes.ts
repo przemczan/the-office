@@ -24,16 +24,25 @@ export interface RouteEdge {
 
 export interface EdgeRoute {
   readonly key: string;
+  /** The blocker's id. */
+  readonly from: string;
+  /** The id of the Task waiting for it. */
+  readonly to: string;
   /** The line, from the blocker's right edge to under the arrowhead's base. */
   readonly line: string;
   /** The arrowhead, a closed triangle whose tip stands off the waiting Task. */
   readonly head: string;
   readonly blockerDone: boolean;
   readonly fromOutside: boolean;
+  /** How high the drawn line and head reach, the stroke's half width included. */
+  readonly top: number;
+  /** How low the drawn line and head reach, the stroke's half width included. */
+  readonly bottom: number;
 }
 
-/** The numbers the build takes, in px. */
+/** The numbers the build takes, in px; `stroke` is `.task-graph-edge`'s stroke width. */
 export const EDGE_ROUTING = {
+  stroke: 1.5,
   runOut: 6,
   runIn: 4,
   headLength: 8,
@@ -394,12 +403,31 @@ function drawn(route: Route, bendXs: ReadonlyMap<Route, readonly number[]>): Edg
   // The line runs a pixel under the head, so no seam shows between them.
   const line = `M${n(from.right)},${n(route.levels[0] ?? y)}${corners.join("")} L${n(base + 1)},${n(y)}`;
   const half = headWidth / 2;
+  const halfStroke = EDGE_ROUTING.stroke / 2;
   return {
     key: `${edge.from}>${edge.to}`,
+    from: edge.from,
+    to: edge.to,
     line,
     head: `M${n(base)},${n(y - half)} L${n(tip)},${n(y)} L${n(base)},${n(y + half)} Z`,
     blockerDone: edge.blockerDone,
     fromOutside: edge.fromOutside,
+    top: Math.min(y - half, ...route.levels.map((level) => level - halfStroke)),
+    bottom: Math.max(y + half, ...route.levels.map((level) => level + halfStroke)),
+  };
+}
+
+/**
+ * The room the routes need beyond the Tasks' own height (0 to `height`, in the same coordinates):
+ * a line routed above the top Task or below the bottom one, with its stroke and arrowhead.
+ */
+export function edgeRoom(
+  routes: readonly EdgeRoute[],
+  height: number,
+): { above: number; below: number } {
+  return {
+    above: Math.max(0, ...routes.map(({ top }) => Math.ceil(-top))),
+    below: Math.max(0, ...routes.map(({ bottom }) => Math.ceil(bottom - height))),
   };
 }
 

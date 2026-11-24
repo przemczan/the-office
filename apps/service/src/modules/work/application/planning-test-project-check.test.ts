@@ -71,6 +71,7 @@ import { WorkEngineLevels } from "../adapters/people/work-engine-levels.js";
 import { WorkEngineLevelsModule } from "../work-engine-levels.module.js";
 import { WorkModule } from "../work.module.js";
 import { GitHubModule } from "../../github/index.js";
+import { ConversationsThreadTurns } from "../adapters/conversations/conversations-thread-turns.js";
 
 /**
  * Task 11's check on the Test Project: through the API, as the web does, a small real change is
@@ -161,6 +162,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 sessionInitiatives: ThreadService,
                 taskThreads: ThreadService,
                 initiativeThreads: ThreadService,
+                threadTurns: ConversationsThreadTurns,
                 taskDecisions: DecisionService,
                 proposalDrafts: ProposalService,
                 usageHistory: UsageHistory,

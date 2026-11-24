@@ -20,7 +20,7 @@ import type { Task } from "../../domain/task.js";
 import { changePriority, createTask, reorderTask } from "../../domain/task-changes.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
-import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
+import { ANN_LEE, aLink, anIdea, aPlanningThread, BEN_ITO } from "../../domain/work.fixtures.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./postgres-initiative-repository.js";
@@ -235,7 +235,7 @@ describe("PostgresInitiativeRepository", () => {
     await database.delete(initiativeRows).where(eq(initiativeRows.id, created.initiative.id));
   });
 
-  it("keeps every planning Thread the Initiative opened, in order, and reads them back", async () => {
+  it("keeps every planning Thread the Initiative opened, in order, and reads them back, still writing the old columns", async () => {
     const created = createInitiative(
       { name: `Usage exports ${randomUUID()}`, outcome: "Usage exports as CSV." },
       randomUUID(),
@@ -244,17 +244,45 @@ describe("PostgresInitiativeRepository", () => {
     );
     await initiatives.insert(created);
     const id = created.initiative.id;
-    const [first, second] = [randomUUID(), randomUUID()];
+    const first = aPlanningThread({
+      threadId: randomUUID(),
+      autoMode: true,
+      openedAt: new Date("2026-11-12T11:00:00.000Z"),
+    });
+    const second = aPlanningThread({
+      threadId: randomUUID(),
+      withUser: true,
+      by: BEN_ITO,
+      openedAt: new Date("2026-11-12T12:00:00.000Z"),
+    });
+    const open = async (thread: typeof first) =>
+      initiatives.update(id, (initiative) => ({
+        initiative: { ...initiative, planningThreads: [...initiative.planningThreads, thread] },
+        event: new InitiativePlanningStarted(id, thread.threadId, thread.autoMode),
+      }));
 
-    await initiatives.update(id, (initiative) => ({
-      initiative: { ...initiative, planningThreadId: second, planningThreadIds: [first, second] },
-      event: new InitiativePlanningStarted(id, second, false),
-    }));
+    await open(first);
+    await open(second);
 
-    expect(created.initiative.planningThreadIds).toEqual([]);
-    expect(await initiatives.find(id)).toMatchObject({
-      planningThreadId: second,
-      planningThreadIds: [first, second],
+    expect(created.initiative.planningThreads).toEqual([]);
+    expect((await initiatives.find(id))?.planningThreads).toEqual([first, second]);
+    const [oldColumns] = await database
+      .select({
+        planningThreadId: initiativeRows.planningThreadId,
+        planningThreadIds: initiativeRows.planningThreadIds,
+        planningStartedBy: initiativeRows.planningStartedBy,
+        planningAutoMode: initiativeRows.planningAutoMode,
+        planningWithUser: initiativeRows.planningWithUser,
+      })
+      .from(initiativeRows)
+      .where(eq(initiativeRows.id, id));
+    // The release before reads these after a rollback: they still name the latest, and every one.
+    expect(oldColumns).toEqual({
+      planningThreadId: second.threadId,
+      planningThreadIds: [first.threadId, second.threadId],
+      planningStartedBy: BEN_ITO,
+      planningAutoMode: false,
+      planningWithUser: true,
     });
     await database.delete(initiativeRows).where(eq(initiativeRows.id, id));
   });

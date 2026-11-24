@@ -5,7 +5,7 @@ import { planningBrief } from "./planning.js";
 import { shapingBrief } from "./shaping.js";
 import type { StateChange } from "./state-change.js";
 import { taskWhoAskedSection } from "./who-asked.js";
-import { ANN_LEE, anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
+import { ANN_LEE, anInitiative, aPlanningThread, aTask, BEN_ITO } from "./work.fixtures.js";
 import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
 
 const prompts = defaultWorkPrompts();
@@ -42,6 +42,7 @@ function aPlanningBrief(stateChanges: readonly StateChange[]): string {
 function anInitiativePlanningBrief(initiative = anInitiative()): string {
   return initiativePlanningBrief(prompts, {
     initiative,
+    threadId: "thread-1",
     waiting: [],
     record: "Initiative: Usage exports",
     tasks: [],
@@ -101,7 +102,11 @@ describe("Briefs say which user asked", () => {
   it("the Initiative planning Brief names who opened its planning Thread", () => {
     expect(
       anInitiativePlanningBrief(
-        anInitiative({ state: "active", createdBy: ANN_LEE, planningStartedBy: BEN_ITO }),
+        anInitiative({
+          state: "active",
+          createdBy: ANN_LEE,
+          planningThreads: [aPlanningThread({ by: BEN_ITO })],
+        }),
       ),
     ).toContain(
       "Initiative: Usage exports\n\n## Who asked\n\nThis planning Thread was opened by the user Ben Ito, with Plan the Initiative.",

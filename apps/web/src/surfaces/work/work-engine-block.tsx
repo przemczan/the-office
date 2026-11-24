@@ -57,7 +57,7 @@ import {
 /**
  * The Task's engine override (spec §2.1.3, "A Task's engine"): one engine, no model and no
  * Stand-in Engines, for every session about it, saved at once; read-only once Done or Dropped. Its
- * "Runs on" list says what the cascade gives each Role its Stages name. Starts folded.
+ * "Runs on" list says what the cascade gives each Role its Stages name. Starts open, on the Engine tab.
  */
 export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
   const engineName = useEngineName();
@@ -67,7 +67,7 @@ export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
   const engineSettings = useQuery(engineSettingsQuery()).data;
   const projectEngine = projectEngineOf(project, engineSettings);
   const followed = taskFollowedEngine(task, projectEngine);
-  const fold = useFold({ kind: "task", id: task.id }, "engine", false);
+  const fold = useFold({ kind: "task", id: task.id }, "engine", true);
   const changing = useRecordChange(task, (engineId: EngineId | null) =>
     changeTaskEngine(task.id, engineId),
   );

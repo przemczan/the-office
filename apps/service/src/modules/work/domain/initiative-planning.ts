@@ -2,7 +2,12 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 import type { PromptTexts } from "../../prompt-templates/index.js";
 import type { Author } from "./author.js";
-import type { Initiative } from "./initiative.js";
+import {
+  latestPlanningThread,
+  planningThreadOf,
+  type Initiative,
+  type InitiativePlanningThread,
+} from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
 import { InitiativePlanningStarted } from "./initiative-events.js";
 import { InitiativeRefused } from "./initiative-refused.js";
@@ -96,39 +101,63 @@ export function initiativePlanningProblems(
   return [];
 }
 
-/** How a new planning Thread on an Initiative is started, and by whom. */
+/**
+ * Why Plan the Initiative and Plan with… open no new planning Thread while the Initiative's latest
+ * one has a turn running: the user writes there instead, or waits until `planner` finishes. A Thread
+ * waiting for a Decision's answer isn't working; the earlier-Thread refusal of
+ * `initiativePlanningProblems` covers it.
+ */
+export function stillPlanningWords(planner: string): string {
+  return `${planner} is still planning in the planning Thread: write there, or wait until they finish.`;
+}
+
+/** How a new planning Thread on an Initiative is started, by whom and when. */
 export interface InitiativePlanningStart {
   readonly threadId: string;
   readonly autoMode: boolean;
   /** Opened by Plan with…: the planner waits for the user's first message on how to plan it. */
   readonly withUser: boolean;
   readonly by: Author;
+  readonly at: Date;
 }
 
 /**
- * Plan the Initiative, or Plan with…: its new planning Thread `threadId` becomes the one that plans
- * its Tasks, in auto mode or not, kept before the Thread opens so its first session's Brief and
+ * Plan the Initiative, or Plan with…: its new planning Thread `threadId` joins its planning Threads
+ * as the latest, in auto mode or not, kept before the Thread opens so its first session's Brief and
  * tools find it, with `by`, who asked for it. Refused with the reasons of
  * `initiativePlanningProblems`.
  */
 export function startInitiativePlanning(
   initiative: Initiative,
   tasks: readonly Task[],
-  { threadId, autoMode, withUser, by }: InitiativePlanningStart,
+  { threadId, autoMode, withUser, by, at }: InitiativePlanningStart,
 ): InitiativeChange<InitiativePlanningStarted> {
   const problems = initiativePlanningProblems(initiative, tasks);
   if (problems.length > 0) throw new InitiativeRefused(problems);
+  const opened: InitiativePlanningThread = { threadId, autoMode, withUser, by, openedAt: at };
   return {
-    initiative: {
-      ...initiative,
-      planningThreadId: threadId,
-      planningThreadIds: [...initiative.planningThreadIds, threadId],
-      planningAutoMode: autoMode,
-      planningWithUser: withUser,
-      planningStartedBy: by,
-    },
+    initiative: { ...initiative, planningThreads: [...initiative.planningThreads, opened] },
     event: new InitiativePlanningStarted(initiative.id, threadId, autoMode),
   };
+}
+
+/** The Initiative's planning Thread `threadId`, refused for any other Thread. */
+function callingPlanningThread(initiative: Initiative, threadId: string): InitiativePlanningThread {
+  const thread = planningThreadOf(initiative, threadId);
+  if (!thread) {
+    throw new InitiativeRefused([
+      "This Thread isn't one of the Initiative's planning Threads: only they plan its Tasks.",
+    ]);
+  }
+  return thread;
+}
+
+/**
+ * Why a Task in Planning, not yet marked planned, is its own planning Thread's alone: another
+ * Thread's write is refused.
+ */
+function plannedElsewhereWords(task: Task): string {
+  return `"${task.title}" is being planned in another planning Thread: write there, or wait until it is marked planned.`;
 }
 
 /** In Planning in its Initiative's planning Thread, not yet marked planned. */
@@ -141,9 +170,10 @@ function isBeingPlannedInItsInitiative(task: Task): boolean {
 }
 
 /**
- * start_planning in the Initiative's planning Thread `threadId`: Backlog → Planning for one of its
- * Tasks whose blockers inside the Initiative are planned, in the Initiative's auto mode, the Task
- * then planned in that Thread, moved `by` the person planning it. Refused with every reason;
+ * start_planning in one of the Initiative's planning Threads, `threadId`: Backlog → Planning for one
+ * of its Tasks whose blockers inside the Initiative are planned, in that Thread's auto mode, the
+ * Task then planned in that Thread, which owns it until it is marked planned, moved `by` the person
+ * planning it. Refused with every reason, and from a Thread that isn't one of its planning Threads;
  * undefined when it is in Planning there.
  */
 export function startPlanningInInitiative(
@@ -153,11 +183,7 @@ export function startPlanningInInitiative(
   threadId: string,
   by: Author,
 ): TaskChange<TaskStateChanged> | undefined {
-  if (initiative.planningThreadId !== threadId) {
-    throw new InitiativeRefused([
-      "Only the Initiative's latest planning Thread moves its Tasks to Planning; this Thread is an earlier one.",
-    ]);
-  }
+  const thread = callingPlanningThread(initiative, threadId);
   if (task.initiativeId !== initiative.id) {
     throw new TaskRefused([`"${task.title}" isn't one of this Initiative's Tasks.`]);
   }
@@ -166,29 +192,32 @@ export function startPlanningInInitiative(
   const problems = [
     ...(task.state === "backlog"
       ? []
-      : [
-          `"${task.title}" is in ${TASK_STATE_NAMES[task.state]}; only a Task in Backlog is moved to Planning.`,
-        ]),
+      : isBeingPlannedInItsInitiative(task)
+        ? [plannedElsewhereWords(task)]
+        : [
+            `"${task.title}" is in ${TASK_STATE_NAMES[task.state]}; only a Task in Backlog is moved to Planning.`,
+          ]),
     ...unplannedBlockers(task, tasks).map(
       (blocker) =>
         `"${task.title}" waits for "${blocker.title}" (Task ${blocker.id}), which isn't planned yet: plan it first.`,
     ),
   ];
   if (problems.length > 0) throw new TaskRefused(problems);
-  return startPlanningTask(task, initiative.planningAutoMode, { kind: "initiative", threadId, by });
+  return startPlanningTask(task, thread.autoMode, { kind: "initiative", threadId, by });
 }
 
-/** The Initiative's planning Thread a part is rewritten from, and the Thread that is its latest. */
+/** The Initiative a part is rewritten in, and the planning Thread it is rewritten from. */
 export interface RewritingThread {
   readonly initiativeId: string;
   readonly threadId: string;
 }
 
 /**
- * Why the Planner can't rewrite an already planned Task from the Initiative's planning Thread
- * (spec §2.1): only a Ready Task of the Initiative, or one in Planning marked planned in an earlier
- * planning Thread of it, is rewritten. A Task that has started or is Dropped, or that is planned in
- * its own planning Thread, never is: the Planner opens a Decision on it instead.
+ * Why the Planner can't rewrite an already planned Task from one of the Initiative's planning
+ * Threads (spec §2.1): only a Ready Task of the Initiative, or one in Planning marked planned in
+ * any of its planning Threads, is rewritten; one in Planning not yet marked planned is its own
+ * Thread's alone. A Task that has started or is Dropped, or that is planned in its own planning
+ * Thread, never is: the Planner opens a Decision on it instead.
  */
 export function rewritingProblems(
   task: Task,
@@ -206,7 +235,7 @@ export function rewritingProblems(
       ];
     }
     if (task.initiativePlanningThreadId !== threadId && !task.markedPlanned) {
-      return [`"${task.title}" is still being planned in an earlier planning Thread.`];
+      return [plannedElsewhereWords(task)];
     }
     return [];
   }
@@ -221,13 +250,13 @@ export function rewritingProblems(
 }
 
 /**
- * The Planner rewrites a part of an already planned Task from the Initiative's latest planning
- * Thread `threadId` (spec §2.1), in one save with `write`, the part's own change: a Ready Task goes
- * back to Planning in this Thread, in one move `by` the person planning it; a Task in Planning from
- * an earlier planning Thread is planned in this one. Either is no longer marked planned, in the
- * Initiative's auto mode, so mark_planned accepts it again. Undefined when `write` changes nothing,
- * which moves nothing. Refused with the reasons of `rewritingProblems`, and from an earlier
- * planning Thread.
+ * The Planner rewrites a part of an already planned Task from any of the Initiative's planning
+ * Threads, `threadId` (spec §2.1), in one save with `write`, the part's own change: a Ready Task
+ * goes back to Planning in this Thread, in one move `by` the person planning it; a Task in Planning
+ * marked planned in another planning Thread is planned in this one. Either then belongs to this
+ * Thread, no longer marked planned, in this Thread's auto mode, so mark_planned accepts it again.
+ * Undefined when `write` changes nothing, which moves nothing. Refused with the reasons of
+ * `rewritingProblems`, and from a Thread that isn't one of its planning Threads.
  */
 export function rewriteInInitiative<Event extends DomainEvent>(
   initiative: Initiative,
@@ -236,17 +265,13 @@ export function rewriteInInitiative<Event extends DomainEvent>(
   by: Author,
   write: (task: Task) => TaskChange<Event> | undefined,
 ): TaskChange<TaskRewrittenInInitiative> | undefined {
-  if (initiative.planningThreadId !== threadId) {
-    throw new InitiativeRefused([
-      "Only the Initiative's latest planning Thread rewrites its planned Tasks; this Thread is an earlier one.",
-    ]);
-  }
+  const thread = callingPlanningThread(initiative, threadId);
   const problems = rewritingProblems(task, { initiativeId: initiative.id, threadId });
   if (problems.length > 0) throw new TaskRefused(problems);
   const replanned: Task = {
     ...task,
     state: "planning",
-    autoMode: initiative.planningAutoMode,
+    autoMode: thread.autoMode,
     initiativePlanningThreadId: threadId,
     markedPlanned: false,
     hasPlanningThread: true,
@@ -312,6 +337,8 @@ export interface OpenTaskDecision {
 /** What an Initiative's planning Brief is assembled from, with no model call. */
 export interface InitiativePlanningRecord {
   readonly initiative: Initiative;
+  /** The planning Thread the Brief is for, one of the Initiative's. */
+  readonly threadId: string;
   /** The Decisions open in this planning Thread, by the Task each is on, or on none. */
   readonly waiting: readonly OpenTaskDecision[];
   /** Its record as every session reads it: outcome, Tasks, dependencies and Attachments. */
@@ -323,28 +350,34 @@ export interface InitiativePlanningRecord {
 }
 
 /**
- * An Initiative's planning Thread's Brief (spec §2.5): its record, who opened the Thread, the Backlog Tasks to plan with
- * their blockers inside it, the Tasks being planned and those waiting for an answer, the Projects
- * it spans with their base branches and commands, the Pipeline library and whether it is planned in
- * auto mode.
+ * An Initiative's planning Thread's Brief (spec §2.5): its record, who opened the Thread, the
+ * Backlog Tasks to plan with their blockers inside it, the Tasks being planned here and those
+ * waiting for an answer, the Initiative's other planning Threads with the Tasks each owns, the
+ * Projects it spans with their base branches and commands, the Pipeline library and whether this
+ * Thread plans in auto mode.
  */
 export function initiativePlanningBrief(
   prompts: PromptTexts,
-  { initiative, waiting, record, tasks, projects, pipelines }: InitiativePlanningRecord,
+  { initiative, threadId, waiting, record, tasks, projects, pipelines }: InitiativePlanningRecord,
 ): string {
+  const thread = planningThreadOf(initiative, threadId);
   const tasksToPlan = tasksToPlanValues(tasks, projects, pipelines);
-  const beingPlanned = beingPlannedValues(initiative, tasks);
+  const beingPlanned = beingPlannedValues(threadId, tasks);
   const waitingOnTasks = waitingValues(waiting, tasks);
+  const otherThreads = otherPlanningThreadValues(initiative, threadId, tasks);
   return renderedText(prompts, INITIATIVE_PLANNING_BRIEF, {
     record,
-    planningOpenedBy: initiativePlanningOpenedBy(initiative),
-    withUser: initiative.planningWithUser,
+    planningOpenedBy: thread ? initiativePlanningOpenedBy(thread) : "",
+    withUser: thread?.withUser ?? false,
     hasTasksToPlan: tasksToPlan.length > 0,
     tasksToPlan,
     hasBeingPlanned: beingPlanned.length > 0,
     beingPlanned,
     hasWaiting: waitingOnTasks.length > 0,
     waiting: waitingOnTasks,
+    initiativeId: initiative.id,
+    hasOtherPlanningThreads: otherThreads.length > 0,
+    otherPlanningThreads: otherThreads,
     projects: projects.map((project, index) => ({
       first: flagField(index === 0),
       name: project.name,
@@ -360,7 +393,7 @@ export function initiativePlanningBrief(
       projects.map((project) => ({ project, own: project.ownPipelines })),
       pipelines,
     ).join("\n\n"),
-    autoMode: initiative.planningAutoMode,
+    autoMode: thread?.autoMode ?? false,
   });
 }
 
@@ -415,16 +448,45 @@ function tasksToPlanValues(
  * on with: the earlier session's context, and with it how far it got, is gone.
  */
 function beingPlannedValues(
-  initiative: Initiative,
+  threadId: string,
   tasks: readonly Task[],
 ): { title: string; id: string }[] {
   return tasks
     .filter(
-      (task) =>
-        isBeingPlannedInItsInitiative(task) &&
-        task.initiativePlanningThreadId === initiative.planningThreadId,
+      (task) => isBeingPlannedInItsInitiative(task) && task.initiativePlanningThreadId === threadId,
     )
     .map(({ id, title }) => ({ title, id }));
+}
+
+/**
+ * The Initiative's planning Threads other than `threadId`, oldest first, each with when it was
+ * opened, whether it is the latest, and the Tasks it owns (`Task.initiativePlanningThreadId`) with
+ * their states, for the Planner to read with read_threads when the user asks instead of
+ * researching again.
+ */
+function otherPlanningThreadValues(
+  initiative: Initiative,
+  threadId: string,
+  tasks: readonly Task[],
+): { threadId: string; openedAt: string; latest: string; tasks: string }[] {
+  const latest = latestPlanningThread(initiative)?.threadId;
+  return initiative.planningThreads
+    .filter((thread) => thread.threadId !== threadId)
+    .map((thread) => ({
+      threadId: thread.threadId,
+      openedAt: thread.openedAt.toISOString(),
+      latest: flagField(thread.threadId === latest),
+      tasks: tasks
+        .filter(({ initiativePlanningThreadId }) => initiativePlanningThreadId === thread.threadId)
+        .map((task) => `"${task.title}" (Task ${task.id}, ${plannedStateWords(task)})`)
+        .join(", "),
+    }));
+}
+
+/** A Task's state, with whether it is marked planned while in Planning. */
+function plannedStateWords(task: Task): string {
+  if (task.state === "planning" && task.markedPlanned) return "Planning, marked planned";
+  return TASK_STATE_NAMES[task.state];
 }
 
 /**

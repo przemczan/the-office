@@ -7,10 +7,11 @@ import {
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { Initiative, Role, Task } from "@the-office/contracts";
+import type { Initiative, Role, Task, Thread } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { threadQueries } from "../../api/conversations.ts";
 import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { taskQueries } from "../../api/work.ts";
 import { aDuty } from "../../shell/duties.fixtures.ts";
@@ -76,10 +77,14 @@ function PlanWithAction({
 async function rendered(
   shown: ReactNode,
   tasks: readonly Task[],
+  initiativeThreads: readonly Pick<Thread, "id" | "state">[] = [],
 ): Promise<{ page: HTMLElement; location: () => string }> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
+  queryClient.setQueryData(threadQueries.onInitiative(INITIATIVE.id).queryKey, [
+    ...initiativeThreads,
+  ] as Thread[]);
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
   queryClient.setQueryData(dutyQueries.list().queryKey, [aDuty("plans", "planner")]);
   queryClient.setQueryData(taskQueries.list().queryKey, [...tasks]);
@@ -169,6 +174,29 @@ describe("Plan with… on an Initiative", () => {
     await clicked(planWithButton(page));
 
     expect(document.body.textContent).toContain(refusal);
+  });
+
+  it("is disabled, saying why, while the latest planning Thread's person is answering there", async () => {
+    const planned = { ...INITIATIVE, planningThreadId: PLANNING_THREAD };
+    const answering = await rendered(
+      <PlanWithAction initiative={planned} initiativeTasks={[aTask()]} />,
+      [],
+      [{ id: PLANNING_THREAD, state: "answering" }],
+    );
+    const button = planWithButton(answering.page);
+    expect(button?.disabled).toBe(true);
+    expect(button?.title).toBe(
+      "Angela is still planning in the planning Thread: write there, or wait until they finish.",
+    );
+    document.body.replaceChildren();
+
+    // Waiting for the user, or for a Decision's answer, the Thread isn't working.
+    const waiting = await rendered(
+      <PlanWithAction initiative={planned} initiativeTasks={[aTask()]} />,
+      [],
+      [{ id: PLANNING_THREAD, state: "waiting" }],
+    );
+    expect(planWithButton(waiting.page)?.disabled).toBe(false);
   });
 
   it("is offered as Plan the Initiative is: on an active Initiative with a Task in Backlog", async () => {

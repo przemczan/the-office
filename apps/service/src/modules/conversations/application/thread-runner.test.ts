@@ -1053,6 +1053,32 @@ function sentNext(): string[] {
   );
 }
 
+describe("whether a Thread has a turn running", () => {
+  it("is true from a message sent until the turn ends, and false for a Thread with no session", async () => {
+    const HOLD = "the turn goes on";
+    await startWith(
+      started(
+        { step: "event", event: { kind: "text", text: "Looking.", withinToolCall: undefined } },
+        { step: "wait", mark: HOLD },
+        ...aTurn("brief", "Done."),
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+    expect(threads.isTurnRunning(thread.id)).toBe(false);
+
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await vi.waitFor(async () => {
+      expect((await threads.messages(thread.id)).map(({ kind }) => kind)).toContain("person");
+    });
+    expect(threads.isTurnRunning(thread.id)).toBe(true);
+
+    engine.sessions[0]?.reach(HOLD);
+    await answered(thread.id, 3);
+    expect(threads.isTurnRunning(thread.id)).toBe(false);
+    expect(threads.isTurnRunning(randomUUID())).toBe(false);
+  });
+});
+
 describe("a message written while the person answers", () => {
   const LANDS = "the message lands";
 

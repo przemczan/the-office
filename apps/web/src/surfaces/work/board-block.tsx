@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Initiative, QueuedTask, TaskSummary } from "@the-office/contracts";
+import type { Initiative, TaskSummary } from "@the-office/contracts";
 import { Button, Icon, PlainMark } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { blockCount } from "./board-blocks.ts";
@@ -11,7 +11,6 @@ export interface InitiativeBlockProps {
   readonly column: Column;
   /** The block's cards the column shows, in its order. */
   readonly cards: readonly TaskSummary[];
-  readonly queue: readonly QueuedTask[];
   /** Its Initiative's head is hovered or focused, in this column or another. */
   readonly outlined: boolean;
   /** A card of this block is dragged: where it can land. */
@@ -31,14 +30,13 @@ export function InitiativeBlock({
   initiative,
   column,
   cards,
-  queue,
   outlined,
   landing,
   onOutline,
   renderCard,
 }: InitiativeBlockProps): ReactNode {
   const [unfolded, setUnfolded] = useState(false);
-  const count = blockCount(cards, column, queue);
+  const count = blockCount(cards, column);
   const foldable = column.key === "done" && cards.length > 1;
   const shown = foldable && !unfolded ? cards.slice(0, 1) : cards;
   const classes = ["initiative-block", outlined && "outlined", landing && "drop-ok"]

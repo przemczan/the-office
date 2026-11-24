@@ -131,7 +131,7 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 ## Status strip
 
 - A `status` region named "Status strip", under the top bar, live from `now.changed`; it is its own container (`@container strip`).
-- Left, never hidden: **Needs you**, the **5-hour window**, **Desks in use**, **Activity**, **Tokens today**; then **Fire alarm** while the alarm is on.
+- Left, never hidden: **Needs you**, **Activity**, the **5-hour window**, **Desks in use**, **Tokens today**; then **Fire alarm** while the alarm is on.
 - Right: the Workstation figure and the Office messages slot.
 - Each figure is a small label over its value; one that opens something is a button, the rest are plain.
 - Widths (by the strip's own width): under 1,180px the Workstation's cores and a narrower slot (260px); under 900px shorter words, gaps of 12px and a slot of 216px; under 600px two rows (93px high), labels shortened ("Desks in use" to "Desks", "Tokens today" to "Tokens", "5-hour window" to "5h window"). A figure is never hidden by width, only words. Words hidden by width stay in the DOM.

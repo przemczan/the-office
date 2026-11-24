@@ -5,7 +5,7 @@ import { WorkSearch, type IdMatches, type SearchMatches } from "../../ports/work
 import { idStartingWith } from "./id-prefix.js";
 import { bestFirst, matching, searchVectorOf, taskSearchVector } from "./search-vector.js";
 import { attachments, attachmentTexts, ideas, initiatives, tasks } from "./work.schema.js";
-import { toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
+import { initiativeColumns, toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
 
 /*
  * An Idea's and an Initiative's searched text is short, so it is parsed as it is searched. A
@@ -46,7 +46,7 @@ export class PostgresWorkSearch extends WorkSearch {
         .where(idStartingWith(ideas.id, idPrefix))
         .orderBy(asc(ideas.id)),
       this.database
-        .select()
+        .select(initiativeColumns)
         .from(initiatives)
         .where(idStartingWith(initiatives.id, idPrefix))
         .orderBy(asc(initiatives.id)),
@@ -79,7 +79,7 @@ export class PostgresWorkSearch extends WorkSearch {
         .where(matching(ideaVector, words))
         .orderBy(bestFirst(ideaVector, words), asc(ideas.id)),
       this.database
-        .select()
+        .select(initiativeColumns)
         .from(initiatives)
         .where(matching(initiativeVector, words))
         .orderBy(bestFirst(initiativeVector, words), asc(initiatives.id)),

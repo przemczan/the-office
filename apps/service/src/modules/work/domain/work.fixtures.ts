@@ -2,7 +2,7 @@ import type { Attachment } from "./attachment.js";
 import { byTheUser, type Author } from "./author.js";
 import type { UsageAtStart } from "./cap-waits.js";
 import type { Idea } from "./idea.js";
-import type { Initiative } from "./initiative.js";
+import type { Initiative, InitiativePlanningThread } from "./initiative.js";
 import type { Task } from "./task.js";
 
 /** The user the test apps take every request as signed in by (`SIGNED_IN_FOR_TESTS`). */
@@ -43,12 +43,24 @@ export function anInitiative(fields: Partial<Initiative> = {}): Initiative {
     originIdeaId: "idea-1",
     createdBy: ANN_LEE,
     createdAt: new Date("2026-10-25T09:10:00.000Z"),
-    planningThreadIds: [],
-    planningAutoMode: false,
-    planningWithUser: false,
+    planningThreads: [],
     pipelines: [],
     branches: [],
     engineOverride: null,
+    ...fields,
+  };
+}
+
+/** A planning Thread Plan the Initiative opened, auto mode off, asked for by Ann Lee. */
+export function aPlanningThread(
+  fields: Partial<InitiativePlanningThread> = {},
+): InitiativePlanningThread {
+  return {
+    threadId: "thread-1",
+    autoMode: false,
+    withUser: false,
+    by: ANN_LEE,
+    openedAt: new Date("2026-10-26T09:00:00.000Z"),
     ...fields,
   };
 }

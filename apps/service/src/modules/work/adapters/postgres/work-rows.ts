@@ -6,7 +6,11 @@ import type { Author } from "../../domain/author.js";
 import type { BranchDeletionRecord } from "../../domain/branch-deletion.js";
 import type { DropReason } from "../../domain/drop-reason.js";
 import type { Idea } from "../../domain/idea.js";
-import type { Initiative } from "../../domain/initiative.js";
+import {
+  latestPlanningThread,
+  type Initiative,
+  type InitiativePlanningThread,
+} from "../../domain/initiative.js";
 import type { Task, TaskSummary, TaskTextField } from "../../domain/task.js";
 import type { PullRequestEnd } from "../../domain/task-pull-request.js";
 import type { EditedRecord, RecordEdit } from "../../domain/record-edits.js";
@@ -20,6 +24,7 @@ import type { TaskUpdate } from "../../ports/task-repository.js";
 import {
   attachments,
   ideas,
+  initiativePlanningThreads,
   initiatives,
   recordEdits,
   tasks,
@@ -34,6 +39,66 @@ export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export type IdeaRow = typeof ideas.$inferSelect;
 export type InitiativeRow = typeof initiatives.$inferSelect;
+
+/** One of an Initiative's planning Threads as `initiativeColumns` reads it: its time in ms. */
+interface PlanningThreadJson {
+  readonly threadId: string;
+  readonly autoMode: boolean;
+  readonly withUser: boolean;
+  readonly openedBy: AuthorRow | null;
+  readonly openedAt: number;
+}
+
+/** An Initiative's row with its planning Threads, oldest opened first, as `initiativeColumns` reads it. */
+export type InitiativeRowWithThreads = InitiativeRow & {
+  readonly planningThreads: readonly PlanningThreadJson[];
+};
+
+/**
+ * The Initiative's planning Threads beside its row's columns, oldest opened first, read in the same
+ * query (and under its row's hold, `for update`), so every read of an Initiative has them.
+ */
+const planningThreadsOfRow = sql<PlanningThreadJson[]>`coalesce((
+  select jsonb_agg(jsonb_build_object(
+      'threadId', ${initiativePlanningThreads.threadId},
+      'autoMode', ${initiativePlanningThreads.autoMode},
+      'withUser', ${initiativePlanningThreads.withUser},
+      'openedBy', ${initiativePlanningThreads.openedBy},
+      'openedAt', floor(extract(epoch from ${initiativePlanningThreads.openedAt}) * 1000)
+    ) order by ${initiativePlanningThreads.openedAt}, ${initiativePlanningThreads.threadId})
+  from ${initiativePlanningThreads}
+  where ${initiativePlanningThreads.initiativeId} = ${initiatives.id}
+), '[]'::jsonb)`;
+
+/** What a select of Initiatives reads: their columns and their planning Threads. */
+export const initiativeColumns = {
+  ...getTableColumns(initiatives),
+  planningThreads: planningThreadsOfRow,
+};
+
+/**
+ * Keeps the Initiative's planning Threads not kept yet; one kept already never changes. In the
+ * transaction that saves the Initiative's row, whose old planning columns say the same.
+ */
+export async function savePlanningThreads(
+  transaction: Transaction,
+  initiative: Initiative,
+): Promise<void> {
+  if (initiative.planningThreads.length === 0) return;
+  await transaction
+    .insert(initiativePlanningThreads)
+    .values(
+      initiative.planningThreads.map((thread) => ({
+        threadId: thread.threadId,
+        initiativeId: initiative.id,
+        autoMode: thread.autoMode,
+        withUser: thread.withUser,
+        openedBy: thread.by ?? null,
+        openedAt: thread.openedAt,
+      })),
+    )
+    .onConflictDoNothing();
+}
 export type TaskRow = typeof tasks.$inferSelect;
 export type AttachmentRow = typeof attachments.$inferSelect;
 
@@ -285,13 +350,24 @@ export function toIdea(row: IdeaRow): Idea {
   };
 }
 
-/** The Initiative as its row keeps it, all but the unread `model`, which an insert leaves null. */
+/**
+ * The Initiative as its row keeps it, all but the unread `model`, which an insert leaves null. Its
+ * planning Threads are kept apart (`savePlanningThreads`); the row's old planning columns, which
+ * the release before reads, still say its latest and every one, for a rollback.
+ */
 export function toInitiativeRow({
   engineOverride,
+  planningThreads,
   ...initiative
 }: Initiative): WrittenInitiativeRow {
+  const latest = latestPlanningThread({ planningThreads });
   return {
     ...initiative,
+    planningThreadId: latest?.threadId ?? null,
+    planningThreadIds: planningThreads.map(({ threadId }) => threadId),
+    planningStartedBy: latest?.by ?? null,
+    planningAutoMode: latest?.autoMode ?? false,
+    planningWithUser: latest?.withUser ?? false,
     engineId: engineOverride,
     originIdeaId: initiative.originIdeaId ?? null,
     endedAt: initiative.endedAt ?? null,
@@ -300,9 +376,6 @@ export function toInitiativeRow({
     restoredAt: initiative.restoredAt ?? null,
     restoredBy: initiative.restoredBy ?? null,
     pausedAt: initiative.pausedAt ?? null,
-    planningThreadId: initiative.planningThreadId ?? null,
-    planningThreadIds: [...initiative.planningThreadIds],
-    planningStartedBy: initiative.planningStartedBy ?? null,
     pipelines: initiative.pipelines.map(({ projectId, pipelineId }) => ({
       projectId,
       pipelineId: pipelineId ?? null,
@@ -316,9 +389,31 @@ export function toInitiativeRow({
   };
 }
 
-export function toInitiative({ engineId, model: _model, ...row }: InitiativeRow): Initiative {
+function toPlanningThread({
+  openedBy,
+  openedAt,
+  ...thread
+}: PlanningThreadJson): InitiativePlanningThread {
+  return {
+    ...thread,
+    ...(openedBy ? { by: authorOf(openedBy) } : {}),
+    openedAt: new Date(openedAt),
+  };
+}
+
+export function toInitiative({
+  engineId,
+  model: _model,
+  planningThreadId: _latest,
+  planningThreadIds: _every,
+  planningStartedBy: _startedBy,
+  planningAutoMode: _autoMode,
+  planningWithUser: _withUser,
+  ...row
+}: InitiativeRowWithThreads): Initiative {
   return {
     ...row,
+    planningThreads: row.planningThreads.map(toPlanningThread),
     engineOverride: engineId,
     originIdeaId: row.originIdeaId ?? undefined,
     createdBy: authorOf(row.createdBy),
@@ -328,8 +423,6 @@ export function toInitiative({ engineId, model: _model, ...row }: InitiativeRow)
     restoredAt: row.restoredAt ?? undefined,
     restoredBy: row.restoredBy ? authorOf(row.restoredBy) : undefined,
     pausedAt: row.pausedAt ?? undefined,
-    planningThreadId: row.planningThreadId ?? undefined,
-    planningStartedBy: row.planningStartedBy ? authorOf(row.planningStartedBy) : undefined,
     pipelines: row.pipelines.map(({ projectId, pipelineId }) => ({
       projectId,
       pipelineId: pipelineId ?? undefined,

@@ -4,7 +4,7 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { QueuedTask, Task } from "@the-office/contracts";
+import type { Task } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,17 +37,6 @@ function column(key: string): Column {
   return found;
 }
 
-function queued(taskId: string, place: number): QueuedTask {
-  return {
-    taskId,
-    place,
-    queuedAt: "2026-11-14T09:00:00.000Z",
-    reasons: [],
-    shortReasons: [],
-    behind: [],
-  };
-}
-
 const roots: Root[] = [];
 
 async function rendered(props: Partial<InitiativeBlockProps> = {}): Promise<HTMLElement> {
@@ -58,7 +47,6 @@ async function rendered(props: Partial<InitiativeBlockProps> = {}): Promise<HTML
           initiative={INITIATIVE}
           column={column("ready")}
           cards={[card("a"), card("b")]}
-          queue={[]}
           outlined={false}
           landing={false}
           onOutline={() => {}}
@@ -130,14 +118,11 @@ describe("InitiativeBlock", () => {
     expect(document.querySelector('[role="tooltip"]')?.textContent).toBe("2 of its Tasks in Ready");
   });
 
-  it("names its cards' places in Queued", async () => {
-    const page = await rendered({
-      column: column("queued"),
-      queue: [queued("a", 1), queued("b", 3)],
-    });
+  it("counts its cards in Queued too, not their places", async () => {
+    const page = await rendered({ column: column("queued") });
 
-    expect(count(page)?.textContent).toBe("#1 · #3");
-    expect(count(page)?.getAttribute("aria-label")).toBe("Places 1 and 3 in the queue");
+    expect(count(page)?.textContent).toBe("2");
+    expect(count(page)?.getAttribute("aria-label")).toBe("2 of its Tasks in Queued");
   });
 
   it("asks to outline its Initiative while its head is hovered or focused", async () => {

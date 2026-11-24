@@ -11,6 +11,7 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
+import { planningThreadOf } from "../../domain/initiative.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 
@@ -80,7 +81,7 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
 
   async isInitiativePlanningThread(initiativeId: string, threadId: string): Promise<boolean> {
     try {
-      return (await this.initiatives.read(initiativeId)).planningThreadIds.includes(threadId);
+      return planningThreadOf(await this.initiatives.read(initiativeId), threadId) !== undefined;
     } catch (error) {
       if (error instanceof InitiativeNotFound) return false;
       throw error;

@@ -33,6 +33,7 @@ import {
   anInitiative,
   aLink,
   aPlannedTask,
+  aPlanningThread,
   aTask,
   BEN_ITO,
 } from "./work.fixtures.js";
@@ -217,6 +218,7 @@ const INITIATIVE_PROJECTS: readonly InitiativePlanningProject[] = [
 
 const FEWEST_INITIATIVE_PLANNING: InitiativePlanningRecord = {
   initiative: anInitiative({ state: "active" }),
+  threadId: "thread-1",
   waiting: [],
   record: "## The Initiative\n\nUsage exports.",
   tasks: [aTask({ state: "ready", initiativeId: "initiative-1" })],
@@ -225,16 +227,23 @@ const FEWEST_INITIATIVE_PLANNING: InitiativePlanningRecord = {
 };
 
 const PLANNING_THREAD = "thread-9";
+const EARLIER_PLANNING_THREAD = "thread-8";
 
 const ALL_INITIATIVE_PLANNING: InitiativePlanningRecord = {
   initiative: anInitiative({
     state: "active",
-    planningThreadId: PLANNING_THREAD,
-    planningThreadIds: [PLANNING_THREAD],
-    planningAutoMode: true,
-    planningWithUser: true,
-    planningStartedBy: BEN_ITO,
+    planningThreads: [
+      aPlanningThread({ threadId: EARLIER_PLANNING_THREAD }),
+      aPlanningThread({
+        threadId: PLANNING_THREAD,
+        autoMode: true,
+        withUser: true,
+        by: BEN_ITO,
+        openedAt: new Date("2026-10-27T09:00:00.000Z"),
+      }),
+    ],
   }),
+  threadId: PLANNING_THREAD,
   waiting: [
     { taskId: "task-4", question: "CSV or Excel?" },
     { taskId: undefined, question: "Which Projects?" },
@@ -263,6 +272,13 @@ const ALL_INITIATIVE_PLANNING: InitiativePlanningRecord = {
       initiativeId: "initiative-1",
       initiativePlanningThreadId: PLANNING_THREAD,
       markedPlanned: true,
+    }),
+    aTask({
+      id: "task-5",
+      title: "Count the rows",
+      state: "ready",
+      initiativeId: "initiative-1",
+      initiativePlanningThreadId: EARLIER_PLANNING_THREAD,
     }),
   ],
   projects: INITIATIVE_PROJECTS,
@@ -380,9 +396,9 @@ export function goldenCaseOutputs(
         ...ALL_INITIATIVE_PLANNING,
         initiative: anInitiative({
           state: "active",
-          planningThreadId: "thread-10",
-          planningStartedBy: ANN_LEE,
+          planningThreads: [aPlanningThread({ threadId: "thread-10", by: ANN_LEE })],
         }),
+        threadId: "thread-10",
         waiting: [{ taskId: undefined, question: "Which Projects?" }],
       }),
     "Who asked, created alone": taskWhoAskedSection(prompts, aTask(), []),

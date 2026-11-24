@@ -19,7 +19,7 @@ export class ThreadHistoryOfficeTool implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: READ_THREADS_TOOL,
-      description: `Reads the messages of The Office's Threads logged in a range of dates or times: chats, Threads on Tasks (Stage Threads and Consultations too) and Threads on Initiatives, grouped by Thread with its subject, each message with its time, its speaker (the user, a person by name and Role, or The Office) and its text. Tool activity shows as its one-line summary, and Decisions and Proposals as their question or title with the answer or state. Narrow it by a person, a Task, a Project or a text. An answer holds at most ${THREAD_HISTORY_READ_LIMIT} characters: a full one ends saying how many messages are left out and the message to read on after. It reads only The Office's log, never a file or an engine's transcript.`,
+      description: `Reads the messages of The Office's Threads logged in a range of dates or times: chats, Threads on Tasks (Stage Threads and Consultations too) and Threads on Initiatives, grouped by Thread with its subject, each message with its time, its speaker (the user, a person by name and Role, or The Office) and its text. Tool activity shows as its one-line summary, and Decisions and Proposals as their question or title with the answer or state. Narrow it by a person, a Task, an Initiative (its shaping and planning Threads), a Project or a text. An answer holds at most ${THREAD_HISTORY_READ_LIMIT} characters: a full one ends saying how many messages are left out and the message to read on after. It reads only The Office's log, never a file or an engine's transcript.`,
       input: z.object({
         from: z
           .string()
@@ -41,6 +41,12 @@ export class ThreadHistoryOfficeTool implements OnModuleInit {
           .string()
           .optional()
           .describe("Only the Threads on this Task, by its id, as list_tasks gives it."),
+        initiativeId: z
+          .string()
+          .optional()
+          .describe(
+            "Only the Threads on this Initiative, its shaping and planning Threads, by its id, as read_task or read_initiative names it; earlier planning Threads included.",
+          ),
         projectId: z
           .string()
           .optional()

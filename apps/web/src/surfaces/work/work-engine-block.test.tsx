@@ -274,10 +274,10 @@ describe("the Task's Engine fold", () => {
     localStorage.clear();
   });
 
-  it("starts folded, its switch off, naming the Project's engine it follows", async () => {
+  it("starts open, its switch off, naming the Project's engine it follows", async () => {
     const page = await taskPage(TASK);
 
-    expect(page.querySelector(".record-fold-body")?.hasAttribute("hidden")).toBe(true);
+    expect(page.querySelector(".record-fold-body")?.hasAttribute("hidden")).toBe(false);
     expect(summaryOf(page)).toBe("Work account · from the Project");
     expect(overrideSwitch(page).getAttribute("aria-checked")).toBe("false");
     expect(engineField(page)).toBeNull();

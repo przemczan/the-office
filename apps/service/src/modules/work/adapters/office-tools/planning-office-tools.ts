@@ -34,15 +34,15 @@ const TASK_ID = z
   .string()
   .optional()
   .describe(
-    "The Task's id. Leave it out in a Thread on the Task; in an Initiative's planning Thread, name one of its Tasks you moved to Planning with start_planning, or one already planned or Ready that you rewrite.",
+    "The Task's id. Leave it out in a Thread on the Task; in an Initiative's planning Thread, name one of its Tasks you moved to Planning here with start_planning, or one already planned or Ready that you rewrite, which then belongs to this Thread. A Task in Planning not yet marked planned in another planning Thread is that Thread's: a write to it is refused.",
   );
 
 /**
  * The Office tools the Planner plans a Task with (spec §2.1, §2.3): in a Thread on the Task, each
  * writes onto the session's own Task, in Planning or Ready, which a change takes back to Planning;
- * in an Initiative's planning Thread, onto the Task it names,
+ * in any of an Initiative's planning Threads, onto the Task it names,
  * one the Planner moved to Planning there with start_planning, or an already planned one it
- * rewrites, which goes back into Planning there. Each part is proposed for the user to confirm, but
+ * rewrites, which goes back into Planning there and belongs to that Thread from then on. Each part is proposed for the user to confirm, but
  * for write_tags, whose Tags apply at once and never move a Task. The planning session reads with
  * `WorkOfficeTools` like every other.
  */
@@ -84,7 +84,7 @@ export class PlanningOfficeTools implements OnModuleInit {
     this.registry.register({
       name: START_PLANNING,
       description:
-        "Moves one of this Initiative's Tasks from Backlog to Planning as its turn comes, so you can write its parts here by its Task id. Refused for a Task outside the Initiative or not in Backlog, and while a Task it waits for inside the Initiative is neither planned, Ready or beyond, nor Dropped. Works only in the Initiative's latest planning Thread.",
+        "Moves one of this Initiative's Tasks from Backlog to Planning as its turn comes, so you can write its parts here by its Task id. Refused for a Task outside the Initiative or not in Backlog, and while a Task it waits for inside the Initiative is neither planned, Ready or beyond, nor Dropped. Works in any of the Initiative's planning Threads; the Task then belongs to this Thread until it is marked planned, and is planned in this Thread's auto mode.",
       input: z.object({
         taskId: z.string().describe("The Task's id, as your Brief lists it."),
       }),

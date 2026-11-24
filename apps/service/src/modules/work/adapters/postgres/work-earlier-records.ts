@@ -6,7 +6,14 @@ import { EarlierRecords } from "../../../../platform/earlier-records/earlier-rec
 import type { SignedInUser } from "../../../../platform/http/signed-in-requests.js";
 import { byTheUser } from "../../domain/author.js";
 import { queue } from "./queue.schema.js";
-import { attachments, ideas, initiatives, tasks, taskStateChanges } from "./work.schema.js";
+import {
+  attachments,
+  ideas,
+  initiativePlanningThreads,
+  initiatives,
+  tasks,
+  taskStateChanges,
+} from "./work.schema.js";
 
 /**
  * Work's claim on its records from before users existed (spec §2.10): every Author that says only
@@ -33,6 +40,7 @@ export class WorkEarlierRecords implements OnModuleInit {
         [initiatives, initiatives.createdBy],
         [initiatives, initiatives.restoredBy],
         [initiatives, initiatives.planningStartedBy],
+        [initiativePlanningThreads, initiativePlanningThreads.openedBy],
         [tasks, tasks.createdBy],
         [tasks, tasks.restoredBy],
         [taskStateChanges, taskStateChanges.changedBy],

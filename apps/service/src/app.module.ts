@@ -84,6 +84,7 @@ import {
   UsersModule,
 } from "./modules/users/index.js";
 import {
+  ConversationsThreadTurns,
   FireAlarmService,
   InitiativeService,
   OffBoardTaskReader,
@@ -180,6 +181,7 @@ export class AppModule {
       sessionInitiatives: ThreadService,
       taskThreads: ThreadService,
       initiativeThreads: ThreadService,
+      threadTurns: ConversationsThreadTurns,
       taskDecisions: DecisionService,
       proposalDrafts: ProposalService,
       usageHistory: UsageHistory,

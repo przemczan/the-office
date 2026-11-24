@@ -134,14 +134,24 @@ export const initiatives = pgTable(
     restoredBy: jsonb("restored_by").$type<AuthorRow>(),
     /** Null while it isn't paused. */
     pausedAt: timestamp("paused_at", { withTimezone: true }),
-    /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
+    /**
+     * Its latest planning Thread, kept by Conversations; null until it is first planned. No longer
+     * read: `initiative_planning_threads` keeps every planning Thread; still written with it, for
+     * the release before, which reads it, after a rollback.
+     */
     planningThreadId: uuid("planning_thread_id"),
-    /** Every planning Thread it opened, oldest first (Initiative.planningThreadIds). */
+    /**
+     * Every planning Thread it opened, oldest first. No longer read; still written, as
+     * `planning_thread_id` is.
+     */
     planningThreadIds: uuid("planning_thread_ids")
       .array()
       .notNull()
       .default(sql`'{}'::uuid[]`),
-    /** Who asked for its latest planning Thread; null until it is first planned. */
+    /**
+     * Who asked for its latest planning Thread; null until it is first planned. No longer read; still
+     * written, as `planning_thread_id` is, as are the two below.
+     */
     planningStartedBy: jsonb("planning_started_by").$type<AuthorRow>(),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
     /** Whether its latest planning Thread was opened by Plan with…, waiting for the user. */
@@ -177,6 +187,28 @@ export const initiatives = pgTable(
       .on(table.shortName)
       .where(sql`${table.shortName} is not null`),
   ],
+);
+
+/**
+ * Each planning Thread an Initiative opened, by Plan the Initiative or Plan with…
+ * (Initiative.planningThreads): the one opened last is its latest, which nothing else keeps.
+ */
+export const initiativePlanningThreads = pgTable(
+  "initiative_planning_threads",
+  {
+    /** The Thread, kept by Conversations, so no foreign key. */
+    threadId: uuid("thread_id").primaryKey(),
+    initiativeId: uuid("initiative_id")
+      .notNull()
+      .references((): AnyPgColumn => initiatives.id, { onDelete: "cascade" }),
+    autoMode: boolean("auto_mode").notNull(),
+    /** Opened by Plan with…, waiting for the user's first message. */
+    withUser: boolean("with_user").notNull(),
+    /** Who asked for it; null for one opened before who asked was kept. */
+    openedBy: jsonb("opened_by").$type<AuthorRow>(),
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("initiative_planning_threads_initiative").on(table.initiativeId)],
 );
 
 export const tasks = pgTable(

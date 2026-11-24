@@ -104,6 +104,10 @@ beforeAll(async () => {
   await logged(CARETAKER, { kind: "initiative", initiativeId: INITIATIVE }, "12:00", [
     { kind: "person", roleKey: CARETAKER, text: "Shaped it." },
   ]);
+  // An earlier planning Thread on the Initiative, beside its shaping Thread.
+  await logged(CARETAKER, { kind: "initiative", initiativeId: INITIATIVE }, "13:00", [
+    { kind: "person", roleKey: CARETAKER, text: "Planned the sync's first Task." },
+  ]);
 });
 
 afterAll(async () => {
@@ -165,6 +169,26 @@ describe("ThreadHistory", () => {
     await expect(
       history.read({ ...onTheDay, projectId: PROJECT, taskId: OTHER_TASK }),
     ).resolves.toMatch(/^No Thread messages were logged/);
+  });
+
+  it("reads an Initiative's Threads, its shaping and planning Threads alone", async () => {
+    const onInitiative = await history.read({ ...onTheDay, initiativeId: INITIATIVE });
+
+    expect(onInitiative).toContain('on the Initiative "Offline sync": 2 in 2 Threads');
+    expect(onInitiative).toContain("Shaped it.");
+    expect(onInitiative).toContain("Planned the sync's first Task.");
+    expect(onInitiative).not.toContain("Exported.");
+    expect(onInitiative).not.toContain("login");
+    await expect(
+      history.read({ ...onTheDay, initiativeId: INITIATIVE, projectId: PROJECT }),
+    ).resolves.toContain("Shaped it.");
+    await expect(
+      history.read({ ...onTheDay, initiativeId: INITIATIVE, taskId: TASK }),
+    ).resolves.toMatch(/^No Thread messages were logged/);
+    const unknown = randomUUID();
+    await expect(history.read({ ...onTheDay, initiativeId: unknown })).resolves.toBe(
+      `The Office has no Initiative ${unknown}: read_task names a Task's Initiative by its id.`,
+    );
   });
 
   it("finds the messages holding a text, in any case", async () => {

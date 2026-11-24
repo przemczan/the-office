@@ -106,8 +106,8 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 
 - With Group by Initiative off, each column gathers an Initiative's cards into one block, placed where its first card falls; the cards of no Initiative stay loose in their place.
 - A block is a group named by the Initiative; it is never a region or a heading, so the column stays the board's region.
-- Its head: a flag icon and the Initiative's name linking to its page, the Paused badge (small) while it is paused, and a count. The count is the number of its cards in the column; in Queued it is their places ("#2 · #5"). Hover: "<n> of its Tasks in <column>", or "Place 2 in the queue" / "Places 2 and 5 in the queue".
-- The name never gives up its width to the count: a count too long to sit beside it, such as many places, moves to a line below, at its right end, and wraps there.
+- Its head: a flag icon and the Initiative's name linking to its page, the Paused badge (small) while it is paused, and a count. The count is the number of its cards in the column, in Queued too, where each card's own Queued mark gives its place. Hover: "<n> of its Tasks in <column>".
+- The name never gives up its width to the count: a count that can't sit beside it moves to a line below, at its right end.
 - Hovering or focusing a block head outlines that Initiative's blocks in every column.
 - In Done, a block with more than one card shows only the first, with a **Show <n> more** button that becomes **Show fewer**.
 - No blocks show while the Initiative filter is set, or until the Initiatives are read: every card shows loose.

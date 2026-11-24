@@ -229,23 +229,18 @@ describe("blockCount", () => {
   it("counts the cards the column shows", () => {
     const cards = [aTask("sync-1", { state: "ready" }), aTask("sync-2", { state: "ready" })];
 
-    expect(blockCount(cards, column("ready"), [])).toEqual({
+    expect(blockCount(cards, column("ready"))).toEqual({
       shown: "2",
       words: "2 of its Tasks in Ready",
     });
   });
 
-  it("names the places in Queued", () => {
+  it("counts the cards in Queued too, not their places", () => {
     const cards = [aTask("sync-1", { state: "ready" }), aTask("sync-2", { state: "ready" })];
-    const queue = [queued("sync-1", 1), queued("sync-2", 3)];
 
-    expect(blockCount(cards, column("queued"), queue)).toEqual({
-      shown: "#1 · #3",
-      words: "Places 1 and 3 in the queue",
-    });
-    expect(blockCount(cards.slice(0, 1), column("queued"), queue)).toEqual({
-      shown: "#1",
-      words: "Place 1 in the queue",
+    expect(blockCount(cards, column("queued"))).toEqual({
+      shown: "2",
+      words: "2 of its Tasks in Queued",
     });
   });
 });

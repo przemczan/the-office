@@ -51,6 +51,7 @@ export {
 } from "./application/task-engine-checks.js";
 export { TaskService } from "./application/task-service.js";
 export { WorkEngineLevels } from "./adapters/people/work-engine-levels.js";
+export { ConversationsThreadTurns } from "./adapters/conversations/conversations-thread-turns.js";
 export { WorkEngineLevelsModule } from "./work-engine-levels.module.js";
 export { UsageWindowResumes } from "./application/usage-window-resumes.js";
 export {

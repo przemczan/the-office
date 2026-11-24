@@ -1,4 +1,4 @@
-import type { Decision, Initiative, TaskSummary } from "@the-office/contracts";
+import type { Decision, Initiative, TaskSummary, Thread } from "@the-office/contracts";
 
 /**
  * Where a Task of an Initiative being planned (Plan the Initiative) stands: waiting in Backlog for
@@ -65,6 +65,22 @@ export function planningProgressWords(
     `${planned} of ${steps.length} ${steps.length === 1 ? "Task" : "Tasks"} planned`,
     ...(awaited > 0 ? [`${awaited} waiting for your answer`] : []),
   ].join(" · ");
+}
+
+/**
+ * Why Plan the Initiative and Plan with… are disabled: the Initiative's latest planning Thread is
+ * answering, its person's turn running, so the user writes there instead (the service refuses them
+ * with the same words). Undefined otherwise: a Thread waiting for the user, or for a Decision's
+ * answer, isn't working.
+ */
+export function stillPlanningReason(
+  initiative: Pick<Initiative, "planningThreadId">,
+  initiativeThreads: readonly Pick<Thread, "id" | "state">[] | undefined,
+  planner: string,
+): string | undefined {
+  const latest = initiativeThreads?.find(({ id }) => id === initiative.planningThreadId);
+  if (latest?.state !== "answering") return undefined;
+  return `${planner} is still planning in the planning Thread: write there, or wait until they finish.`;
 }
 
 /**

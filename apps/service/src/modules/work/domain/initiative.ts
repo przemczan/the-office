@@ -43,24 +43,13 @@ export interface Initiative {
    */
   readonly pausedAt?: Date;
   /**
-   * Its latest planning Thread, opened by Plan the Initiative; undefined until it is first planned.
-   * Only this Thread may move its Tasks to Planning (start_planning).
+   * Every planning Thread it opened, by Plan the Initiative or Plan with…, oldest opened first, so
+   * the last is its latest (latestPlanningThread). A Thread on it is a planning Thread by being
+   * here, whoever holds Plans or Shapes Initiatives now; every other one is a shaping Thread. Any
+   * of them moves its Tasks to Planning and rewrites its planned ones; each Task in Planning is its
+   * own Thread's (`Task.initiativePlanningThreadId`) until marked planned.
    */
-  readonly planningThreadId?: string;
-  /**
-   * Every planning Thread it opened, oldest first: a Thread on it is a planning Thread by being
-   * here, whoever holds Plans or Shapes Initiatives now; every other one is a shaping Thread.
-   */
-  readonly planningThreadIds: readonly string[];
-  /** Who asked for its latest planning Thread; undefined until it is first planned. */
-  readonly planningStartedBy?: Author;
-  /** Whether its latest planning Thread plans its Tasks in auto mode. */
-  readonly planningAutoMode: boolean;
-  /**
-   * Whether its latest planning Thread was opened by Plan with…, where the planner waits for the
-   * user's first message on how to plan it.
-   */
-  readonly planningWithUser: boolean;
+  readonly planningThreads: readonly InitiativePlanningThread[];
   /**
    * The Initiative's Pipeline in each Project it was given one for (spec 2.1). While shaping, the
    * Projects a Pipeline was chosen for; from Confirm, every Project it spanned then, None included,
@@ -80,6 +69,36 @@ export interface Initiative {
    * override of its own, run on this engine, with no Stand-in Engines; null for none.
    */
   readonly engineOverride: EngineId | null;
+}
+
+/** One of an Initiative's planning Threads, as Plan the Initiative or Plan with… opened it. */
+export interface InitiativePlanningThread {
+  /** The Thread, kept by Conversations. */
+  readonly threadId: string;
+  /** Whether it plans the Tasks it moves to Planning or rewrites in auto mode. */
+  readonly autoMode: boolean;
+  /**
+   * Opened by Plan with…, where the planner waits for the user's first message on how to plan it.
+   */
+  readonly withUser: boolean;
+  /** Who asked for it; undefined for one opened before that was kept. */
+  readonly by?: Author;
+  readonly openedAt: Date;
+}
+
+/** The Initiative's latest planning Thread, the newest opened; undefined until it is first planned. */
+export function latestPlanningThread(
+  initiative: Pick<Initiative, "planningThreads">,
+): InitiativePlanningThread | undefined {
+  return initiative.planningThreads.at(-1);
+}
+
+/** The Initiative's planning Thread `threadId`; undefined for any other Thread. */
+export function planningThreadOf(
+  initiative: Pick<Initiative, "planningThreads">,
+  threadId: string,
+): InitiativePlanningThread | undefined {
+  return initiative.planningThreads.find((thread) => thread.threadId === threadId);
 }
 
 /** The Initiative's branch in one Project, `initiative/<short name>` (initiativeBranchOf). */

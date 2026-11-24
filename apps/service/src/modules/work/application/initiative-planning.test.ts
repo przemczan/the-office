@@ -42,8 +42,10 @@ import {
   SessionPeopleForTests,
   SessionTasksForTests,
   TaskDecisionsForTests,
+  ThreadTurnsForTests,
   WorkSettingsForTests,
 } from "../ports/work-ports.fixtures.js";
+import { ThreadTurns } from "../ports/thread-turns.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSettings } from "../ports/work-settings.js";
@@ -148,12 +150,21 @@ async function read(taskId: string): Promise<Task> {
 }
 
 /** Writes the Task's parts by its id and marks it planned, as the Planner does in the Thread. */
-async function planTask(taskId: string) {
-  await call(WRITE_PLAN, { taskId, plan: "Add the endpoint.", filesToChange: ["src/export.ts"] });
-  await call(WRITE_DEFINITION_OF_DONE, { taskId, statements: ["Exports download."] });
-  await call(PROPOSE_PIPELINE, { taskId, pipelineId: "full", why: "It changes code." });
-  await call(WRITE_TAGS, { taskId, tags: ["exports"] });
-  return call(MARK_PLANNED, { taskId });
+async function planTask(taskId: string, sessionId = SESSION) {
+  await call(
+    WRITE_PLAN,
+    { taskId, plan: "Add the endpoint.", filesToChange: ["src/export.ts"] },
+    sessionId,
+  );
+  await call(WRITE_DEFINITION_OF_DONE, { taskId, statements: ["Exports download."] }, sessionId);
+  await call(PROPOSE_PIPELINE, { taskId, pipelineId: "full", why: "It changes code." }, sessionId);
+  await call(WRITE_TAGS, { taskId, tags: ["exports"] }, sessionId);
+  return call(MARK_PLANNED, { taskId }, sessionId);
+}
+
+/** The Threads with a turn running, as the fake of Conversations' answer keeps them. */
+function turns(): ThreadTurnsForTests {
+  return work.app.get(ThreadTurns) as ThreadTurnsForTests;
 }
 
 describe("Plan the Initiative", () => {
@@ -214,6 +225,32 @@ describe("Plan the Initiative", () => {
     expect(await nothingLeft.json()).toMatchObject({
       reasons: ["None of the Initiative's Tasks is in Backlog: nothing is left to plan."],
     });
+  });
+
+  it("is refused, as Plan with… is, while the latest planning Thread has a turn running", async () => {
+    const { initiative } = await anActiveInitiative();
+    const latest = await planned(initiative.id, false);
+    const threads = work.app.get(InitiativeThreadsForTests);
+    const [startedBefore, waitingBefore] = [threads.opened.length, threads.waiting.length];
+    turns().running.add(latest.planningThreadId ?? "");
+
+    const stillPlanning = [
+      "The planner is still planning in the planning Thread: write there, or wait until they finish.",
+    ];
+    const again = await post(`/initiatives/${initiative.id}/planning`, { autoMode: true });
+    expect(again.status).toBe(422);
+    expect(await again.json()).toMatchObject({ reasons: stillPlanning });
+    const withTheUser = await post(`/initiatives/${initiative.id}/plan-with`);
+    expect(withTheUser.status).toBe(422);
+    expect(await withTheUser.json()).toMatchObject({ reasons: stillPlanning });
+    expect(threads.opened).toHaveLength(startedBefore);
+    expect(threads.waiting).toHaveLength(waitingBefore);
+    expect((await readInitiative(initiative.id)).planningThreadId).toBe(latest.planningThreadId);
+
+    // Its turn over (waiting for the user, or for a Decision's answer), a new Thread opens.
+    turns().running.clear();
+    const next = await planned(initiative.id, false);
+    expect(next.planningThreadId).not.toBe(latest.planningThreadId);
   });
 });
 
@@ -388,16 +425,75 @@ describe("planning the Initiative's Tasks in its planning Thread", () => {
     });
   });
 
-  it("refuses start_planning outside the Initiative's latest planning Thread", async () => {
+  it("refuses start_planning outside the Initiative's planning Threads", async () => {
     const { initiative, first } = await anActiveInitiative();
     await planned(initiative.id, false);
     work.app.get(SessionInitiativesForTests).threads.set(SESSION, randomUUID());
 
     expect(await call(START_PLANNING, { taskId: first.id })).toEqual({
-      text: "Only the Initiative's latest planning Thread moves its Tasks to Planning; this Thread is an earlier one.",
+      text: "This Thread isn't one of the Initiative's planning Threads: only they plan its Tasks.",
       isError: true,
     });
     expect(await call(START_PLANNING, { taskId: first.id }, "a-chat-session")).toMatchObject({
+      isError: true,
+    });
+  });
+
+  it("plans from an earlier planning Thread too, each Task its own Thread's until marked planned", async () => {
+    const { initiative, first, second } = await anActiveInitiative();
+    const earlier = await planned(initiative.id, false);
+    const EARLIER_SESSION = "earlier-planning-session";
+    const sessions = work.app.get(SessionInitiativesForTests);
+    sessions.initiatives.set(EARLIER_SESSION, initiative.id);
+    sessions.threads.set(EARLIER_SESSION, earlier.planningThreadId ?? "");
+    const latest = await planned(initiative.id, true);
+    expect(latest.planningThreadId).not.toBe(earlier.planningThreadId);
+
+    // The earlier Thread moves a Task to Planning, in its own auto mode, and owns it.
+    expect(await call(START_PLANNING, { taskId: first.id }, EARLIER_SESSION)).toMatchObject({
+      isError: false,
+    });
+    expect(await read(first.id)).toMatchObject({
+      state: "planning",
+      autoMode: false,
+      initiativePlanningThreadId: earlier.planningThreadId,
+    });
+    const plannedElsewhere = {
+      text: '"Export API" is being planned in another planning Thread: write there, or wait until it is marked planned.',
+      isError: true,
+    };
+    expect(await call(WRITE_PLAN, { taskId: first.id, plan: "From the latest." })).toEqual(
+      plannedElsewhere,
+    );
+    expect(await call(START_PLANNING, { taskId: first.id })).toEqual(plannedElsewhere);
+
+    // Marked planned there, the latest Thread rewrites it, owning it in its own auto mode.
+    expect(await planTask(first.id, EARLIER_SESSION)).toMatchObject({ isError: false });
+    expect(await call(WRITE_PLAN, { taskId: first.id, plan: "From the latest." })).toMatchObject({
+      isError: false,
+    });
+    expect(await read(first.id)).toMatchObject({
+      state: "planning",
+      autoMode: true,
+      markedPlanned: false,
+      initiativePlanningThreadId: latest.planningThreadId,
+    });
+    expect(
+      await call(WRITE_PLAN, { taskId: first.id, plan: "Back again." }, EARLIER_SESSION),
+    ).toEqual(plannedElsewhere);
+    await call(MARK_PLANNED, { taskId: first.id });
+    expect(await read(first.id)).toMatchObject({ state: "ready" });
+
+    // A Ready Task is rewritten from the earlier Thread too, which then owns it.
+    expect(
+      await call(WRITE_PLAN, { taskId: first.id, plan: "Back again." }, EARLIER_SESSION),
+    ).toMatchObject({ isError: false });
+    expect(await read(first.id)).toMatchObject({
+      state: "planning",
+      autoMode: false,
+      initiativePlanningThreadId: earlier.planningThreadId,
+    });
+    expect(await call(START_PLANNING, { taskId: second.id }, EARLIER_SESSION)).toMatchObject({
       isError: true,
     });
   });
@@ -690,7 +786,7 @@ describe("one Role holding both Shapes Initiatives and Plans", () => {
       ["architect", INITIATIVE_PLANNING_THREAD_TITLE],
     ]);
     const kept = await work.app.get(InitiativeRepository).find(initiative.id);
-    expect(kept?.planningThreadIds).toEqual([planningThreadId]);
+    expect(kept?.planningThreads.map(({ threadId }) => threadId)).toEqual([planningThreadId]);
     const setups = work.app.get(InitiativeThreadSetups);
     const of = (threadId: string) =>
       setups.of({ threadId, initiativeId: initiative.id, roleKey: "architect" });

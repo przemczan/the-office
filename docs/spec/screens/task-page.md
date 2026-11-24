@@ -1,13 +1,13 @@
 # Task page
 
-Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue, the Engine fold, the Devices section with Use a Project device among them, and History), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments, Engine), the record blocks (the Bug section, the GitHub issue, the Devices section with Use a Project device among them, and History), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
 - Route: `/tasks/<id>`.
 - Open it from a card on the Work board ([work-board.md](work-board.md)), a link to a Task, or a Notification.
 - The page title and crumb are the Task's title; the parent crumb is "Work", leading to `/work`.
-- Search params: `recordTab` (`changes` or `attachments`; none is Overview), `taskThread` (a person's tab by Role key or Thread id, or a Stage run's id to open its Stage history), `decision` (lands on that Decision's card).
+- Search params: `recordTab` (`changes`, `attachments` or `engine`; none is Overview), `taskThread` (a person's tab by Role key or Thread id, or a Stage run's id to open its Stage history), `decision` (lands on that Decision's card).
 - The Work tab strip shows at the top with Tasks chosen ([work-board.md](work-board.md#tabs)).
 - A Task that can't be read shows a missing-record view (see States).
 
@@ -255,13 +255,13 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 ## Record tabs
 
-- Tabs **Overview**, **Changes** (count of changed files), **Attachments** (count); kept in the address as `recordTab`.
+- Tabs **Overview**, **Changes** (count of changed files), **Attachments** (count), **Engine**; kept in the address as `recordTab`.
 
 ## Overview
 
-- Blocks, top to bottom: **Description**, **Plan**, **Commit message**, **Definition of Done**, **Engine**, **Devices**, **History**.
+- Blocks, top to bottom: **Description**, **Plan**, **Definition of Done**, **Commit message**, **Devices**, **History**.
 - Each is a fold remembered per Task in this browser; a folded body stays mounted, so an editor keeps what was typed, and **Edit** opens the fold first.
-- Open at the start: Description always; Plan and Definition of Done in Planning; Commit message, Engine and History folded.
+- Open at the start: Description always; Plan and Definition of Done in Planning; Commit message and History folded.
 - Each fold's header has an icon, title, a summary line while folded, and its actions.
 
 ### Description
@@ -356,19 +356,6 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Empty: "Not written yet." with "<Planner> proposes it while planning, or write it yourself; a Task can't be Ready without one."
 - Refusals: "The Definition of Done wasn't saved", "The Definition of Done wasn't confirmed".
 
-### Engine
-
-- A fold "Engine" (cpu icon), after Definition of Done and before Devices, starting folded.
-- Summary: the engine it runs on and where it comes from: "<engine> · set for this Task · no stand-ins", "<engine> · from its Initiative · no stand-ins", "<engine> · from the Project" or "<engine> · from the Office default".
-- A switch **Override the engine**; off, a line names the engine the Task follows ("Runs on <engine>, from the Project, with the Project's Stand-in Engines." or "… from its Initiative, with no stand-ins."); while its Initiative has an override, the switch's hint reads "Turn it on to run this Task on another engine than its Initiative's."
-- On, an **Engine** select over the listed engines, grouped by engine type with each type's icon, starting on the engine it followed; no model: each person works with their own model and effort for its type.
-- Under it, an info note: "No stand-ins: when <engine>'s usage window is used up, the Task waits for the reset."
-- Each change saves at once with a toast ("<title> runs on <engine>, with no stand-ins." / "<title> follows its <Initiative's or Project's> engine again."); a refusal shows under the field, headed "The engine wasn't saved".
-- Read-only once the Task is Done or Dropped, with "Kept as it was: the engine of a Done or Dropped Task doesn't change."
-- While a Stage runs, a note says that session finishes on the engine it started on and a change applies from each next session, which starts fresh on a new engine.
-- A "Runs on" list names the Planner and each Role its Stages name, with the model and effort each works with on the Task's engine and where each came from: "<model> · <effort>", then "from <person>'s Role card", "from the Project's setting for <person>", "forced by the Project" or "the engine's default"; a Stage that sets its own effort adds "<effort> on <Stage>".
-- Rules: [2.1.3](../2.1.3-tasks.md#a-tasks-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade), [5.4.6](../5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins).
-
 ### Devices
 
 - The Devices section (plug icon), shown only while the Project's Run environment is On and its Connected devices are switched on ([Feature switches](../2.1.1-projects.md#feature-switches)); open at the start while the Task has a device not Disconnected.
@@ -444,6 +431,19 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 ## Attachments tab
 
 - Block "Attachments" with **Add**; the shell's gallery shows a Task's by round from its Stages ([2.1.2](../2.1.2-ideas-and-attachments.md)).
+
+## Engine tab
+
+- A fold "Engine" (cpu icon), starting open.
+- Summary: the engine it runs on and where it comes from: "<engine> · set for this Task · no stand-ins", "<engine> · from its Initiative · no stand-ins", "<engine> · from the Project" or "<engine> · from the Office default".
+- A switch **Override the engine**; off, a line names the engine the Task follows ("Runs on <engine>, from the Project, with the Project's Stand-in Engines." or "… from its Initiative, with no stand-ins."); while its Initiative has an override, the switch's hint reads "Turn it on to run this Task on another engine than its Initiative's."
+- On, an **Engine** select over the listed engines, grouped by engine type with each type's icon, starting on the engine it followed; no model: each person works with their own model and effort for its type.
+- Under it, an info note: "No stand-ins: when <engine>'s usage window is used up, the Task waits for the reset."
+- Each change saves at once with a toast ("<title> runs on <engine>, with no stand-ins." / "<title> follows its <Initiative's or Project's> engine again."); a refusal shows under the field, headed "The engine wasn't saved".
+- Read-only once the Task is Done or Dropped, with "Kept as it was: the engine of a Done or Dropped Task doesn't change."
+- While a Stage runs, a note says that session finishes on the engine it started on and a change applies from each next session, which starts fresh on a new engine.
+- A "Runs on" list names the Planner and each Role its Stages name, with the model and effort each works with on the Task's engine and where each came from: "<model> · <effort>", then "from <person>'s Role card", "from the Project's setting for <person>", "forced by the Project" or "the engine's default"; a Stage that sets its own effort adds "<effort> on <Stage>".
+- Rules: [2.1.3](../2.1.3-tasks.md#a-tasks-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade), [5.4.6](../5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins).
 
 ## Conversation
 

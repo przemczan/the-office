@@ -1,6 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import type { Decision, Initiative, Project, TaskSummary } from "@the-office/contracts";
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { PLANNING_STEP_WORDS, planningStepOf } from "./initiative-planning-words.ts";
@@ -12,7 +20,14 @@ import {
   type GraphNode,
   type TaskGraph as TaskGraphLayout,
 } from "./initiative-words.ts";
-import { routeEdges, type EdgeRoute, type RouteEdge, type TaskBox } from "./task-graph-routes.ts";
+import { edgeHighlight, type EdgeHighlight } from "./task-graph-highlight.ts";
+import {
+  edgeRoom,
+  routeEdges,
+  type EdgeRoute,
+  type RouteEdge,
+  type TaskBox,
+} from "./task-graph-routes.ts";
 
 /**
  * The Initiative's Tasks as a graph (prototypes/app/work.js `graph`): a column per dependency
@@ -39,31 +54,54 @@ export function TaskGraph({
     () => taskGraph(ordinaryTasksOf(initiative, tasks), tasks),
     [initiative, tasks],
   );
-  const box = useRef<HTMLDivElement>(null);
-  const routes = useEdgeRoutes(box, graph);
+  const columns = useRef<HTMLDivElement>(null);
+  const { routes, room } = useEdgeRoutes(columns, graph);
+  const [hovered, setHovered] = useState<string>();
+  const [focused, setFocused] = useState<string>();
+  const highlighted = hovered ?? focused;
+  const drawn = routes
+    .map((route) => ({ route, highlight: edgeHighlight(route, highlighted) }))
+    // The highlighted edges are drawn last, over the dimmed ones they cross.
+    .toSorted((first, second) => drawOrder(first.highlight) - drawOrder(second.highlight));
   return (
     <>
       <GraphLegend kinds={graphLineKinds(graph)} />
-      <div className="task-graph" ref={box} role="group" aria-label="Task graph">
-        <svg className="task-graph-edges" aria-hidden="true">
-          {routes.map(({ key, line, head, blockerDone, fromOutside }) => (
-            <g key={key}>
-              <path
-                d={line}
-                className={classes(
-                  "task-graph-edge",
-                  blockerDone && "blocker-done",
-                  fromOutside && "from-outside",
-                )}
-              />
-              <path
-                d={head}
-                className={classes("task-graph-head", blockerDone && "blocker-done")}
-              />
-            </g>
-          ))}
-        </svg>
-        <div className="task-graph-columns">
+      <div
+        className="task-graph"
+        role="group"
+        aria-label="Task graph"
+        style={
+          {
+            "--task-graph-room-above": `${room.above}px`,
+            "--task-graph-room-below": `${room.below}px`,
+          } as CSSProperties
+        }
+      >
+        <div className="task-graph-columns" ref={columns}>
+          <svg className="task-graph-edges" aria-hidden="true">
+            {drawn.map(({ route: { key, line, head, blockerDone, fromOutside }, highlight }) => (
+              <g
+                key={key}
+                className={
+                  highlight &&
+                  classes(highlight !== "dimmed" && "highlighted", `highlight-${highlight}`)
+                }
+              >
+                <path
+                  d={line}
+                  className={classes(
+                    "task-graph-edge",
+                    blockerDone && "blocker-done",
+                    fromOutside && "from-outside",
+                  )}
+                />
+                <path
+                  d={head}
+                  className={classes("task-graph-head", blockerDone && "blocker-done")}
+                />
+              </g>
+            ))}
+          </svg>
           {graph.columns.map((column) => (
             <div key={column[0]?.task.id} className="task-graph-column">
               {column.map((node) => (
@@ -74,6 +112,8 @@ export function TaskGraph({
                   openDecisions={openDecisions}
                   initiatives={initiatives}
                   projects={projects}
+                  onHover={setHovered}
+                  onFocus={setFocused}
                 />
               ))}
             </div>
@@ -82,6 +122,10 @@ export function TaskGraph({
       </div>
     </>
   );
+}
+
+function drawOrder(highlight: EdgeHighlight | undefined): number {
+  return highlight === undefined || highlight === "dimmed" ? 0 : 1;
 }
 
 const LINE_KIND_WORDS: Readonly<Record<GraphLineKind, string>> = {
@@ -123,12 +167,18 @@ function TaskNode({
   openDecisions,
   initiatives,
   projects,
+  onHover,
+  onFocus,
 }: {
   readonly node: GraphNode;
   readonly initiative: Initiative;
   readonly openDecisions: readonly Decision[];
   readonly initiatives: readonly Initiative[] | undefined;
   readonly projects: readonly Project[] | undefined;
+  /** The Task hovered, or none once the pointer leaves it. */
+  readonly onHover: (taskId: string | undefined) => void;
+  /** The Task focused, or none once focus leaves it. */
+  readonly onFocus: (taskId: string | undefined) => void;
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);
   const step = outside ? undefined : planningStepOf(initiative, task, openDecisions);
@@ -141,6 +191,10 @@ function TaskNode({
       params={{ taskId: task.id }}
       className={`task-graph-node${outside ? " outside" : ""}`}
       data-task={task.id}
+      onMouseEnter={() => onHover(task.id)}
+      onMouseLeave={() => onHover(undefined)}
+      onFocus={() => onFocus(task.id)}
+      onBlur={() => onFocus(undefined)}
     >
       <span className="task-graph-node-title">
         {project && <ProjectMark project={project} />}
@@ -164,20 +218,32 @@ function classes(...names: readonly (string | false)[]): string {
   return names.filter(Boolean).join(" ");
 }
 
-/** The edges' routes, measured from where the nodes were laid out, again whenever the box resizes. */
-function useEdgeRoutes(box: RefObject<HTMLDivElement | null>, graph: TaskGraphLayout): EdgeRoute[] {
+/**
+ * The edges' routes, measured from where the nodes were laid out in the columns, again whenever the
+ * columns resize, and the room the routes need above and below them.
+ */
+function useEdgeRoutes(
+  columns: RefObject<HTMLDivElement | null>,
+  graph: TaskGraphLayout,
+): { routes: EdgeRoute[]; room: { above: number; below: number } } {
   const edges = useMemo(() => routeEdgesOf(graph), [graph]);
-  const [routes, setRoutes] = useState<EdgeRoute[]>([]);
+  const [drawn, setDrawn] = useState<{
+    routes: EdgeRoute[];
+    room: { above: number; below: number };
+  }>({ routes: [], room: { above: 0, below: 0 } });
   useLayoutEffect(() => {
-    const element = box.current;
+    const element = columns.current;
     if (!element) return;
-    const draw = (): void => setRoutes(routeEdges(measuredBoxes(element, graph.columns), edges));
+    const draw = (): void => {
+      const routes = routeEdges(measuredBoxes(element, graph.columns), edges);
+      setDrawn({ routes, room: edgeRoom(routes, element.offsetHeight) });
+    };
     draw();
     const observer = new ResizeObserver(draw);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [box, graph, edges]);
-  return routes;
+  }, [columns, graph, edges]);
+  return drawn;
 }
 
 function routeEdgesOf({ columns, edges }: TaskGraphLayout): RouteEdge[] {
@@ -187,7 +253,10 @@ function routeEdgesOf({ columns, edges }: TaskGraphLayout): RouteEdge[] {
   return edges.map((edge) => ({ ...edge, fromOutside: outsideIds.has(edge.from) }));
 }
 
-/** Each node's box in the graph's own coordinates, as the graph scrolls sideways. */
+/**
+ * Each node's box in the columns' own coordinates, which the room around them never moves; they
+ * scroll sideways with the graph.
+ */
 function measuredBoxes(
   element: HTMLElement,
   columns: TaskGraphLayout["columns"],
@@ -199,13 +268,12 @@ function measuredBoxes(
         const node = element.querySelector(`[data-task="${CSS.escape(task.id)}"]`);
         if (!node) return [];
         const { left, right, top, bottom } = node.getBoundingClientRect();
-        const x = element.scrollLeft - origin.left;
         return [
           [
             task.id,
             {
-              left: left + x,
-              right: right + x,
+              left: left - origin.left,
+              right: right - origin.left,
               top: top - origin.top,
               bottom: bottom - origin.top,
               column: index,

@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { anInitiative } from "../../domain/work.fixtures.js";
+import { anInitiative, aPlanningThread } from "../../domain/work.fixtures.js";
 import { initiatives } from "./work.schema.js";
 import { toInitiativeRow } from "./work-rows.js";
 
@@ -33,7 +33,7 @@ describe("migration 0167", () => {
       name: `Sync ${randomUUID()}`,
       state: "active",
       originIdeaId: undefined,
-      planningThreadId: randomUUID(),
+      planningThreads: [aPlanningThread({ threadId: randomUUID() })],
     });
 
     const after = await rolledBackMigration(database, async (transaction) => {

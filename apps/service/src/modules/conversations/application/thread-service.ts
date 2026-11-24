@@ -182,6 +182,14 @@ export class ThreadService {
   }
 
   /**
+   * Whether the Thread's person is in a turn now, as the runner tracks it in memory: false for a
+   * Thread waiting for the user or for a Decision's answer, and for one The Office doesn't know.
+   */
+  isTurnRunning(threadId: string): boolean {
+    return this.runner.isTurnRunning(threadId);
+  }
+
+  /**
    * Of the Initiatives `initiativeIds`, those whose person has answered in their newest Thread that
    * isn't a Consultation and waits on the user's reply: the Thread waits with a session and no open
    * Decision, and the person's last message came after the user's last, or the user wrote none.

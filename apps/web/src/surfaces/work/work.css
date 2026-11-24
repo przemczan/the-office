@@ -140,8 +140,8 @@
     opacity var(--duration-fast) var(--ease-out);
 }
 
-/* Wrapping, so a long list of queue places moves to a line of its own instead of squeezing the name
-   to a letter a line. */
+/* Wrapping, so a count that can't sit beside the name moves to a line of its own instead of squeezing
+   the name to a letter a line. */
 .initiative-block-head {
   display: flex;
   flex-wrap: wrap;
@@ -3679,10 +3679,13 @@
   }
 }
 
+/* The room above and below is what the routes say they reach past the Tasks (`edgeRoom`): the box
+   scrolls sideways, and so clips whatever stands outside it up and down too. */
 .task-graph {
   position: relative;
   overflow-x: auto;
-  padding: 4px 2px 8px;
+  padding: calc(4px + var(--task-graph-room-above, 0px)) 2px
+    calc(8px + var(--task-graph-room-below, 0px));
 }
 
 .task-graph-edges {
@@ -3728,6 +3731,36 @@
   fill: color-mix(in oklab, var(--success) 45%, var(--success-border));
 }
 
+/* A Task hovered or focused: the arrows from its blockers red, or green while that blocker is Done,
+   those to the Tasks waiting for it blue, every other one dimmed (`edgeHighlight`). */
+.task-graph-edges g {
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.task-graph-edges .highlight-into {
+  color: var(--danger);
+}
+
+.task-graph-edges .highlight-into-done {
+  color: var(--success);
+}
+
+.task-graph-edges .highlight-out {
+  color: var(--info);
+}
+
+.task-graph .task-graph-edges .highlighted .task-graph-edge {
+  stroke: currentColor;
+}
+
+.task-graph .task-graph-edges .highlighted .task-graph-head {
+  fill: currentColor;
+}
+
+.task-graph-edges .highlight-dimmed {
+  opacity: 0.25;
+}
+
 .task-graph-legend {
   display: flex;
   flex-wrap: wrap;
@@ -3760,7 +3793,9 @@
   min-width: 100%;
 }
 
+/* Positioned, so the Tasks stand over the edges' layer. */
 .task-graph-column {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--gap-card);

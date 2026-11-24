@@ -78,6 +78,7 @@ import { InitiativeService } from "./initiative-service.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE } from "../domain/work.fixtures.js";
 import { ANN_LEE as ANN_LEE_USER } from "../../conversations/index.fixtures.js";
+import { ConversationsThreadTurns } from "../adapters/conversations/conversations-thread-turns.js";
 
 /** The Role holding Shapes Initiatives by default. */
 const CTO = "cto";
@@ -335,6 +336,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         sessionInitiatives: ThreadService,
         taskThreads: ThreadService,
         initiativeThreads: ThreadService,
+        threadTurns: ConversationsThreadTurns,
         taskDecisions: DecisionService,
         proposalDrafts: ProposalService,
         usageHistory: UsageHistoryForTests,

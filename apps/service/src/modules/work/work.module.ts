@@ -132,6 +132,7 @@ import { IdeaCards } from "./ports/idea-cards.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
 import { InitiativeRepository } from "./ports/initiative-repository.js";
 import { InitiativeThreads } from "./ports/initiative-threads.js";
+import { ThreadTurns } from "./ports/thread-turns.js";
 import { KnownEngineCascade } from "./ports/known-engine-cascade.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
@@ -189,6 +190,11 @@ export interface WorkModuleOptions {
   readonly sessionInitiatives: Type<SessionInitiatives>;
   readonly taskThreads: Type<TaskThreads>;
   readonly initiativeThreads: Type<InitiativeThreads>;
+  /**
+   * Whether a Thread has a turn running: ConversationsThreadTurns, Work's adapter over
+   * Conversations' ThreadService, made here for Work alone.
+   */
+  readonly threadTurns: Type<ThreadTurns>;
   readonly taskDecisions: Type<TaskDecisions>;
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly usageHistory: Type<UsageHistory>;
@@ -224,6 +230,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     sessionInitiatives,
     taskThreads,
     initiativeThreads,
+    threadTurns,
     taskDecisions,
     proposalDrafts,
     usageHistory,
@@ -298,6 +305,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: SessionInitiatives, useExisting: sessionInitiatives },
         { provide: TaskThreads, useExisting: taskThreads },
         { provide: InitiativeThreads, useExisting: initiativeThreads },
+        { provide: ThreadTurns, useClass: threadTurns },
         { provide: TaskDecisions, useExisting: taskDecisions },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: UsageHistory, useExisting: usageHistory },

@@ -105,6 +105,7 @@ import {
   type TaskThreadStarting,
 } from "./task-threads.js";
 import { TaskTokens, type EngineIdTokens } from "./task-tokens.js";
+import { ThreadTurns } from "./thread-turns.js";
 import { UsageHistory } from "./usage-history.js";
 import { ModelPrices } from "./model-prices.js";
 import { WorkSettings } from "./work-settings.js";
@@ -736,6 +737,16 @@ export class InitiativeThreadsForTests extends InitiativeThreads {
     if (this.failure) throw this.failure;
     this.opened.push(opening);
     return { id: opening.threadId ?? crypto.randomUUID() };
+  }
+}
+
+/** The Threads with a turn running: none unless a test starts one. */
+@Injectable()
+export class ThreadTurnsForTests extends ThreadTurns {
+  readonly running = new Set<string>();
+
+  async isTurnRunning(threadId: string): Promise<boolean> {
+    return this.running.has(threadId);
   }
 }
 

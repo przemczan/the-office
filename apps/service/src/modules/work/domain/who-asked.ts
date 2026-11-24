@@ -1,6 +1,6 @@
 import type { PromptTexts } from "../../prompt-templates/index.js";
 import { authorWords } from "./author.js";
-import type { Initiative } from "./initiative.js";
+import type { InitiativePlanningThread } from "./initiative.js";
 import { renderedText } from "./rendered-text.js";
 import { stateChangeCauseWords, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
@@ -54,7 +54,7 @@ export function taskWhoAskedSection(
   return renderedText(prompts, TASK_WHO_ASKED, { createdBy, startedBy: movedBy });
 }
 
-/** Who opened the Initiative's latest planning Thread; empty when none was kept. */
-export function initiativePlanningOpenedBy(initiative: Initiative): string {
-  return initiative.planningStartedBy ? authorWords(initiative.planningStartedBy) : "";
+/** Who opened one of an Initiative's planning Threads; empty when that wasn't kept. */
+export function initiativePlanningOpenedBy({ by }: InitiativePlanningThread): string {
+  return by ? authorWords(by) : "";
 }

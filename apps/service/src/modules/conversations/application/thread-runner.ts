@@ -935,6 +935,15 @@ export class ThreadRunner implements OnModuleDestroy {
     await this.endBargeIns(threadId);
   }
 
+  /**
+   * Whether the Thread's session is in a turn now (`LiveSession.turnRunning`), as kept in memory:
+   * from a message sent until its turn ends, or a turn the engine began. False for a Thread with
+   * no live session, waiting for the user or for a Decision's answer.
+   */
+  isTurnRunning(threadId: string): boolean {
+    return this.live.get(threadId)?.turnRunning ?? false;
+  }
+
   async onModuleDestroy(): Promise<void> {
     await Promise.all([...this.live.keys()].map((threadId) => this.endLive(threadId)));
   }

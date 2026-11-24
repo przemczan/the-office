@@ -40,8 +40,9 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
   - The switch starts at the remembered default; the choice made becomes it; from More it plans as the switch stands.
   - One planning Thread with the Planner, who plans its Backlog Tasks in their dependency order.
   - Toast: "<Planner> is planning the Initiative's Tasks in Backlog, in their dependency order, in auto mode: each is marked Ready once planned." or "… . You confirm each one as it is planned."
+  - Disabled while the Initiative's latest planning Thread's person is answering there, with the hint "<Planner> is still planning in the planning Thread: write there, or wait until they finish."; **Planning Thread** stays the way in.
   - The service's other refusals show as a toast.
-- **Plan with <Planner>** (message icon): same offer; opens a new planning Thread where the Planner waits for the user's first message on how to plan; auto mode is off; toast "<Planner> waits for your message: say how to plan the Initiative's Tasks in Backlog. Auto mode is off: you confirm each one as it is planned."; the conversation then opens on that Thread.
+- **Plan with <Planner>** (message icon): same offer, disabled with the same hint while the latest planning Thread's person is answering; opens a new planning Thread where the Planner waits for the user's first message on how to plan; auto mode is off; toast "<Planner> waits for your message: say how to plan the Initiative's Tasks in Backlog. Auto mode is off: you confirm each one as it is planned."; the conversation then opens on that Thread.
 - **Start Ready Tasks** (play): while it is active and a Task of it is Ready; the normal Start on each Ready Task, an Overlap queued behind; toast "<n> started, <n> queued, <n> refused"; a refusal of the whole action shows as a toast.
 - **Back to Shaping** (undo icon): while it is active; opens the confirm window ([Back to Shaping](#back-to-shaping)).
 - **Pause the Initiative** (pause): while it is active and not paused; holds its running Tasks once each Agent's current turn ends and starts none of its Tasks; hint "Hold its running Tasks once each Agent's current turn ends, and start none of its Tasks"; toast "Initiative paused: <n> Tasks paused. None of its Tasks starts until you resume it." (or "none of its Tasks was running").
@@ -95,6 +96,10 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 - A legend "What the arrows mean": "must be Done first", "its blocker is Done" (green), "from outside this Initiative" (dashed); each shown only when such an edge is drawn.
 - The graph: columns by dependency depth, a Task standing right of every Task it waits for; across Projects.
 - Arrows run from the blocker to the Task waiting for it, routed square from the measured boxes.
+- The graph leaves room above and below its Tasks for every arrow routed around them, so none is cut off.
+- Hovering or focusing a Task highlights its arrows: those from its blockers red, or green while that blocker is Done.
+- The arrows from a highlighted Task to the Tasks waiting for it are blue.
+- Every other arrow is dimmed while a Task is highlighted.
 - Each node is a link to the Task page: Project mark, title, the state badge.
 - A blocker outside the Initiative is drawn too, marked with "Initiative <name>" or "outside this Initiative", its edge dashed.
 - Once the Initiative has a planning Thread, a node names its planning step: **Waiting**, **Planning**, **Waiting for your answer**, **Planned, waiting for your Confirm**, **Ready** (Planning and Ready are the state badge's own words).

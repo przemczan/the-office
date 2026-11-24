@@ -15,7 +15,11 @@ import {
 } from "../../../conversations/index.js";
 import { PromptTemplates, type PromptTexts } from "../../../prompt-templates/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
-import { initiativeProjectIds, type Initiative } from "../../domain/initiative.js";
+import {
+  initiativeProjectIds,
+  planningThreadOf,
+  type Initiative,
+} from "../../domain/initiative.js";
 import {
   initiativePlanningBrief,
   initiativePlanningInstructions,
@@ -136,7 +140,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     const sessionRefusal = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
     const branchReads = initiativeBranchReads(initiative, tasks);
     const prompts = await this.promptTemplates.textsOf(INITIATIVE_THREAD_PROMPT_TEMPLATES);
-    if (!initiative.planningThreadIds.includes(threadId)) {
+    if (planningThreadOf(initiative, threadId) === undefined) {
       return {
         instructions: withCallingRule(shapingInstructions(prompts)),
         officeTools: SHAPING_OFFICE_TOOLS,
@@ -194,6 +198,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     const projects = await readEach(initiativeProjectIds(tasks), (id) => this.planningProject(id));
     return initiativePlanningBrief(prompts, {
       initiative,
+      threadId,
       waiting,
       record,
       tasks,

@@ -21,7 +21,12 @@ import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
-import { initiativeProjectIds, pipelineIn, type Initiative } from "../../domain/initiative.js";
+import {
+  initiativeProjectIds,
+  latestPlanningThread,
+  pipelineIn,
+  type Initiative,
+} from "../../domain/initiative.js";
 import {
   ARCHIVE_PAGE_SIZE,
   type ArchivePage,
@@ -72,8 +77,8 @@ export function toInitiativeResponse(
     endedAt: initiative.endedAt?.toISOString() ?? null,
     archivedAt: initiative.archivedAt?.toISOString() ?? null,
     pausedAt: initiative.pausedAt?.toISOString() ?? null,
-    planningThreadId: initiative.planningThreadId ?? null,
-    planningAutoMode: initiative.planningAutoMode,
+    planningThreadId: latestPlanningThread(initiative)?.threadId ?? null,
+    planningAutoMode: latestPlanningThread(initiative)?.autoMode ?? false,
     pipelines: initiativeProjectIds(tasks).map((projectId) => ({
       projectId,
       pipelineId: pipelineIn(initiative, projectId) ?? null,

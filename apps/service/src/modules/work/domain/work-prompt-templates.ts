@@ -535,7 +535,7 @@ export const INITIATIVE_PLANNING_BRIEF = promptTemplate({
   domain: "work",
   name: "Initiative planning Brief",
   description:
-    "The Brief of an Initiative's planning Thread: its record, who opened the Thread, the Tasks to plan, those being planned and those waiting for an answer, the Projects it spans, the Pipelines and auto mode.",
+    "The Brief of an Initiative's planning Thread: its record, who opened the Thread, the Tasks to plan, those being planned and those waiting for an answer, its other planning Threads with the Tasks each owns, the Projects it spans, the Pipelines and auto mode.",
   variables: {
     record: {
       kind: "text",
@@ -588,6 +588,22 @@ export const INITIATIVE_PLANNING_BRIEF = promptTemplate({
         question: "Its question.",
       },
     },
+    initiativeId: { kind: "text", description: "The Initiative's id." },
+    hasOtherPlanningThreads: {
+      kind: "flag",
+      description: "The Initiative has planning Threads other than this one.",
+    },
+    otherPlanningThreads: {
+      kind: "list",
+      description:
+        "The Initiative's other planning Threads, oldest first, each with the Tasks it owns.",
+      fields: {
+        threadId: "The Thread's id.",
+        openedAt: "When it was opened, as an ISO time.",
+        latest: "Not empty for the Initiative's latest planning Thread.",
+        tasks: "The Tasks it owns, by title, id and state; empty when none.",
+      },
+    },
     projects: {
       kind: "list",
       description: "The Projects the Initiative spans.",
@@ -604,7 +620,7 @@ export const INITIATIVE_PLANNING_BRIEF = promptTemplate({
     ...PIPELINE_LIBRARY_VARIABLE,
     autoMode: {
       kind: "flag",
-      description: "The Initiative is planned in auto mode: The Office accepts each planned Task.",
+      description: "This Thread plans in auto mode: The Office accepts each planned Task.",
     },
   },
   text: `You are planning an Initiative's Tasks, in its planning Thread.
@@ -655,6 +671,16 @@ This Thread opened these Decisions, which still wait on the user: don't ask them
 - "{{taskTitle}}" (Task {{taskId}}): "{{question}}"
 {{/waiting}}
 {{/hasWaiting}}
+{{#hasOtherPlanningThreads}}
+
+## The other planning Threads
+
+The Initiative has other planning Threads. A Task in Planning not yet marked planned belongs to the Thread planning it: leave it to that Thread. A Task marked planned or Ready can be rewritten from here, and then belongs to this Thread. When the user asks about what was planned or decided in one of them, read it with read_threads, giving initiativeId {{initiativeId}} and a range from when it was opened, instead of researching again.
+
+{{#otherPlanningThreads}}
+- Thread {{threadId}}, opened {{openedAt}}{{#latest}}, the latest{{/latest}}: {{#tasks}}its Tasks are {{tasks}}{{/tasks}}{{^tasks}}it owns no Task{{/tasks}}.
+{{/otherPlanningThreads}}
+{{/hasOtherPlanningThreads}}
 
 ## The Projects it spans
 

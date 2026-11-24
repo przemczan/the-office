@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Initiative, Role, Task } from "@the-office/contracts";
+import type { Initiative, Role, Task, Thread } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { threadQueries } from "../../api/conversations.ts";
 import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { autoModeQuery } from "../../api/work.ts";
 import { aDuty } from "../../shell/duties.fixtures.ts";
@@ -13,6 +14,7 @@ import {
   canPlanInitiative,
   planningProgressWords,
   planningStepOf,
+  stillPlanningReason,
 } from "./initiative-planning-words.ts";
 import { RecordActionButton } from "./record-actions.tsx";
 
@@ -106,10 +108,18 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
 
-function rendered(tasks: readonly Task[], rememberedAutoMode: boolean): HTMLElement {
+function rendered(
+  tasks: readonly Task[],
+  rememberedAutoMode: boolean,
+  initiative: Initiative = INITIATIVE,
+  initiativeThreads: readonly Pick<Thread, "id" | "state">[] = [],
+): HTMLElement {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
+  queryClient.setQueryData(threadQueries.onInitiative(INITIATIVE.id).queryKey, [
+    ...initiativeThreads,
+  ] as Thread[]);
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
   queryClient.setQueryData(dutyQueries.list().queryKey, [aDuty("plans", "planner")]);
   queryClient.setQueryData(autoModeQuery().queryKey, { autoMode: rememberedAutoMode });
@@ -119,7 +129,7 @@ function rendered(tasks: readonly Task[], rememberedAutoMode: boolean): HTMLElem
     createRoot(page).render(
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <PlanTheInitiative initiative={INITIATIVE} initiativeTasks={tasks} />
+          <PlanTheInitiative initiative={initiative} initiativeTasks={tasks} />
         </ToastProvider>
       </QueryClientProvider>,
     ),
@@ -167,6 +177,26 @@ describe("Plan the Initiative", () => {
     expect(url).toBe(`/api/initiatives/${INITIATIVE.id}/planning`);
     expect(request?.body).toBe(JSON.stringify({ autoMode: true }));
     expect(document.body.textContent).toContain(refusal);
+  });
+
+  it("is disabled, saying why, while the latest planning Thread's person is answering there", () => {
+    const planned = { ...INITIATIVE, planningThreadId: PLANNING_THREAD };
+    const reason =
+      "Angela is still planning in the planning Thread: write there, or wait until they finish.";
+
+    const button = planButton(
+      rendered([aTask("a")], false, planned, [{ id: PLANNING_THREAD, state: "answering" }]),
+    );
+
+    expect(button?.disabled).toBe(true);
+    expect(button?.title).toBe(reason);
+    expect(
+      stillPlanningReason(planned, [{ id: PLANNING_THREAD, state: "waiting" }], "Angela"),
+    ).toBe(undefined);
+    expect(
+      stillPlanningReason(planned, [{ id: "an-earlier-thread", state: "answering" }], "Angela"),
+    ).toBe(undefined);
+    expect(stillPlanningReason(INITIATIVE, undefined, "Angela")).toBeUndefined();
   });
 
   it("is offered only on an active Initiative with a Task in Backlog", () => {

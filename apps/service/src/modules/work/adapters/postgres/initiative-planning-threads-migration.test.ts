@@ -7,7 +7,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Initiative } from "../../domain/initiative.js";
-import { anInitiative, aTask } from "../../domain/work.fixtures.js";
+import { anInitiative, aPlanningThread, aTask } from "../../domain/work.fixtures.js";
 import { initiatives, tasks } from "./work.schema.js";
 import { toInitiativeRow, toTaskRow, type Transaction } from "./work-rows.js";
 
@@ -30,7 +30,7 @@ function initiative(planningThreadId?: string): Initiative {
     name: `Sync ${randomUUID()}`,
     state: "active",
     originIdeaId: undefined,
-    planningThreadId,
+    planningThreads: planningThreadId ? [aPlanningThread({ threadId: planningThreadId })] : [],
   });
 }
 

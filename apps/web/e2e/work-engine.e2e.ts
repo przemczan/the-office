@@ -123,12 +123,11 @@ async function savedTask(page: Page, task: Task): Promise<Task> {
   return taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json());
 }
 
-/** The record's Engine fold, unfolded. */
+/** The Engine tab's Engine fold, open. */
 async function openEngineFold(page: Page): Promise<Locator> {
+  await page.getByRole("tab", { name: "Engine" }).click();
   const fold = page.getByRole("region", { name: "Engine", exact: true });
   const head = fold.getByRole("button", { name: /^Engine/ });
-  await expect(head).toHaveAttribute("aria-expanded", "false");
-  await head.click();
   await expect(head).toHaveAttribute("aria-expanded", "true");
   return fold;
 }

@@ -21,7 +21,7 @@ import { useBrowseInitiativeFilesActions } from "./browse-files.tsx";
 import { useRestoreInitiativeAction } from "./archive-parts.tsx";
 import { useBackToShapingAction } from "./initiative-back-to-shaping.tsx";
 import { useInitiativePauseAction } from "./initiative-pause.tsx";
-import { usePlanWithAction } from "./initiative-plan-with.tsx";
+import { usePlanWithAction, useStillPlanningReason } from "./initiative-plan-with.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
 import { DropInitiativeDialog } from "./drop-initiative-dialog.tsx";
 import { AddExistingTaskDialog } from "./initiative-membership.tsx";
@@ -164,7 +164,8 @@ function useConfirmAction(initiative: Initiative): RecordAction | undefined {
  * Plan the Initiative, beside its Auto mode switch: one planning Thread with the Planner, who plans
  * its Backlog Tasks in their dependency order. The switch starts at the remembered default, which
  * the choice becomes, as with Make a plan; from the More menu it plans as the switch stands. None
- * while nobody is the Planner.
+ * while nobody is the Planner; disabled, saying why, while the latest planning Thread's person is
+ * answering there.
  */
 export function usePlanTheInitiativeAction(
   initiative: Initiative,
@@ -176,6 +177,7 @@ export function usePlanTheInitiativeAction(
   const remembered = useRememberedAutoMode();
   const [chosen, setChosen] = useState<boolean>();
   const autoMode = chosen ?? remembered;
+  const stillPlanning = useStillPlanningReason(initiative, planner);
   const planning = useInitiativeChange(
     initiative,
     (inAutoMode: boolean) => planInitiative(initiative.id, inAutoMode),
@@ -195,6 +197,8 @@ export function usePlanTheInitiativeAction(
     tone: "plan",
     variant: "primary",
     pending: planning.isPending,
+    disabled: stillPlanning !== undefined,
+    ...(stillPlanning !== undefined && { hint: stillPlanning }),
     onSelect: plan,
     control: (
       <div className="make-a-plan">
@@ -203,6 +207,8 @@ export function usePlanTheInitiativeAction(
           className={actionToneClassName("plan", "primary")}
           iconLeft={<Icon name="map" size={14} />}
           loading={planning.isPending}
+          disabled={stillPlanning !== undefined}
+          title={stillPlanning}
           onClick={plan}
         >
           Plan the Initiative

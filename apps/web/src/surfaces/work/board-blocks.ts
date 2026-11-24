@@ -1,5 +1,5 @@
-import type { QueuedTask, TaskSummary } from "@the-office/contracts";
-import { queuedEntryOf, type Column } from "./board-columns.ts";
+import type { TaskSummary } from "@the-office/contracts";
+import type { Column } from "./board-columns.ts";
 import { groupKeyOf, NO_INITIATIVE } from "./board-groups.ts";
 
 /** A column's item: an Initiative's block with its cards, or a card with no Initiative. */
@@ -60,19 +60,13 @@ export function blockDropRefusal(from: string, over: string): string | undefined
   return from === NO_INITIATIVE ? LOOSE_REFUSAL : BLOCK_REFUSAL;
 }
 
-/** A block head's count: how many cards the column shows, or in Queued their places, with its words. */
+/**
+ * A block head's count: how many cards the column shows, with its words. In Queued too, where each
+ * card's own Queued mark gives its place.
+ */
 export function blockCount(
   cards: readonly TaskSummary[],
   column: Column,
-  queue: readonly QueuedTask[],
 ): { readonly shown: string; readonly words: string } {
-  if (column.key === "queued") {
-    const places = cards.flatMap((card) => queuedEntryOf(card, queue)?.place ?? []);
-    return {
-      // A no-break space before each dot, so a wrapped list never starts a line with one.
-      shown: places.map((place) => `#${place}`).join(" · "),
-      words: `${places.length === 1 ? "Place" : "Places"} ${new Intl.ListFormat("en").format(places.map(String))} in the queue`,
-    };
-  }
   return { shown: String(cards.length), words: `${cards.length} of its Tasks in ${column.label}` };
 }

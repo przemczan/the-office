@@ -34,6 +34,7 @@ import { MissingRecord } from "./missing-record.tsx";
 import { PipelineRail, RailLoader } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
 import { RecordActions } from "./record-actions.tsx";
+import { TaskEngineBlock } from "./work-engine-block.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "../../shell/work/record-tab.ts";
 import { useStageHistory } from "./use-stage-history.ts";
 import { StartNotes } from "./start-action.tsx";
@@ -269,7 +270,7 @@ export function EngineStandInsMark({ task }: { readonly task: Task }): ReactNode
   );
 }
 
-/** Overview, Changes and Attachments, with how many files the Task changed and it holds. */
+/** Overview, Changes, Attachments and Engine, with how many files the Task changed and it holds. */
 function RecordTabs({
   task,
   shown,
@@ -286,6 +287,7 @@ function RecordTabs({
         { value: "overview", label: "Overview" },
         { value: "changes", label: "Changes", ...countOf(changedFiles) },
         { value: "attachments", label: "Attachments", ...countOf(attachments) },
+        { value: "engine", label: "Engine" },
       ]}
       value={shown ?? "overview"}
       onChange={(value) =>
@@ -318,6 +320,12 @@ function RecordTabContent({
       return (
         <div className="task-record">
           <AttachmentsBlock owner={{ kind: "task", taskId: task.id }} ownerTitle={task.title} />
+        </div>
+      );
+    case "engine":
+      return (
+        <div className="task-record">
+          <TaskEngineBlock task={task} />
         </div>
       );
     case undefined:
