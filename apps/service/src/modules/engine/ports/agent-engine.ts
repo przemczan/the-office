@@ -161,6 +161,20 @@ export abstract class AgentEngine {
   abstract readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined>;
 
   /**
+   * The models `engine`'s account offers now, by the ids a session names them by (spec §5.4.5,
+   * "Models an engine lists"), with no session and no model call. Undefined when the engine type
+   * has no list to ask for, or the account answered none, so its kept or fixed list stands. As
+   * `readUsageWindows`, whatever it opens ends before it answers, within `ENGINE_READ_TIMEOUT_MS`
+   * (`EngineReadTimedOut`), or sooner on `signal`.
+   */
+  listModels(engine: Engine, signal: AbortSignal): Promise<readonly string[] | undefined> {
+    void engine;
+    void signal;
+    // An engine whose accounts list their models overrides this.
+    return Promise.resolve(undefined);
+  }
+
+  /**
    * Carries the ended session `sessionId` over from engine `from` to engine `to`, so `to` resumes
    * it with its conversation. Idempotent, and `from`'s copy is left as it was. Needs the
    * `carrySession` capability; throws `SessionNotCarried` when `from` holds no such session.

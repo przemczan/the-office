@@ -42,6 +42,11 @@ export class RecordingEngine extends AgentEngine {
     return this.engine.readUsageWindows(engine, signal);
   }
 
+  /** Not recorded, as `readUsageWindows`. */
+  override listModels(engine: Engine, signal: AbortSignal): Promise<readonly string[] | undefined> {
+    return this.engine.listModels(engine, signal);
+  }
+
   async save(file: string): Promise<void> {
     await writeRecording(
       file,

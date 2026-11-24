@@ -8,7 +8,9 @@ import { EngineRefused } from "../domain/engine-refused.js";
 import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
 import {
+  COPILOT_CLI_AUTO_MODEL,
   hasUsageWindows,
+  listsItsModels,
   type Engine,
   type EngineId,
   type EngineModel,
@@ -45,6 +47,7 @@ import { AgentEngines } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
 import { ModelPrices } from "./model-prices.js";
 import { DayUsage } from "./day-usage.js";
+import { EngineModelLists } from "./engine-model-lists.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
@@ -107,6 +110,7 @@ export class EngineSessions {
     private readonly languageServers: SessionLanguageServers,
     private readonly prices: ModelPrices,
     @Optional() private readonly testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
+    @Optional() private readonly modelLists?: EngineModelLists,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
@@ -348,6 +352,7 @@ export class EngineSessions {
       session = await open();
     } catch (error) {
       spans.stopped(error);
+      if (refusedModel(error, settings.model)) this.modelRefused(engine);
       if (!isRefusal(error)) await this.engineDown(sessionId, engine, error);
       throw error;
     }
@@ -363,7 +368,11 @@ export class EngineSessions {
         return { ...refusedTurn, usedUpWindow };
       },
       skillCalled: (skill) => this.skillCalled(sessionId, engine.id, skill),
+      turnFailed: ({ errors }) => {
+        if (namesModel(errors, settings.model)) this.modelRefused(engine);
+      },
       failed: async (error) => {
+        if (refusedModel(error, settings.model)) this.modelRefused(engine);
         if (!isRefusal(error)) await this.engineDown(sessionId, engine, error);
       },
       ended,
@@ -407,6 +416,15 @@ export class EngineSessions {
     await this.events.publish(new SkillCalled(sessionId, engineId, skill, new Date()));
   }
 
+  /**
+   * A session on `engine` was refused for its model, which the engine's kept list may still offer
+   * though its account no longer does: the list is asked for again, in the background, once for a
+   * burst of refusals (`EngineModelLists.modelRefused`).
+   */
+  private modelRefused(engine: Engine): void {
+    if (listsItsModels(engine.kind)) this.modelLists?.modelRefused(engine.id);
+  }
+
   private async engineDown(sessionId: string, engine: Engine, error: unknown): Promise<void> {
     const reason = messageOf(error);
     this.logger.error(`The engine ${engine.id} is down for session ${sessionId}: ${reason}`);
@@ -437,6 +455,8 @@ interface SessionWatch {
    * as failed on an engine without windows.
    */
   readonly refused: (ended: TurnEndedEvent) => Promise<TurnEndedEvent>;
+  /** A turn failed, in the engine's words; the session runs on. */
+  readonly turnFailed: (ended: TurnEndedEvent) => void;
   /**
    * The session's Agent or a subagent called the Skill tool for `skill`, or the user sent a skill
    * command running it.
@@ -521,6 +541,7 @@ class WatchedSession implements EngineSession {
       // Counted before the turn is reported, so a reading or the day's use read once it ended includes it.
       await this.watch.turnEnded(event.usage);
       if (event.outcome === "usage-window-used-up") return this.watch.refused(event);
+      if (event.outcome === "failed") this.watch.turnFailed(event);
     }
     if (event.kind === "tool-call") {
       const skill = calledSkill(event.tool, event.input);
@@ -544,6 +565,27 @@ function isRefusal(error: unknown): boolean {
     error instanceof SessionSkillsDiffer ||
     error instanceof ModelNotOffered
   );
+}
+
+/**
+ * Whether a failed turn's errors name `model` by its id, as the Claude Code and Codex runtimes word
+ * a model the account no longer offers ("There's an issue with the selected model (…)", "The '…'
+ * model is not supported …"): no runtime tells it apart by a code, so naming it is the sign. Auto,
+ * a word any error may hold, names no model.
+ */
+function namesModel(errors: readonly string[], model: string): boolean {
+  if (model === "" || model === COPILOT_CLI_AUTO_MODEL) return false;
+  const named = new RegExp(`(^|[^\\w.-])${escapedForRegExp(model)}($|[^\\w.-])`);
+  return errors.some((error) => named.test(error));
+}
+
+/** Whether a session failed to open or to run as its model isn't offered. */
+function refusedModel(error: unknown, model: string): boolean {
+  return error instanceof ModelNotOffered || namesModel([messageOf(error)], model);
+}
+
+function escapedForRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function messageOf(error: unknown): string {

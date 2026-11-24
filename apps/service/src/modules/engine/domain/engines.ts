@@ -52,8 +52,20 @@ interface EngineBase {
   readonly defaultEffort: Effort | null;
 }
 
+/**
+ * An engine whose account lists its models (`listsItsModels`). The list is kept per engine apart
+ * from the settings, so only the engines `EngineModels` lists carry it (`recordModelList`).
+ */
+interface EngineListingItsModels extends EngineBase {
+  /**
+   * The models its account listed when last asked, by their ids; absent until it first answered,
+   * when its type's fixed list stands in (`offeredModels`).
+   */
+  readonly listedModels?: readonly string[];
+}
+
 /** A Claude Code account, which may run on the `-p` fallback instead of the Agent SDK. */
-export interface ClaudeCodeEngine extends EngineBase {
+export interface ClaudeCodeEngine extends EngineListingItsModels {
   readonly kind: "claude-code";
   readonly claudeCodeP: boolean;
   /**
@@ -74,7 +86,7 @@ export interface ApiEngine extends EngineBase {
 }
 
 /** An OpenAI account, whose sessions run on the pinned `codex app-server` (spec §5.4). */
-export interface CodexEngine extends EngineBase {
+export interface CodexEngine extends EngineListingItsModels {
   readonly kind: "codex";
   /**
    * The OpenAI API key "Use an API key instead" signed it in with, kept so; null when a ChatGPT
@@ -87,7 +99,7 @@ export interface CodexEngine extends EngineBase {
  * A GitHub account with Copilot, whose sessions run on the Copilot CLI runtime the pinned
  * `@microsoft/copilot-sdk` bundles (spec §5.4, "The Copilot CLI engine").
  */
-export interface CopilotCliEngine extends EngineBase {
+export interface CopilotCliEngine extends EngineListingItsModels {
   readonly kind: "copilot-cli";
   /**
    * The token "Paste a token instead" signed it in with, kept so; null when a Sign in or nothing
@@ -113,7 +125,10 @@ export interface GeminiCliEngine extends EngineBase {
 export type Engine =
   ClaudeCodeEngine | ApiEngine | CodexEngine | CopilotCliEngine | GeminiCliEngine;
 
-/** The models the pinned binary offers, on every Claude Code engine, by their ids. */
+/**
+ * The models a Claude Code engine offers until its account first lists its own (spec §5.4.5,
+ * "Models an engine lists"), by their ids.
+ */
 export const CLAUDE_CODE_MODELS = [
   "claude-opus-5-5",
   "claude-sonnet-5-5",
@@ -121,8 +136,9 @@ export const CLAUDE_CODE_MODELS = [
 ] as const;
 
 /**
- * The models the pinned Codex offers a ChatGPT sign-in, by their ids, as the engine check's
- * `model/list` showed them (docs/engine-check.md, `codex.start`), its hidden ones left out.
+ * The models a Codex engine offers until its account first lists its own, by their ids, as the
+ * engine check's `model/list` showed them for a ChatGPT sign-in (docs/engine-check.md,
+ * `codex.start`), its hidden ones left out.
  */
 export const CODEX_MODELS = ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"] as const;
 
@@ -133,8 +149,8 @@ export const CODEX_MODELS = ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"] as c
 export const COPILOT_CLI_AUTO_MODEL = "auto";
 
 /**
- * The models a Copilot CLI engine offers. Spec §5.4 adds those the runtime lists for the account;
- * until its adapter reads them, Auto alone.
+ * The models a Copilot CLI engine offers until its account first lists its own: Auto alone, which
+ * stays first once it does.
  */
 export const COPILOT_CLI_MODELS = [COPILOT_CLI_AUTO_MODEL] as const;
 
@@ -172,20 +188,37 @@ export function engineIdFor(name: string, taken: ReadonlySet<string>): string {
   return `${base}-${suffix}`;
 }
 
-/** The models `engine` offers, by their ids there. */
+/**
+ * The models `engine` offers, by their ids there: those its account listed when last asked, else
+ * its type's fixed list; a Copilot CLI engine's with Auto first.
+ */
 export function offeredModels(engine: Engine): readonly string[] {
   switch (engine.kind) {
     case "claude-code":
-      return CLAUDE_CODE_MODELS;
+      return engine.listedModels ?? CLAUDE_CODE_MODELS;
     case "codex":
-      return CODEX_MODELS;
+      return engine.listedModels ?? CODEX_MODELS;
     case "copilot-cli":
-      return COPILOT_CLI_MODELS;
+      return engine.listedModels === undefined
+        ? COPILOT_CLI_MODELS
+        : [
+            COPILOT_CLI_AUTO_MODEL,
+            ...engine.listedModels.filter((model) => model !== COPILOT_CLI_AUTO_MODEL),
+          ];
     case "gemini-cli":
       return GEMINI_CLI_MODELS;
     case "openai-compatible-api":
       return engine.models.map(({ id }) => id);
   }
+}
+
+/**
+ * Whether an engine of `kind` is asked which models its account offers (spec §5.4.5, "Models an
+ * engine lists"): a Claude Code, Codex or Copilot CLI engine is; a Gemini CLI engine offers the
+ * CLI's aliases and an API endpoint the models the user gives it.
+ */
+export function listsItsModels(kind: EngineKind): boolean {
+  return kind === "claude-code" || kind === "codex" || kind === "copilot-cli";
 }
 
 /**

@@ -2,12 +2,11 @@ import type { EngineRemoval } from "./engine-removal.js";
 import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
 import { standInListProblems, standInListWithout } from "./stand-in-engines.js";
 import {
-  CLAUDE_CODE_MODELS,
-  CODEX_MODELS,
   effortsTakenBy,
   ENGINE_TYPE_NAMES,
   engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
+  listsItsModels,
   offeredModels,
   pricedPerEngine,
   type ApiEngine,
@@ -88,8 +87,11 @@ type EditOf<E extends Engine, Kept extends keyof E = never> = Omit<
   readonly defaultEffort?: Effort | null;
 };
 
-/** A Claude Code engine as Settings › Engines saves it: without an `id` when it is new. */
-export type ClaudeCodeEngineEdit = EditOf<ClaudeCodeEngine>;
+/**
+ * A Claude Code engine as Settings › Engines saves it: without an `id` when it is new, and never
+ * with the models its account listed, which only asking it sets (a Save keeps them).
+ */
+export type ClaudeCodeEngineEdit = EditOf<ClaudeCodeEngine, "listedModels">;
 
 /**
  * An API engine as Settings › Engines saves it: without an `id` when it is new, and without a `key`
@@ -99,15 +101,16 @@ export type ApiEngineEdit = EditOf<ApiEngine, "key"> & { readonly key?: string }
 
 /**
  * A Codex engine as Settings › Engines saves it: without an `id` when it is new, and never with
- * its API key, which only signing it in sets (a Save keeps the one kept).
+ * its API key, which only signing it in sets (a Save keeps the one kept), nor its listed models.
  */
-export type CodexEngineEdit = EditOf<CodexEngine, "apiKey">;
+export type CodexEngineEdit = EditOf<CodexEngine, "apiKey" | "listedModels">;
 
 /**
  * A Copilot CLI engine as Settings › Engines saves it: without an `id` when it is new, and never
- * with its token, which only "Paste a token instead" sets (a Save keeps the one kept).
+ * with its token, which only "Paste a token instead" sets (a Save keeps the one kept), nor its
+ * listed models.
  */
-export type CopilotCliEngineEdit = EditOf<CopilotCliEngine, "token">;
+export type CopilotCliEngineEdit = EditOf<CopilotCliEngine, "token" | "listedModels">;
 
 /**
  * A Gemini CLI engine as Settings › Engines saves it: without an `id` when it is new, and never
@@ -138,9 +141,9 @@ export interface EngineSettingsEdit {
 export const ENGINE_NAME_LENGTH = 40;
 
 /**
- * Every model that may be priced, in order, with its Model price or none: the Claude models while
- * there is a Claude Code engine, the Codex models while there is a Codex engine, then each API and
- * Copilot CLI and Gemini CLI engine's, in their order.
+ * Every model that may be priced, in order, with its Model price or none: the models any Claude
+ * Code engine offers, then those any Codex engine offers, then each API and Copilot CLI and Gemini
+ * CLI engine's, in their order.
  */
 export function offeredModelPrices({ engines, modelPrices }: EngineSettings): OfferedModel[] {
   const priceOf = (engineId: EngineId | null, model: string) =>
@@ -156,9 +159,9 @@ export function offeredModelPrices({ engines, modelPrices }: EngineSettings): Of
 }
 
 /**
- * The models priced under a price's `engineId`: null for the Claude models while a Claude Code
- * engine is listed, then the Codex models while a Codex engine is, each priced once for them all;
- * an API, Copilot CLI or Gemini CLI engine's id for its own models.
+ * The models priced under a price's `engineId`: null for the models every Claude Code engine
+ * offers, then every Codex engine's, each priced once for them all, in order and once each; an
+ * API, Copilot CLI or Gemini CLI engine's id for its own models.
  */
 function modelsPricedUnder(
   engines: readonly Engine[],
@@ -166,8 +169,10 @@ function modelsPricedUnder(
 ): readonly string[] {
   if (engineId === null) {
     return [
-      ...(engines.some(({ kind }) => kind === "claude-code") ? CLAUDE_CODE_MODELS : []),
-      ...(engines.some(({ kind }) => kind === "codex") ? CODEX_MODELS : []),
+      ...new Set([
+        ...engines.filter(({ kind }) => kind === "claude-code").flatMap(offeredModels),
+        ...engines.filter(({ kind }) => kind === "codex").flatMap(offeredModels),
+      ]),
     ];
   }
   const engine = engines.find(({ id }) => id === engineId);
@@ -237,7 +242,14 @@ function settingsOf(
   problems: string[],
 ): EngineSettings {
   const engines = changedEnginesOf(stored.engines, edit.engines, problems);
-  for (const engine of engines) problems.push(...engineProblems(engine));
+  for (const engine of engines) {
+    problems.push(
+      ...engineProblems(
+        engine,
+        stored.engines.find(({ id }) => id === engine.id),
+      ),
+    );
+  }
   problems.push(...duplicateNameProblems(engines));
   const officeDefault = officeDefaultOf(edit.officeDefault, engines, stored.engines);
   problems.push(...officeDefaultProblems(officeDefault, engines));
@@ -305,16 +317,27 @@ function changedEnginesOf(
         edit.defaultEffort === undefined ? (kept?.defaultEffort ?? null) : edit.defaultEffort,
     };
     if (edit.kind === "claude-code") {
-      return { ...common, kind: edit.kind, claudeCodeP: edit.claudeCodeP };
+      return {
+        ...common,
+        kind: edit.kind,
+        claudeCodeP: edit.claudeCodeP,
+        ...listedModelsOf(kept?.kind === "claude-code" ? kept : undefined),
+      };
     }
     if (edit.kind === "codex") {
-      return { ...common, kind: edit.kind, apiKey: kept?.kind === "codex" ? kept.apiKey : null };
+      return {
+        ...common,
+        kind: edit.kind,
+        apiKey: kept?.kind === "codex" ? kept.apiKey : null,
+        ...listedModelsOf(kept?.kind === "codex" ? kept : undefined),
+      };
     }
     if (edit.kind === "copilot-cli") {
       return {
         ...common,
         kind: edit.kind,
         token: kept?.kind === "copilot-cli" ? kept.token : null,
+        ...listedModelsOf(kept?.kind === "copilot-cli" ? kept : undefined),
       };
     }
     if (edit.kind === "gemini-cli") {
@@ -335,7 +358,19 @@ function changedEnginesOf(
   });
 }
 
-function engineProblems(engine: Engine): string[] {
+/** The models the kept engine's account listed, carried onto its edit; none for a new engine. */
+function listedModelsOf(kept: { readonly listedModels?: readonly string[] } | undefined): {
+  readonly listedModels?: readonly string[];
+} {
+  return kept?.listedModels === undefined ? {} : { listedModels: kept.listedModels };
+}
+
+/**
+ * Why `engine` is refused. Its default model is one it offers now, or, on an engine whose account
+ * lists its models, the one `kept` was saved with, kept though the account no longer lists it,
+ * which Settings › Engines flags (spec §5.4.5, "Models an engine lists").
+ */
+function engineProblems(engine: Engine, kept: Engine | undefined): string[] {
   const { id, name } = engine;
   const problems: string[] = [];
   if (name === "") problems.push("Give each engine a name.");
@@ -345,7 +380,11 @@ function engineProblems(engine: Engine): string[] {
   }
   const called = name === "" ? "the engine" : `"${name}"`;
   if (engine.kind === "openai-compatible-api") problems.push(...apiEngineProblems(engine, called));
-  if (!offeredModels(engine).includes(engine.defaultModel)) {
+  const keptDefaultModel =
+    listsItsModels(engine.kind) &&
+    kept?.kind === engine.kind &&
+    kept.defaultModel === engine.defaultModel;
+  if (!offeredModels(engine).includes(engine.defaultModel) && !keptDefaultModel) {
     problems.push(`Pick the default model of ${called} among its models.`);
   }
   if (

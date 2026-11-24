@@ -17,6 +17,7 @@ import {
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { OfficeTool, OfficeToolCall, OfficeToolPicture } from "../../ports/office-tool.js";
 import type { SessionMcpServer, SessionOptions } from "../../ports/session-options.js";
+import { serviceVariables } from "../claude-code/engine-read.js";
 import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import {
   officeToolCall,
@@ -31,6 +32,11 @@ import { listedSkills } from "../skills/listed-skills.js";
 import { frontmatterText, markdownFile, textOrNone } from "../skills/markdown-file.js";
 import { CopilotCliSession, type CopilotSessionSkills } from "./copilot-cli-session.js";
 import { copilotEnvironment } from "./copilot-environment.js";
+import {
+  listModelsOnCopilotRuntime,
+  sdkCopilotModelRuntimes,
+  type OpenCopilotModelRuntime,
+} from "./copilot-model-list.js";
 import type {
   CopilotOfficeTool,
   CopilotSessionSpec,
@@ -57,6 +63,9 @@ export const COPILOT_CLI_CAPABILITIES: EngineCapabilities = {
 
 /** Binds the `OpenCopilotSession` sessions run on for tests; the service binds none: the SDK's. */
 export const OPEN_COPILOT_SESSION = Symbol("OpenCopilotSession");
+
+/** Binds the `OpenCopilotModelRuntime` model lists run on for tests; the service binds none. */
+export const OPEN_COPILOT_MODEL_RUNTIME = Symbol("OpenCopilotModelRuntime");
 
 /**
  * The runtime's own config file in its folder, whose MCP servers it joins to every session
@@ -107,13 +116,19 @@ export class CopilotSdkEngine extends AgentEngine {
 
   private readonly operatingSystem: OperatingSystem = currentOperatingSystem();
   private readonly openSession: OpenCopilotSession;
+  private readonly openModelRuntime: OpenCopilotModelRuntime;
 
   constructor(
     private readonly officeData: OfficeDataDirectory,
     @Optional() @Inject(OPEN_COPILOT_SESSION) openSession?: OpenCopilotSession,
+    @Optional()
+    @Inject(OPEN_COPILOT_MODEL_RUNTIME)
+    openModelRuntime?: OpenCopilotModelRuntime,
   ) {
     super();
     this.openSession = openSession ?? sdkCopilotSessions(this.operatingSystem.processTrees);
+    this.openModelRuntime =
+      openModelRuntime ?? sdkCopilotModelRuntimes(copilotEnvironment(serviceVariables()));
   }
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
@@ -133,6 +148,23 @@ export class CopilotSdkEngine extends AgentEngine {
   /** The engine has no usage windows, by decision (spec §5.4). */
   readUsageWindows(): Promise<UsageWindows | undefined> {
     return Promise.resolve(undefined);
+  }
+
+  /**
+   * On a runtime started for the read alone on the engine's folder, signed in as its sessions are:
+   * by the engine's token when one is kept, else by the folder's own sign-in.
+   */
+  override async listModels(
+    engine: Engine,
+    signal: AbortSignal,
+  ): Promise<readonly string[] | undefined> {
+    if (engine.kind !== "copilot-cli") return undefined;
+    return listModelsOnCopilotRuntime(
+      this.openModelRuntime,
+      await preparedEngineConfigFolder(this.officeData, engine.id),
+      engine.token?.reveal(),
+      { what: `Listing the models of the engine ${engine.id}`, signal },
+    );
   }
 
   /**

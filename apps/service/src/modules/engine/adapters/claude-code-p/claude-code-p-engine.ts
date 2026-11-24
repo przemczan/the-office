@@ -55,6 +55,7 @@ import { OfficeToolServer } from "./office-tool-server.js";
 import { pinnedBinaryPath } from "./pinned-binary.js";
 import { SessionEndpoints, type OpenEndpoints } from "./session-endpoints.js";
 import { StreamJson } from "./stream-json.js";
+import { listModelsOnStreamJson } from "./model-list-read.js";
 import { claudeCodePReadArguments, readUsageWindowsOnStreamJson } from "./usage-window-read.js";
 import {
   claudeCodePWindowStartArguments,
@@ -144,6 +145,25 @@ export class ClaudeCodePEngine extends AgentEngine {
       },
       this.operatingSystem.processTrees,
       { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+    );
+  }
+
+  /** A Claude Code engine's, on the pinned binary started for the read alone, on its config folder. */
+  override async listModels(
+    engine: Engine,
+    signal: AbortSignal,
+  ): Promise<readonly string[] | undefined> {
+    if (engine.kind !== "claude-code") return undefined;
+    const configFolder = await preparedEngineConfigFolder(this.officeData, engine.id);
+    return listModelsOnStreamJson(
+      {
+        command: pinnedBinaryPath(this.operatingSystem.claudeCodeBinaries),
+        args: claudeCodePReadArguments(),
+        cwd: configFolder,
+        env: sessionEnvironment(serviceVariables(), configFolder),
+      },
+      this.operatingSystem.processTrees,
+      { what: `Listing the models of the engine ${engine.id}`, signal },
     );
   }
 

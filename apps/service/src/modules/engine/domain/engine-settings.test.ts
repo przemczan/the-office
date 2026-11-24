@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   changedEngineSettings,
   DEFAULT_ENGINE_SETTINGS,
+  offeredModelPrices,
   settingsWithoutEngine,
 } from "./engine-settings.js";
-import { FIRST_CLAUDE_CODE_ENGINE } from "./engines.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type ClaudeCodeEngine } from "./engines.js";
 import {
   codex,
   codexEdit,
@@ -159,6 +160,57 @@ describe("changedEngineSettings", () => {
     expect(refused({ askBeforeSwitchAbove: -1 })).toEqual(sizeRefusal);
     expect(refused({ askBeforeSwitchAbove: 1.5 })).toEqual(sizeRefusal);
     expect(refused({ askBeforeSwitchAbove: 10_000_001 })).toEqual(sizeRefusal);
+  });
+});
+
+describe("changedEngineSettings on engines whose account listed their models", () => {
+  /** The first Claude Code engine on a model its account no longer lists. */
+  const listed: ClaudeCodeEngine = {
+    ...FIRST_CLAUDE_CODE_ENGINE,
+    defaultModel: "claude-haiku-5-5",
+    listedModels: ["claude-opus-6", "claude-sonnet-5-5"],
+  };
+  const storedListed = { ...stored, engines: [listed, strata] };
+
+  it("keeps a saved default model the account no longer lists, and the listed models on the engine", () => {
+    const changed = changedEngineSettings(
+      storedListed,
+      editOf([strataEdit()], {
+        engines: [claudeCodeEdit({ defaultModel: "claude-haiku-5-5" }), strataEdit()],
+      }),
+    );
+
+    expect(changed.engines[0]).toEqual(listed);
+  });
+
+  it("refuses a default model newly picked the account doesn't list, and takes one it lists", () => {
+    expect(
+      refusal(
+        storedListed,
+        editOf([], {
+          engines: [claudeCodeEdit({ defaultModel: "claude-opus-5-5" }), strataEdit()],
+        }),
+      ),
+    ).toEqual(['Pick the default model of "Claude Code" among its models.']);
+    expect(
+      changedEngineSettings(
+        storedListed,
+        editOf([], { engines: [claudeCodeEdit({ defaultModel: "claude-opus-6" }), strataEdit()] }),
+      ).engines[0]?.defaultModel,
+    ).toBe("claude-opus-6");
+  });
+
+  it("prices once each model any Claude Code engine offers, in their order", () => {
+    const second: ClaudeCodeEngine = {
+      ...FIRST_CLAUDE_CODE_ENGINE,
+      id: "second",
+      name: "Second",
+      listedModels: ["claude-sonnet-5-5", "claude-haiku-5-5"],
+    };
+
+    expect(
+      offeredModelPrices({ ...storedListed, engines: [listed, second] }).map(({ model }) => model),
+    ).toEqual(["claude-opus-6", "claude-sonnet-5-5", "claude-haiku-5-5"]);
   });
 });
 

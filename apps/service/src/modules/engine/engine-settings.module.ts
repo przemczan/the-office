@@ -10,6 +10,7 @@ import { EngineSettingsService } from "./application/engine-settings-service.js"
 import { ModelPrices } from "./application/model-prices.js";
 import { NextWindowStarts } from "./application/next-window-starts.js";
 import { RunningEngineSessions } from "./application/running-engine-sessions.js";
+import { StaleModelLists } from "./application/stale-model-lists.js";
 import { EngineSettingsRepository } from "./ports/engine-settings-repository.js";
 import { WindowStartRepository } from "./ports/window-start-repository.js";
 
@@ -19,7 +20,8 @@ import { WindowStartRepository } from "./ports/window-start-repository.js";
  * for both the sessions and the accounts. Both `EngineModule` and `ScriptedEngineModule` hold it, so a test on
  * scripted engines keeps them; the OpenAI-compatible API engine reads its API endpoints, keys included, from the repository.
  * Each engine's Window start is kept beside them (`WindowStartRepository`), as a removal deletes it
- * with the engine, and its next start (`NextWindowStarts`), which the scheduler keeps.
+ * with the engine, and its next start (`NextWindowStarts`), which the scheduler keeps. Showing the
+ * models asks for the stale model lists (`StaleModelLists`), which `EngineModelLists` registers.
  */
 @Module({
   controllers: [EngineSettingsController],
@@ -34,6 +36,7 @@ import { WindowStartRepository } from "./ports/window-start-repository.js";
     ModelPrices,
     RunningEngineSessions,
     NextWindowStarts,
+    StaleModelLists,
   ],
   exports: [
     EngineSettingsService,
@@ -46,6 +49,7 @@ import { WindowStartRepository } from "./ports/window-start-repository.js";
     WindowStartRepository,
     RunningEngineSessions,
     NextWindowStarts,
+    StaleModelLists,
   ],
 })
 export class EngineSettingsModule {}

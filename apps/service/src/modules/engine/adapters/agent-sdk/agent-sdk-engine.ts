@@ -43,6 +43,7 @@ import { initProblems, startCheckProblems } from "../claude-code/start-check.js"
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
 import { serviceVariables } from "../claude-code/engine-read.js";
 import { sdkMcpConfig, sdkOptions, type SdkSession } from "./sdk-options.js";
+import { listModelsOnSdk } from "./model-list-read.js";
 import { readUsageWindowsOnSdk } from "./usage-window-read.js";
 import { startUsageWindowOnSdk } from "./usage-window-start.js";
 import {
@@ -99,6 +100,22 @@ export class AgentSdkEngine extends AgentEngine {
         processTrees: this.operatingSystem.processTrees,
       },
       { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+    );
+  }
+
+  /** A Claude Code engine's, on a query opened for the read alone, on its config folder. */
+  override async listModels(
+    engine: Engine,
+    signal: AbortSignal,
+  ): Promise<readonly string[] | undefined> {
+    if (engine.kind !== "claude-code") return undefined;
+    return listModelsOnSdk(
+      {
+        configFolder: await preparedEngineConfigFolder(this.officeData, engine.id),
+        environment: serviceVariables(),
+        processTrees: this.operatingSystem.processTrees,
+      },
+      { what: `Listing the models of the engine ${engine.id}`, signal },
     );
   }
 

@@ -595,6 +595,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - **Add a person** opens a medium window "Model and effort for a person in <name>":
   - **Person** ("Pick a person"; people not let go and without a row).
   - Then a row for each engine type with an engine listed, in the table's order: its icon and name, **Model** and **Effort** ("Person's setting" first, then the type's; a type that takes no effort has no Effort).
+  - A saved model no engine of the type lists any more stays picked, "<model> · No longer offered", until another is picked ([5.4.5](../5.4.5-engines-and-cascade.md#models-an-engine-lists)).
   - Once a person is picked, each row's hint reads "Role card: <model> · <effort>", so "Person's setting" shows what it stands for.
   - While the force is on, the forced type's row is dimmed with "Forced above: <model> · <effort> wins while the force is on."; its values stay settable for when it is off.
   - Bar: **Add** (primary), off until a person is picked and at least one model or effort is set, and **Close**.

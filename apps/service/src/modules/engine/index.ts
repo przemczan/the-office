@@ -36,6 +36,7 @@ export {
   UsageWindowUsedUp,
 } from "./domain/engine-events.js";
 export { EngineModels, type StandInEngineSettings } from "./application/engine-models.js";
+export { EngineModelLists } from "./application/engine-model-lists.js";
 export { usageWindowWords } from "./domain/usage-window-words.js";
 export { showsFree } from "./domain/usage-windows.js";
 export type { UsageWindowName } from "./ports/session-events.js";

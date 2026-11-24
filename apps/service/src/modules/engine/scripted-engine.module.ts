@@ -7,6 +7,10 @@ import { PostgresDayUsage } from "./adapters/postgres/postgres-day-usage.js";
 import { PostgresUsageWindowSamples } from "./adapters/postgres/postgres-usage-window-samples.js";
 import { AgentEngines, type EngineAdapter } from "./application/agent-engines.js";
 import { DayUsage } from "./application/day-usage.js";
+import { EngineModelLists } from "./application/engine-model-lists.js";
+import { EngineModelListsController } from "./adapters/http/engine-model-lists.controller.js";
+import { PostgresModelLists } from "./adapters/postgres/postgres-model-lists.js";
+import { ModelListRepository } from "./ports/model-list-repository.js";
 import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
 import { ChangedAccountUsage } from "./application/changed-account-usage.js";
@@ -40,6 +44,7 @@ export class ScriptedEngineModule {
     return {
       module: ScriptedEngineModule,
       imports: [EngineSettingsModule, ScheduleModule, BusyWorkModule],
+      controllers: [EngineModelListsController],
       providers: [
         { provide: AgentEngines, useValue: new AgentEngines(perEngine(engines)) },
         OfficeToolRegistry,
@@ -50,6 +55,8 @@ export class ScriptedEngineModule {
         UsageWindowSamples,
         UsageWindowReadings,
         UsageWindowChecks,
+        { provide: ModelListRepository, useClass: PostgresModelLists },
+        EngineModelLists,
         WindowStarts,
         RemovedEngineUsage,
         ChangedAccountUsage,
@@ -65,6 +72,7 @@ export class ScriptedEngineModule {
         UsageWindowSamples,
         UsageWindowsNow,
         DayUsage,
+        EngineModelLists,
         EngineSettingsModule,
       ],
     };

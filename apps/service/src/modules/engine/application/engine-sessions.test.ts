@@ -12,6 +12,7 @@ import {
 import { GEMINI_CLI_CAPABILITIES } from "../adapters/gemini-cli/gemini-cli-capabilities.js";
 import {
   EngineNotListed,
+  ModelNotOffered,
   SessionSkillsDiffer,
   type AgentEngine,
   type EngineCapabilities,
@@ -44,6 +45,7 @@ import { EngineModels } from "./engine-models.js";
 import { ModelPrices } from "./model-prices.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { DayUsage } from "./day-usage.js";
+import type { EngineModelLists } from "./engine-model-lists.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowSamples } from "./usage-window-samples.js";
@@ -158,6 +160,7 @@ function setUpOn(
   settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
   languageServers: SessionLanguageServers = new NoLanguageServers(),
   testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
+  modelLists?: EngineModelLists,
 ) {
   const spans = new InMemorySpanExporter();
   const tracerProvider = new TracerProvider({
@@ -191,6 +194,7 @@ function setUpOn(
     languageServers,
     new ModelPrices(settings),
     testInstance,
+    modelLists,
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }
@@ -494,5 +498,77 @@ describe("EngineSessions' readings of the usage windows", () => {
       ]);
       expect(await dayUsage.today(LAB.id)).toEqual([{ model: "coder", tokens: TURN_TOKENS }]);
     });
+  });
+});
+
+/** A failed turn in the engine's words. */
+function failedTurn(error: string): SessionScript {
+  return [
+    { step: "start", brief: { id: "brief", text: "Begin." } },
+    {
+      step: "event",
+      event: {
+        kind: "turn-ended",
+        outcome: "failed",
+        consumedMessageIds: ["brief"],
+        usage: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+        sessionCostUsd: 0,
+        output: undefined,
+        errors: [error],
+      },
+    },
+    { step: "end" },
+  ];
+}
+
+function onScripts(agentSdk: ScriptedEngine) {
+  const modelRefused = vi.fn<(engineId: string) => void>();
+  const modelLists = { modelRefused } as unknown as EngineModelLists;
+  const { sessions } = setUpOn(
+    {
+      "agent-sdk": agentSdk,
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
+    },
+    undefined,
+    undefined,
+    undefined,
+    modelLists,
+  );
+  return { sessions, modelRefused };
+}
+
+describe("EngineSessions on a model the engine no longer offers", () => {
+  it("asks for the engine's models again when it refuses the session's model", async () => {
+    const agentSdk = new ScriptedEngine([]);
+    vi.spyOn(agentSdk, "start").mockRejectedValue(
+      new ModelNotOffered("claude-haiku-5-5", "the account doesn't offer it."),
+    );
+    const { sessions, modelRefused } = onScripts(agentSdk);
+
+    await expect(
+      sessions.start({ id: randomUUID(), settings: SETTINGS, brief: message("Begin.") }),
+    ).rejects.toThrow(ModelNotOffered);
+
+    expect(modelRefused).toHaveBeenCalledWith("claude-code");
+  });
+
+  it("asks again when a turn fails naming the session's model, and not for another failure", async () => {
+    const { sessions, modelRefused } = onScripts(
+      new ScriptedEngine([
+        failedTurn("Rate limited, try again later."),
+        failedTurn(
+          "There's an issue with the selected model (claude-haiku-5-5). It may not exist or you may not have access to it.",
+        ),
+      ]),
+    );
+
+    await oneTurn(sessions, SETTINGS);
+    expect(modelRefused).not.toHaveBeenCalled();
+    await oneTurn(sessions, SETTINGS);
+    expect(modelRefused).toHaveBeenCalledExactlyOnceWith("claude-code");
   });
 });

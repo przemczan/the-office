@@ -1,15 +1,22 @@
 import {
+  CLAUDE_CODE_MODELS,
   CODEX_MODELS,
+  COPILOT_CLI_MODELS,
+  GEMINI_CLI_MODELS,
   type ApiEngine,
   type ClaudeCodeEngine,
   type CodexEngine,
   type CopilotCliEngine,
   type EngineSettings,
+  type GeminiCliEngine,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  defaultModelChoicesOf,
+  defaultModelNoLongerOffered,
   draftChanged,
   draftedEngines,
+  engineModelsOf,
   draftOf,
   engineSettingsEditOf,
   keyOnSave,
@@ -70,6 +77,7 @@ const SAVED: EngineSettings = {
   standInEngines: ["strata"],
   askBeforeSwitchAbove: 100_000,
   windowStarts: [],
+  modelLists: [],
   timeZone: "UTC",
 };
 
@@ -607,6 +615,145 @@ describe("Settings › Engines' draft", () => {
         accounts: [{ id: "copilot", name: "Copilot" }],
       });
     });
+  });
+});
+
+const GEMINI_CLI: GeminiCliEngine = {
+  id: "gemini",
+  name: "Gemini",
+  kind: "gemini-cli",
+  defaultModel: "auto",
+  defaultEffort: null,
+};
+
+/**
+ * Saved with an engine of each type that lists its models: Codex and Copilot CLI listed theirs, the
+ * Claude Code engine still on the fixed list; the Codex engine's default no longer offered.
+ */
+const SAVED_WITH_LISTS: EngineSettings = {
+  ...SAVED,
+  engines: [
+    CLAUDE_CODE,
+    { ...CODEX, defaultModel: "gpt-5.6-terra" },
+    { ...COPILOT_CLI, defaultModel: "gpt-6" },
+    GEMINI_CLI,
+    STRATA,
+  ],
+  modelPrices: [
+    ...MODEL_PRICES.slice(0, 1),
+    { engineId: null, model: "gpt-7", price: null },
+    { engineId: null, model: "gpt-6-luna", price: null },
+    ...MODEL_PRICES.slice(1),
+    { engineId: "copilot", model: "auto", price: null },
+    { engineId: "copilot", model: "claude-sonnet-5-5", price: null },
+    { engineId: "gemini", model: "auto", price: null },
+  ],
+  modelLists: [
+    {
+      engineId: "claude-code",
+      models: ["claude-sonnet-5-5"],
+      listsItsModels: true,
+      listedAt: null,
+    },
+    {
+      engineId: "codex",
+      models: ["gpt-7", "gpt-6-luna"],
+      listsItsModels: true,
+      listedAt: "2026-11-23T06:00:00.000Z",
+    },
+    {
+      engineId: "copilot",
+      models: ["auto", "claude-sonnet-5-5"],
+      listsItsModels: true,
+      listedAt: "2026-11-23T06:00:00.000Z",
+    },
+    { engineId: "gemini", models: [...GEMINI_CLI_MODELS], listsItsModels: false, listedAt: null },
+  ],
+};
+
+describe("Settings › Engines' models each engine offers", () => {
+  it("offers a saved engine's models as its list gives them", () => {
+    const draft = draftOf(SAVED_WITH_LISTS);
+
+    expect(engineModelsOf(SAVED_WITH_LISTS, draft.claudeCodeEngines[0]!)).toEqual([
+      "claude-sonnet-5-5",
+    ]);
+    expect(engineModelsOf(SAVED_WITH_LISTS, draft.codexEngines[0]!)).toEqual([
+      "gpt-7",
+      "gpt-6-luna",
+    ]);
+    expect(engineModelsOf(SAVED_WITH_LISTS, draft.copilotCliEngines[0]!)).toEqual([
+      "auto",
+      "claude-sonnet-5-5",
+    ]);
+    expect(engineModelsOf(SAVED_WITH_LISTS, draft.geminiCliEngines[0]!)).toEqual(GEMINI_CLI_MODELS);
+  });
+
+  it("offers an engine not saved yet its type's fixed list", () => {
+    expect(engineModelsOf(SAVED_WITH_LISTS, newCodexEngine(SAVED))).toEqual(CODEX_MODELS);
+    expect(engineModelsOf(SAVED_WITH_LISTS, newCopilotCliEngine())).toEqual(COPILOT_CLI_MODELS);
+    expect(engineModelsOf(SAVED_WITH_LISTS, newGeminiCliEngine())).toEqual(GEMINI_CLI_MODELS);
+    expect(engineModelsOf(SAVED_WITH_LISTS, newClaudeCodeEngine(SAVED))).toEqual(
+      CLAUDE_CODE_MODELS,
+    );
+  });
+
+  it("adds an engine on a default its type's fixed list has, not one only another engine lists", () => {
+    const listingOnly = (engines: EngineSettings["engines"]): EngineSettings => ({
+      ...SAVED_WITH_LISTS,
+      engines,
+    });
+    const newClaude = newClaudeCodeEngine(
+      listingOnly([{ ...CLAUDE_CODE, defaultModel: "claude-fable-5-1" }]),
+    );
+    const newCodex = newCodexEngine(listingOnly([{ ...CODEX, defaultModel: "gpt-7" }]));
+
+    expect(newClaude.defaultModel).toBe(CLAUDE_CODE_MODELS[0]);
+    expect(newCodex.defaultModel).toBe(CODEX_MODELS[0]);
+    expect(defaultModelNoLongerOffered(SAVED_WITH_LISTS, newClaude)).toBe(false);
+    expect(defaultModelNoLongerOffered(SAVED_WITH_LISTS, newCodex)).toBe(false);
+  });
+
+  it("prices the models the engines list: a listed Codex model under no engine, not as a Claude one", () => {
+    expect(offeredModelsOf(draftOf(SAVED_WITH_LISTS), SAVED_WITH_LISTS)).toEqual([
+      { engineId: null, model: "claude-sonnet-5-5" },
+      { engineId: null, model: "gpt-7" },
+      { engineId: null, model: "gpt-6-luna" },
+      { engineId: "strata", model: "qwen3" },
+      { engineId: "copilot", model: "auto" },
+      { engineId: "copilot", model: "claude-sonnet-5-5" },
+      ...GEMINI_CLI_MODELS.map((model) => ({ engineId: "gemini", model })),
+    ]);
+  });
+
+  it("keeps a default model the engine no longer offers, marked, and Save sends it unchanged", () => {
+    const draft = draftOf(SAVED_WITH_LISTS);
+    const codex = draft.codexEngines[0]!;
+
+    expect(defaultModelNoLongerOffered(SAVED_WITH_LISTS, codex)).toBe(true);
+    expect(defaultModelChoicesOf(SAVED_WITH_LISTS, codex)).toEqual([
+      { value: "gpt-7", label: "gpt-7" },
+      { value: "gpt-6-luna", label: "gpt-6-luna" },
+      { value: "gpt-5.6-terra", label: "gpt-5.6-terra · No longer offered" },
+    ]);
+    expect(draftChanged(draft, SAVED_WITH_LISTS)).toBe(false);
+    expect(
+      engineSettingsEditOf(draft, SAVED_WITH_LISTS)?.engines.find(({ id }) => id === "codex")
+        ?.defaultModel,
+    ).toBe("gpt-5.6-terra");
+  });
+
+  it("marks only a default model the engine no longer offers", () => {
+    const draft = draftOf(SAVED_WITH_LISTS);
+    const copilot = draft.copilotCliEngines[0]!;
+
+    expect(defaultModelNoLongerOffered(SAVED_WITH_LISTS, draft.claudeCodeEngines[0]!)).toBe(false);
+    expect(defaultModelNoLongerOffered(SAVED_WITH_LISTS, copilot)).toBe(true);
+    expect(
+      defaultModelChoicesOf(SAVED_WITH_LISTS, { ...copilot, defaultModel: "auto" }).map(
+        ({ label }) => label,
+      ),
+    ).toEqual(["Auto", "Sonnet 5.5"]);
   });
 });
 

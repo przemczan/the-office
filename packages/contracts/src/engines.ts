@@ -61,6 +61,16 @@ export const claudeCodeEngineSchema = z.object({
 });
 export type ClaudeCodeEngine = z.infer<typeof claudeCodeEngineSchema>;
 
+/**
+ * The models a Claude Code engine offers until its account first lists its own, by their ids;
+ * mirrors the Engine module's `CLAUDE_CODE_MODELS`, so an engine not saved yet offers them.
+ */
+export const CLAUDE_CODE_MODELS = [
+  "claude-opus-5-5",
+  "claude-sonnet-5-5",
+  "claude-haiku-5-5",
+] as const;
+
 /** An API endpoint of the OpenAI-compatible API. */
 export const apiEngineSchema = z.object({
   id: engineIdSchema,
@@ -91,8 +101,9 @@ export const codexEngineSchema = z.object({
 export type CodexEngine = z.infer<typeof codexEngineSchema>;
 
 /**
- * The models the pinned Codex offers, by their ids; mirrors the Engine module's `CODEX_MODELS`
- * (its domain doesn't read the contracts), so the web tells a Codex model from a Claude one.
+ * The models a Codex engine offers until its account first lists its own, by their ids; mirrors
+ * the Engine module's `CODEX_MODELS` (its domain doesn't read the contracts), so an engine not
+ * saved yet offers them and the web tells a Codex model from a Claude one.
  */
 export const CODEX_MODELS = ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"] as const;
 
@@ -269,6 +280,28 @@ export const engineWindowStartEditSchema = windowStartSettingsSchema.extend({
 });
 export type EngineWindowStartEdit = z.infer<typeof engineWindowStartEditSchema>;
 
+/**
+ * The models an engine offers now, as Settings › Engines and the Role card pick among them (spec
+ * §5.4.5, "Models an engine lists"): those its account listed when last asked, else its type's
+ * fixed list (`CODEX_MODELS` and the like); an API endpoint's are its own `models`.
+ *
+ * POST /settings/engines/:engineId/models/refresh asks the engine's account for them now and keeps
+ * them, announced as `engine.models-listed`: 204 once it answered, the list kept as it was when it
+ * listed none; 404 for an engine not listed; 422, in words, for one whose type isn't asked
+ * (`listsItsModels` false); 502, in words naming the engine, when asking failed or timed out, the
+ * list kept as it was.
+ */
+export const engineModelListSchema = z.object({
+  engineId: engineIdSchema,
+  /** By their ids, in the order offered. */
+  models: z.array(z.string()),
+  /** Whether the engine's account is asked for its models, so Refresh models applies. */
+  listsItsModels: z.boolean(),
+  /** When its account last listed them; null while its type's fixed list stands in. */
+  listedAt: z.iso.datetime().nullable(),
+});
+export type EngineModelList = z.infer<typeof engineModelListSchema>;
+
 /** GET and PUT /settings/engines: the Office-wide settings of the engines. */
 export const engineSettingsSchema = z.object({
   /** In the order Settings › Engines lists them. */
@@ -297,6 +330,11 @@ export const engineSettingsSchema = z.object({
    * the engine edit schemas extend the engines' read schemas.
    */
   windowStarts: z.array(engineWindowStartSchema),
+  /**
+   * Each engine's models but an API endpoint's, in the order of `engines`; a top-level list, as
+   * the engine edit schemas extend the engines' read schemas.
+   */
+  modelLists: z.array(engineModelListSchema),
   /** The service's IANA time zone, which the set times of a Window start follow. */
   timeZone: z.string(),
 });
@@ -551,10 +589,12 @@ export type EngineApiKey = z.infer<typeof engineApiKeySchema>;
 /**
  * A Claude Code, Codex or Copilot CLI engine's account changed (a Sign in ended, a token or an API
  * key was given, or it was signed out), so an open Settings page refetches it; or an engine's
- * Window start changed (its settings, a start, skip or failure, or its next start moved).
+ * Window start changed (its settings, a start, skip or failure, or its next start moved); or an
+ * engine's account listed its models, so the model choices are read again.
  */
 export const engineWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("engine.account-changed"), engineId: engineIdSchema }),
+  webEventSchema.extend({ type: z.literal("engine.models-listed"), engineId: engineIdSchema }),
   webEventSchema.extend({
     type: z.literal("engine.window-start-changed"),
     engineId: engineIdSchema,

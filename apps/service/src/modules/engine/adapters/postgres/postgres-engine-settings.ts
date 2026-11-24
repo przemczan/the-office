@@ -14,6 +14,7 @@ import type { Engine, EngineId, OfficeDefault } from "../../domain/engines.js";
 import { GeminiApiKey } from "../../domain/gemini-api-key.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
+import { engineModelLists } from "./model-lists.schema.js";
 import { engineWindowStarts } from "./window-starts.schema.js";
 
 type EngineRow = typeof engines.$inferSelect;
@@ -78,6 +79,15 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
           listed.length > 0
             ? notInArray(
                 engineWindowStarts.engineId,
+                listed.map(({ id }) => id),
+              )
+            : undefined,
+        );
+        // So does its kept model list.
+        await transaction.delete(engineModelLists).where(
+          listed.length > 0
+            ? notInArray(
+                engineModelLists.engineId,
                 listed.map(({ id }) => id),
               )
             : undefined,

@@ -1,14 +1,17 @@
-import { COPILOT_CLI_MODELS, type CopilotCliEngineEdit } from "@the-office/contracts";
-import { Input, Select } from "@the-office/ui";
+import type { CopilotCliEngineEdit, EngineSettings } from "@the-office/contracts";
+import { Input } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { modelLabel } from "../../../shell/engine-words.ts";
+import { DefaultModelField } from "./engine-model-field.tsx";
 
-/** A Copilot CLI engine's Settings: its name and default model, one of the Copilot CLI models. */
+/** A Copilot CLI engine's Settings: its name and default model, one it offers. */
 export function CopilotCliEngineFields({
   edit,
+  saved,
   change,
 }: {
   readonly edit: CopilotCliEngineEdit;
+  /** The engines as saved, whose lists give the models it offers. */
+  readonly saved: EngineSettings;
   readonly change: (edit: CopilotCliEngineEdit) => void;
 }): ReactNode {
   return (
@@ -20,12 +23,7 @@ export function CopilotCliEngineFields({
           value={edit.name}
           onChange={(event) => change({ ...edit, name: event.target.value })}
         />
-        <Select
-          label="Default model"
-          options={COPILOT_CLI_MODELS.map((model) => ({ value: model, label: modelLabel(model) }))}
-          value={edit.defaultModel}
-          onChange={(defaultModel) => change({ ...edit, defaultModel })}
-        />
+        <DefaultModelField edit={edit} saved={saved} change={change} />
       </div>
     </div>
   );

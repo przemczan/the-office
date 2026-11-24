@@ -271,10 +271,12 @@ export function pricedModelsAt(
 ): readonly PricedModel[] {
   const offered = offeredModelsOf(draft, saved);
   if (kind === "claude-code") {
-    return offered.filter(({ engineId, model }) => engineId === null && !isCodexModel(model));
+    return offered.filter(
+      ({ engineId, model }) => engineId === null && !isCodexModel(model, saved),
+    );
   }
   if (kind === "codex") {
-    return offered.filter(({ engineId, model }) => engineId === null && isCodexModel(model));
+    return offered.filter(({ engineId, model }) => engineId === null && isCodexModel(model, saved));
   }
   const drafted = draftedEngines(draft, saved);
   const ofKind =

@@ -13,7 +13,7 @@ import {
   ENGINE_PROMPT_TEMPLATES,
   FILE_CHANGES,
 } from "../../domain/engine-prompt-templates.js";
-import { CODEX_MODELS, hasUsageWindows, type Engine } from "../../domain/engines.js";
+import { hasUsageWindows, offeredModels, type Engine } from "../../domain/engines.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
@@ -28,7 +28,7 @@ import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import type { EngineCommand } from "../claude-code/engine-process.js";
-import { engineRead, serviceVariables } from "../claude-code/engine-read.js";
+import { engineRead, serviceVariables, type EngineReadLimits } from "../claude-code/engine-read.js";
 import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import {
   officeToolCall,
@@ -43,7 +43,7 @@ import { listedSkills, modelListing, type ListedSkill } from "../skills/listed-s
 import { CodexApprovals, codexShellTool } from "./codex-approvals.js";
 import { codexAppServerArguments, codexEnvironment, codexMcpServers } from "./codex-arguments.js";
 import { pinnedCodexPath } from "./codex-binary.js";
-import type { CodexThreadSettings } from "./codex-protocol.js";
+import type { CodexListedModel, CodexRequests, CodexThreadSettings } from "./codex-protocol.js";
 import { CodexAppServer, CodexRpcError, METHOD_NOT_FOUND, type CodexWireTap } from "./codex-rpc.js";
 import { codexEffort, CodexSession, type CodexConnect } from "./codex-session.js";
 import { CodexThreadFile } from "./codex-thread-file.js";
@@ -149,6 +149,56 @@ export class CodexAppServerEngine extends AgentEngine {
    */
   async readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
     if (engine.kind !== "codex" || !hasUsageWindows(engine)) return undefined;
+    return this.readOnAppServer(
+      engine,
+      { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+      async (server) => {
+        const { rateLimits } = await server.rpc.request("account/rateLimits/read", undefined);
+        return codexWindowsOf(rateLimits).length === 0
+          ? undefined
+          : codexUsageWindows(rateLimits, "usage-endpoint");
+      },
+    );
+  }
+
+  /**
+   * On an app-server started for the read alone, on the engine's folder: `model/list`, page by
+   * page, which starts no thread (`listedCodexModels`). On an API key too, whose account lists its
+   * own models.
+   */
+  override async listModels(
+    engine: Engine,
+    signal: AbortSignal,
+  ): Promise<readonly string[] | undefined> {
+    if (engine.kind !== "codex") return undefined;
+    return this.readOnAppServer(
+      engine,
+      { what: `Listing the models of the engine ${engine.id}`, signal },
+      async (server) => {
+        const models: CodexListedModel[] = [];
+        let cursor: string | null = null;
+        do {
+          const page: CodexRequests["model/list"]["result"] = await server.rpc.request(
+            "model/list",
+            { cursor },
+          );
+          models.push(...page.data);
+          cursor = page.nextCursor ?? null;
+        } while (cursor !== null);
+        return listedCodexModels(models);
+      },
+    );
+  }
+
+  /**
+   * Asks `ask` of an app-server started for it alone on the engine's folder, once initialized; the
+   * app-server ends before the read answers, however it went (`engineRead`).
+   */
+  private async readOnAppServer<T>(
+    engine: Engine,
+    { what, signal }: Omit<EngineReadLimits, "timeoutMs">,
+    ask: (server: CodexAppServer) => Promise<T>,
+  ): Promise<T> {
     const codexHome =
       this.setup.codexHome ?? (await preparedEngineConfigFolder(this.officeData, engine.id));
     const command: EngineCommand = {
@@ -159,11 +209,7 @@ export class CodexAppServerEngine extends AgentEngine {
     };
     let server: CodexAppServer | undefined;
     return engineRead(
-      {
-        what: `Reading the usage windows of the engine ${engine.id}`,
-        signal,
-        timeoutMs: this.setup.readTimeoutMs,
-      },
+      { what, signal, timeoutMs: this.setup.readTimeoutMs },
       async () => {
         server = CodexAppServer.start(this.operatingSystem.processTrees, command, {
           notification: () => undefined,
@@ -177,10 +223,7 @@ export class CodexAppServerEngine extends AgentEngine {
           capabilities: { experimentalApi: true, requestAttestation: false },
         });
         server.rpc.notify("initialized");
-        const { rateLimits } = await server.rpc.request("account/rateLimits/read", undefined);
-        return codexWindowsOf(rateLimits).length === 0
-          ? undefined
-          : codexUsageWindows(rateLimits, "usage-endpoint");
+        return ask(server);
       },
       async () => {
         await server?.kill();
@@ -359,12 +402,25 @@ export class CodexAppServerEngine extends AgentEngine {
   }
 }
 
+/**
+ * The models a Codex account lists (`model/list`), by the name a thread runs each on, its hidden
+ * ones left out, each once in the account's order; undefined when none is left.
+ */
+export function listedCodexModels(
+  models: readonly CodexListedModel[],
+): readonly string[] | undefined {
+  const names = new Set(
+    models.filter((model) => model.hidden !== true).map((model) => model.model ?? model.id),
+  );
+  return names.size === 0 ? undefined : [...names];
+}
+
 /** The model a session runs on, refused when the engine is no Codex engine or doesn't offer it. */
 function offeredModel({ engine, model }: SessionOptions): string {
   if (engine.kind !== "codex") {
     throw new ModelNotOffered(model, `"${engine.name}" is no Codex engine.`);
   }
-  if (!(CODEX_MODELS as readonly string[]).includes(model)) {
+  if (!offeredModels(engine).includes(model)) {
     throw new ModelNotOffered(
       model,
       `the Codex engine ${engine.name} offers no model ${model}; pick another model on the Role card.`,

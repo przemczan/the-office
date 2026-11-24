@@ -60,6 +60,19 @@ const gemini: GeminiCliEngine = {
 };
 
 describe("an engine", () => {
+  it("offers the models its account listed in place of its type's, a Copilot CLI engine's with Auto first", () => {
+    expect(offeredModels({ ...FIRST_CLAUDE_CODE_ENGINE, listedModels: ["claude-opus-6"] })).toEqual(
+      ["claude-opus-6"],
+    );
+    expect(offeredModels({ ...codex, listedModels: ["gpt-7", "gpt-6-luna"] })).toEqual([
+      "gpt-7",
+      "gpt-6-luna",
+    ]);
+    expect(offeredModels({ ...copilot, listedModels: ["gpt-6", "auto", "claude-opus-6"] })).toEqual(
+      ["auto", "gpt-6", "claude-opus-6"],
+    );
+  });
+
   it("offers the Claude models on Claude Code, the Codex models on Codex, and an API engine's own by their ids", () => {
     expect(offeredModels(FIRST_CLAUDE_CODE_ENGINE)).toEqual(CLAUDE_CODE_MODELS);
     expect(offeredModels(codex)).toEqual(CODEX_MODELS);

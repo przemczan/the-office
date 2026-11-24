@@ -41,6 +41,7 @@ const CLAUDE_CODE: EngineSettings = {
   standInEngines: [],
   askBeforeSwitchAbove: 100_000,
   windowStarts: [],
+  modelLists: [],
   timeZone: "UTC",
 };
 const AN_API_ENGINE: EngineSettings = {
@@ -62,6 +63,7 @@ const AN_API_ENGINE: EngineSettings = {
   standInEngines: [],
   askBeforeSwitchAbove: 100_000,
   windowStarts: [],
+  modelLists: [],
   timeZone: "UTC",
 };
 const SIGNED_OUT_OF_CLAUDE: EngineAccount = {

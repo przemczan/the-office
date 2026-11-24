@@ -27,6 +27,14 @@ import { WindowStartsForTests } from "../../ports/window-start-repository.fixtur
 
 const KEY = "sk-never-sent-back";
 
+/** The first Claude Code engine's models, on its type's fixed list as its account never listed any. */
+const CLAUDE_CODE_MODEL_LIST = {
+  engineId: "claude-code",
+  models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
+  listsItsModels: true,
+  listedAt: null,
+};
+
 /** The Claude models, unpriced, as the settings list them first. */
 const UNPRICED_CLAUDE_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"].map(
   (model) => ({ engineId: null, model, price: null }),
@@ -152,6 +160,7 @@ describe("/api/settings/engines", () => {
           last: null,
         },
       ],
+      modelLists: [CLAUDE_CODE_MODEL_LIST],
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
     expect((await repository.read()).engines[1]).toMatchObject({ id: "strata", key: KEY });

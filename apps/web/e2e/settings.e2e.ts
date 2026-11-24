@@ -1318,6 +1318,81 @@ test(
   },
 );
 
+// The engines' settings are routed, never saved, as above, with a Codex engine of the test's own on
+// the built-in list; Refresh models is routed too, its engine then answering with its own list.
+test(
+  "Settings › Engines' Refresh models lists the engine's models, keeping a default it no longer offers marked",
+  { tag: "@full" },
+  async ({ page }) => {
+    const labCodex = {
+      id: "lab-codex",
+      name: "Lab Codex",
+      kind: "codex",
+      defaultModel: "gpt-5.6-terra",
+      defaultEffort: null,
+    } as const;
+    const listedAt = new Date().toISOString();
+    let refreshes = 0;
+    await page.route("**/api/settings/engines", async (route) => {
+      const saved = (await (
+        await page.request.get("/api/settings/engines")
+      ).json()) as EngineSettings;
+      const modelList =
+        refreshes === 0
+          ? { models: ["gpt-6-luna", "gpt-5.6-terra"], listedAt: null }
+          : { models: ["gpt-7-sol", "gpt-6-luna"], listedAt };
+      return route.fulfill({
+        json: {
+          ...saved,
+          engines: [...saved.engines, labCodex],
+          modelLists: [
+            ...(saved.modelLists ?? []).filter(({ engineId }) => engineId !== labCodex.id),
+            { engineId: labCodex.id, listsItsModels: true, ...modelList },
+          ],
+        } satisfies EngineSettings,
+      });
+    });
+    await page.route(/\/api\/settings\/engines\/lab-codex\/account$/, (route) =>
+      route.fulfill({
+        json: { signedIn: false, pastedToken: false, apiKey: false, email: null, plan: null },
+      }),
+    );
+    await page.route(/\/api\/settings\/engines\/lab-codex\/models\/refresh$/, (route) => {
+      refreshes += 1;
+      return route.fulfill({ status: 204 });
+    });
+    await page.goto("/settings/engines");
+    await page.setViewportSize({ width: 1600, height: 1100 });
+
+    await page
+      .getByRole("navigation", { name: "Engines" })
+      .getByRole("button", { name: /^Lab Codex/ })
+      .click();
+    const lab = page.getByRole("group", { name: labCodex.name, exact: true });
+    const defaultModel = lab.getByRole("combobox", { name: "Default model" });
+    await expect(
+      lab.getByText("Models: the built-in list, until the engine answers."),
+    ).toBeVisible();
+    await expect(defaultModel.getByRole("option")).toHaveText(["gpt-6-luna", "gpt-5.6-terra"]);
+    await expect(defaultModel).toHaveValue("gpt-5.6-terra");
+
+    await lab.getByRole("button", { name: "Refresh models" }).click();
+    await expect(lab.getByText(/^Models listed at \d\d:\d\d$/)).toBeVisible();
+    expect(refreshes).toBe(1);
+    await expect(defaultModel.getByRole("option")).toHaveText([
+      "gpt-7-sol",
+      "gpt-6-luna",
+      "gpt-5.6-terra · No longer offered",
+    ]);
+    await expect(defaultModel).toHaveValue("gpt-5.6-terra");
+    await expect(
+      lab.getByText("The engine no longer offers it. It stays until another is picked."),
+    ).toBeVisible();
+    // Nothing changed in the draft, so nothing waits for Save.
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  },
+);
+
 // Routed as above, with an engine of the test's own that has usage windows. The service's clock is
 // Warsaw's and the browser's New York's, so a time shown at 17:00 is on the service's.
 test.describe("Settings › Engines' Window start", { tag: "@full" }, () => {

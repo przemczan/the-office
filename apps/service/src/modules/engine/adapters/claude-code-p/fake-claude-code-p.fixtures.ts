@@ -14,13 +14,25 @@ export const FAKE_TURN_USAGE = {
   cache_creation_input_tokens: 4,
 };
 
+/**
+ * The models the stand-in's `initialize` answer lists, as the binary lists them: aliases with the
+ * full ids they resolve to, a full id, and an alias resolving to none.
+ */
+export const FAKE_MODEL_ROWS = [
+  { value: "default", resolvedModel: "claude-opus-5-5", displayName: "Default", description: "" },
+  { value: "sonnet", resolvedModel: "claude-sonnet-5-5", displayName: "Sonnet", description: "" },
+  { value: "claude-opus-5-5", displayName: "Opus", description: "" },
+  { value: "opusplan", displayName: "Opus Plan Mode", description: "" },
+];
+
 /** How the stand-in answers: `answers` a usage query, `silent` answers nothing and won't end by itself. */
 export type FakeClaudeCodePMode = "answers" | "silent";
 
 /**
  * A stand-in for the pinned binary in `-p` with stream-json, a Node script: in `answers` mode it
  * answers `get_usage` with an account's 5-hour window at 12% and 7-day window at 30%
- * (`FAKE_FIVE_HOUR_RESET`, `FAKE_SEVEN_DAY_RESET`), a user message with a successful turn's result
+ * (`FAKE_FIVE_HOUR_RESET`, `FAKE_SEVEN_DAY_RESET`), `initialize` with the models of
+ * `FAKE_MODEL_ROWS`, a user message with a successful turn's result
  * of `FAKE_TURN_USAGE`, every other control request with an error, and
  * ends once its input closes; in `silent` mode it answers nothing and runs on after its input
  * closes, until it is ended. It appends to the file its first argument names, one JSON line each:
@@ -43,6 +55,12 @@ lines.on("line", (line) => {
   }
   if (m.type !== "control_request") return;
   const request_id = m.request_id;
+  if (m.request.subtype === "initialize") {
+    return out({ type: "control_response", response: { subtype: "success", request_id, response: {
+      commands: [], agents: [], output_style: "default", available_output_styles: [],
+      models: ${JSON.stringify(FAKE_MODEL_ROWS)}, account: {},
+    } } });
+  }
   if (m.request.subtype !== "get_usage") {
     return out({ type: "control_response", response: { subtype: "error", request_id, error: "unknown" } });
   }

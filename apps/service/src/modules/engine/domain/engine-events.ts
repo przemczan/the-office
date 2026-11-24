@@ -96,6 +96,16 @@ export class EngineAccountChanged extends DomainEvent {
 }
 
 /**
+ * An engine's account listed its models (spec §5.4.5, "Models an engine lists") and the list was
+ * kept, changed or not, so the model choices shown are read again.
+ */
+export class EngineModelsListed extends DomainEvent {
+  constructor(readonly engineId: EngineId) {
+    super();
+  }
+}
+
+/**
  * An engine's Window start settings were saved (spec §5.4.6), so its next start is worked out again.
  */
 export class WindowStartSettingsChanged extends DomainEvent {

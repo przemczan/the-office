@@ -39,6 +39,7 @@ import {
   CodexAppServerEngine,
   DECLINED_CALLS,
   FILE_CHANGES,
+  listedCodexModels,
   type CodexEngineSetup,
 } from "./codex-engine.js";
 import { CodexAppServer } from "./codex-rpc.js";
@@ -336,6 +337,51 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
       ),
     ).resolves.toBeUndefined();
     expect(await fakeAppServerRuns(report)).toEqual([]);
+  });
+
+  it("lists the engine's models page by page on an app-server of its own, by the names threads run them on, its hidden ones left out, then ends it", async () => {
+    await expect(
+      engineOn().listModels(
+        { ...ENGINE, apiKey: CodexApiKey.of("sk-test") },
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(["gpt-6-luna", "gpt-5.6-terra"]);
+
+    const [run, ...more] = await fakeAppServerRuns(report);
+    if (run === undefined) throw new Error("The app-server never started.");
+    expect(more).toEqual([]);
+    expect(run.received.map(({ method }) => method)).toEqual([
+      "initialize",
+      "initialized",
+      "model/list",
+      "model/list",
+    ]);
+    expect(run.env["CODEX_HOME"]).toBe(join(officeData, "engines", ENGINE.id));
+    expect(isRunning(run.processId)).toBe(false);
+  });
+
+  it("ends the model list's app-server when it doesn't answer in time, throwing EngineReadTimedOut", async () => {
+    const engine = engineOn({ ...fakeAppServer(report, { silent: true }), readTimeoutMs: 300 });
+
+    await expect(engine.listModels(ENGINE, new AbortController().signal)).rejects.toBeInstanceOf(
+      EngineReadTimedOut,
+    );
+
+    const [run] = await fakeAppServerRuns(report);
+    if (run === undefined) throw new Error("The app-server never started.");
+    expect(isRunning(run.processId)).toBe(false);
+  });
+
+  it("runs a session on a model the engine's account listed", async () => {
+    const { session } = await started(message("answer hi"), {
+      engine: { ...ENGINE, listedModels: ["gpt-7"] },
+      model: "gpt-7",
+    });
+    await session.end();
+    const [run] = await fakeAppServerRuns(report);
+    expect(run?.received.find(({ method }) => method === "thread/start")?.params).toMatchObject({
+      model: "gpt-7",
+    });
   });
 
   it("starts the engine's 5-hour window with one turn on an ephemeral thread of an app-server of its own, then ends it", async () => {
@@ -888,3 +934,14 @@ async function deleteThreads(codexHome: string, threadIds: readonly string[]): P
     await server.close();
   }
 }
+
+describe("listedCodexModels", () => {
+  it("answers undefined when the account lists no model, or only hidden ones", () => {
+    expect(listedCodexModels([])).toBeUndefined();
+    expect(listedCodexModels([{ id: "gpt-internal", hidden: true }])).toBeUndefined();
+  });
+
+  it("names a model by its id when the answer gives no other name", () => {
+    expect(listedCodexModels([{ id: "gpt-6-luna" }])).toEqual(["gpt-6-luna"]);
+  });
+});

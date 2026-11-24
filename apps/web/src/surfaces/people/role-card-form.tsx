@@ -42,7 +42,12 @@ import {
 } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { SkillCommandClash } from "../../shell/commands/command-notes.tsx";
-import { EFFORT_LABELS, ENGINE_KIND_ICONS, modelLabel } from "../../shell/engine-words.ts";
+import {
+  EFFORT_LABELS,
+  ENGINE_KIND_ICONS,
+  modelLabel,
+  noLongerOfferedModelLabel,
+} from "../../shell/engine-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -460,9 +465,9 @@ function EngineTypeFields({
       value: model,
       label: onEveryAccount ? modelLabel(model) : `${modelLabel(model)} · Not on every account`,
     })),
-    // A model the type no longer offers stays as the card names it until it is changed.
+    // A model the type no longer offers stays as the card names it, marked, until it is changed.
     ...(setting.model !== null && !offered
-      ? [{ value: setting.model, label: modelLabel(setting.model) }]
+      ? [{ value: setting.model, label: noLongerOfferedModelLabel(setting.model) }]
       : []),
   ];
   return (

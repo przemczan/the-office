@@ -73,7 +73,7 @@
 - `conversations.ts`: threadQueries, readSubAgentMessages, readProcessOutput, sizeThresholdQuery, changeSizeThreshold, stageContextLimitsQuery, changeStageContextLimits, officeInstructionsQuery, changeOfficeInstructions, decisionQueries, proposalQueries, applyProposal, declineProposal, fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack, startChatThread, openPersonsThread, sendMessage, uploadMessageImage, renameThread, chooseContextOverride, allowChanges, markThreadSeen, switchChangesOff, answerDecision, threadEventInvalidations, threadEventCacheUpdates, homeThreadsKey
 - `device-relay.ts`: DeviceRelaySink, DeviceTransport, RequestedDevice, UsbDeviceKind, DeviceTransportProvider, registerDeviceTransport, deviceTransportProviders, subscribeToDeviceTransports, DeviceRelayState, DeviceRelay, DeviceRelayOptions, openDeviceRelay
 - `devices.ts`: deviceQueries, addProjectDevice, changeProjectDevice, pairProjectDevice, removeProjectDevice, lendProjectDevice, connectDevice, pairWirelessDevice, usePairWirelessDevice, disconnectDevice, connectRefusalOf, connectRefusalWords, deviceEventInvalidations, projectDeviceEventInvalidations
-- `engine.ts`: engineSettingsQuery, changeEngineSettings, engineRemovalQuery, removeEngine, engineAccountQuery, startEngineSignIn, enterEngineSignInCode, pasteEngineToken, setEngineApiKey, signOutOfEngine, useEngineAccountChanged, engineEventInvalidations, engineEventCacheUpdates
+- `engine.ts`: engineSettingsQuery, changeEngineSettings, engineRemovalQuery, removeEngine, engineAccountQuery, startEngineSignIn, enterEngineSignInCode, pasteEngineToken, setEngineApiKey, refreshEngineModels, signOutOfEngine, useEngineAccountChanged, engineEventInvalidations, engineEventCacheUpdates
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, ThreadEvents, ThreadEventsContext, EventStreamProvider, useOfficeEvent, useThreadEvents, useConnectedEventStream, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, ThreadSubscription, SIGNED_OUT_CLOSE_CODE, RECONNECT_DELAYS_MS, EventStream
 - `github.ts`: gitHubQueries, gitHubAppManifestForm, startGitHubSignIn, checkGitHubPermissions, signOutOfGitHub, gitHubEventInvalidations
@@ -128,7 +128,7 @@
 - `duty-words.fixtures.ts`: roleFor, CARETAKER, PLANNER, DEVOPS, DEVELOPER_LET_GO, dutyOf
 - `duty-words.ts`: DUTY_LABELS, STAGE_DUTIES, dutyHolder, NOBODY, dutyDescription, fallbackWords, labelsFallingBackTo, holderOptions, dutiesHeldBy, holderName, holderNameOf, letGoHolderWords, passedOverWords, dutyLabels, suitsWords, dutyCountWords
 - `engine-type-account-fields.tsx`: EngineTypeAccount, AccountChoice, EngineTypeChoice, OfficeDefaultChoice, officeDefaultLabel, EngineTypeAccountFields
-- `engine-words.ts`: ENGINE_KIND_LABELS, ENGINE_KIND_ICONS, ENGINE_KINDS, EFFORT_LABELS, modelLabel, runEngineWords, standInForWords
+- `engine-words.ts`: ENGINE_KIND_LABELS, ENGINE_KIND_ICONS, ENGINE_KINDS, EFFORT_LABELS, modelLabel, noLongerOfferedModelLabel, runEngineWords, standInForWords
 - `environment-check-words.ts`: ENVIRONMENT_CHECK_STATE_WORDS
 - `floating-menu.tsx`: FloatingMenu
 - `github-permissions-prompt.tsx`: permissionWords, GitHubPermissionsPrompt

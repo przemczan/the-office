@@ -6,6 +6,7 @@ import {
   type Engine as EngineResponse,
   type EngineRemovalPreview as EngineRemovalPreviewResponse,
   type EngineSettings as EngineSettingsResponse,
+  type EngineModelList as EngineModelListResponse,
   type EngineSettingsEdit as EngineSettingsEditRequest,
   type EngineWindowStart as EngineWindowStartResponse,
   type WindowStartRecord as WindowStartRecordResponse,
@@ -13,6 +14,7 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import {
   EngineSettingsService,
+  type EngineModelChoices,
   type EngineWindowStart,
   type EngineWindowStarts,
 } from "../../application/engine-settings-service.js";
@@ -72,13 +74,18 @@ export class EngineSettingsController {
   }
 
   private async response(settings: EngineSettings): Promise<EngineSettingsResponse> {
-    return settingsResponse(settings, await this.settings.windowStartsOf(settings));
+    return settingsResponse(
+      settings,
+      await this.settings.windowStartsOf(settings),
+      this.settings.modelListsOf(settings),
+    );
   }
 }
 
 function settingsResponse(
   settings: EngineSettings,
   { windowStarts, timeZone }: EngineWindowStarts,
+  modelLists: readonly EngineModelChoices[],
 ): EngineSettingsResponse {
   const { engines, officeDefault, searchEndpoint, standInEngines, askBeforeSwitchAbove } = settings;
   return {
@@ -93,7 +100,22 @@ function settingsResponse(
     standInEngines: [...standInEngines],
     askBeforeSwitchAbove,
     windowStarts: windowStarts.map(windowStartResponse),
+    modelLists: modelLists.map(modelListResponse),
     timeZone,
+  };
+}
+
+function modelListResponse({
+  engineId,
+  models,
+  listsItsModels,
+  listedAt,
+}: EngineModelChoices): EngineModelListResponse {
+  return {
+    engineId,
+    models: [...models],
+    listsItsModels,
+    listedAt: listedAt?.toISOString() ?? null,
   };
 }
 

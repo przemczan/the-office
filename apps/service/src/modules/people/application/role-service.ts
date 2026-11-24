@@ -1,6 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
+  EngineModelLists,
   EngineModels,
   EngineReferenceLock,
   EngineSessions,
@@ -121,6 +122,7 @@ export class RoleService {
     private readonly events: EventBus,
     private readonly engineReferences: EngineReferenceLock,
     private readonly duties: Duties,
+    @Optional() private readonly modelLists?: EngineModelLists,
   ) {}
 
   /**
@@ -241,7 +243,12 @@ export class RoleService {
     return PRESETS;
   }
 
+  /**
+   * The choices the Role card form offers; the engines' model lists grown stale are asked for
+   * again in the background, never waited for (spec §5.4.5, "Models an engine lists").
+   */
   async cardOptions(): Promise<RoleCardOptions> {
+    this.modelLists?.refreshStale();
     const engines = await this.engineModels.engines();
     const roles = await this.repository.list();
     const { consultable, mcpConsultant } = await this.cardContext();

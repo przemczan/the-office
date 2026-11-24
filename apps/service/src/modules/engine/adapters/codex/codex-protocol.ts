@@ -89,6 +89,11 @@ export interface CodexRequests {
     readonly params: undefined;
     readonly result: z.output<typeof rateLimitsResult>;
   };
+  /** One page of the models the account offers; `nextCursor` names the next, null after the last. */
+  readonly "model/list": {
+    readonly params: { readonly cursor: string | null };
+    readonly result: z.output<typeof modelListResult>;
+  };
 }
 
 export type CodexRequestMethod = keyof CodexRequests;
@@ -159,6 +164,18 @@ const rateLimitsResult = z.looseObject({
   rateLimitsByLimitId: z.record(z.string(), rateLimitSnapshot).nullish(),
 });
 
+/** A model the account offers: `model` is what a thread names it by; `hidden` the picker leaves out. */
+const listedModel = z.looseObject({
+  id: z.string(),
+  model: z.string().nullish(),
+  hidden: z.boolean().nullish(),
+});
+
+const modelListResult = z.looseObject({
+  data: z.array(listedModel),
+  nextCursor: z.string().nullish(),
+});
+
 /** Each request's answer, checked before the caller reads it. */
 export const CODEX_RESULTS: {
   readonly [M in CodexRequestMethod]: z.ZodType<CodexRequests[M]["result"]>;
@@ -172,7 +189,10 @@ export const CODEX_RESULTS: {
   "thread/delete": emptyResult,
   "account/read": accountResult,
   "account/rateLimits/read": rateLimitsResult,
+  "model/list": modelListResult,
 };
+
+export type CodexListedModel = z.output<typeof listedModel>;
 
 export type CodexTurn = z.output<typeof turn>;
 export type CodexTurnError = z.output<typeof turnError>;

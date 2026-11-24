@@ -15,6 +15,13 @@ export class EngineModels {
    * service starts and on each account change.
    */
   private readonly signedInByApiKey = new Set<EngineId>();
+  /**
+   * The models each engine's account last listed, by engine id. Kept in the database apart from
+   * the settings, so `EngineModelLists` records each as the service starts and as it is listed.
+   */
+  private readonly modelLists = new Map<EngineId, readonly string[]>();
+  /** When each list of `modelLists` was listed, when it was told. */
+  private readonly modelListedAt = new Map<EngineId, Date>();
 
   constructor(private readonly settings: EngineSettingsRepository) {}
 
@@ -31,19 +38,59 @@ export class EngineModels {
     return { engines: this.listed(engines), standInEngines, askBeforeSwitchAbove };
   }
 
-  /** `engines`, each Claude Code engine telling whether an API key signs it in. */
+  /**
+   * `engines`, each Claude Code engine telling whether an API key signs it in, and each engine
+   * that lists its models carrying the list its account last gave.
+   */
   listed(engines: readonly Engine[]): readonly Engine[] {
-    return engines.map((engine) =>
-      engine.kind === "claude-code" && this.signedInByApiKey.has(engine.id)
-        ? { ...engine, signedInByApiKey: true }
-        : engine,
-    );
+    return engines.map((engine) => this.withModelList(this.withApiKeySignIn(engine)));
   }
 
   /** Records whether an API key signs the Claude Code engine listed as `engineId` in. */
   recordApiKeySignIn(engineId: EngineId, signedInByApiKey: boolean): void {
     if (signedInByApiKey) this.signedInByApiKey.add(engineId);
     else this.signedInByApiKey.delete(engineId);
+  }
+
+  /**
+   * Records the models the account of the engine listed as `engineId` last gave, which its
+   * `offeredModels` are from then on, listed at `listedAt`; undefined forgets them, so its type's
+   * fixed list stands.
+   */
+  recordModelList(
+    engineId: EngineId,
+    models: readonly string[] | undefined,
+    listedAt?: Date,
+  ): void {
+    if (models === undefined) this.modelLists.delete(engineId);
+    else this.modelLists.set(engineId, models);
+    if (models === undefined || listedAt === undefined) this.modelListedAt.delete(engineId);
+    else this.modelListedAt.set(engineId, listedAt);
+  }
+
+  /** When the account of the engine listed as `engineId` last listed its models; undefined if never. */
+  modelsListedAt(engineId: EngineId): Date | undefined {
+    return this.modelListedAt.get(engineId);
+  }
+
+  private withApiKeySignIn(engine: Engine): Engine {
+    return engine.kind === "claude-code" && this.signedInByApiKey.has(engine.id)
+      ? { ...engine, signedInByApiKey: true }
+      : engine;
+  }
+
+  private withModelList(engine: Engine): Engine {
+    const listedModels = this.modelLists.get(engine.id);
+    if (listedModels === undefined) return engine;
+    switch (engine.kind) {
+      case "claude-code":
+      case "codex":
+      case "copilot-cli":
+        return { ...engine, listedModels };
+      case "gemini-cli":
+      case "openai-compatible-api":
+        return engine;
+    }
   }
 
   /** The engine listed as `engineId`; undefined when Settings › Engines lists none. */

@@ -1,17 +1,18 @@
-import type { ClaudeCodeEngineEdit } from "@the-office/contracts";
-import { Input, Select, Switch } from "@the-office/ui";
+import type { ClaudeCodeEngineEdit, EngineSettings } from "@the-office/contracts";
+import { Input, Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { modelLabel } from "../../../shell/engine-words.ts";
+import { DefaultModelField } from "./engine-model-field.tsx";
 import { EngineEffortField } from "./engine-effort-field.tsx";
 
 /** A Claude Code engine's Settings: its name, Default model, Default effort and `-p` switch. */
 export function ClaudeCodeEngineFields({
   edit,
-  claudeModels,
+  saved,
   change,
 }: {
   readonly edit: ClaudeCodeEngineEdit;
-  readonly claudeModels: readonly string[];
+  /** The engines as saved, whose lists give the models it offers. */
+  readonly saved: EngineSettings;
   readonly change: (edit: ClaudeCodeEngineEdit) => void;
 }): ReactNode {
   return (
@@ -23,12 +24,7 @@ export function ClaudeCodeEngineFields({
           value={edit.name}
           onChange={(event) => change({ ...edit, name: event.target.value })}
         />
-        <Select
-          label="Default model"
-          options={claudeModels.map((model) => ({ value: model, label: modelLabel(model) }))}
-          value={edit.defaultModel}
-          onChange={(defaultModel) => change({ ...edit, defaultModel })}
-        />
+        <DefaultModelField edit={edit} saved={saved} change={change} />
         <EngineEffortField
           kind={edit.kind}
           value={edit.defaultEffort}

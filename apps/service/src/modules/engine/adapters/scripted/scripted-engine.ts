@@ -114,6 +114,10 @@ export class ScriptedEngine extends AgentEngine {
   private readonly engineWindows = new Map<EngineId, UsageWindows | Error>();
   /** The engines whose 5-hour window `startUsageWindow` was asked to start, by id, in order. */
   readonly windowStarts: EngineId[] = [];
+  /** The engines whose models `listModels` was asked for, by id, in order. */
+  readonly modelListReads: EngineId[] = [];
+  /** What each engine's `listModels` answers, or fails with; none unless a test sets it. */
+  private readonly listedModels = new Map<EngineId, readonly string[] | Error>();
   /** What a start of each engine's window answers, or fails with; `DEFAULT_WINDOW_START` unless set. */
   private readonly windowStartAnswers = new Map<EngineId, UsageWindowStart | Error>();
   /** What each engine's reading becomes once a start of its window succeeds. */
@@ -202,6 +206,35 @@ export class ScriptedEngine extends AgentEngine {
     const after = this.windowsAfterStart.get(engine.id);
     if (after !== undefined) this.engineWindows.set(engine.id, after);
     return answer;
+  }
+
+  /**
+   * What `listModels` answers for the engine from now on: `models`, or none when undefined. Not
+   * part of the port: a test calls it.
+   */
+  setListedModels(engineId: EngineId, models: readonly string[] | undefined): void {
+    if (models === undefined) this.listedModels.delete(engineId);
+    else this.listedModels.set(engineId, models);
+  }
+
+  /** Makes `listModels` fail with `error` for the engine from now on. Not part of the port. */
+  failModelLists(engineId: EngineId, error: Error): void {
+    this.listedModels.set(engineId, error);
+  }
+
+  /**
+   * Answers what a test set for the engine (`setListedModels`, `failModelLists`), none unless it
+   * set any, so the fixed lists stand; counts the ask in `modelListReads`.
+   */
+  override async listModels(
+    engine: Engine,
+    signal: AbortSignal,
+  ): Promise<readonly string[] | undefined> {
+    signal.throwIfAborted();
+    this.modelListReads.push(engine.id);
+    const set = this.listedModels.get(engine.id);
+    if (set instanceof Error) throw set;
+    return set;
   }
 
   /**

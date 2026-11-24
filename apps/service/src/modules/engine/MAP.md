@@ -4,6 +4,8 @@
 
 **Window starts** (spec §5.4.6, "Starting the 5-hour window"): each engine with usage windows and the `startsUsageWindow` capability starts its 5-hour window by itself. Its settings (`startAtTimes`, `HH:MM` on the service's clock, unique and sorted, at most `MAX_WINDOW_START_TIMES`; `startAfterReset`) and its last record (started with the new 5-hour reset, skipped with a `WindowStartSkipReason`, or failed with its error) are kept in `engine_window_starts` by engine id (`WindowStartRepository`, `PostgresWindowStarts`), with no foreign key, as a Save re-inserts every `engines` row; `replace` deletes the rows of engines no longer listed in the same transaction. `EngineSettingsService` gives them on GET with `nextStartAt` from `NextWindowStarts` and the service's `timeZone`, and saves those a PUT gives (refusing a malformed or duplicate time or an engine without usage windows), announcing `WindowStartSettingsChanged`. `WindowStarts` (`application/window-starts.ts`, in both `EngineModule` and `ScriptedEngineModule`) sets one `Schedule.once` per engine for its next start (`nextWindowStart`: the set times in local time, and with after-reset on `WINDOW_START_AFTER_RESET_DELAY` after the latest reading's 5-hour reset, each reset handled once), at boot without catching up and again on `WindowStartSettingsChanged`, `UsageWindowsChanged`, `UsageWindowReset`, `EngineAccountChanged`, `EngineAdded` and `EngineRemoved`; as it fires it reads afresh, judges `windowStartSkipReason` (weekly limit `WINDOW_START_WEEKLY_LIMIT_PERCENT`; a Daily cap skips none), calls the port's `startUsageWindow` (the SDK's `persistSession: false` query and `-p`'s `--no-session-persistence` run on `WINDOW_START_MODEL`, Codex an ephemeral thread on `CODEX_WINDOW_START_MODEL` at low effort; the others refuse with `CapabilityMissing`), counts its tokens as a turn's (`UsageWindowReadings.turnEnded`, `DayUsage`), reads again and records; one start at a time, a failure not retried before the next trigger. Each settings change, record and move of the next start is announced as `WindowStartRecorded`, forwarded as `engine.window-start-changed`. A test instance schedules none. A Codex snapshot without a 5-hour window marks it `missing` (`no-5-hour-window`).
 
+**Model lists** (spec §5.4.5, "Models an engine lists"): each Claude Code, Codex and Copilot CLI engine's account is asked for its models through the port's `listModels(engine, signal)` (the Agent SDK's `supportedModels()`, the `-p` binary's `initialize` answer, Codex's paged `model/list` without hidden models, the Copilot SDK's `listModels()`), with no session; `listsItsModels(kind)` says which types are asked. `EngineModelLists` keeps each answer in `engine_model_lists` (`ModelListRepository`, `PostgresModelLists`; one row per engine, never empty) and hands it to `EngineModels.recordModelList`, which makes it the engine's `offeredModels` and `modelsListedAt`, the type's fixed list standing in until one is kept. It reads the kept lists at bootstrap, then asks each missing or older than `MODEL_LIST_REFRESH_AGE_MS` (24h) in the background, one engine at a time, but one asked within `MODEL_LIST_ASK_GAP_MS` (1h) whatever it answered; asks at once on `EngineAdded` and `EngineAccountChanged` (after any ask under way); forgets on `EngineRemoved`; asks again when `EngineSessions` sees a session refused for its model (`ModelNotOffered`, or a turn's errors naming the model), at most once per `MODEL_REFUSAL_REFRESH_GAP_MS`; and publishes `EngineModelsListed` (`engine.models-listed` to the web). A failed or empty answer keeps the list kept. `StaleModelLists`, in `EngineSettingsModule`, lets `EngineSettingsService.current()` (Settings GET) start the stale refresh without the adapters; People's `cardOptions()` calls `EngineModelLists.refreshStale()` directly. `POST /settings/engines/:engineId/models/refresh` (`EngineModelListsController`) asks one now. A saved default model the engine no longer offers stays valid on Save. Nothing is asked on a test instance, and the refresh route answers 422 there.
+
 **Talks to:** Prompt templates only: `EnginePromptTemplates` registers `ENGINE_PROMPT_TEMPLATES` (the API engine's system prompt and output reminder, Codex's developer instructions) at init, and the OpenAI-compatible API and Codex adapters load them with `PromptTemplates.textsOf` once per `open()`; the Claude Code engines add no Office text. Otherwise no module. A session's owner hands it the skills folder, the options and the environment; modules give it their Office tools through `OfficeToolRegistry`, checks on a save of Settings › Engines through `EngineSettingsChecks` (People's capability check registers there; `change` and `remove` run them before keeping anything), and the moves of a removal through `EngineReferenceMoves` (Projects their levels, Work its Tasks' and Initiatives' engines, each registering `movesOf` for the preview and `move`, through one filter so the two agree; a Task's or Initiative's move names it as `MovedWork`, with its state as Work names it); People, Projects and Work hold its `EngineReferenceLock` over their saves of a reference. It never reads Skills; Skills counts uses from its `SkillCalled`. Counts each Agent turn as Office-updates' `BusyWork` from its begin to its end in `EngineCallSpans`, labelled by the caller's `SessionSettings.turnLabel` ("Jim in the Stage Implement").
 
 **Test instances** (spec §6): with the platform's `OfficeTestInstance` on (`OFFICE_TEST_INSTANCE=true`, injected `@Optional()`, off when absent) `EngineSessions.start` and `resume` throw `EngineRefused` (`domain/engine-refused.ts`, exported) before any engine is asked, and `UsageWindowChecks` schedules no check and refuses `check()`, so no session runs, no model is called and no account is read.
@@ -14,11 +16,11 @@
 
 ## Public entry (`index.ts`)
 
-EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegistry, FOLLOW_YOUR_AUTHORITY, officeActionTool, CommandJudgement, OfficeTool, OfficeToolCall, OfficeToolPicture, OfficeToolResult, UsageWindowState, UsageWindowReading, UsedUpUsageWindow, UsageWindowSamples, UsageWindowsNow, EngineUsageWindowsNow, EngineWindowsNow, UsageWindowRatios, EngineAdded, EngineDown, EngineRemoved, SkillCalled, UsageWindowReset, UsageWindowsChanged, UsageWindowsRead, UsageWindowUsedUp, EngineModels, StandInEngineSettings, usageWindowWords, showsFree, UsageWindowName, EngineSettingsChecks, EngineCascadeSettings, EngineSettingsSave, EngineReferenceMoves, EngineReferences, EngineReferenceLock, movedEngineId, movedEngineOverride, movedStandInList, EngineRemoval, MovedEngineReference, effortsTakenBy, ENGINE_TYPE_NAMES, FIRST_CLAUDE_CODE_ENGINE, hasUsageWindows, offeredModels, Effort, Engine, EngineId, EngineKind, EngineModel, OfficeDefault, engineThroughStandIns, engineToRunOn, standInListProblems, standInListWithout, EngineStandInChoice, StandInNeeds, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL, RUN_PROJECT_COMMAND_TOOL, EngineModule, EngineAccountsModule, ScriptedEngine, CarriedSession, ScriptedEngineProcess, readRecording, SessionScript, ScriptedEngineModule, ClaudeCodeAccounts, StandInClaudeCodeAccounts, CodexAccounts, StandInCodexAccounts, CopilotCliAccounts, StandInCopilotCliAccounts, OPENAI_COMPATIBLE_API_CAPABILITIES, CODEX_CAPABILITIES, COPILOT_CLI_CAPABILITIES, GEMINI_CLI_CAPABILITIES, NewSession, NoEngineListed, SessionNotCarried, EngineSession, ApprovalCall, ApprovalHold
+EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegistry, FOLLOW_YOUR_AUTHORITY, officeActionTool, CommandJudgement, OfficeTool, OfficeToolCall, OfficeToolPicture, OfficeToolResult, UsageWindowState, UsageWindowReading, UsedUpUsageWindow, UsageWindowSamples, UsageWindowsNow, EngineUsageWindowsNow, EngineWindowsNow, UsageWindowRatios, EngineAdded, EngineDown, EngineRemoved, SkillCalled, UsageWindowReset, UsageWindowsChanged, UsageWindowsRead, UsageWindowUsedUp, EngineModels, StandInEngineSettings, EngineModelLists, usageWindowWords, showsFree, UsageWindowName, EngineSettingsChecks, EngineCascadeSettings, EngineSettingsSave, EngineReferenceMoves, EngineReferences, EngineReferenceLock, movedEngineId, movedEngineOverride, movedStandInList, EngineRemoval, MovedEngineReference, effortsTakenBy, ENGINE_TYPE_NAMES, FIRST_CLAUDE_CODE_ENGINE, hasUsageWindows, offeredModels, Effort, Engine, EngineId, EngineKind, EngineModel, OfficeDefault, engineThroughStandIns, engineToRunOn, standInListProblems, standInListWithout, EngineStandInChoice, StandInNeeds, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL, RUN_PROJECT_COMMAND_TOOL, EngineModule, EngineAccountsModule, ScriptedEngine, CarriedSession, ScriptedEngineProcess, readRecording, SessionScript, ScriptedEngineModule, ClaudeCodeAccounts, StandInClaudeCodeAccounts, CodexAccounts, StandInCodexAccounts, CopilotCliAccounts, StandInCopilotCliAccounts, OPENAI_COMPATIBLE_API_CAPABILITIES, CODEX_CAPABILITIES, COPILOT_CLI_CAPABILITIES, GEMINI_CLI_CAPABILITIES, NewSession, NoEngineListed, SessionNotCarried, EngineSession, ApprovalCall, ApprovalHold
 
 ## Domain events
 
-- `domain/engine-events.ts`: UsageWindowsChanged, UsageWindowUsedUp, UsageWindowReset, UsageWindowsRead, EngineAdded, EngineRemoved, EngineAccountChanged, WindowStartSettingsChanged, WindowStartRecorded, SkillCalled, EngineDown
+- `domain/engine-events.ts`: UsageWindowsChanged, UsageWindowUsedUp, UsageWindowReset, UsageWindowsRead, EngineAdded, EngineRemoved, EngineAccountChanged, EngineModelsListed, WindowStartSettingsChanged, WindowStartRecorded, SkillCalled, EngineDown
 
 ## HTTP routes (under `/api`)
 
@@ -28,6 +30,7 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `PUT /settings/engines/:engineId/token`: EngineAccountsController.setPastedToken
 - `PUT /settings/engines/:engineId/api-key`: EngineAccountsController.setApiKey
 - `DELETE /settings/engines/:engineId/sign-in`: EngineAccountsController.signOut
+- `POST /settings/engines/:engineId/models/refresh`: EngineModelListsController.refresh
 - `GET /settings/engines`: EngineSettingsController.read
 - `PUT /settings/engines`: EngineSettingsController.change
 - `GET /settings/engines/:engineId/removal`: EngineSettingsController.removalPreview
@@ -37,6 +40,7 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 
 - `adapters/postgres/day-usage.schema.ts`: engine_day_usage
 - `adapters/postgres/engine-settings.schema.ts`: engines, engine_settings, model_prices
+- `adapters/postgres/model-lists.schema.ts`: engine_model_lists
 - `adapters/postgres/usage-window-samples.schema.ts`: usage_window_samples
 - `adapters/postgres/window-starts.schema.ts`: engine_window_starts
 
@@ -53,11 +57,12 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 ### adapters/agent-sdk/
 
 - `agent-sdk-engine.ts`: AgentSdkEngine
+- `model-list-read.ts`: listModelsOnSdk
 - `sdk-options.fixtures.ts`: OPTIONS, PRE_TOOL_USE, CONFIG_FOLDER, optionsFor
 - `sdk-options.ts`: SdkSession, sdkOptions, sdkMcpConfig
-- `usage-window-read.ts`: SdkUsageRead, sdkUsageReadOptions, readUsageWindowsOnSdk
+- `usage-window-read.ts`: SdkUsageRead, sdkUsageReadOptions, readUsageWindowsOnSdk, readOnSdk
 - `usage-window-start.ts`: sdkWindowStartOptions, startUsageWindowOnSdk
-- Tests: agent-sdk-engine.test.ts, sdk-options.full.test.ts, sdk-options.test.ts, test-project-check.test.ts, usage-window-read.test.ts, usage-window-start.test.ts
+- Tests: agent-sdk-engine.test.ts, model-list-read.test.ts, sdk-options.full.test.ts, sdk-options.test.ts, test-project-check.test.ts, usage-window-read.test.ts, usage-window-start.test.ts
 
 ### adapters/claude-code/
 
@@ -70,6 +75,7 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `engine-read.ts`: READ_EXIT_GRACE_MS, serviceVariables, EngineReadLimits, engineRead
 - `engine-task-folder.ts`: engineTaskFolder
 - `language-server-plugin.ts`: languageServerManifest, writeLanguageServerPlugin
+- `listed-models.ts`: listedClaudeModels
 - `mcp-config-file.ts`: McpConfig, McpConfigFile
 - `mcp-server-starts.ts`: McpServerStarts
 - `office-rules-hook.ts`: HookRewrites, officeRulesHook
@@ -86,23 +92,24 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `stream-events.ts`: StreamEvents, userMessage, isInit, engineStopped
 - `tool-refusals.ts`: ToolRefusals
 - `usage-window-start.ts`: WINDOW_START_MODEL, WINDOW_START_PROMPT, windowStartWhat, requireUsageWindows, resultTokens, windowStartOf
-- Tests: background-tasks.full.test.ts, background-tasks.test.ts, claude-code-cli-accounts.full.test.ts, claude-code-cli-accounts.test.ts, engine-task-folder.full.test.ts, language-server-plugin.full.test.ts, mcp-config-file.test.ts, office-rules-hook.test.ts, office-tools.test.ts, refused-turns.test.ts, sdk-events.full.test.ts, sdk-events.test.ts, session-carry-over.test.ts, start-check.full.test.ts, start-check.test.ts, stream-events.full.test.ts, tool-refusals.full.test.ts
+- Tests: background-tasks.full.test.ts, background-tasks.test.ts, claude-code-cli-accounts.full.test.ts, claude-code-cli-accounts.test.ts, engine-task-folder.full.test.ts, language-server-plugin.full.test.ts, listed-models.test.ts, mcp-config-file.test.ts, office-rules-hook.test.ts, office-tools.test.ts, refused-turns.test.ts, sdk-events.full.test.ts, sdk-events.test.ts, session-carry-over.test.ts, start-check.full.test.ts, start-check.test.ts, stream-events.full.test.ts, tool-refusals.full.test.ts
 
 ### adapters/claude-code-p/
 
 - `claude-code-p-arguments.fixtures.ts`: OPTIONS, SKILLS, HOOK_URL, argumentsFor, flag, settingsOf
 - `claude-code-p-arguments.ts`: TOKEN_VARIABLE, ClaudeCodePSession, claudeCodePArguments, claudeCodePMcpConfig, claudeCodePEnvironment
 - `claude-code-p-engine.ts`: CLAUDE_CODE_P_CAPABILITIES, ClaudeCodePEngine
-- `fake-claude-code-p.fixtures.ts`: FAKE_FIVE_HOUR_RESET, FAKE_SEVEN_DAY_RESET, FAKE_TURN_USAGE, FakeClaudeCodePMode, fakeClaudeCodeP, FakeClaudeCodePRun, fakeClaudeCodePRuns
+- `fake-claude-code-p.fixtures.ts`: FAKE_FIVE_HOUR_RESET, FAKE_SEVEN_DAY_RESET, FAKE_TURN_USAGE, FAKE_MODEL_ROWS, FakeClaudeCodePMode, fakeClaudeCodeP, FakeClaudeCodePRun, fakeClaudeCodePRuns
+- `model-list-read.ts`: listModelsOnStreamJson
 - `office-tool-server.fixtures.ts`: ALLOWED, noteTool, connected, result, callNote
 - `office-tool-server.ts`: OfficeToolServer
 - `pinned-binary.ts`: pinnedBinaryPath
 - `session-endpoints.ts`: SESSION_ENDPOINTS_ROUTE, HOOK_ROUTE, EndpointSession, OpenEndpoints, SessionEndpoints
 - `stream-json.fixtures.ts`: FakeEngine, all
 - `stream-json.ts`: StreamMcpServer, StreamJson
-- `usage-window-read.ts`: claudeCodePReadArguments, readUsageWindowsOnStreamJson
+- `usage-window-read.ts`: claudeCodePReadArguments, readUsageWindowsOnStreamJson, readOnStreamJson
 - `usage-window-start.ts`: claudeCodePWindowStartArguments, startUsageWindowOnStreamJson
-- Tests: background-tasks.test.ts, claude-code-p-arguments.full.test.ts, claude-code-p-arguments.test.ts, claude-code-p-engine.test.ts, office-tool-server.full.test.ts, office-tool-server.test.ts, stream-json.full.test.ts, stream-json.test.ts, usage-window-read.full.test.ts, usage-window-read.test.ts, usage-window-start.test.ts
+- Tests: background-tasks.test.ts, claude-code-p-arguments.full.test.ts, claude-code-p-arguments.test.ts, claude-code-p-engine.test.ts, model-list-read.test.ts, office-tool-server.full.test.ts, office-tool-server.test.ts, stream-json.full.test.ts, stream-json.test.ts, usage-window-read.full.test.ts, usage-window-read.test.ts, usage-window-start.test.ts
 
 ### adapters/codex/
 
@@ -111,27 +118,28 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `codex-binary.ts`: pinnedCodexPath
 - `codex-cli-accounts.fixtures.ts`: FAKE_CODEX, FakeCodexRun, folder, officeData, accounts, fakeCodexRuns, approve, setUpEachTest
 - `codex-cli-accounts.ts`: CodexCli, CodexCliAccounts, pageAndCode, withoutTerminalCodes
-- `codex-engine.ts`: CODEX_CAPABILITIES, CodexWireProcess, CodexEngineSetup, CODEX_ENGINE_SETUP, CodexAppServerEngine, codexInstructions, mainCheckout, DECLINED_CALLS, FILE_CHANGES
+- `codex-engine.ts`: CODEX_CAPABILITIES, CodexWireProcess, CodexEngineSetup, CODEX_ENGINE_SETUP, CodexAppServerEngine, listedCodexModels, codexInstructions, mainCheckout, DECLINED_CALLS, FILE_CHANGES
 - `codex-events.ts`: CodexToolCall, itemCalls, fileChangeCallId, toolCallEvent, completedItemEvents, toolResult, refusalEvents, refusalNote, codexTokens, tokensSince, tokensBefore, mergedRateLimits, rateLimitEvent, usedUpWindow, TurnEnding, TurnAccount, turnEnding, TurnOutput, outputReader
-- `codex-protocol.ts`: CodexUserInput, CodexApprovalPolicy, CodexSandboxMode, CodexThreadConfig, CodexThreadSettings, CodexRequests, CodexRequestMethod, CODEX_RESULTS, CodexTurn, CodexTurnError, CodexRateLimitSnapshot, CodexRateLimitWindow, CodexAgentMessageItem, CodexCommandExecutionItem, CodexFileChangeItem, CodexFileUpdateChange, CodexMcpToolCallItem, CodexOtherItem, CodexThreadItem, CodexNotification, CodexTokenUsage, codexNotification, COMMAND_APPROVAL, FILE_CHANGE_APPROVAL, PERMISSIONS_APPROVAL, MCP_ELICITATION, CodexServerRequest, CodexCommandApprovalParams, CodexFileChangeApprovalParams, CodexElicitationParams, codexServerRequest, codexUserInput
+- `codex-protocol.ts`: CodexUserInput, CodexApprovalPolicy, CodexSandboxMode, CodexThreadConfig, CodexThreadSettings, CodexRequests, CodexRequestMethod, CODEX_RESULTS, CodexListedModel, CodexTurn, CodexTurnError, CodexRateLimitSnapshot, CodexRateLimitWindow, CodexAgentMessageItem, CodexCommandExecutionItem, CodexFileChangeItem, CodexFileUpdateChange, CodexMcpToolCallItem, CodexOtherItem, CodexThreadItem, CodexNotification, CodexTokenUsage, codexNotification, COMMAND_APPROVAL, FILE_CHANGE_APPROVAL, PERMISSIONS_APPROVAL, MCP_ELICITATION, CodexServerRequest, CodexCommandApprovalParams, CodexFileChangeApprovalParams, CodexElicitationParams, codexServerRequest, codexUserInput
 - `codex-rpc.ts`: METHOD_NOT_FOUND, INVALID_PARAMS, INTERNAL_ERROR, CodexRpcError, CodexExit, CodexRpcHandlers, CodexWireDirection, CodexWireTap, CodexRpc, CodexAppServer, codexExitWords
 - `codex-session.ts`: CodexConnect, CodexSessionParts, CodexSession, codexEffort
 - `codex-thread-file.ts`: CodexThreadMissing, CodexThreadFile
 - `codex-usage-window-start.ts`: CODEX_WINDOW_START_MODEL, CODEX_WINDOW_START_EFFORT, codexWindowStartThread, CodexWindowStart, startCodexUsageWindow
 - `codex-usage-windows.ts`: FIVE_HOURS_MINUTES, SEVEN_DAYS_MINUTES, unknownWindowLengths, codexUsageWindows, codexWindowsOf, codexResetOf, usedUp
 - `codex-wire-recording.fixtures.ts`: CodexWireLine, WIRE_PLACEHOLDERS, CodexWireRecorder, readWireRecording
-- `fake-app-server.fixtures.ts`: FAKE_FIVE_HOUR_RESET, FAKE_SEVEN_DAY_RESET, FAKE_APP_SERVER, fakeAppServer, FakeAppServerRun, fakeAppServerRuns
+- `fake-app-server.fixtures.ts`: FAKE_FIVE_HOUR_RESET, FAKE_SEVEN_DAY_RESET, FAKE_MODEL_PAGES, FAKE_APP_SERVER, fakeAppServer, FakeAppServerRun, fakeAppServerRuns
 - `fake-codex-app-server.fixtures.ts`: REPLAYING_APP_SERVER, replayingAppServer, unreplayedAppServers
 - `session-mcp-endpoint.ts`: SessionMcpEndpointParts, SessionMcpEndpoint
 - Tests: codex-approvals.test.ts, codex-arguments.test.ts, codex-binary.test.ts, codex-cli-accounts.full.test.ts, codex-engine.test.ts, codex-events.test.ts, codex-instructions.test.ts, codex-rpc.test.ts, codex-usage-windows.test.ts, session-mcp-endpoint.test.ts
 
 ### adapters/copilot-cli/
 
-- `copilot-cli-engine.ts`: COPILOT_CLI_CAPABILITIES, OPEN_COPILOT_SESSION, CopilotSdkEngine, availableTools, copilotMcpServers
+- `copilot-cli-engine.ts`: COPILOT_CLI_CAPABILITIES, OPEN_COPILOT_SESSION, OPEN_COPILOT_MODEL_RUNTIME, CopilotSdkEngine, availableTools, copilotMcpServers
 - `copilot-cli-session.ts`: CopilotSessionSkills, CopilotCliSessionParts, CopilotCliSession, sessionSkillName
 - `copilot-environment.ts`: copilotEnvironment
 - `copilot-events.fixtures.ts`: copilotEvent, userMessage, answer, usage, toolStart, toolDone, toolDenied, idle, READ_A_FILE_TURN
 - `copilot-events.ts`: CopilotContextUsage, CopilotTurnOptions, copilotTokens, CopilotTurnEvents
+- `copilot-model-list.ts`: CopilotListedModel, CopilotModelRuntime, OpenCopilotModelRuntime, sdkCopilotModelRuntimes, listModelsOnCopilotRuntime, listedCopilotModels
 - `copilot-recording.fixtures.ts`: CopilotRecordingLine, CopilotRecorder, CopilotReplay
 - `copilot-runtime.fixtures.ts`: StandInStep, HookedCall, StandInCopilotRuntime
 - `copilot-runtime.ts`: CopilotToolCall, CopilotToolDecision, CopilotOfficeTool, CopilotSessionSpec, CopilotSessionHandlers, CopilotListedSkill, CopilotAttachment, CopilotMessage, CopilotRuntimeSession, OpenCopilotSession, CopilotEvent
@@ -139,7 +147,7 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `copilot-sign-in-runtime.ts`: CopilotSignInStatus, CopilotDeviceLogin, CopilotSignInRuntime, OpenCopilotSignInRuntime, sdkSignInRuntimes
 - `copilot-tool-actions.ts`: JudgedCall, DisplayedCall, CopilotToolSession, CopilotToolJudgement, copilotToolCall, copilotDecision
 - `sdk-copilot-sessions.ts`: sdkCopilotSessions
-- Tests: copilot-cli-engine.test.ts, copilot-events.test.ts, copilot-sdk-accounts.test.ts, copilot-tool-actions.test.ts
+- Tests: copilot-cli-engine.test.ts, copilot-events.test.ts, copilot-model-list.test.ts, copilot-sdk-accounts.test.ts, copilot-tool-actions.test.ts
 
 ### adapters/engine-folders/
 
@@ -171,11 +179,12 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 
 - `engine-account-refusal.filter.ts`: EngineAccountRefusalFilter
 - `engine-accounts.controller.ts`: EngineAccountsController
+- `engine-model-lists.controller.ts`: EngineModelListsController
 - `engine-settings-refusal.filter.ts`: EngineSettingsRefusalFilter
 - `engine-settings.controller.ts`: EngineSettingsController
 - `session-endpoints.controller.ts`: SessionEndpointsController
 - `session-endpoints.fixtures.ts`: ServedEndpoints, serveSessionEndpoints
-- Tests: engine-accounts.controller.full.test.ts, engine-accounts.controller.test.ts, engine-settings.controller.full.test.ts, engine-settings.controller.test.ts, session-endpoints.controller.test.ts
+- Tests: engine-accounts.controller.full.test.ts, engine-accounts.controller.test.ts, engine-model-lists.controller.test.ts, engine-settings.controller.full.test.ts, engine-settings.controller.test.ts, session-endpoints.controller.test.ts
 
 ### adapters/language-servers/
 
@@ -244,13 +253,15 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 
 - `day-usage.schema.ts`: engineDayUsage
 - `engine-settings.schema.ts`: engines, engineSettings, modelPrices
+- `model-lists.schema.ts`: engineModelLists
 - `postgres-day-usage.ts`: PostgresDayUsage
 - `postgres-engine-settings.ts`: PostgresEngineSettings
+- `postgres-model-lists.ts`: PostgresModelLists
 - `postgres-usage-window-samples.ts`: PostgresUsageWindowSamples
 - `postgres-window-starts.ts`: PostgresWindowStarts
 - `usage-window-samples.schema.ts`: usageWindowSamples
 - `window-starts.schema.ts`: engineWindowStarts
-- Tests: engine-default-effort-migration.test.ts, postgres-day-usage.test.ts, postgres-engine-settings.test.ts, postgres-usage-window-samples.test.ts, postgres-window-starts.test.ts
+- Tests: engine-default-effort-migration.test.ts, postgres-day-usage.test.ts, postgres-engine-settings.test.ts, postgres-model-lists.test.ts, postgres-usage-window-samples.test.ts, postgres-window-starts.test.ts
 
 ### adapters/prompt-templates/
 
@@ -297,17 +308,19 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `day-usage.ts`: DayUsage
 - `engine-accounts.ts`: NotAClaudeCodeEngine, NotAnEngineTakingAToken, NotAnEngineWithAnApiKey, NotAnEngineWithASignIn, NotAnEngineWithAnAccount, StartedSignIn, EngineAccounts
 - `engine-call-spans.ts`: SessionTelemetry, SessionCosts, promptFeatures, EndedCall, CallCost, engineCallRecord, EngineCallSpans
+- `engine-model-lists.ts`: MODEL_REFUSAL_REFRESH_GAP_MS, ModelListRefresh, EngineModelLists
 - `engine-models.ts`: EngineModels, StandInEngineSettings
 - `engine-reference-lock.ts`: EngineReferenceLock
 - `engine-reference-moves.ts`: EngineReferences, EngineReferenceMoves
 - `engine-sessions.ts`: SessionSettings, SessionStart, EngineSessions, StandInOptions
 - `engine-settings-checks.ts`: EngineCascadeSettings, engineCascadeSettingsOf, EngineSettingsSave, EngineSettingsCheck, EngineSettingsChecks
-- `engine-settings-service.ts`: EngineSettingsService, EngineRemovalPreview, EngineWindowStartEdit, EngineSettingsChange, EngineWindowStart, EngineWindowStarts
+- `engine-settings-service.ts`: EngineSettingsService, EngineRemovalPreview, EngineWindowStartEdit, EngineSettingsChange, EngineModelChoices, EngineWindowStart, EngineWindowStarts
 - `model-prices.ts`: ModelPrices
 - `next-window-starts.ts`: NextWindowStarts
 - `office-tool-registry.ts`: OfficeToolRegistry
 - `removed-engine-usage.ts`: RemovedEngineUsage
 - `running-engine-sessions.ts`: RunningEngineSessions
+- `stale-model-lists.ts`: StaleModelLists
 - `usage-window-checks.ts`: USAGE_WINDOW_CHECK_EVERY, USAGE_WINDOW_CHECK, UsageWindowChecks
 - `usage-window-readings.ts`: UsageWindowReadings
 - `usage-window-samples.ts`: UsageWindowSamples
@@ -315,7 +328,7 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `usage-window-telemetry.ts`: UsageWindowTelemetry
 - `usage-windows-now.ts`: EngineWindowsNow, EngineUsageWindowsNow, UsageWindowsNow
 - `window-starts.ts`: WINDOW_START, WindowStarts
-- Tests: agent-engines.test.ts, changed-account-usage.full.test.ts, engine-models.full.test.ts, engine-sessions.full.test.ts, engine-sessions.test.ts, model-prices.full.test.ts, office-tool-registry.full.test.ts, removed-engine-usage.full.test.ts, stand-in-sessions.full.test.ts, usage-window-checks.test.ts, usage-window-samples.full.test.ts, usage-window-state.full.test.ts, usage-window-telemetry.full.test.ts, usage-window-used-up.test.ts, usage-windows-now.full.test.ts, window-starts.test.ts
+- Tests: agent-engines.test.ts, changed-account-usage.full.test.ts, engine-model-lists.test.ts, engine-models.full.test.ts, engine-sessions.full.test.ts, engine-sessions.test.ts, model-prices.full.test.ts, office-tool-registry.full.test.ts, removed-engine-usage.full.test.ts, stand-in-sessions.full.test.ts, usage-window-checks.test.ts, usage-window-samples.full.test.ts, usage-window-state.full.test.ts, usage-window-telemetry.full.test.ts, usage-window-used-up.test.ts, usage-windows-now.full.test.ts, window-starts.test.ts
 
 ### domain/
 
@@ -328,17 +341,18 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `day-usage.ts`: dayOf
 - `directory-change.ts`: DirectoryChange, directoryChange
 - `engine-account.ts`: EngineAccount, SIGNED_OUT_ACCOUNT, API_KEY_ACCOUNT, PASTED_TOKEN_ACCOUNT, EngineAccountUnreadable, engineAccountOf, CodexAccountRead, codexEngineAccountOf
-- `engine-events.ts`: UsageWindowsChanged, UsageWindowUsedUp, UsageWindowReset, UsageWindowsRead, EngineAdded, EngineRemoved, EngineAccountChanged, WindowStartSettingsChanged, WindowStartRecorded, SkillCalled, EngineDown
+- `engine-events.ts`: UsageWindowsChanged, UsageWindowUsedUp, UsageWindowReset, UsageWindowsRead, EngineAdded, EngineRemoved, EngineAccountChanged, EngineModelsListed, WindowStartSettingsChanged, WindowStartRecorded, SkillCalled, EngineDown
 - `engine-prompt-templates.ts`: DECLINED_CALLS, FILE_CHANGES, API_SYSTEM_PROMPT, API_OUTPUT_REMINDER, GEMINI_OUTPUT_REMINDER, CODEX_INSTRUCTIONS, ENGINE_PROMPT_TEMPLATES
 - `engine-refused.ts`: EngineRefused
 - `engine-removal.ts`: EngineRemoval, MovedEngineReference, MovedWork, MovedTaskState, MovedInitiativeState, movedEngineOverride, movedEngineId, movedStandInList, engineRemovalAmong
 - `engine-settings-refused.ts`: EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE
 - `engine-settings.fixtures.ts`: strata, codex, codexEdit, stored, claudeCodeEdit, strataEdit, editOf, refusal
 - `engine-settings.ts`: SearchEndpoint, EngineSettings, DEFAULT_ASK_BEFORE_SWITCH_ABOVE, ASK_BEFORE_SWITCH_ABOVE_MOST, FIRST_OFFICE_DEFAULT, DEFAULT_ENGINE_SETTINGS, ClaudeCodeEngineEdit, ApiEngineEdit, CodexEngineEdit, CopilotCliEngineEdit, GeminiCliEngineEdit, EngineEdit, EngineSettingsEdit, ENGINE_NAME_LENGTH, offeredModelPrices, changedEngineSettings, officeDefaultEngineModel, settingsWithoutEngine
-- `engines.ts`: EngineId, EngineKind, ENGINE_TYPE_NAMES, Effort, effortsTakenBy, ClaudeCodeEngine, ApiEngine, CodexEngine, CopilotCliEngine, GeminiCliEngine, Engine, CLAUDE_CODE_MODELS, CODEX_MODELS, COPILOT_CLI_AUTO_MODEL, COPILOT_CLI_MODELS, GEMINI_CLI_MODELS, FIRST_CLAUDE_CODE_ENGINE, engineIdFor, offeredModels, hasUsageWindows, pricedPerEngine, EngineModel, OfficeDefault
+- `engines.ts`: EngineId, EngineKind, ENGINE_TYPE_NAMES, Effort, effortsTakenBy, ClaudeCodeEngine, ApiEngine, CodexEngine, CopilotCliEngine, GeminiCliEngine, Engine, CLAUDE_CODE_MODELS, CODEX_MODELS, COPILOT_CLI_AUTO_MODEL, COPILOT_CLI_MODELS, GEMINI_CLI_MODELS, FIRST_CLAUDE_CODE_ENGINE, engineIdFor, offeredModels, listsItsModels, hasUsageWindows, pricedPerEngine, EngineModel, OfficeDefault
 - `gemini-api-key.ts`: NotAGeminiApiKey, GeminiApiKey
 - `git-commands.ts`: READ_ONLY_GIT_COMMANDS, isGit, gitChange
 - `language-servers.ts`: LanguageServer, LANGUAGE_SERVERS, withLeftOutLanguageServers
+- `model-lists.ts`: EngineModelList, MODEL_LIST_REFRESH_AGE_MS, MODEL_LIST_ASK_GAP_MS, modelListIsStale
 - `model-prices.ts`: ModelPrice, PricedModel, OfferedModel, OfferedOn, pricedModels, keptModelPrices, priceOf
 - `office-rules.ts`: ToolDecision, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL, READ_ONLY_SHELL_RULE, OfficeRules
 - `pasted-token.ts`: NotAPastedToken, PastedToken
@@ -368,6 +382,8 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `engine-settings-repository.fixtures.ts`: EngineSettingsForTests
 - `engine-settings-repository.ts`: EngineSettingsRepository
 - `gemini-cli-homes.ts`: GeminiCliHomes
+- `model-list-repository.fixtures.ts`: ModelListsForTests
+- `model-list-repository.ts`: ModelListRepository
 - `office-tool.fixtures.ts`: anOfficeToolCall
 - `office-tool.ts`: CommandJudgement, OfficeToolCall, OfficeToolPicture, OfficeToolResult, OfficeTool
 - `search-endpoint-client.ts`: SearchResult, SearchFailed, SearchEndpointClient

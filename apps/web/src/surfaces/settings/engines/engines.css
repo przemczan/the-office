@@ -57,6 +57,25 @@
   gap: 12px;
 }
 
+/* When an engine's account listed its models, with Refresh models, under its fields. */
+.engine-models-refresh {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.engine-models-refresh-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.engine-models-listed {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
 /* An engine with usage windows' Window start, under its kind's fields on the Settings tab. */
 .window-start {
   display: flex;

@@ -1,4 +1,4 @@
-import type { ApiEngine, EngineEdit, EngineId } from "@the-office/contracts";
+import type { ApiEngine, EngineEdit, EngineId, EngineSettings } from "@the-office/contracts";
 import { Button, Card, Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ENGINE_KIND_ICONS, ENGINE_KIND_LABELS } from "../../../shell/engine-words.ts";
@@ -18,7 +18,8 @@ import {
   engineTabsOf,
   type EngineTab,
 } from "./engine-list-words.ts";
-import type { PricedModel } from "./engine-settings-draft.ts";
+import { EngineModelsRefresh } from "./engine-model-field.tsx";
+import { modelListOf, type PricedModel } from "./engine-settings-draft.ts";
 import {
   ApiEndpointModels,
   ClaudeModelPrices,
@@ -35,7 +36,7 @@ export function EngineDetail({
   engine,
   tab,
   selectTab,
-  claudeModels,
+  saved,
   savedEndpoint,
   pricedModels,
   draftedId,
@@ -47,7 +48,8 @@ export function EngineDetail({
   readonly engine: EngineEdit;
   readonly tab: EngineTab;
   readonly selectTab: (tab: EngineTab) => void;
-  readonly claudeModels: readonly string[];
+  /** The engines as saved: the models each offers, and whether its account lists them. */
+  readonly saved: EngineSettings;
   /** The API endpoint as saved, undefined for one not saved yet or another kind of engine. */
   readonly savedEndpoint: ApiEngine | undefined;
   /** The models its Models and prices prices. */
@@ -62,6 +64,7 @@ export function EngineDetail({
   readonly remove: () => void;
 }): ReactNode {
   const called = engineCalled(engine);
+  const modelList = modelListOf(saved, engine.id);
   return (
     <Card
       title={<SettingsCardTitle icon={ENGINE_KIND_ICONS[engine.kind]}>{called}</SettingsCardTitle>}
@@ -85,7 +88,7 @@ export function EngineDetail({
         />
         {engine.kind === "claude-code" ? (
           tab === "settings" ? (
-            <ClaudeCodeEngineFields edit={engine} claudeModels={claudeModels} change={change} />
+            <ClaudeCodeEngineFields edit={engine} saved={saved} change={change} />
           ) : tab === "account" ? (
             engine.id === undefined ? (
               <p className="settings-note">
@@ -99,7 +102,7 @@ export function EngineDetail({
           )
         ) : engine.kind === "codex" ? (
           tab === "settings" ? (
-            <CodexEngineFields edit={engine} change={change} />
+            <CodexEngineFields edit={engine} saved={saved} change={change} />
           ) : tab === "account" ? (
             engine.id === undefined ? (
               <p className="settings-note">
@@ -114,7 +117,7 @@ export function EngineDetail({
           )
         ) : engine.kind === "copilot-cli" ? (
           tab === "settings" ? (
-            <CopilotCliEngineFields edit={engine} change={change} />
+            <CopilotCliEngineFields edit={engine} saved={saved} change={change} />
           ) : tab === "account" ? (
             engine.id === undefined ? (
               <p className="settings-note">
@@ -129,7 +132,7 @@ export function EngineDetail({
           )
         ) : engine.kind === "gemini-cli" ? (
           tab === "settings" ? (
-            <GeminiCliEngineFields edit={engine} change={change} />
+            <GeminiCliEngineFields edit={engine} saved={saved} change={change} />
           ) : tab === "account" ? (
             engine.id === undefined ? (
               <p className="settings-note">
@@ -151,6 +154,9 @@ export function EngineDetail({
           />
         ) : (
           <ApiEndpointFields edit={engine} saved={savedEndpoint} change={change} />
+        )}
+        {tab === "settings" && modelList?.listsItsModels && (
+          <EngineModelsRefresh modelList={modelList} />
         )}
         {tab === "settings" && windowStart}
       </div>

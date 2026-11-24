@@ -94,6 +94,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Engine cascade, Office default, Project default**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); screens: [Settings › Engines](screens/settings.md#engines), [Project page › Engine](screens/project-page.md#engine)
 - **Engine override (a Task's, an Initiative's), a forced engine with no stand-ins**: [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); [2.1.3 A Task's engine](2.1.3-tasks.md#a-tasks-engine); [2.1.4 An Initiative's engine](2.1.4-initiatives.md#an-initiatives-engine); [5.4.6 A forced engine has no stand-ins](5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins); screens: [Task page › Engine](screens/task-page.md#engine), [Initiative page › Engine fold](screens/initiative-page.md#engine-fold)
 - **Engine settings moved over (Role override, Project's Role overrides, Use for every Role)**: [5.4.5 Moving the earlier engine settings over](5.4.5-engines-and-cascade.md#moving-the-earlier-engine-settings-over)
+- **Models an engine lists, Refresh models, No longer offered**: [5.4.5 Models an engine lists](5.4.5-engines-and-cascade.md#models-an-engine-lists); screen: [Settings › Engines](screens/settings.md#engines)
 
 ### F
 
@@ -693,6 +694,7 @@ Where each default lives, by page:
 - 5.4.5 Engines and the engine cascade
   - [Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list)
   - [Models and efforts of an engine type](5.4.5-engines-and-cascade.md#models-and-efforts-of-an-engine-type)
+  - [Models an engine lists](5.4.5-engines-and-cascade.md#models-an-engine-lists)
   - [A Claude Code engine](5.4.5-engines-and-cascade.md#a-claude-code-engine)
   - [A Copilot CLI engine](5.4.5-engines-and-cascade.md#a-copilot-cli-engine)
   - [A Gemini CLI engine](5.4.5-engines-and-cascade.md#a-gemini-cli-engine)

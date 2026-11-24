@@ -71,6 +71,7 @@ const SAVED: EngineSettings = {
   standInEngines: [],
   askBeforeSwitchAbove: 100_000,
   windowStarts: [],
+  modelLists: [],
   timeZone: "UTC",
 };
 

@@ -17,6 +17,7 @@ import {
   ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
   modelLabel,
+  noLongerOfferedModelLabel,
 } from "../../shell/engine-words.ts";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { personName } from "../../shell/person-name.ts";
@@ -51,7 +52,7 @@ export const ENGINES_DEFAULT_CHOICE = "";
 
 /**
  * A Model field's choices: `first` ("Engine's default" or "Person's setting"), then the type's
- * models; one saved that the type no longer offers stays until it is changed.
+ * models; one saved that the type no longer offers stays, marked, until it is changed.
  */
 export function modelChoices(
   models: readonly string[],
@@ -62,7 +63,7 @@ export function modelChoices(
     { value: ENGINES_DEFAULT_CHOICE, label: first },
     ...models.map((model) => ({ value: model, label: modelLabel(model) })),
     ...(saved !== null && !models.includes(saved)
-      ? [{ value: saved, label: modelLabel(saved) }]
+      ? [{ value: saved, label: noLongerOfferedModelLabel(saved) }]
       : []),
   ];
 }

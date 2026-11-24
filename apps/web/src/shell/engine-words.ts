@@ -52,6 +52,14 @@ export function modelLabel(model: string): string {
   return `${family.charAt(0).toUpperCase()}${family.slice(1)} ${major}.${minor}`;
 }
 
+/**
+ * A model kept where it was chosen though its engines no longer offer it: "Opus 5.5 · No longer
+ * offered".
+ */
+export function noLongerOfferedModelLabel(model: string): string {
+  return `${modelLabel(model)} · No longer offered`;
+}
+
 /** "Opus 5.5 on Personal": the model a run's session ran and the engine it ran on. */
 export function runEngineWords({
   model,

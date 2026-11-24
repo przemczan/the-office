@@ -14,7 +14,13 @@ import {
   type EngineSettingsEdit,
 } from "../domain/engine-settings.js";
 import { EngineSettingsRefused } from "../domain/engine-settings-refused.js";
-import { hasUsageWindows, type Engine, type EngineId } from "../domain/engines.js";
+import {
+  hasUsageWindows,
+  listsItsModels,
+  offeredModels,
+  type Engine,
+  type EngineId,
+} from "../domain/engines.js";
 import {
   NO_WINDOW_START,
   sortedWindowStartTimes,
@@ -28,6 +34,7 @@ import { EngineReferenceLock } from "./engine-reference-lock.js";
 import { EngineReferenceMoves } from "./engine-reference-moves.js";
 import { engineCascadeSettingsOf, EngineSettingsChecks } from "./engine-settings-checks.js";
 import { NextWindowStarts } from "./next-window-starts.js";
+import { StaleModelLists } from "./stale-model-lists.js";
 
 /**
  * Settings › Engines: the engines, the Office default and the search endpoint, Office-wide.
@@ -44,10 +51,39 @@ export class EngineSettingsService {
     private readonly windowStarts: WindowStartRepository,
     private readonly models: EngineModels,
     private readonly nextStarts: NextWindowStarts,
+    private readonly staleModelLists: StaleModelLists,
   ) {}
 
-  current(): Promise<EngineSettings> {
-    return this.repository.read();
+  /**
+   * The settings, each engine offering the models its account last listed; the lists grown stale
+   * are asked for again in the background, never waited for.
+   */
+  async current(): Promise<EngineSettings> {
+    const settings = await this.stored();
+    this.staleModelLists.refreshInBackground();
+    return settings;
+  }
+
+  /**
+   * The models each engine but an API endpoint offers now (spec §5.4.5, "Models an engine
+   * lists"), in the engines' order: those its account listed when last asked, else its type's.
+   */
+  modelListsOf(settings: EngineSettings): EngineModelChoices[] {
+    return this.models
+      .listed(settings.engines)
+      .filter(({ kind }) => kind !== "openai-compatible-api")
+      .map((engine) => ({
+        engineId: engine.id,
+        models: offeredModels(engine),
+        listsItsModels: listsItsModels(engine.kind),
+        listedAt: this.models.modelsListedAt(engine.id),
+      }));
+  }
+
+  /** The stored settings, each engine carrying the models its account last listed. */
+  private async stored(): Promise<EngineSettings> {
+    const stored = await this.repository.read();
+    return { ...stored, engines: this.models.listed(stored.engines) };
   }
 
   /**
@@ -96,7 +132,8 @@ export class EngineSettingsService {
     readonly changed: EngineSettings;
     readonly windowStartsChanged: readonly EngineId[];
   }> {
-    const stored = await this.repository.read();
+    // Listed, so a default model is weighed against the models the account offers now.
+    const stored = await this.stored();
     const windowStartProblems = this.windowStartProblems(stored, edit.windowStarts ?? []);
     let changed: EngineSettings;
     try {
@@ -226,7 +263,7 @@ export class EngineSettingsService {
     readonly changed: EngineSettings;
     readonly problems: readonly string[];
   }> {
-    const stored = await this.repository.read();
+    const stored = await this.stored();
     const removal = engineRemovalAmong(stored.engines, engineId, replacementId);
     const changed = settingsWithoutEngine(stored, removal);
     const problems = await this.checks.problemsOf({
@@ -252,6 +289,16 @@ export interface EngineWindowStartEdit extends WindowStartSettings {
 /** What a Save of Settings › Engines changes; Window starts left out keep the stored ones. */
 export interface EngineSettingsChange extends EngineSettingsEdit {
   readonly windowStarts?: readonly EngineWindowStartEdit[];
+}
+
+/** The models an engine offers, as Settings › Engines and the Role card pick among them. */
+export interface EngineModelChoices {
+  readonly engineId: EngineId;
+  readonly models: readonly string[];
+  /** Whether its account is asked for them (`listsItsModels`). */
+  readonly listsItsModels: boolean;
+  /** When its account last listed them; undefined while its type's fixed list stands in. */
+  readonly listedAt: Date | undefined;
 }
 
 /** An engine's Window start as Settings › Engines shows it. */

@@ -23,6 +23,7 @@ import {
   type EventInvalidations,
 } from "./event-stream-provider.tsx";
 import { nowQueries } from "./notifications.ts";
+import { roleCardQueries } from "./people.ts";
 import { usageSettingsQuery } from "./work.ts";
 
 const ENGINE_SETTINGS = ["settings", "engines"] as const;
@@ -123,6 +124,14 @@ export function setEngineApiKey(engineId: string, key: string): Promise<void> {
   return sendToApiWithNoAnswer("PUT", `${enginePath(engineId)}/api-key`, { key });
 }
 
+/**
+ * Asks the engine's account which models it offers now and keeps them; refused with the engine's
+ * words when it fails, and announced as `engine.models-listed` once kept.
+ */
+export function refreshEngineModels(engineId: string): Promise<void> {
+  return sendToApiWithNoAnswer("POST", `${enginePath(engineId)}/models/refresh`, {});
+}
+
 /** Signs the engine out, whatever signed it in. */
 export function signOutOfEngine(engineId: string): Promise<void> {
   return deleteFromApi(`${enginePath(engineId)}/sign-in`);
@@ -141,7 +150,8 @@ type ExactEventType = "engine.window-start-changed";
 /**
  * An engine's account that changed is read again by its id, and with it what shows its usage
  * windows: an engine an API key signs in has none, so Now's readings and its Window caps in the
- * usage settings come and go with the account.
+ * usage settings come and go with the account. Models an engine listed change what the Role card
+ * offers for its type.
  */
 export const engineEventInvalidations: Readonly<
   Record<Exclude<EngineWebEvent["type"], ExactEventType>, EventInvalidations[string]>
@@ -151,17 +161,19 @@ export const engineEventInvalidations: Readonly<
     nowQueries.now().queryKey,
     usageSettingsQuery().queryKey,
   ],
+  "engine.models-listed": () => [roleCardQueries.options().queryKey],
 };
 
 /**
- * An engine's Window start that changed, or its account, which gives or takes its usage windows and
- * so its Window start, reads the engines' settings again: exactly those, as ["settings", "engines"]
+ * An engine's Window start that changed, its account, which gives or takes its usage windows and
+ * so its Window start, or the models it listed reads the engines' settings again: exactly those, as ["settings", "engines"]
  * as a prefix would read each engine's account and removal again.
  */
 export const engineEventCacheUpdates: Readonly<
   Record<EngineWebEvent["type"], EventCacheUpdates[string]>
 > = {
   "engine.account-changed": (_event, queryClient) => invalidateEngineSettings(queryClient),
+  "engine.models-listed": (_event, queryClient) => invalidateEngineSettings(queryClient),
   "engine.window-start-changed": (_event, queryClient) => invalidateEngineSettings(queryClient),
 };
 

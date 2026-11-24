@@ -1,15 +1,18 @@
-import { CODEX_MODELS, type CodexEngineEdit } from "@the-office/contracts";
-import { Input, Select } from "@the-office/ui";
+import type { CodexEngineEdit, EngineSettings } from "@the-office/contracts";
+import { Input } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { modelLabel } from "../../../shell/engine-words.ts";
+import { DefaultModelField } from "./engine-model-field.tsx";
 import { EngineEffortField } from "./engine-effort-field.tsx";
 
-/** A Codex engine's Settings: its name, Default model, one of the Codex models, and Default effort. */
+/** A Codex engine's Settings: its name, Default model, one it offers, and Default effort. */
 export function CodexEngineFields({
   edit,
+  saved,
   change,
 }: {
   readonly edit: CodexEngineEdit;
+  /** The engines as saved, whose lists give the models it offers. */
+  readonly saved: EngineSettings;
   readonly change: (edit: CodexEngineEdit) => void;
 }): ReactNode {
   return (
@@ -21,12 +24,7 @@ export function CodexEngineFields({
           value={edit.name}
           onChange={(event) => change({ ...edit, name: event.target.value })}
         />
-        <Select
-          label="Default model"
-          options={CODEX_MODELS.map((model) => ({ value: model, label: modelLabel(model) }))}
-          value={edit.defaultModel}
-          onChange={(defaultModel) => change({ ...edit, defaultModel })}
-        />
+        <DefaultModelField edit={edit} saved={saved} change={change} />
         <EngineEffortField
           kind={edit.kind}
           value={edit.defaultEffort}

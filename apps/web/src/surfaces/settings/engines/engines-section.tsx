@@ -33,7 +33,6 @@ import {
   type EngineTab,
 } from "./engine-list-words.ts";
 import {
-  claudeModelsOf,
   draftChanged,
   draftedEngines,
   draftOf,
@@ -208,7 +207,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               engine={engine}
               tab={shownTab}
               selectTab={setTab}
-              claudeModels={claudeModelsOf(saved)}
+              saved={saved}
               savedEndpoint={savedApiEngines(saved.engines).find(({ id }) => id === engine.id)}
               pricedModels={pricedModelsAt(draft, saved, shown)}
               draftedId={draftedIdAt(drafted, shown)}

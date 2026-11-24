@@ -29,23 +29,38 @@ export function claudeCodePReadArguments(): string[] {
 
 /**
  * Reads the account's usage windows on a binary started for it alone (spec §5.4): the `get_usage`
- * control request a session sends, before any message, so with no model call. The binary is ended,
- * with what it started, before the read answers, however it went (`engineRead`).
+ * control request a session sends, before any message, so with no model call.
  */
-export async function readUsageWindowsOnStreamJson(
+export function readUsageWindowsOnStreamJson(
   command: EngineCommand,
   processTrees: ProcessTrees,
   limits: EngineReadLimits,
 ): Promise<UsageWindows | undefined> {
+  return readOnStreamJson(command, processTrees, limits, async (stream) =>
+    usageWindows(
+      await stream.request<SDKControlGetUsageResponse>("get_usage", { skip_behaviors: true }),
+    ),
+  );
+}
+
+/**
+ * Asks `ask` of the binary started for it alone with `command`, before any message, so with no
+ * model call. The binary is ended, with what it started, before the read answers, however it went
+ * (`engineRead`). Shared by the `-p` fallback's engine-level reads.
+ */
+export async function readOnStreamJson<T>(
+  command: EngineCommand,
+  processTrees: ProcessTrees,
+  limits: EngineReadLimits,
+  ask: (stream: StreamJson) => Promise<T>,
+): Promise<T> {
   const engineProcess = new EngineProcess(processTrees);
   let stream: StreamJson | undefined;
   return engineRead(
     limits,
     async () => {
       stream = new StreamJson(engineProcess.spawn(command));
-      return usageWindows(
-        await stream.request<SDKControlGetUsageResponse>("get_usage", { skip_behaviors: true }),
-      );
+      return ask(stream);
     },
     async () => {
       stream?.endInput();

@@ -238,6 +238,26 @@ describe("the Role card form's model and effort for each engine type", () => {
     expect(selectIn(rowOf(page, "API endpoint"), "Effort")).toBeUndefined();
   });
 
+  it("keeps a model the type's engines no longer offer, selected and marked", async () => {
+    const { page, saved } = await engineForm({
+      ...CARD,
+      engineSettings: {
+        ...CARD.engineSettings,
+        "claude-code": { model: "claude-opus-4-1", effort: null },
+      },
+    });
+
+    const model = selectIn(rowOf(page, "Claude Code"), "Model");
+    expect(optionLabels(model)).toEqual([
+      "Engine's default",
+      "Opus 5.5 · Not on every account",
+      "Sonnet 5.5",
+      "Opus 4.1 · No longer offered",
+    ]);
+    expect(model?.value).toBe("claude-opus-4-1");
+    expect(saved().engineSettings["claude-code"]?.model).toBe("claude-opus-4-1");
+  });
+
   it("sets a type's model and effort, and drops a type set back to the engine's default", async () => {
     const { page, saved } = await engineForm(CARD);
 

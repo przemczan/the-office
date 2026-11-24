@@ -16,7 +16,7 @@ import {
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { sessionEnvironment } from "../claude-code/session-settings.js";
 
-/** What a usage read on the Agent SDK runs on. */
+/** What an engine-level read on the Agent SDK, such as a usage read, runs on. */
 export interface SdkUsageRead {
   /** The engine's config folder, which holds its account (`engineConfigFolder`). */
   readonly configFolder: string;
@@ -49,13 +49,31 @@ export function sdkUsageReadOptions(
 
 /**
  * Reads the account's usage windows on a query opened for it alone (spec §5.4): the usage query a
- * session makes, with its prompt sending no message, so with no model call. The query and its
- * process end before the read answers, however it went (`engineRead`).
+ * session makes, with its prompt sending no message, so with no model call.
  */
-export async function readUsageWindowsOnSdk(
-  { configFolder, environment, processTrees, command }: SdkUsageRead,
+export function readUsageWindowsOnSdk(
+  read: SdkUsageRead,
   limits: EngineReadLimits,
 ): Promise<UsageWindows | undefined> {
+  return readOnSdk(read, limits, async (engine) =>
+    usageWindows(
+      await engine.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({
+        skipBehaviors: true,
+      }),
+    ),
+  );
+}
+
+/**
+ * Asks `ask` of a query opened for it alone on the engine's config folder (`sdkUsageReadOptions`),
+ * its prompt sending no message, so with no model call. The query and its process end before the
+ * read answers, however it went (`engineRead`). Shared by the Agent SDK's engine-level reads.
+ */
+export async function readOnSdk<T>(
+  { configFolder, environment, processTrees, command }: SdkUsageRead,
+  limits: EngineReadLimits,
+  ask: (engine: Query) => Promise<T>,
+): Promise<T> {
   const engineProcess = new EngineProcess(processTrees);
   const prompt = new AsyncChannel<SDKUserMessage>();
   let engine: Query | undefined;
@@ -70,11 +88,7 @@ export async function readUsageWindowsOnSdk(
       });
       engine = opened;
       void drained(opened);
-      return usageWindows(
-        await opened.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({
-          skipBehaviors: true,
-        }),
-      );
+      return ask(opened);
     },
     async () => {
       prompt.close();
@@ -89,6 +103,6 @@ async function drained(engine: Query): Promise<void> {
   try {
     for await (const message of engine) void message;
   } catch {
-    // Its failure reaches the read through the usage query.
+    // Its failure reaches the read through what the read asked of it.
   }
 }

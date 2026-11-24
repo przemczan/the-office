@@ -1,14 +1,17 @@
-import { GEMINI_CLI_MODELS, type GeminiCliEngineEdit } from "@the-office/contracts";
-import { Input, Select } from "@the-office/ui";
+import type { GeminiCliEngineEdit, EngineSettings } from "@the-office/contracts";
+import { Input } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { modelLabel } from "../../../shell/engine-words.ts";
+import { DefaultModelField } from "./engine-model-field.tsx";
 
-/** A Gemini CLI engine's Settings: its name and default model, one of the Gemini CLI models. */
+/** A Gemini CLI engine's Settings: its name and default model, one it offers. */
 export function GeminiCliEngineFields({
   edit,
+  saved,
   change,
 }: {
   readonly edit: GeminiCliEngineEdit;
+  /** The engines as saved, whose lists give the models it offers. */
+  readonly saved: EngineSettings;
   readonly change: (edit: GeminiCliEngineEdit) => void;
 }): ReactNode {
   return (
@@ -20,15 +23,7 @@ export function GeminiCliEngineFields({
           value={edit.name}
           onChange={(event) => change({ ...edit, name: event.target.value })}
         />
-        <Select
-          label="Default model"
-          options={GEMINI_CLI_MODELS.map((model) => ({
-            value: model,
-            label: modelLabel(model),
-          }))}
-          value={edit.defaultModel}
-          onChange={(defaultModel) => change({ ...edit, defaultModel })}
-        />
+        <DefaultModelField edit={edit} saved={saved} change={change} />
       </div>
     </div>
   );

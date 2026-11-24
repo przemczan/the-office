@@ -1,4 +1,5 @@
 import {
+  CLAUDE_CODE_MODELS,
   CODEX_MODELS,
   COPILOT_CLI_AUTO_MODEL,
   COPILOT_CLI_MODELS,
@@ -14,6 +15,7 @@ import {
   type EngineEdit,
   type EngineId,
   type EngineKind,
+  type EngineModelList,
   type EngineSettings,
   type EngineSettingsEdit,
   type EngineWindowStartEdit,
@@ -24,7 +26,11 @@ import {
   type WindowStartSettings,
 } from "@the-office/contracts";
 import type { EngineTypeChoice } from "../../../shell/engine-type-account-fields.tsx";
-import { ENGINE_KINDS } from "../../../shell/engine-words.ts";
+import {
+  ENGINE_KINDS,
+  modelLabel,
+  noLongerOfferedModelLabel,
+} from "../../../shell/engine-words.ts";
 import { NO_PRICE_TEXT, priceOf, priceTextOf, type ModelPriceText } from "./model-price-fields.ts";
 
 /**
@@ -276,46 +282,126 @@ export function draftedEngines(draft: EngineSettingsDraft, saved: EngineSettings
   return { claudeCodeEngines, codexEngines, copilotCliEngines, geminiCliEngines, apiEndpoints };
 }
 
-/** Whether a model is one of the Codex models, whose price, as a Claude model's, has no engine. */
-export function isCodexModel(model: string): boolean {
-  return (CODEX_MODELS as readonly string[]).includes(model);
+/** The engine's models as `saved` lists them, or undefined for one not saved yet or an API endpoint. */
+export function modelListOf(
+  saved: EngineSettings,
+  engineId: EngineId | undefined,
+): EngineModelList | undefined {
+  return engineId === undefined
+    ? undefined
+    : saved.modelLists.find((modelList) => modelList.engineId === engineId);
+}
+
+/** A Claude Code, Codex, Copilot CLI or Gemini CLI engine as drafted. */
+export type ListingEngineEdit =
+  ClaudeCodeEngineEdit | CodexEngineEdit | CopilotCliEngineEdit | GeminiCliEngineEdit;
+
+/**
+ * The models the engine offers now: a saved engine's as `saved` lists them, else its type's fixed
+ * list, as the service offers an engine its account hasn't listed models for yet.
+ */
+export function engineModelsOf(saved: EngineSettings, edit: ListingEngineEdit): readonly string[] {
+  const listed = modelListOf(saved, edit.id);
+  if (listed) return listed.models;
+  switch (edit.kind) {
+    case "claude-code":
+      return CLAUDE_CODE_MODELS;
+    case "codex":
+      return CODEX_MODELS;
+    case "copilot-cli":
+      return COPILOT_CLI_MODELS;
+    case "gemini-cli":
+      return GEMINI_CLI_MODELS;
+  }
+}
+
+/** Whether the engine's default model is one it no longer offers, kept until it is changed. */
+export function defaultModelNoLongerOffered(
+  saved: EngineSettings,
+  edit: ListingEngineEdit,
+): boolean {
+  return edit.defaultModel !== "" && !engineModelsOf(saved, edit).includes(edit.defaultModel);
 }
 
 /**
- * The Claude models, as `saved` prices them: the models a Claude Code engine offers, those with no
- * engine that aren't Codex models.
+ * The Default model's choices: the models the engine offers, then its default model when it no
+ * longer offers it, kept and marked so, as Save sends it unchanged.
+ */
+export function defaultModelChoicesOf(
+  saved: EngineSettings,
+  edit: ListingEngineEdit,
+): readonly { readonly value: string; readonly label: string }[] {
+  const choices = engineModelsOf(saved, edit).map((model) => ({
+    value: model,
+    label: modelLabel(model),
+  }));
+  return defaultModelNoLongerOffered(saved, edit)
+    ? [
+        ...choices,
+        { value: edit.defaultModel, label: noLongerOfferedModelLabel(edit.defaultModel) },
+      ]
+    : choices;
+}
+
+/**
+ * Whether a model is one of the Codex models, whose price, as a Claude model's, has no engine: one
+ * of the fixed Codex models or one a Codex engine lists.
+ */
+export function isCodexModel(model: string, saved: EngineSettings): boolean {
+  return (
+    (CODEX_MODELS as readonly string[]).includes(model) ||
+    saved.engines.some(
+      ({ id, kind }) => kind === "codex" && modelListOf(saved, id)?.models.includes(model) === true,
+    )
+  );
+}
+
+/**
+ * The Claude models, as `saved` prices them: the models the Claude Code engines offer, those with
+ * no engine that aren't Codex models.
  */
 export function claudeModelsOf(saved: EngineSettings): readonly string[] {
   return saved.modelPrices
-    .filter(({ engineId, model }) => engineId === null && !isCodexModel(model))
+    .filter(({ engineId, model }) => engineId === null && !isCodexModel(model, saved))
     .map(({ model }) => model);
 }
 
-/** The Codex models the draft offers: every one while a Codex engine is drafted, else none. */
-export function codexModelsOf(draft: EngineSettingsDraft): readonly string[] {
-  return draft.codexEngines.length === 0 ? [] : CODEX_MODELS;
+/**
+ * The Codex models the draft offers: those its Codex engines offer, each once, a new one the fixed
+ * list; none while no Codex engine is drafted.
+ */
+export function codexModelsOf(
+  draft: EngineSettingsDraft,
+  saved: EngineSettings,
+): readonly string[] {
+  return [...new Set(draft.codexEngines.flatMap((engine) => engineModelsOf(saved, engine)))];
 }
 
 /**
  * Every model the draft offers, as Save prices them: the Claude models as `saved` lists them, then
- * the Codex models while a Codex engine is drafted, then each drafted API endpoint's and each
- * drafted Copilot CLI engine's, priced on the engine; one without an id yet is left out.
+ * the Codex models the drafted Codex engines offer, then each drafted API endpoint's and each
+ * drafted Copilot CLI and Gemini CLI engine's, priced on the engine; one without an id yet is left
+ * out.
  */
 export function offeredModelsOf(
   draft: EngineSettingsDraft,
   saved: EngineSettings,
 ): readonly PricedModel[] {
   const claudeModels = claudeModelsOf(saved).map((model) => ({ engineId: null, model }));
-  const codexModels = codexModelsOf(draft).map((model) => ({ engineId: null, model }));
+  const codexModels = codexModelsOf(draft, saved).map((model) => ({ engineId: null, model }));
   const drafted = draftedEngines(draft, saved);
   const apiModels = drafted.apiEndpoints.flatMap(({ id: engineId, models }) =>
     (engineId === "" ? [] : modelsOf({ models })).map((model) => ({ engineId, model })),
   );
-  const copilotCliModels = drafted.copilotCliEngines.flatMap(({ id: engineId }) =>
-    engineId === "" ? [] : COPILOT_CLI_MODELS.map((model) => ({ engineId, model })),
+  const copilotCliModels = drafted.copilotCliEngines.flatMap((engine) =>
+    engine.id === ""
+      ? []
+      : engineModelsOf(saved, engine).map((model) => ({ engineId: engine.id, model })),
   );
-  const geminiCliModels = drafted.geminiCliEngines.flatMap(({ id: engineId }) =>
-    engineId === "" ? [] : GEMINI_CLI_MODELS.map((model) => ({ engineId, model })),
+  const geminiCliModels = drafted.geminiCliEngines.flatMap((engine) =>
+    engine.id === ""
+      ? []
+      : engineModelsOf(saved, engine).map((model) => ({ engineId: engine.id, model })),
   );
   return [...claudeModels, ...codexModels, ...apiModels, ...copilotCliModels, ...geminiCliModels];
 }
@@ -416,31 +502,43 @@ export function offeredDefaultModel(endpoint: ApiEngineEdit): string {
 }
 
 /**
- * A new Claude Code engine, on the first saved Claude Code engine's default model, else the first
- * Claude model.
+ * A new Claude Code engine, on the first saved Claude Code engine's default model while the fixed
+ * Claude models have it, else the first of them: a new engine offers the fixed list until its
+ * account lists its own.
  */
 export function newClaudeCodeEngine(saved: EngineSettings): ClaudeCodeEngineEdit {
-  const firstClaudeCode = saved.engines.find(({ kind }) => kind === "claude-code");
   return {
     name: "",
     kind: "claude-code",
-    defaultModel: firstClaudeCode?.defaultModel ?? claudeModelsOf(saved)[0] ?? "",
+    defaultModel: firstDefaultAmong(saved, "claude-code", CLAUDE_CODE_MODELS),
     defaultEffort: null,
     claudeCodeP: false,
   };
 }
 
 /**
- * A new Codex engine, on the first saved Codex engine's default model, else the first Codex model.
+ * A new Codex engine, on the first saved Codex engine's default model while the fixed Codex models
+ * have it, else the first of them.
  */
 export function newCodexEngine(saved: EngineSettings): CodexEngineEdit {
-  const firstCodex = saved.engines.find(({ kind }) => kind === "codex");
   return {
     name: "",
     kind: "codex",
-    defaultModel: firstCodex?.defaultModel ?? CODEX_MODELS[0],
+    defaultModel: firstDefaultAmong(saved, "codex", CODEX_MODELS),
     defaultEffort: null,
   };
+}
+
+/** The first saved engine of `kind`'s default model when `fixedModels` has it, else their first. */
+function firstDefaultAmong(
+  saved: EngineSettings,
+  kind: EngineKind,
+  fixedModels: readonly [string, ...string[]],
+): string {
+  const firstDefault = saved.engines.find((engine) => engine.kind === kind)?.defaultModel;
+  return firstDefault !== undefined && fixedModels.includes(firstDefault)
+    ? firstDefault
+    : fixedModels[0];
 }
 
 /** A new Copilot CLI engine, on Auto. */

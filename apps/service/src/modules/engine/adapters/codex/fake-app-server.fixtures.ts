@@ -7,10 +7,31 @@ export const FAKE_FIVE_HOUR_RESET = 1_800_000_000;
 export const FAKE_SEVEN_DAY_RESET = 1_800_500_000;
 
 /**
+ * The stand-in's `model/list` answer, page by page as the cursor names it: a hidden model and a
+ * model whose id differs from the name a thread runs it on among them.
+ */
+export const FAKE_MODEL_PAGES: Readonly<Record<string, unknown>> = {
+  first: {
+    data: [
+      { id: "gpt-6-luna", model: "gpt-6-luna", hidden: false },
+      { id: "gpt-internal", model: "gpt-internal", hidden: true },
+    ],
+    nextCursor: "page-2",
+  },
+  "page-2": {
+    data: [
+      { id: "terra-preset", model: "gpt-5.6-terra", hidden: false },
+      { id: "gpt-6-luna", model: "gpt-6-luna", hidden: false },
+    ],
+    nextCursor: null,
+  },
+};
+
+/**
  * A stand-in `codex app-server`, a Node script speaking its JSON-RPC: it answers `initialize`,
- * `thread/start`, `thread/resume`, `turn/steer`, `turn/interrupt` and `account/rateLimits/read`, the
- * last with a ChatGPT account's 5-hour window at 12% and 7-day window at 30%
- * (`FAKE_FIVE_HOUR_RESET`, `FAKE_SEVEN_DAY_RESET`), and plays each turn by its first message's words:
+ * `thread/start`, `thread/resume`, `turn/steer`, `turn/interrupt`, `model/list` (`FAKE_MODEL_PAGES`)
+ * and `account/rateLimits/read`, the last with a ChatGPT account's 5-hour window at 12% and 7-day
+ * window at 30% (`FAKE_FIVE_HOUR_RESET`, `FAKE_SEVEN_DAY_RESET`), and plays each turn by its first message's words:
  * - `hold`: runs until a steer, which ends it, or an interrupt;
  * - `slow`: answers after a moment;
  * - `run <command line>`: asks to approve the command wrapped as Codex wraps it, runs it only when
@@ -134,6 +155,8 @@ function handle(m) {
     case "account/rateLimits/read":
       if (!rateLimitsReadable) return out({ id: m.id, error: { code: -32603, message: "rate limits unavailable" } });
       return out({ id: m.id, result: { rateLimits: snapshot(12, 30), rateLimitsByLimitId: null } });
+    case "model/list":
+      return out({ id: m.id, result: (${JSON.stringify(FAKE_MODEL_PAGES)})[m.params?.cursor ?? "first"] });
     case "turn/interrupt":
       out({ id: m.id, result: {} });
       if (active !== undefined) complete(active, "interrupted");
