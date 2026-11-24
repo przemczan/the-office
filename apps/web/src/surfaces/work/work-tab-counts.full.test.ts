@@ -89,6 +89,7 @@ function anIdea(id: string, fields: Partial<Idea> = {}): Idea {
     state: "new",
     taskId: null,
     initiativeId: null,
+    foundWhileWorkingOn: null,
     capturedBy: { kind: "user", user: null },
     capturedAt: "2026-10-28T10:00:00.000Z",
     droppedAt: null,

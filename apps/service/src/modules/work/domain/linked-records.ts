@@ -25,7 +25,7 @@ export interface TaskLinks {
   readonly duplicateOf?: Task | undefined;
   /** The Tasks dropped as duplicates of it; none by default. */
   readonly duplicates?: readonly Task[];
-  /** The Task whose Pipeline found this Bug; none by default. */
+  /** The Task it was found while working on, whatever its Kind; none by default. */
   readonly foundWhileWorkingOn?: Task | undefined;
 }
 

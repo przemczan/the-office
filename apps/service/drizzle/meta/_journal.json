@@ -1520,6 +1520,13 @@
       "when": 1795518206897,
       "tag": "0216_built_in_setup_briefs",
       "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1795523962296,
+      "tag": "0217_idea_found_while_working_on",
+      "breakpoints": true
     }
   ]
 }

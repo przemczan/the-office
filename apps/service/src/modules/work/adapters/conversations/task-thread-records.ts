@@ -12,7 +12,6 @@ import {
   type TaskThreadRequest,
   type TaskThreadSetup,
   type TaskThreadSource,
-  PERSON_READING_OFFICE_TOOLS,
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { PromptTemplates, type PromptTexts } from "../../../prompt-templates/index.js";
@@ -77,21 +76,10 @@ const TASK_THREAD_PROMPT_TEMPLATES = [
 ];
 
 /**
- * The Office tools of a person's Thread on a Task: it reads every record and Attachment, and the
- * Task's Stage history, and changes none but a Decision it answers for the user when they ask
- * (spec §2.4). It calls another person when the user asks (spec §2.2).
- */
-export const ASKING_OFFICE_TOOLS = [
-  ...PERSON_READING_OFFICE_TOOLS,
-  ANSWER_DECISION_TOOL,
-  CONSULT_TOOL,
-] as const;
-
-/**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Thread of
- * whoever holds Plans plans it until the Task starts; every other person's Thread only reads. A
- * Stage's session is set up by its Stage, and a Consultation's gets its own tools and instructions
- * from Conversations.
+ * whoever holds Plans plans it until the Task starts; every other person's Thread reads its
+ * worktree, changing no file. A Stage's session is set up by its Stage, and a Consultation's gets
+ * its own tools and instructions from Conversations.
  */
 @Injectable()
 export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
@@ -174,7 +162,9 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       useProjectSkills: project.useProjectSkills,
       projectSkillsOff: project.projectSkillsOff,
       instructions: withCallingRule(askingInstructions(prompts)),
-      officeTools: ASKING_OFFICE_TOOLS,
+      // A person's Thread on a Task adds nothing to the person's own tools, which Conversations
+      // gives every Thread the user talks in (spec §6, "A person's Office tools").
+      officeTools: [],
       brief: firstSession
         ? await this.record(prompts, roleKey, task, project, made ? worktree : undefined)
         : undefined,

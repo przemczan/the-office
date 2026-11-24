@@ -97,6 +97,7 @@ export function IdeasPage(): ReactNode {
                 idea={idea}
                 projects={projects.data}
                 roles={roles.data}
+                tasks={tasks.data}
                 linkedTo={idea.id === linkedTo}
               />
             ))}
@@ -165,11 +166,14 @@ function IdeaCard({
   idea,
   projects,
   roles,
+  tasks,
   linkedTo,
 }: {
   readonly idea: Idea;
   readonly projects: readonly Project[] | undefined;
   readonly roles: readonly Role[] | undefined;
+  /** Every Task, archived ones too, for the one it was found while working on. */
+  readonly tasks: readonly TaskSummary[] | undefined;
   /** The page was opened at this Idea, by its link. */
   readonly linkedTo: boolean;
 }): ReactNode {
@@ -315,6 +319,7 @@ function IdeaCard({
           · {capturedBy(idea, roles, signedInUserId)} · {dayAndClockOf(idea.capturedAt)}
         </span>
       </div>
+      <FoundWhileWorkingOn idea={idea} tasks={tasks} />
       {idea.notes !== "" && <p className="idea-card-notes">{idea.notes}</p>}
       <AttachmentGallery rounds={oneRound(attachments.data ?? [])} />
       <RecordActions actions={options} size="sm" align="start" className="idea-card-options" />
@@ -337,6 +342,36 @@ function IdeaCard({
         />
       )}
     </article>
+  );
+}
+
+/**
+ * The Task the Idea was found while working on, linked to its page, while it has one; "a Task no
+ * longer readable" once the Tasks are read without it.
+ */
+function FoundWhileWorkingOn({
+  idea,
+  tasks,
+}: {
+  readonly idea: Idea;
+  readonly tasks: readonly TaskSummary[] | undefined;
+}): ReactNode {
+  if (idea.foundWhileWorkingOn === null || tasks === undefined) return null;
+  const task = tasks.find(({ id }) => id === idea.foundWhileWorkingOn);
+  return (
+    <div className="idea-card-sub">
+      <span>
+        Found while working on{" "}
+        {task ? (
+          <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="ideas-task-link">
+            <Icon name="list-checks" size={12} />
+            {task.title}
+          </Link>
+        ) : (
+          "a Task no longer readable"
+        )}
+      </span>
+    </div>
   );
 }
 

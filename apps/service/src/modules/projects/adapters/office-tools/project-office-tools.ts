@@ -65,7 +65,7 @@ export class ProjectOfficeTools implements OnModuleInit {
     return {
       name: READ_REPOSITORY,
       description:
-        "Reads a git repository that is not a Project yet, to onboard it: one on the workstation by its `path`, or one on a host by its Repository URL as `url`, fetched one commit deep with nothing cloned. It gives the branches (the local ones with the checked-out one marked, or the remote's with its default one marked, whose last commit is read), and the names in the top-level folder, or in `folder` inside it, with the manifest files there (package.json, README and the like), each up to about 2k tokens. Read a folder below with `folder` when the top level points to packages there. It is the only way to read the repository from this chat: Read, Glob, Grep and git are refused outside your folders.",
+        "Reads a git repository that is not a Project yet, to onboard it: one on the workstation by its `path`, or one on a host by its Repository URL as `url`, fetched one commit deep with nothing cloned. It gives the branches (the local ones with the checked-out one marked, or the remote's with its default one marked, whose last commit is read), and the names in the top-level folder, or in `folder` inside it, with the manifest files there (package.json, README and the like), each up to about 2k tokens. Read a folder below with `folder` when the top level points to packages there. It is the only way to read the repository from here: Read, Glob, Grep and git are refused outside your folders.",
       input: REPOSITORY_INPUT,
       run: async (given) => {
         try {

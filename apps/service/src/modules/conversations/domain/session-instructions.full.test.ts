@@ -18,6 +18,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   CHAT_OFFICE_TOOLS,
+  PERSON_OFFICE_TOOLS,
   CREATE_INITIATIVE_TOOL,
   chatOfficeTools,
   CONSULT_TOOL,
@@ -153,8 +154,13 @@ describe("the Office instructions in a session's standing instructions", () => {
 });
 
 describe("chatOfficeTools", () => {
-  it("gives a person's chat every chat tool", () => {
-    expect(chatOfficeTools(PLANNER)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
+  it("gives a person's chat every chat tool: the person's own, then the chat's Decision form", () => {
+    expect(chatOfficeTools(PLANNER)).toEqual([
+      ...PERSON_OFFICE_TOOLS,
+      CONSULT_TOOL,
+      OPEN_DECISION_TOOL,
+    ]);
+    expect(CHAT_OFFICE_TOOLS).toEqual([...PERSON_OFFICE_TOOLS, OPEN_DECISION_TOOL]);
   });
 
   it("leaves creating a Task out of the Office Manager's, who points to the Planner", () => {
@@ -173,13 +179,16 @@ describe("chatOfficeTools", () => {
     expect(CHAT_OFFICE_TOOLS).not.toContain(CREATE_INITIATIVE_TOOL);
   });
 
-  it("leaves creating an Initiative out of the CTO's and the Office Manager's Stage and Consultation tools", () => {
+  it("gives creating an Initiative to the CTO's and the Office Manager's Consultations, as their person's, never to their Stages", () => {
     expect(roleOfficeTools(CTO)).not.toContain(CREATE_INITIATIVE_TOOL);
     expect(roleOfficeTools(OFFICE_MANAGER)).not.toContain(CREATE_INITIATIVE_TOOL);
     for (const held of [CTO, OFFICE_MANAGER]) {
       expect(
-        consultationOfficeTools(held, { canCall: true, onTask: false, runEnvironment: false }),
-      ).not.toContain(CREATE_INITIATIVE_TOOL);
+        consultationOfficeTools(
+          { held, caretaker: false },
+          { canCall: true, onTask: false, runEnvironment: false },
+        ),
+      ).toContain(CREATE_INITIATIVE_TOOL);
     }
   });
 
@@ -199,7 +208,7 @@ describe("chatOfficeTools", () => {
     expect(READING_OFFICE_TOOLS).not.toContain(READ_STAGE_HISTORY_TOOL);
   });
 
-  it("keeps the reading tools every session has to the records and the Pipelines, so planning and Initiative Threads read no Stage history or Thread messages", () => {
+  it("keeps the reading tools every session has to the records and the Pipelines, a person's own adding the Stage history and Thread messages", () => {
     expect(READING_OFFICE_TOOLS).toEqual([
       "list_projects",
       "list_people",
@@ -229,7 +238,7 @@ describe("chatOfficeTools", () => {
 
   it("gives Devops drafting Project commands, test targets, Actions, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates as Proposals", () => {
     expect(chatOfficeTools(DEVOPS)).toEqual([
-      ...CHAT_OFFICE_TOOLS,
+      ...PERSON_OFFICE_TOOLS,
       PROPOSE_PROJECT_COMMANDS_TOOL,
       PROPOSE_TEST_TARGETS_TOOL,
       PROPOSE_ACTIONS_TOOL,
@@ -244,6 +253,7 @@ describe("chatOfficeTools", () => {
       RUN_ENVIRONMENT_CHECK_TOOL,
       READ_REPOSITORY_TOOL,
       CONSULT_TOOL,
+      OPEN_DECISION_TOOL,
     ]);
     expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_PROJECT_PIPELINE_TOOL);
@@ -285,18 +295,24 @@ describe("chatOfficeTools", () => {
 
 describe("consultationOfficeTools", () => {
   it("gives a Consultant every reading tool, and no Decision of their own", () => {
-    const tools = consultationOfficeTools(CTO, {
-      canCall: true,
-      onTask: false,
-      runEnvironment: false,
-    });
+    const tools = consultationOfficeTools(
+      { held: CTO, caretaker: false },
+      {
+        canCall: true,
+        onTask: false,
+        runEnvironment: false,
+      },
+    );
     expect(tools).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
     expect(tools).not.toContain(OPEN_DECISION_TOOL);
   });
 
   it("gives a Consultant reading the Task's Stage history", () => {
     expect(
-      consultationOfficeTools(CTO, { canCall: false, onTask: false, runEnvironment: false }),
+      consultationOfficeTools(
+        { held: CTO, caretaker: false },
+        { canCall: false, onTask: false, runEnvironment: false },
+      ),
     ).toContain(READ_STAGE_HISTORY_TOOL);
   });
 });

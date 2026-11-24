@@ -165,10 +165,19 @@ export const WORK_THREAD_INSTRUCTIONS = promptTemplate({
       kind: "text",
       description: "What the person does in the Thread, as Work or Pipelines words it.",
     },
+    personTools: {
+      kind: "text",
+      description:
+        "What the person does with their own Office tools, the same as in their chat, in a Thread the user talks in; empty in a Stage's Thread.",
+    },
   },
   text: `{{personInstructions}}
 
-{{inTheThread}}`,
+{{inTheThread}}
+{{#personTools}}
+
+{{personTools}}
+{{/personTools}}`,
 });
 
 /**
@@ -315,16 +324,19 @@ export function caretakerChatInstructions(
 
 /**
  * The standing instructions of a session on a Task or an Initiative, with what they do in the
- * Thread as the module keeping Work words it.
+ * Thread as the module keeping Work words it, and in a Thread the user talks in what they do with
+ * their own tools (`personToolsRule`); a Stage's Thread leaves it empty.
  */
 export function workThreadInstructions(
   prompts: PromptTexts,
   person: SessionPerson,
   inTheThread: string,
+  personTools = "",
 ): string {
   return renderedPart(prompts, WORK_THREAD_INSTRUCTIONS, {
     personInstructions: personInstructions(prompts, person),
     inTheThread,
+    personTools,
   });
 }
 

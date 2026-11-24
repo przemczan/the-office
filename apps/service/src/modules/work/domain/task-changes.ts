@@ -91,8 +91,8 @@ const NO_USAGE_WINDOW_RESUME = {
 
 /**
  * Where a new Task comes from beyond who created it: whether The Office created it by itself (an
- * approved Bug Task, an auto-imported issue), and a Bug's links set as it is created. None by
- * default.
+ * approved Bug Task, an auto-imported issue), a Bug's Caused by, and the Task it was found while
+ * working on, of any Kind, set as it is created. None by default.
  */
 export interface NewTaskOrigin {
   readonly createdByTheOffice?: boolean;

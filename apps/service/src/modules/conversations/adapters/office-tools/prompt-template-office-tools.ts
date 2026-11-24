@@ -22,7 +22,7 @@ import {
 import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
 const PROMPT_TEMPLATE_DRAFTED =
-  "The Proposal is in this chat as a card; the template changes only when the user applies it, for prompts rendered after that. Don't wait for it: tell the user what you propose and why, in a line or two.";
+  "The Proposal is in this Thread as a card; the template changes only when the user applies it, for prompts rendered after that. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 const ONLY_WHEN_ASKED = "Draft one only when the user asks you to change a prompt template.";
 
@@ -84,7 +84,7 @@ export class PromptTemplateOfficeTools implements OnModuleInit {
   private registerPropose(): void {
     this.registry.register({
       name: PROPOSE_PROMPT_TEMPLATE_TOOL,
-      description: `Drafts a new text for a prompt template as a Proposal the user applies with a click. It shows in this chat as a card and changes nothing until the user applies it. It returns at once. ${ONLY_WHEN_ASKED}`,
+      description: `Drafts a new text for a prompt template as a Proposal the user applies with a click. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once. ${ONLY_WHEN_ASKED}`,
       input: z.object({
         key: keyInput,
         text: z
@@ -106,7 +106,7 @@ export class PromptTemplateOfficeTools implements OnModuleInit {
   private registerProposeReset(): void {
     this.registry.register({
       name: PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-      description: `Drafts a prompt template's reset to the default that ships with The Office, as a Proposal the user applies with a click. It shows in this chat as a card and changes nothing until the user applies it. It returns at once. ${ONLY_WHEN_ASKED}`,
+      description: `Drafts a prompt template's reset to the default that ships with The Office, as a Proposal the user applies with a click. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once. ${ONLY_WHEN_ASKED}`,
       input: z.object({ key: keyInput }),
       run: ({ key }, { sessionId }) =>
         this.readOr(key, (state) =>

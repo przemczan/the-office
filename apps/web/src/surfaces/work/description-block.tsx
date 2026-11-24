@@ -5,7 +5,12 @@ import { changeDescription } from "../../api/work.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import { BugSection, CausedBugsSections, GitHubIssueSection } from "./bug-section.tsx";
+import {
+  BugSection,
+  CausedBugsSections,
+  FoundWhileWorkingOnSection,
+  GitHubIssueSection,
+} from "./bug-section.tsx";
 import { ConflictResolutionSection } from "./conflict-resolution-parts.tsx";
 import { DependenciesSection, useDependencies } from "./dependencies-block.tsx";
 import { dependenciesSummary } from "./dependency-words.ts";
@@ -20,9 +25,9 @@ import { useFold } from "./record-folds.ts";
 /**
  * The user's Description: what they want, in their own words, which the Planner plans from, with
  * a Bug's details, its GitHub issue, the Task's Dependencies, the Bugs it caused and its duplicates,
- * its Conflict resolution links, its Initiative and its Origin below it. The text stays editable
- * until the Task starts; the
- * block starts open in every state (the user, 2026-11-11).
+ * the Task it was found while working on, its Conflict resolution links, its Initiative and its
+ * Origin below it. The text stays editable until the Task starts; the block starts open in every
+ * state (the user, 2026-11-11).
  */
 export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
   const changing = useRecordChange(task, (description: string) =>
@@ -83,6 +88,7 @@ export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
       <GitHubIssueSection task={task} />
       <DependenciesSection task={task} />
       <CausedBugsSections task={task} />
+      <FoundWhileWorkingOnSection task={task} />
       <ConflictResolutionSection task={task} />
       <TaskInitiativeSection task={task} />
       {origin && (

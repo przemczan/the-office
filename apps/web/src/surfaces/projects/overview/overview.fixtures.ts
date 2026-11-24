@@ -137,6 +137,7 @@ export function anIdea(id: string, fields: Partial<Idea> = {}): Idea {
     state: "new",
     taskId: null,
     initiativeId: null,
+    foundWhileWorkingOn: null,
     capturedBy: { kind: "user", user: null },
     capturedAt: hoursAgo(1),
     droppedAt: null,

@@ -58,6 +58,7 @@ import {
   caretakerChatOfficeTools,
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
+  PERSON_OFFICE_TOOLS,
   chatOfficeTools,
   CONSULT_TOOL,
   CREATE_INITIATIVE_TOOL,
@@ -677,8 +678,9 @@ describe("a new Thread's first message", () => {
       readsEngineTranscripts: false,
     });
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...CHAT_OFFICE_TOOLS,
+      ...PERSON_OFFICE_TOOLS,
       CONSULT_TOOL,
+      OPEN_DECISION_TOOL,
     ]);
     expect(JSON.stringify(session?.options)).not.toContain(GITHUB_USER_TOKEN);
     expect(session?.options.instructions).toContain("You are Jan, the Planner in The Office");
@@ -1873,12 +1875,14 @@ describe("a Thread on a Task", () => {
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
       readsEngineTranscripts: false,
     });
+    // The person's own tools, then those planning adds, each once.
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
-      "read_task",
+      ...PERSON_OFFICE_TOOLS,
+      CONSULT_TOOL,
       OPEN_DECISION_TOOL,
     ]);
     expect(session?.options.instructions).toMatch(
-      /^You are Jan, the Planner in The Office[\s\S]*\n\nOn this Task you plan\.$/,
+      /^You are Jan, the Planner in The Office[\s\S]*\n\nOn this Task you plan\.\n\nWherever the user talks to you, you have your own Office tools[\s\S]*found while working on this Task/,
     );
     expect(prepared).toEqual([
       {
@@ -2127,10 +2131,12 @@ describe("a Thread on an Initiative", () => {
     });
     expect(refreshedOnInitiative).toEqual([]);
     const tools = session?.options.officeTools.map(({ name }) => name);
-    expect(tools).toContain("read_task");
+    expect(tools).toEqual(expect.arrayContaining(["read_task", "create_task", "capture_idea"]));
     expect(tools).not.toContain(CHANGE_ROLE_TOOL);
     expect(tools).not.toContain(OPEN_DECISION_TOOL);
-    expect(session?.options.instructions).toMatch(/\n\nOn this Initiative you shape\.$/);
+    expect(session?.options.instructions).toMatch(
+      /\n\nOn this Initiative you shape\.\n\nWherever the user talks to you[\s\S]*here stands alone/,
+    );
     expect(prepared).toEqual([{ sessionId: session?.id, roleKey, project: undefined }]);
     expect(exchanges(log)).toEqual([
       { kind: "person", roleKey, text: "What outcome do you want?" },
@@ -2419,8 +2425,14 @@ describe("a person's Thread on a Task", () => {
       profile: { edit: false, run: { kind: "read-only-git" } },
       readsEngineTranscripts: false,
     });
-    expect(session?.options.instructions).toMatch(/On this Task you are asked\.$/);
-    expect(session?.options.officeTools.map(({ name }) => name)).toEqual(["read_task"]);
+    expect(session?.options.instructions).toMatch(
+      /On this Task you are asked\.\n\nWherever the user talks to you, you have your own Office tools/,
+    );
+    // The person's own tools, the same as in their chat but for its Decision form.
+    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
+      ...PERSON_OFFICE_TOOLS,
+      CONSULT_TOOL,
+    ]);
   });
 
   it("briefs a later fresh session from the Thread alone, never the record again", async () => {
@@ -2475,7 +2487,10 @@ describe("a person's Thread on a Task", () => {
 
     const [first, resumed] = engine.sessions;
     expect(resumed?.id).toBe(first?.id);
-    expect(resumed?.options.officeTools.map(({ name }) => name)).toEqual(["read_task"]);
+    expect(resumed?.options.officeTools.map(({ name }) => name)).toEqual([
+      ...PERSON_OFFICE_TOOLS,
+      CONSULT_TOOL,
+    ]);
   });
 });
 
@@ -4961,7 +4976,12 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     await runner.send(thread.id, "Let's start an Initiative.", ANN_LEE);
     await answered(thread.id, 3);
 
-    expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CREATE_INITIATIVE_TOOL, CONSULT_TOOL]);
+    expect(toolsOf(0)).toEqual([
+      ...PERSON_OFFICE_TOOLS,
+      CREATE_INITIATIVE_TOOL,
+      CONSULT_TOOL,
+      OPEN_DECISION_TOOL,
+    ]);
   });
 
   it("give a person the Office actions' tools their held duties cover, after the chat's own, and nobody else", async () => {
@@ -4980,12 +5000,13 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     await answered(noLongerShaping.id, 3);
 
     expect(toolsOf(0)).toEqual([
-      ...CHAT_OFFICE_TOOLS,
+      ...PERSON_OFFICE_TOOLS,
       CREATE_INITIATIVE_TOOL,
       CONSULT_TOOL,
+      OPEN_DECISION_TOOL,
       "take_out_of_initiative",
     ]);
-    expect(toolsOf(1)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
+    expect(toolsOf(1)).toEqual([...PERSON_OFFICE_TOOLS, CONSULT_TOOL, OPEN_DECISION_TOOL]);
   });
 
   it("give a person's Thread on a Task the Office actions' tools their duties cover, and a Stage's Thread none", async () => {
@@ -5001,6 +5022,29 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     expect(stages.officeTools).not.toContain("add_dependency");
   });
 
+  it("give a person the same writing tools in their chat and their Threads on a Task and on an Initiative, only the chat adding its Decision form", async () => {
+    duties.set("shapes-initiatives", roleKey);
+    await startWith();
+    const places = app.get(SessionPlaces);
+    const asked = randomUUID();
+    tasksAsked.add(asked);
+
+    const inTheChat = await places.of(await threads.startInChat(roleKey));
+    const onATask = await places.of(
+      await storedThreadOnATask({ home: { kind: "task", taskId: asked } }),
+    );
+    const onAnInitiative = await places.of(
+      await storedThreadOnATask({ home: { kind: "initiative", initiativeId: randomUUID() } }),
+    );
+
+    const persons = [...PERSON_OFFICE_TOOLS, CREATE_INITIATIVE_TOOL, CONSULT_TOOL];
+    for (const place of [inTheChat, onATask, onAnInitiative]) {
+      expect(place.officeTools).toEqual(expect.arrayContaining(persons));
+    }
+    expect(onATask.officeTools).toEqual(persons);
+    expect(inTheChat.officeTools).toContain(OPEN_DECISION_TOOL);
+  });
+
   it("give a chat the Office actions of the records it creates, the Default person's no Task's", async () => {
     await startWith();
     creatorsActionStandIns();
@@ -5011,8 +5055,9 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     const defaultPerson = await places.of(await threads.startInChat(roleKey));
 
     expect(plain.officeTools).toEqual([
-      ...CHAT_OFFICE_TOOLS,
+      ...PERSON_OFFICE_TOOLS,
       CONSULT_TOOL,
+      OPEN_DECISION_TOOL,
       "change_task_title",
       "edit_idea",
     ]);
@@ -5057,7 +5102,7 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
 
-    expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
+    expect(toolsOf(0)).toEqual([...PERSON_OFFICE_TOOLS, CONSULT_TOOL, OPEN_DECISION_TOOL]);
     expect(engine.sessions[0]?.options.instructions).toContain(CALLING_RULE);
     expect((await threads.read(thread.id)).session?.heldDuties).toEqual([]);
   });

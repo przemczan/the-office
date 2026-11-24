@@ -134,7 +134,7 @@ The release a Bug was seen in: one of the Project's `v*` tags, or free text.
 _Avoid_: Affected version
 
 **Found while working on**:
-The Task whose Agent found a Bug and proposed the Bug Task.
+The Task a Task of any Kind, or an Idea, was found while working on: the Task whose Agent proposed it as a Bug Task, or the Task whose Thread it was created or captured in. Set only as the record is made, never changed. See [2.1.3](docs/spec/2.1.3-tasks.md#found-while-working-on).
 _Avoid_: Parent, Origin task
 
 **GitHub issue**:

@@ -5,8 +5,6 @@ import { join } from "node:path";
 import { ideaSchema, initiativeSchema, taskSchema } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  READ_STAGE_HISTORY_TOOL,
-  READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
   TaskThreadSetups,
   type TaskThreadRequest,
@@ -18,7 +16,7 @@ import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { ProjectWorktreesForTests } from "../../ports/work-ports.fixtures.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
-import { ASKING_OFFICE_TOOLS, PLANNING_OFFICE_TOOLS } from "./task-thread-records.js";
+import { PLANNING_OFFICE_TOOLS } from "./task-thread-records.js";
 import { withCallingRule } from "./calling-rule.js";
 import { askingInstructions } from "../../domain/asking.js";
 import { planningInstructions } from "../../domain/planning.js";
@@ -56,14 +54,8 @@ function planningRequest(taskId: string): TaskThreadRequest {
 const { aTaskIn, setups } = taskThreads(() => work);
 
 describe("a person's Thread on a Task's session", () => {
-  it("gives a person's Thread and a planning session every reading tool", () => {
-    expect(ASKING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+  it("gives a planning session every reading tool", () => {
     expect(PLANNING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
-  });
-
-  it("gives a person's Thread reading the Task's Stage history and the Threads", () => {
-    expect(ASKING_OFFICE_TOOLS).toContain(READ_STAGE_HISTORY_TOOL);
-    expect(ASKING_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
   });
 
   it("leaves out a diff it can't read, keeping the Thread readable", async () => {
@@ -87,7 +79,7 @@ describe("a person's Thread on a Task's session", () => {
   });
 
   it.each(["in-progress", "paused"] as const)(
-    "gives the Planner the same read-only tools once the Task is %s",
+    "gives the Planner a person's Thread, adding no tools to their own, once the Task is %s",
     async (state) => {
       const task = await aTaskIn(state);
 
@@ -95,7 +87,7 @@ describe("a person's Thread on a Task's session", () => {
 
       expect(setup).toMatchObject({
         instructions: ASKING_THREAD_INSTRUCTIONS,
-        officeTools: ASKING_OFFICE_TOOLS,
+        officeTools: [],
       });
     },
   );

@@ -323,6 +323,16 @@ describe("ideaRecordText", () => {
   it("names nothing it was shaped into while it is new", () => {
     expect(ideaRecordText(anIdea(), undefined, [])).not.toContain("Shaped into");
   });
+
+  it("names the Task it was found while working on, and none when it has none", () => {
+    const task = aTask({ state: "in-progress" });
+    const idea = anIdea({ foundWhileWorkingOn: task.id });
+
+    expect(ideaRecordText(idea, undefined, [], [], task)).toContain(
+      "- Found while working on: Fix the login redirect (Task task-1), In progress; read_task reads it",
+    );
+    expect(ideaRecordText(anIdea(), undefined, [])).not.toContain("Found while working on");
+  });
 });
 
 describe("initiativeRecordText", () => {

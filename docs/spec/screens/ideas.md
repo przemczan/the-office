@@ -33,6 +33,7 @@ Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a
 - The card is an article labelled by the Idea's title.
 - Head: lightbulb icon, the title, and the **More** menu (label "More for <title>").
 - Under it: the Project chip, then "· <name> captured it · <day and clock>". The name is "You" for the signed-in user ([shell.md](shell.md)).
+- Under that, for an Idea found while working on a Task: "Found while working on <Task>", the Task's title with its icon linking to its page, or "a Task no longer readable" once it can't be read ([2.1.3](../2.1.3-tasks.md#found-while-working-on)).
 - The notes, when there are any.
 - The Idea's Attachments as a gallery ([2.1.2](../2.1.2-ideas-and-attachments.md)).
 - A row of actions, as many as fit one line; the More menu lists every one.

@@ -22,12 +22,15 @@ export class IdeaRecords {
    */
   async recordText(ideaId: string): Promise<string> {
     const idea = await this.ideas.read(ideaId);
-    const [shapedInto, attachments, edits] = await Promise.all([
+    const [shapedInto, attachments, edits, foundWhileWorkingOn] = await Promise.all([
       this.shapedInto(idea),
       this.attachments.listOf({ kind: "idea", ideaId }),
       this.ideas.editsOf(ideaId),
+      idea.foundWhileWorkingOn === undefined
+        ? undefined
+        : this.tasks.find(idea.foundWhileWorkingOn),
     ]);
-    return ideaRecordText(idea, shapedInto, attachments, edits);
+    return ideaRecordText(idea, shapedInto, attachments, edits, foundWhileWorkingOn);
   }
 
   private async shapedInto({ taskId, initiativeId }: Idea): Promise<ShapedInto | undefined> {

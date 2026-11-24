@@ -41,12 +41,22 @@ export class IdeaService {
     private readonly edits: RecordEdits,
   ) {}
 
-  /** Refuses with every reason, before saving, when the Idea breaks a rule. */
-  async capture(given: NewIdea, capturedBy: Author): Promise<Idea> {
+  /**
+   * A new Idea, found while working on the Task `foundWhileWorkingOn` when one is given, which the
+   * caller has found to be there. Refuses with every reason, before saving, when the Idea breaks a
+   * rule.
+   */
+  async capture(given: NewIdea, capturedBy: Author, foundWhileWorkingOn?: string): Promise<Idea> {
     if (given.projectId !== undefined && !(await this.projects.find(given.projectId))) {
       throw new IdeaRefused([...newIdeaProblems(given), unknownProject(given.projectId)]);
     }
-    const { idea, event } = captureIdea(randomUUID(), given, capturedBy, new Date());
+    const { idea, event } = captureIdea(
+      randomUUID(),
+      given,
+      capturedBy,
+      new Date(),
+      foundWhileWorkingOn,
+    );
     await this.repository.add(idea);
     await this.events.publish(event);
     return idea;

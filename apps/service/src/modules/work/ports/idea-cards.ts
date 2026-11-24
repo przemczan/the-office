@@ -1,8 +1,8 @@
 /**
- * The card an Idea captured in a chat shows as there (spec §2.2). Conversations keeps the chat's
- * log; the composition root binds it.
+ * The card an Idea captured in a Thread shows as there (spec §2.2). Conversations keeps the
+ * Thread's log; the composition root binds it.
  */
 export abstract class IdeaCards {
-  /** Posts the Idea's card in the chat whose engine session is `sessionId`; none outside a chat. */
+  /** Posts the Idea's card in the Thread the user talks in whose engine session is `sessionId`. */
   abstract postIdeaCard(sessionId: string, ideaId: string): Promise<void>;
 }

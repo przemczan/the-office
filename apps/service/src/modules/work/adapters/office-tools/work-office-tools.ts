@@ -20,7 +20,7 @@ import {
 } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
 import { whereOf } from "../../domain/linked-records.js";
-import { PRIORITIES, TASK_KINDS, type TaskSummary } from "../../domain/task.js";
+import { PRIORITIES, TASK_KINDS, type Task, type TaskSummary } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import {
@@ -35,6 +35,7 @@ import {
 import type { WrittenPlanAndDefinitionOfDone } from "../../domain/written-parts.js";
 import { IdeaCards } from "../../ports/idea-cards.js";
 import { SessionPeople } from "../../ports/session-people.js";
+import { SessionTasks } from "../../ports/session-tasks.js";
 import {
   answered,
   personInSession,
@@ -75,9 +76,11 @@ const ZIP_ENTRY_HEADING_ROOM = ", a zip.\n\nIn it,  (99999999 bytes)".length;
 
 /**
  * The Office tools sessions work with Work's records by (spec §6): every session reads every Task,
- * Idea and Attachment, whatever it is on; a chat also captures an Idea and creates a Task in
- * Backlog, and whoever shapes Initiatives or is the Default person to talk to also creates an
- * Initiative being shaped, each in the name of the person in the session.
+ * Idea and Attachment, whatever it is on; every Thread the user talks in also captures an Idea and
+ * creates a Task in Backlog, and whoever shapes Initiatives or is the Default person to talk to
+ * also creates an Initiative being shaped, each in the name of the person in the session. An Idea
+ * or a Task created in a Thread on a Task is found while working on that Task unless the tool says
+ * otherwise.
  */
 @Injectable()
 export class WorkOfficeTools implements OnModuleInit {
@@ -90,6 +93,7 @@ export class WorkOfficeTools implements OnModuleInit {
     private readonly initiatives: InitiativeService,
     private readonly attachments: AttachmentService,
     private readonly sessionPeople: SessionPeople,
+    private readonly sessionTasks: SessionTasks,
     private readonly ideaCards: IdeaCards,
   ) {}
 
@@ -356,15 +360,18 @@ export class WorkOfficeTools implements OnModuleInit {
           .string()
           .optional()
           .describe("The Project's id, as list_projects gives it; leave it out for Office-wide."),
+        taskId: FOUND_WHILE_WORKING_ON_INPUT,
       }),
-      run: ({ title, notes, projectId }, { sessionId }) =>
+      run: ({ title, notes, projectId, taskId }, { sessionId }) =>
         answered(async () => {
+          const foundWhile = await this.foundWhileWorkingOn(taskId, sessionId);
           const idea = await this.ideas.capture(
             { title, notes: notes ?? "", projectId },
             await personInSession(this.sessionPeople, sessionId),
+            foundWhile?.id,
           );
           await this.ideaCards.postIdeaCard(sessionId, idea.id);
-          return `Captured the Idea "${idea.title}" (Idea ${idea.id}), ${whereOf(idea.projectId)}. Its card is in this chat, for the user to plan it from.`;
+          return `Captured the Idea "${idea.title}" (Idea ${idea.id}), ${whereOf(idea.projectId)}${foundWhileWords(foundWhile)}. Its card is in this Thread, for the user to plan it from.`;
         }),
     });
   }
@@ -416,9 +423,11 @@ export class WorkOfficeTools implements OnModuleInit {
           .describe(
             "What must be true when the Task is done, one plain-language statement each that can be checked. Only with a Plan.",
           ),
+        taskId: FOUND_WHILE_WORKING_ON_INPUT,
       }),
-      run: ({ title, description, projectId, priority, kind, ...parts }, { sessionId }) =>
+      run: ({ title, description, projectId, priority, kind, taskId, ...parts }, { sessionId }) =>
         answered(async () => {
+          const foundWhile = await this.foundWhileWorkingOn(taskId, sessionId);
           const task = await this.tasks.create(
             {
               title,
@@ -429,8 +438,9 @@ export class WorkOfficeTools implements OnModuleInit {
             },
             await personInSession(this.sessionPeople, sessionId),
             writtenPartsGiven(parts),
+            foundWhile === undefined ? {} : { foundWhileWorkingOn: foundWhile.id },
           );
-          const created = `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, with no Pipeline yet: the Planner proposes one, or the user chooses one.`;
+          const created = `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}${foundWhileWords(foundWhile)}, with no Pipeline yet: the Planner proposes one, or the user chooses one.`;
           return parts.plan === undefined
             ? created
             : `${created} Its Plan and Definition of Done are Not confirmed until the user confirms each on the Task page.`;
@@ -460,6 +470,27 @@ export class WorkOfficeTools implements OnModuleInit {
           return `Created the Initiative "${initiative.name}" (Initiative ${initiative.id}), being shaped: it waits for the user's Confirm on its page. ${shapingThreadWords(shaping)}`;
         }),
     });
+  }
+
+  /**
+   * The Task a new record was found while working on: the one given, refused plainly when there is
+   * none of that id; none for null; left out, the Task the session's Thread is on, and none in a
+   * Thread on an Initiative or a chat.
+   */
+  private async foundWhileWorkingOn(
+    given: string | null | undefined,
+    sessionId: string,
+  ): Promise<Task | undefined> {
+    if (given === null) return undefined;
+    const taskId = given ?? (await this.sessionTasks.taskInSession(sessionId));
+    if (taskId === undefined) return undefined;
+    const task = await this.tasks.find(taskId);
+    if (task) return task;
+    throw new WorkToolRefused(
+      given === undefined
+        ? `The Task this Thread is on, ${taskId}, can't be read; give taskId, or null for none.`
+        : `There is no Task ${taskId}; give a Task's id as list_tasks gives it, or null for none.`,
+    );
   }
 
   private async ownerWords({ owner }: Attachment): Promise<string> {
@@ -527,6 +558,20 @@ function fileCountWords(count: number): string {
 /** A path's last part, as a picture is named. */
 function baseNameOf(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
+}
+
+/** create_task's and capture_idea's input naming the Task the new record was found while working on. */
+const FOUND_WHILE_WORKING_ON_INPUT = z
+  .string()
+  .nullable()
+  .optional()
+  .describe(
+    "The Task this record was found while working on, by its id; left out, it is the Task this Thread is on, if any; null for none.",
+  );
+
+/** ", found while working on <Task> (Task <id>)" when one was set; nothing otherwise. */
+function foundWhileWords(task: Task | undefined): string {
+  return task === undefined ? "" : `, found while working on "${task.title}" (Task ${task.id})`;
 }
 
 function taskLine(task: TaskSummary): string {

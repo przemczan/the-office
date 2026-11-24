@@ -73,6 +73,7 @@ const IDEA: Idea = {
   state: "shaped",
   taskId: BACKLOG_TASK.id,
   initiativeId: null,
+  foundWhileWorkingOn: null,
   capturedBy: { kind: "user", user: null },
   capturedAt: "2026-11-07T10:00:00.000Z",
   droppedAt: null,
@@ -212,8 +213,31 @@ describe("the Description block", () => {
     const section = sectionOf(bug, "Bug");
 
     expect(section?.textContent).toContain("Found in versionv1.14.2");
-    expect(section?.textContent).toContain("Not found by an Agent");
+    expect(section?.textContent).not.toContain("Found while working on");
     expect(section?.textContent).toContain("Add what caused it");
+  });
+
+  it("links the Task it was found while working on, on a Task of any Kind, and shows none without one", async () => {
+    const working = {
+      ...BACKLOG_TASK,
+      id: "00000000-0000-4000-8000-000000000023",
+      title: "Passkeys on the sign-in page",
+      state: "in-progress" as const,
+    };
+    const without = await descriptionOf(BACKLOG_TASK, [working]);
+    expect(sectionOf(without, "Found while working on")).toBeNull();
+    document.body.replaceChildren();
+
+    const page = await descriptionOf(
+      { ...BACKLOG_TASK, kind: "chore", foundWhileWorkingOn: working.id },
+      [working],
+    );
+    const section = sectionOf(page, "Found while working on");
+
+    expect(section?.closest('section[aria-label="Description"]')).not.toBeNull();
+    expect(section?.textContent).toContain("Passkeys on the sign-in page");
+    expect(section?.querySelector("a")?.getAttribute("href")).toBe(`/tasks/${working.id}`);
+    expect(section?.querySelectorAll("button")).toHaveLength(0);
   });
 
   it("shows a Done Bug's details read-only, its empty rows hidden", async () => {

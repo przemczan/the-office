@@ -6,7 +6,7 @@ import { LinkCards } from "../../application/link-cards.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
 
 const POSTED =
-  "The Link card is in this chat. The user opens the Thread and sends the note themselves, edited or not; don't relay it or answer for them. Tell the user in a line why that person.";
+  "The Link card is in this Thread. The user opens the Thread and sends the note themselves, edited or not; don't relay it or answer for them. Tell the user in a line why that person.";
 
 /**
  * The Office tool the Default person to talk to points the user to whoever is responsible with
@@ -24,7 +24,7 @@ export class LinkCardOfficeTools implements OnModuleInit {
     this.registry.register({
       name: POST_LINK_CARD_TOOL,
       description:
-        "Points the user to whoever is responsible with a Link card in this chat: the person, with a Handover note the user may edit or leave out before sending it in a new Thread with them. You never relay a message or answer for someone else. It returns at once.",
+        "Points the user to whoever is responsible with a Link card in this Thread: the person, with a Handover note the user may edit or leave out before sending it in a new Thread with them. You never relay a message or answer for someone else. It returns at once.",
       input: z.object({
         person: z
           .string()

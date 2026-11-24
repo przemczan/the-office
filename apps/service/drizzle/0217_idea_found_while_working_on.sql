@@ -1,0 +1,2 @@
+ALTER TABLE "ideas" ADD COLUMN "found_while_working_on_task_id" uuid;--> statement-breakpoint
+ALTER TABLE "ideas" ADD CONSTRAINT "ideas_found_while_working_on_task_id_tasks_id_fk" FOREIGN KEY ("found_while_working_on_task_id") REFERENCES "public"."tasks"("id") ON DELETE no action ON UPDATE no action;

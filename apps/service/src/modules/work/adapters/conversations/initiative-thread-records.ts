@@ -55,14 +55,15 @@ import { withCallingRule } from "./calling-rule.js";
 import { initiativeBranchReads } from "./initiative-branch-reads.js";
 
 /**
- * The Office tools of a shaping session: it reads every record and Attachment and changes its own
- * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left
- * out, since a Task made there would be no part of it. Its Tasks' dependencies and which Tasks it
- * has are Office actions, which the session gets by its person's duties (spec 5.4). It asks the
- * user's choices in a Decision on no Task, one at a time, whose waiting Conversations' own section
- * of the Brief words, so the shaping Brief doesn't read it. It answers a
- * Decision for the user when they ask, as every Thread the user talks in does, and calls a person
- * when the user asks (`CALLING_RULE`), on no Task, as a chat calls.
+ * The Office tools a shaping session adds to its person's own (spec §6, "A person's Office
+ * tools"): it reads every record and Attachment and changes its own Initiative, straight while it
+ * is shaping and by Proposal once it is active; only add_task or joining makes a Task part of it,
+ * as a Task the person creates with create_task stands alone. Its Tasks' dependencies and which
+ * Tasks it has are Office actions, which the session gets by its person's duties (spec 5.4). It
+ * asks the user's choices in a Decision on no Task, one at a time, whose waiting Conversations' own
+ * section of the Brief words, so the shaping Brief doesn't read it. It answers a Decision for the
+ * user when they ask, as every Thread the user talks in does, and calls a person when the user
+ * asks (`CALLING_RULE`), on no Task, as a chat calls.
  */
 export const SHAPING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,

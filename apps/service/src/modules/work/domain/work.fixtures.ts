@@ -26,6 +26,7 @@ export function anIdea(fields: Partial<Idea> = {}): Idea {
     state: "new",
     taskId: undefined,
     initiativeId: undefined,
+    foundWhileWorkingOn: undefined,
     capturedBy: ANN_LEE,
     capturedAt: new Date("2026-10-25T09:00:00.000Z"),
     droppedAt: undefined,

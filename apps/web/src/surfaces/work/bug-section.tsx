@@ -20,9 +20,9 @@ import { useRecordChange } from "./planning-parts.tsx";
 
 /**
  * A Bug's details (docs/design/issues-as-tasks.html, "Task page"), as a section of the Description:
- * Caused by, Found in version and Found while working on. Only a Bug shows it; another Kind keeps
- * them hidden, so changing back loses nothing. Editable until Done or Dropped; then read-only, its
- * empty rows hidden.
+ * Caused by and Found in version. Only a Bug shows it; another Kind keeps them hidden, so changing
+ * back loses nothing. Editable until Done or Dropped; then read-only, its empty rows hidden. Found
+ * while working on, of any Kind, is a section of its own (`FoundWhileWorkingOnSection`).
  */
 export function BugSection({ task }: { readonly task: TaskSummary }): ReactNode {
   const tasks = useEveryTask().data ?? [];
@@ -39,7 +39,6 @@ export function BugSection({ task }: { readonly task: TaskSummary }): ReactNode 
   if (task.kind !== "bug") return null;
   const editable = task.state !== "done" && task.state !== "dropped";
   const cause = tasks.find(({ id }) => id === task.causedBy);
-  const foundWhile = tasks.find(({ id }) => id === task.foundWhileWorkingOn);
   const onError = { onError: (error: Error) => showToast(error.message) };
   return (
     <section className="task-record-section" aria-label="Bug">
@@ -136,18 +135,6 @@ export function BugSection({ task }: { readonly task: TaskSummary }): ReactNode 
             )}
           </div>
         )}
-        {(editable || task.foundWhileWorkingOn !== null) && (
-          <div className="bug-row">
-            <dt>Found while working on</dt>
-            <dd>
-              {task.foundWhileWorkingOn === null ? (
-                <span className="task-quiet">Not found by an Agent</span>
-              ) : (
-                <TaskChip task={foundWhile} projects={projects} />
-              )}
-            </dd>
-          </div>
-        )}
       </dl>
       {pickingCause && (
         <TaskPickerDialog
@@ -166,6 +153,26 @@ export function BugSection({ task }: { readonly task: TaskSummary }): ReactNode 
           onClose={() => setPickingCause(false)}
         />
       )}
+    </section>
+  );
+}
+
+/**
+ * The Task this one was found while working on, of any Kind, linked with its Project, Kind and
+ * state: set as the Task is created, by a Bug Task Decision or in a person's Thread on that Task,
+ * and never changed, so shown only while it has one.
+ */
+export function FoundWhileWorkingOnSection({ task }: { readonly task: TaskSummary }): ReactNode {
+  const tasks = useEveryTask().data;
+  const projects = useQuery(projectQueries.list()).data;
+  if (task.foundWhileWorkingOn === null) return null;
+  const foundWhile = tasks?.find(({ id }) => id === task.foundWhileWorkingOn);
+  return (
+    <section className="task-record-section" aria-label="Found while working on">
+      <div className="task-record-section-head">
+        <h3 className="task-record-section-title">Found while working on</h3>
+      </div>
+      {tasks && <TaskChip task={foundWhile} projects={projects} />}
     </section>
   );
 }

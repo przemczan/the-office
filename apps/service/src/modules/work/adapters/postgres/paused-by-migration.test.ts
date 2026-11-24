@@ -44,6 +44,10 @@ describe("migration 0128", () => {
     const [byTheAlarm, usersOwn] = [paused(), paused()];
 
     const after = await rolledBackMigration(database, async (transaction) => {
+      // Other test files' transactions read "tasks" and then "initiatives". Taking both locks
+      // first, in that order, keeps this replay from holding "initiatives" while it waits for
+      // "tasks" (a deadlock seen under the full run).
+      await transaction.execute(sql`LOCK TABLE "tasks", "initiatives" IN ACCESS EXCLUSIVE MODE`);
       await transaction.insert(tasks).values([toTaskRow(byTheAlarm), toTaskRow(usersOwn)]);
       await columnsBefore(transaction);
       await transaction.execute(

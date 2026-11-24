@@ -18,6 +18,7 @@ import {
   couldNotAnswerWords,
   passedOnTo,
   passedOnToTheUserWords,
+  requestToOneselfRefusal,
   THE_OFFICE,
   type Consult,
   type ConsultantPerson,
@@ -94,8 +95,8 @@ export class Consultations implements OnModuleInit {
   /**
    * Puts the consult to the Consultant it names, or to the user when it names no hired Consultant
    * or the asker is that person: on a Task under Needs you, and from a person's chat inline there
-   * (spec §2.7). Refused for someone already in the chain of calls, once it has asked `CALL_STEPS`
-   * people, and from a Consultation in a chat or an Initiative's Thread on no Task naming nobody
+   * (spec §2.7). Refused as a request to the asker's own Role, which they do themselves; for someone
+   * already in the chain of calls, once it has asked `CALL_STEPS` people; and from a Consultation in a chat or an Initiative's Thread on no Task naming nobody
    * who can be called, which has nowhere to ask the user: the caller asks the user in their answer.
    * Returns the Consultant, undefined when the user is asked.
    */
@@ -106,10 +107,13 @@ export class Consultations implements OnModuleInit {
   ): Promise<ConsultantPerson | undefined> {
     const asker = await this.repository.findBySession(sessionId);
     if (!asker) throw new ThreadRefused(["The Office doesn't know this session's Thread."]);
+    const askerRoleKey = asker.session?.roleKey ?? asker.roleKey;
+    const ownRefusal = await this.requestToOneself(consult, askerRoleKey);
+    if (ownRefusal !== undefined) throw new ThreadRefused([ownRefusal]);
     const consultant = consultantNamed(
       consult.person,
       await this.roleCards.consultants(),
-      asker.session?.roleKey ?? asker.roleKey,
+      askerRoleKey,
     );
     if (consultant) {
       const problems = callProblems(await this.chains.ofCaller(asker), consultant);
@@ -127,6 +131,18 @@ export class Consultations implements OnModuleInit {
     );
     await this.decisions.open(sessionId, draft, { putTo: consultant?.roleKey, taskId });
     return consultant;
+  }
+
+  /** Why a request the asker puts to their own Role is refused; undefined for any other consult. */
+  private async requestToOneself(
+    consult: Consult,
+    askerRoleKey: string,
+  ): Promise<string | undefined> {
+    if (consult.kind !== "request") return undefined;
+    const own = await this.roleCards.find(askerRoleKey);
+    if (!own) return undefined;
+    const { name, title } = own.card;
+    return requestToOneselfRefusal(consult, { roleKey: askerRoleKey, name, title });
   }
 
   /**

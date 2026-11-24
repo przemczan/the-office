@@ -86,6 +86,10 @@ export const ideas = pgTable("ideas", {
   state: text("state").$type<IdeaState>().notNull(),
   taskId: uuid("task_id").references((): AnyPgColumn => tasks.id),
   initiativeId: uuid("initiative_id").references((): AnyPgColumn => initiatives.id),
+  /** The Task it was found while working on; null for none. */
+  foundWhileWorkingOnTaskId: uuid("found_while_working_on_task_id").references(
+    (): AnyPgColumn => tasks.id,
+  ),
   capturedBy: jsonb("captured_by").$type<AuthorRow>().notNull(),
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
   droppedAt: timestamp("dropped_at", { withTimezone: true }),
@@ -277,7 +281,7 @@ export const tasks = pgTable(
     causedByTaskId: uuid("caused_by_task_id").references((): AnyPgColumn => tasks.id),
     /** Free text; null for none. */
     foundInVersion: text("found_in_version"),
-    /** The Task whose Pipeline found this Bug; null otherwise. */
+    /** The Task it was found while working on; null for none. */
     foundWhileWorkingOnTaskId: uuid("found_while_working_on_task_id").references(
       (): AnyPgColumn => tasks.id,
     ),

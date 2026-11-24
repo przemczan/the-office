@@ -73,6 +73,11 @@ export const ideaSchema = newIdeaSchema.extend({
   taskId: z.uuid().nullable(),
   /** The Initiative it was shaped into. */
   initiativeId: z.uuid().nullable(),
+  /**
+   * The Task it was found while working on, set as it is captured in a person's Thread on that
+   * Task and never changed; null for none.
+   */
+  foundWhileWorkingOn: z.uuid().nullable(),
   capturedBy: authorSchema,
   capturedAt: z.iso.datetime(),
   droppedAt: z.iso.datetime().nullable(),
@@ -496,7 +501,10 @@ export const taskSchema = newTaskSchema.extend({
   causedBy: z.uuid().nullable(),
   /** The version the Bug was found in, free text; null for none. */
   foundInVersion: z.string().nullable(),
-  /** The Task whose Pipeline found this Bug, set when the Bug Task is created; null otherwise. */
+  /**
+   * The Task it was found while working on, set as it is created (by a Bug Task Decision, or in a
+   * person's Thread on that Task) and never changed; null for none.
+   */
   foundWhileWorkingOn: z.uuid().nullable(),
   /** Why it was Dropped, when the user gave a reason; null otherwise. */
   dropReason: dropReasonSchema.nullable(),

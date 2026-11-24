@@ -48,6 +48,7 @@ export function toIdeaResponse(idea: Idea): IdeaResponse {
     state: idea.state,
     taskId: idea.taskId ?? null,
     initiativeId: idea.initiativeId ?? null,
+    foundWhileWorkingOn: idea.foundWhileWorkingOn ?? null,
     capturedBy: toAuthorResponse(idea.capturedBy),
     capturedAt: idea.capturedAt.toISOString(),
     droppedAt: idea.droppedAt?.toISOString() ?? null,

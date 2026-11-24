@@ -259,7 +259,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - **Edit** until Start: editor labelled "Description" with the hint "What you want, in your own words, in Markdown; type @ to mention a Task, Initiative, Decision or Idea. The title alone is enough to plan from."
 - Empty: "None: the title is all there is."
 - A refusal shows as "The Description wasn't saved".
-- Sections below the text: Bug, GitHub issue, Dependencies, Caused bugs, Duplicates, Conflict resolution, Initiative, Origin.
+- Sections below the text: Bug, GitHub issue, Dependencies, Caused bugs, Duplicates, Found while working on, Conflict resolution, Initiative, Origin.
 - Rules: [2.1.3](../2.1.3-tasks.md#description).
 
 ### Bug
@@ -267,7 +267,6 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Section "Bug" (bug glyph), only on a Bug; another Kind keeps its rows hidden ([2.1.3](../2.1.3-tasks.md#bug-details)).
 - **Caused by**: the Task, linked with its Kind, Project and state badge, or "Not known"; **Add what caused it** opens "What caused it?", the Task picker of Dependencies' Add listing Done and archived Tasks too and never this one ("There is no other Task to pick."); a remove button "Remove what caused it"; a refusal shows as "It can't be what caused it".
 - **Found in version**: the version or "Not known"; **Add the version** or **Change** opens a searchable select of the Project's `v*` tags, newest first, and takes typed words as free text up to 64 characters (placeholder "A release tag, or your own words", or "The version, in words" with no tags); a remove button "Remove the version"; a refusal shows as "The version wasn't saved".
-- **Found while working on**: the Task whose Agent proposed it, linked, or "Not found by an Agent"; never changed.
 - Until Done or Dropped it is editable; then read-only, its empty rows hidden.
 
 ### GitHub issue
@@ -291,6 +290,11 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Section "Caused bugs": the Bugs whose Caused by names this Task, each linked with its state.
 - Section "Duplicates": the Tasks dropped as duplicates of this one.
 - Each shows only with something to show.
+
+### Found while working on
+
+- Section "Found while working on", on a Task of any Kind that has one: the Task it was found while working on, linked with its Kind, Project and state badge; never changed, so never editable ([2.1.3](../2.1.3-tasks.md#found-while-working-on)).
+- A Task with none shows no section.
 
 ### Conflict resolution
 

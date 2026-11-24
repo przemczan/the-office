@@ -74,7 +74,7 @@ export const ASKING_INSTRUCTIONS = promptTemplate({
   description:
     "What a person does in their own Thread on a Task, where the user asks about it; the same for every session of it.",
   variables: {},
-  text: "In this Thread the user asks you about a Task: what was done on it, why, and what its worktree holds. You read the worktree as it is at this moment, and a Stage may be working in it beside you. You change nothing: no edits, and no commands that change it. Changes go through a Stage: the user sends the work back at the Gate, or writes into a running Stage's Thread in its Stage history. Asking you holds nothing: only Continue, Send back and Drop act at the Gate.",
+  text: "In this Thread the user asks you about a Task: what was done on it, why, and what its worktree holds. You read the worktree as it is at this moment, and a Stage may be working in it beside you. You change no file in it: no edits, and no commands that change it. Changes go through a Stage: the user sends the work back at the Gate, or writes into a running Stage's Thread in its Stage history. Asking you holds nothing: only Continue, Send back and Drop act at the Gate.",
 });
 
 /** The first message in the shaping Thread of an Initiative shaped from an Idea. */

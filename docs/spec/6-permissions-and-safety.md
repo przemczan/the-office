@@ -1,6 +1,6 @@
 # 6 Permissions and safety
 
-Covers: threat models, stored hashes, the two layers, language servers, Hard switches, Project settings by Agents, MCP tools, refusals, default profiles, reading records, Consultations' permissions and their one exception (the run environment definition), chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules.
+Covers: threat models, stored hashes, the two layers, language servers, Hard switches, Project settings by Agents, MCP tools, refusals, default profiles, what a record made in a Thread links to, reading records, a person's Office tools, Consultations' permissions and their one exception (the run environment definition), chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules.
 
 ## Threat model
 
@@ -107,15 +107,35 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - It gives an image as a picture on an engine that shows pictures (Claude Code), up to the size its answer passes, else in words saying why it isn't shown.
 - It unzips a zip (by its media type or a `.zip` name) as it reads it, in memory, never to disk: the files it holds by path and size, read as lines are, and one of them, by its path (`entry`), as that file would be read as an Attachment of its own, up to 50 MB unpacked; a zip in a zip, an encrypted file or a broken zip isn't read.
 - It gives any other file by its name, kind and size, saying it can't be read, and a link by its address.
-- A person's chat, Thread on a Task and Consultation, and every Agent Stage, also read a Task's Stage history, from its Stage run records and, for one Agent Stage's run, its Stage Thread's messages, from The Office's log alone ([2.4.6](2.4.6-reading-records.md)).
-- A person's chat, Thread on a Task and Consultation also read the Threads' messages with `read_threads`, from The Office's log alone; an Agent Stage doesn't.
-- Writing tools stay specific to each session, to its own Task, Initiative or chat.
-- The one exception is `answer_decision`: in a Thread the user talks to a person in, that person answers a Decision waiting on the user for them when the user asks, never an approval of a call past a Hard switch or of an MCP tool at Consult or Ask me, which stays the user's own click ([2.4.2](2.4.2-decisions.md)).
+- Every Thread the user talks to a person in ([A person's Office tools](#a-persons-office-tools)), and every Agent Stage, also read a Task's Stage history, from its Stage run records and, for one Agent Stage's run, its Stage Thread's messages, from The Office's log alone ([2.4.6](2.4.6-reading-records.md)).
+- Every Thread the user talks to a person in also reads the Threads' messages with `read_threads`, from The Office's log alone; an Agent Stage doesn't.
+
+## A person's Office tools
+
+- Whoever the user talks to is the same person wherever they talk: each person has one set of Office tools, the same in every Thread the user talks to them in.
+- Those Threads are their chat, their Thread on a Task, the Planner's Planning Thread, an Initiative's shaping and planning Threads, and a Consultation ([2.4.1](2.4.1-threads.md#what-each-thread-adds)).
+- Only their Role card and the duties they hold limit the set ([2.2](2.2-people.md#office-manager)).
+- Everyone:
+  - reads every record and Attachment, a Task's Stage history and the Threads (`read_stage_history`, `read_threads`; [Reading records](#reading-records));
+  - answers a Decision waiting on the user for them when the user asks (`answer_decision`), never an approval of a call past a Hard switch or of an MCP tool at Consult or Ask me, which stays the user's own click ([2.4.2](2.4.2-decisions.md));
+  - captures an Idea;
+  - creates a Task in Backlog, but for the holder of Default person to talk to, who points to whoever plans instead;
+  - drafts a skill as a Proposal, and whatever their duties draft as Proposals;
+  - calls someone (`consult`) when the user asks, or their authority says to consult that person first ([2.2](2.2-people.md#calls)).
+- The holders of Shapes Initiatives and of Default person to talk to create an Initiative (`create_initiative`), in any of those Threads ([2.1.4](2.1.4-initiatives.md#creating-an-initiative)).
+- The holder of Default person to talk to also posts Link cards, shows the Office status, and drafts Roles, Office settings and prompt templates as Proposals.
+- The Caretaker also drafts the set-up of The Office, and changes to the Office settings, Role cards, Prompt templates and Pipelines, as Proposals ([2.2](2.2-people.md#caretaker)).
+- None of these changes a file: a record and a Proposal aren't file changes, so a read-only Thread stays read-only with them.
+- No Thread gains file edits or changing commands from them; the Caretaker's [Allow changes](#the-caretaker-with-allow-changes-on) stays the one exception.
+- A card the tools post (an Idea's card, a Link card, the Office status) is logged in whichever Thread the user talks in, never in a Stage's Thread.
+- A Task created or an Idea captured in a person's Thread on a Task is found while working on that Task, unless the person or the user says otherwise ([2.1.3](2.1.3-tasks.md#found-while-working-on); [Defaults](#what-a-record-made-in-a-thread-links-to)).
+- Each kind of Thread adds only its own tools to the set ([2.4.1](2.4.1-threads.md#what-each-thread-adds)); an Agent Stage works with its Stage's tools instead ([2.3.1](2.3.1-stages.md)).
 
 ## A Consultation's permissions
 
 - A Consultation works with its callee's own permissions, never the caller's, so a read-only Thread can't get a change made by calling someone.
-- Its session is the Consultant's own, built from them alone: their Role card's permission profile, Hard switches and MCP tool settings, and their chat's tools (capture an Idea, create a Task, draft a skill and their Role's Proposals, and call while the chain allows it).
+- Its session is the Consultant's own, built from them alone: their Role card's permission profile, Hard switches and MCP tool settings, and their [Office tools](#a-persons-office-tools) but `answer_decision`, with `answer_consultation` for their answer.
+- It opens no Decision of its own, and calls someone only while the chain of calls allows one more ([2.2](2.2-people.md#chains-of-calls)).
 - It only reads, as its home does (a Task's worktree on a Task, every Project's base branch in a chat), with no `change_role`, no Allow changes and no write access, so all a call can set up is a record, a Proposal the user applies, a Project setting the Consultant's Change Project settings allows at once ([Project settings by Agents](#project-settings-by-agents)), or the one exception below.
 - A Stage that can write lends none of it to its callee.
 
@@ -132,7 +152,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 ## Chats only read
 
-- A chat session reads every Project's base branch, searches the web and uses the Office tools (read records, capture an Idea, open a Task).
+- A chat session reads every Project's base branch, searches the web and uses its person's [Office tools](#a-persons-office-tools).
 - A Thread on an Initiative with a Pipeline reads its Initiative's branch in the Projects it spans instead ([2.4.1](2.4.1-threads.md)).
 - No edits, read-only commands only, though a language server its LSP calls start may run Project code.
 - The one exception is a Caretaker Thread with Allow changes on ([2.4.1](2.4.1-threads.md)).
@@ -252,6 +272,12 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 ### Project setting changes listed
 
 - `GET /api/projects/:id/setting-changes` answers a Project's newest 20 Project setting changes, newest first; every one is kept until the Project is removed.
+
+### What a record made in a Thread links to
+
+- A Task created or an Idea captured in a person's Thread on a Task is found while working on that Task; the tool's `taskId` given as null makes it link to nothing.
+- One made in a chat or in a Thread on an Initiative links to nothing.
+- A Task created with `create_task` is never part of an Initiative: the shaping Thread's `add_task`, or joining ([2.1.3](2.1.3-tasks.md#joining-and-leaving-an-initiative)), makes one part of it, since that brings the Initiative's branch and Pipeline.
 
 ### Default profiles
 

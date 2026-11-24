@@ -19,6 +19,8 @@ import {
   IdeaCardsForTests,
   InitiativeThreadsForTests,
   KnownPeopleForTests,
+  SessionInitiativesForTests,
+  SessionTasksForTests,
   UNKNOWN_PROJECT,
   UNKNOWN_SESSION,
 } from "../../ports/work-ports.fixtures.js";
@@ -34,10 +36,7 @@ import {
   INITIATIVE_PLANNING_OFFICE_TOOLS,
   SHAPING_OFFICE_TOOLS,
 } from "../conversations/initiative-thread-records.js";
-import {
-  ASKING_OFFICE_TOOLS,
-  PLANNING_OFFICE_TOOLS,
-} from "../conversations/task-thread-records.js";
+import { PLANNING_OFFICE_TOOLS } from "../conversations/task-thread-records.js";
 import { READ_INITIATIVE } from "./shaping-office-tools.js";
 import {
   CREATE_INITIATIVE,
@@ -115,7 +114,7 @@ describe("capture_idea", () => {
       capturedBy: { kind: "person", roleKey: "planner" },
     });
     expect(result.text).toBe(
-      `Captured the Idea "Export usage as CSV" (Idea ${idea?.id}), in the Project ${projectId}. Its card is in this chat, for the user to plan it from.`,
+      `Captured the Idea "Export usage as CSV" (Idea ${idea?.id}), in the Project ${projectId}. Its card is in this Thread, for the user to plan it from.`,
     );
   });
 
@@ -269,6 +268,130 @@ describe("create_task", () => {
   });
 });
 
+/** The test's Project's Task titled `title`, read whole. */
+async function taskTitled(title: string): Promise<Task | undefined> {
+  const tasks = work.app.get(TaskService);
+  const summary = (await tasks.inProject(projectId)).find((each) => each.title === title);
+  return summary && tasks.read(summary.id);
+}
+
+/** The test's Project's Idea titled `title`. */
+async function ideaTitled(title: string) {
+  return (await work.app.get(IdeaService).list()).find(
+    (idea) => idea.projectId === projectId && idea.title === title,
+  );
+}
+
+describe("found while working on", () => {
+  /** A person's Thread on a Task, by its session. */
+  const ON_A_TASK = "session-on-a-task";
+
+  /** A Task the session's Thread is on, made in the test's Project. */
+  async function aThreadOnATask(): Promise<Task> {
+    const home = await work.app
+      .get(TaskService)
+      .create({ title: "Passkeys on the sign-in page", projectId, priority: "normal" }, ANN_LEE);
+    work.app.get(SessionTasksForTests).tasks.set(ON_A_TASK, home.id);
+    return home;
+  }
+
+  it("create_task in a person's Thread on a Task creates one found while working on it, of any Kind", async () => {
+    const home = await aThreadOnATask();
+
+    const result = await call(
+      CREATE_TASK,
+      { title: "Rename the Save button", projectId, kind: "chore" },
+      ON_A_TASK,
+    );
+
+    const task = await taskTitled("Rename the Save button");
+    expect(task).toMatchObject({ kind: "chore", foundWhileWorkingOn: home.id });
+    expect(result).toEqual({
+      text: `Created the Task "Rename the Save button" (Task ${task?.id}) in Backlog in ${projectId}, found while working on "Passkeys on the sign-in page" (Task ${home.id}), with no Pipeline yet: the Planner proposes one, or the user chooses one.`,
+      isError: false,
+    });
+    expect((await call(READ_TASK, { taskId: task!.id })).text).toContain(
+      `- Found while working on: Passkeys on the sign-in page (Task ${home.id}), Backlog; read_task reads it`,
+    );
+  });
+
+  it("create_task with taskId null links to nothing, and with another Task's id to that one", async () => {
+    await aThreadOnATask();
+    const other = await aTaskNamed("Add the session store");
+
+    await call(CREATE_TASK, { title: "Unlinked", projectId, taskId: null }, ON_A_TASK);
+    await call(CREATE_TASK, { title: "Linked elsewhere", projectId, taskId: other.id }, ON_A_TASK);
+
+    expect((await taskTitled("Unlinked"))?.foundWhileWorkingOn).toBeUndefined();
+    expect((await taskTitled("Linked elsewhere"))?.foundWhileWorkingOn).toBe(other.id);
+  });
+
+  it("refuses a taskId no Task has, creating nothing", async () => {
+    const unknown = randomUUID();
+
+    const task = await call(CREATE_TASK, { title: "Nowhere", projectId, taskId: unknown });
+    const idea = await call(CAPTURE_IDEA_TOOL, { title: "Nowhere", projectId, taskId: unknown });
+
+    const refusal = `There is no Task ${unknown}; give a Task's id as list_tasks gives it, or null for none.`;
+    expect(task).toEqual({ text: refusal, isError: true });
+    expect(idea).toEqual({ text: refusal, isError: true });
+    expect(await taskTitled("Nowhere")).toBeUndefined();
+    expect(await ideaTitled("Nowhere")).toBeUndefined();
+  });
+
+  it("capture_idea in a person's Thread on a Task captures an Idea found while working on it", async () => {
+    const home = await aThreadOnATask();
+
+    const result = await call(CAPTURE_IDEA_TOOL, { title: "Voice notes", projectId }, ON_A_TASK);
+
+    const idea = await ideaTitled("Voice notes");
+    expect(idea?.foundWhileWorkingOn).toBe(home.id);
+    expect(result.text).toBe(
+      `Captured the Idea "Voice notes" (Idea ${idea?.id}), in the Project ${projectId}, found while working on "Passkeys on the sign-in page" (Task ${home.id}). Its card is in this Thread, for the user to plan it from.`,
+    );
+    expect((await call(READ_IDEA, { ideaId: idea!.id })).text).toContain(
+      `- Found while working on: Passkeys on the sign-in page (Task ${home.id}), Backlog; read_task reads it`,
+    );
+  });
+
+  it("capture_idea with taskId null links to nothing", async () => {
+    await aThreadOnATask();
+
+    await call(CAPTURE_IDEA_TOOL, { title: "Unlinked", projectId, taskId: null }, ON_A_TASK);
+
+    expect((await ideaTitled("Unlinked"))?.foundWhileWorkingOn).toBeUndefined();
+  });
+
+  it.each([
+    ["a Thread on an Initiative", "session-on-an-initiative"],
+    ["a chat", "planner-session"],
+  ])("in %s, both link to nothing", async (_where, sessionId) => {
+    work.app
+      .get(SessionInitiativesForTests)
+      .initiatives.set("session-on-an-initiative", randomUUID());
+
+    const task = await call(CREATE_TASK, { title: "Export as CSV", projectId }, sessionId);
+    const idea = await call(CAPTURE_IDEA_TOOL, { title: "Export as PDF", projectId }, sessionId);
+
+    expect(task.text).not.toContain("found while working on");
+    expect(idea.text).not.toContain("found while working on");
+    expect((await taskTitled("Export as CSV"))?.foundWhileWorkingOn).toBeUndefined();
+    expect((await ideaTitled("Export as PDF"))?.foundWhileWorkingOn).toBeUndefined();
+  });
+
+  it("takes taskId as optional on both tools", () => {
+    for (const name of [CREATE_TASK, CAPTURE_IDEA_TOOL]) {
+      const [tool] = work.app.get(OfficeToolRegistry).named([name]);
+      const schema = z.toJSONSchema(tool!.input) as {
+        properties: Record<string, unknown>;
+        required: string[];
+      };
+      expect(Object.keys(schema.properties)).toContain("taskId");
+      expect(schema.required).not.toContain("taskId");
+    }
+  });
+});
+
 /** A title of its own: every test file shares the database. */
 function ownTitle(name: string): string {
   return `${name} ${randomUUID()}`;
@@ -293,10 +416,9 @@ describe("create_initiative", () => {
     expect(schema.required).toEqual(["title", "outcome"]);
   });
 
-  it("is in no planning, asking, shaping or Initiative planning session's tools", () => {
+  it("is no planning, shaping or Initiative planning session's own tool, but the person's", () => {
     for (const tools of [
       PLANNING_OFFICE_TOOLS,
-      ASKING_OFFICE_TOOLS,
       SHAPING_OFFICE_TOOLS,
       INITIATIVE_PLANNING_OFFICE_TOOLS,
     ]) {

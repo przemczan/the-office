@@ -29,6 +29,7 @@ const NEW_IDEA: Idea = {
   state: "new",
   taskId: null,
   initiativeId: null,
+  foundWhileWorkingOn: null,
   capturedBy: { kind: "user", user: null },
   capturedAt: "2026-11-07T10:00:00.000Z",
   droppedAt: null,

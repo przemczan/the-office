@@ -7,7 +7,7 @@ import { officeStatusText } from "../../domain/office-status.js";
 import { OfficeStatusCards } from "../../ports/office-status-cards.js";
 
 const SHOWN =
-  "The Office status card is in this chat, read live whenever the user looks: answer in a line or two, without repeating it. list_people names who fills each Role.";
+  "The Office status card is in this Thread, read live whenever the user looks: answer in a line or two, without repeating it. list_people names who fills each Role.";
 
 /**
  * The Office tool the Office Manager shows the Office status with (spec §2.2): Office-wide and
@@ -25,7 +25,7 @@ export class OfficeStatusOfficeTools implements OnModuleInit {
     this.registry.register({
       name: SHOW_OFFICE_STATUS_TOOL,
       description:
-        "Shows the user the Office status in this chat, Office-wide: who is on what and what waits on them. It changes nothing, and gives you the same status in words.",
+        "Shows the user the Office status in this Thread, Office-wide: who is on what and what waits on them. It changes nothing, and gives you the same status in words.",
       input: z.object({}),
       run: async (_input, { sessionId }) => {
         const status = officeStatusText(await this.now.now());

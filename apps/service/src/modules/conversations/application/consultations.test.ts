@@ -286,11 +286,14 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
           ],
   }));
   // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
-  for (const name of consultationOfficeTools(await duties.heldBy(consultantKey), {
-    canCall: true,
-    onTask: false,
-    runEnvironment: false,
-  }).filter((tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL)) {
+  for (const name of consultationOfficeTools(
+    { held: await duties.heldBy(consultantKey), caretaker: false },
+    {
+      canCall: true,
+      onTask: false,
+      runEnvironment: false,
+    },
+  ).filter((tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL)) {
     app.get(OfficeToolRegistry).register({
       name,
       description: `Reads ${name}.`,
@@ -575,11 +578,14 @@ describe("a consult of a hired Consultant", () => {
     const opening = consultantSession?.received[0];
     expect(opening?.step === "start" && opening.brief.text).toContain(QUESTION);
     expect(consultantSession?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...consultationOfficeTools(await duties.heldBy(consultantKey), {
-        canCall: true,
-        onTask: false,
-        runEnvironment: false,
-      }),
+      ...consultationOfficeTools(
+        { held: await duties.heldBy(consultantKey), caretaker: false },
+        {
+          canCall: true,
+          onTask: false,
+          runEnvironment: false,
+        },
+      ),
     ]);
     const consultationLog = await threads.messages(consultation.id);
     expect(consultationLog).toContainEqual(
@@ -922,11 +928,14 @@ describe("a call from a chat", () => {
 
     const [, calleeSession] = engine.sessions;
     expect(calleeSession?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...consultationOfficeTools(await duties.heldBy(devopsKey), {
-        canCall: true,
-        onTask: false,
-        runEnvironment: false,
-      }),
+      ...consultationOfficeTools(
+        { held: await duties.heldBy(devopsKey), caretaker: false },
+        {
+          canCall: true,
+          onTask: false,
+          runEnvironment: false,
+        },
+      ),
     ]);
     expect(calleeSession?.options.profile).toMatchObject({
       edit: false,
@@ -1276,5 +1285,33 @@ describe("a call from a Stage that can write", () => {
     });
     expect(calleeSession?.options.workstation).toBe(false);
     expect(calleeSession?.options.officeTools.map(({ name }) => name)).not.toContain("change_role");
+  });
+});
+
+describe("a request to the asker's own Role", () => {
+  it("is refused in plain words, putting nothing to the user", async () => {
+    await startWith();
+    const { thread } = startStageThread(
+      randomUUID(),
+      { taskId: randomUUID(), roleKey: askerKey, title: "Implement · Dana" },
+      new Date(),
+    );
+    const stageSession = { ...SESSION, id: randomUUID(), roleKey: askerKey };
+    await app.get(ThreadRepository).add({ ...thread, state: "answering", session: stageSession });
+
+    for (const person of ["Developer", "Dana", askerKey]) {
+      await expect(
+        consultations.put(stageSession.id, {
+          kind: "request",
+          person,
+          request: "Create a Task for the logout page.",
+          context: "",
+          why: "The user asked for one.",
+        }),
+      ).rejects.toThrow(
+        "You are the Developer: a request to yourself is never needed. Do it with your own tools, or tell the user plainly what you can't do and why.",
+      );
+    }
+    expect(await decisions.openInThread(thread.id)).toEqual([]);
   });
 });

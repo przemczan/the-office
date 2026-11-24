@@ -101,6 +101,6 @@ describe("the show_office_status tool", () => {
     expect(result.text).toContain(
       `- Add a filter (Task ${taskId}) · Waiting on you, before its first Stage`,
     );
-    expect(result.text).toContain("The Office status card is in this chat");
+    expect(result.text).toContain("The Office status card is in this Thread");
   });
 });

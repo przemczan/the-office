@@ -53,13 +53,13 @@ const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).extend({
 });
 
 const ROLE_DRAFTED =
-  "The Proposal is in this chat as a card; nothing changes until the user applies it, and they may edit a new Role before hiring. Don't wait for it: tell the user what you propose and why, in a line or two.";
+  "The Proposal is in this Thread as a card; nothing changes until the user applies it, and they may edit a new Role before hiring. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 const SETUP_DRAFTED =
-  "The Proposal is in this chat as a card; nobody is hired and no duty changes until the user applies it, all together. Don't wait for it: tell the user whom you propose to hire, for which duties, and why, in a few lines.";
+  "The Proposal is in this Thread as a card; nobody is hired and no duty changes until the user applies it, all together. Don't wait for it: tell the user whom you propose to hire, for which duties, and why, in a few lines.";
 
 const SETTING_DRAFTED =
-  "The Proposal is in this chat as a card; nothing changes until the user applies it. Don't wait for it: tell the user what you propose and why, in a line or two.";
+  "The Proposal is in this Thread as a card; nothing changes until the user applies it. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 /**
  * The Office tools the Default person to talk to drafts Proposals with (spec §2.2): a Role (a new
@@ -91,7 +91,7 @@ export class ProposalOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_ROLE_TOOL,
       description:
-        "Drafts a Role as a Proposal the user applies with a click: a new Role on its whole card, a person hired into a preset's Role, or a change to a hired Role's card, its model and effort on each engine type included. It shows in this chat as a card and changes nothing until the user applies it. It returns at once.",
+        "Drafts a Role as a Proposal the user applies with a click: a new Role on its whole card, a person hired into a preset's Role, or a change to a hired Role's card, its model and effort on each engine type included. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once.",
       input: z.object({
         role: z
           .string()
@@ -137,7 +137,7 @@ export class ProposalOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_OFFICE_SETTING_TOOL,
       description:
-        "Drafts a new value for an Office setting as a Proposal the user applies with a click. It shows in this chat as a card and changes nothing until the user applies it. It returns at once.",
+        "Drafts a new value for an Office setting as a Proposal the user applies with a click. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once.",
       input: z.object({
         setting: z
           .enum(OFFICE_SETTINGS)
@@ -191,7 +191,7 @@ export class ProposalOfficeTools implements OnModuleInit {
       .join(", ");
     this.registry.register({
       name: PROPOSE_OFFICE_SETUP_TOOL,
-      description: `Drafts the set-up of The Office as one Proposal the user applies with a click: the people to hire, each from a preset or from scratch, and the duties to give to a Role other than the one holding them by default. Applying hires everyone and assigns the duties together, or nothing. A hired preset holds its own duties with no assignment. The presets, with the duties each holds by default: ${presets}. The duties: ${DUTY_LIST}. It shows in this chat as a card and changes nothing until the user applies it. It returns at once.`,
+      description: `Drafts the set-up of The Office as one Proposal the user applies with a click: the people to hire, each from a preset or from scratch, and the duties to give to a Role other than the one holding them by default. Applying hires everyone and assigns the duties together, or nothing. A hired preset holds its own duties with no assignment. The presets, with the duties each holds by default: ${presets}. The duties: ${DUTY_LIST}. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once.`,
       input: z.object({
         hires: z
           .array(

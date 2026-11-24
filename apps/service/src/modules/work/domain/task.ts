@@ -222,7 +222,10 @@ export interface Task {
   readonly causedBy: string | undefined;
   /** The version the Bug was found in, free text; undefined for none. */
   readonly foundInVersion: string | undefined;
-  /** The Task whose Pipeline found this Bug, set at creation only; undefined otherwise. */
+  /**
+   * The Task it was found while working on, whatever its Kind: set as it is created, by a Bug Task
+   * Decision or in a person's Thread on that Task, and never changed; undefined for none.
+   */
   readonly foundWhileWorkingOn: string | undefined;
   /** Why it was Dropped, when a reason was given; undefined otherwise (drop-reason.ts). */
   readonly dropReason: DropReason | undefined;

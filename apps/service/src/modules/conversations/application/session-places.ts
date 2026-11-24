@@ -18,9 +18,13 @@ import {
   caretakerChatOfficeTools,
   chatOfficeTools,
   consultationOfficeTools,
+  personToolsRule,
   recordsCreatedWith,
+  threadOfficeTools,
   type HeldDuties,
   type SessionPerson,
+  type ThreadRecordKind,
+  type ToolHolder,
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
@@ -184,7 +188,7 @@ export class SessionPlaces {
       case "task":
         return this.task(thread, home.taskId, held, logBefore);
       case "initiative":
-        return this.initiative(thread, home.initiativeId);
+        return this.initiative(thread, home.initiativeId, held);
     }
   }
 
@@ -212,10 +216,8 @@ export class SessionPlaces {
       ...(thread.consultation
         ? await this.consultationTools(thread, held, setup.folder !== undefined)
         : {
-            officeTools: setup.officeTools,
+            ...this.workThreadTools(thread, held, setup, "task"),
             callsCanWait: !setup.asking,
-            instructions: (prompts: PromptTexts, person: SessionPerson) =>
-              workThreadInstructions(prompts, person, setup.instructions),
           }),
     };
   }
@@ -286,7 +288,7 @@ export class SessionPlaces {
         ((await this.roleCards.find(thread.roleKey))?.card.capabilities.runEnvironment ?? false),
     };
     return {
-      officeTools: consultationOfficeTools(held, consultation),
+      officeTools: consultationOfficeTools(toolHolder(thread, held), consultation),
       callsCanWait: false,
       instructions: (prompts, person) =>
         consultationInstructions(prompts, person, consultation.canCall, {
@@ -366,7 +368,11 @@ export class SessionPlaces {
    * branches, at the Initiative's branch in the Projects `branchReads` names. Its folder stays the
    * base checkouts', even then, so a session started while shaping resumes after Confirm.
    */
-  private async initiative(thread: Thread, initiativeId: string): Promise<HomePlace> {
+  private async initiative(
+    thread: Thread,
+    initiativeId: string,
+    held: HeldDuties,
+  ): Promise<HomePlace> {
     const setup = await this.initiativeThreads.of({
       threadId: thread.id,
       initiativeId,
@@ -377,7 +383,7 @@ export class SessionPlaces {
       ...(setup.branchReads === undefined
         ? this.basesPlace(thread)
         : this.initiativeBranchPlace(thread, setup.branchReads)),
-      officeTools: setup.officeTools,
+      ...this.workThreadTools(thread, held, setup, "initiative"),
       callsCanWait: false,
       workstation: false,
       readsEngineTranscripts: false,
@@ -385,8 +391,37 @@ export class SessionPlaces {
       brief: await this.briefs.forInitiativeThread(thread, setup),
       span: { "office.initiative": initiativeId },
       metric: NO_PROJECT_METRIC,
+    };
+  }
+
+  /**
+   * A Thread on a Task or an Initiative the user talks in has its person's own tools, as their chat
+   * does, beside those its kind adds (spec §6, "A person's Office tools"); a Stage's Thread does
+   * its Stage's work only.
+   */
+  private workThreadTools(
+    thread: Thread,
+    held: HeldDuties,
+    setup: { readonly officeTools: readonly string[]; readonly instructions: string },
+    onRecord: ThreadRecordKind,
+  ): Pick<HomePlace, "officeTools" | "instructions"> {
+    if (thread.stageThread) {
+      return {
+        officeTools: setup.officeTools,
+        instructions: (prompts, person) =>
+          workThreadInstructions(prompts, person, setup.instructions),
+      };
+    }
+    const holder = toolHolder(thread, held);
+    return {
+      officeTools: threadOfficeTools(holder, setup.officeTools),
       instructions: (prompts, person) =>
-        workThreadInstructions(prompts, person, setup.instructions),
+        workThreadInstructions(
+          prompts,
+          person,
+          setup.instructions,
+          personToolsRule(holder, onRecord),
+        ),
     };
   }
 
@@ -420,6 +455,11 @@ export class SessionPlaces {
       },
     };
   }
+}
+
+/** Whose tools a Thread's session works with: its person's, by the duties they hold. */
+function toolHolder({ roleKey }: Thread, held: HeldDuties): ToolHolder {
+  return { held, caretaker: roleKey === CARETAKER };
 }
 
 /** The variables the service runs with, which the engine filters The Office's own out of. */

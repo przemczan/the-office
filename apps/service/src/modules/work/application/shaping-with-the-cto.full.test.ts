@@ -16,6 +16,7 @@ import {
   LIST_PIPELINES_TOOL,
   LIST_STAGE_TEMPLATES_TOOL,
   ProposalService,
+  READ_STAGE_HISTORY_TOOL,
   ThreadRunner,
   ThreadService,
 } from "../../conversations/index.js";
@@ -189,8 +190,8 @@ class NoProjectRecords {
 }
 
 /**
- * Projects' list_projects and Pipelines' list_pipelines and list_stage_templates, which a shaping
- * session is given, on the registry the sessions read.
+ * Projects' list_projects and Pipelines' list_pipelines, list_stage_templates and
+ * read_stage_history, which a shaping session is given, on the registry the sessions read.
  */
 @Injectable()
 class ListProjectsStandIn {
@@ -201,7 +202,7 @@ class ListProjectsStandIn {
       input: z.object({}),
       run: () => Promise.resolve({ text: PROJECT, isError: false }),
     });
-    for (const name of [LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]) {
+    for (const name of [LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL, READ_STAGE_HISTORY_TOOL]) {
       registry.register({
         name,
         description: `Stands in for ${name}.`,

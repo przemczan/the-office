@@ -842,11 +842,25 @@ describe("an Idea's card and the Office status", () => {
     ]);
   });
 
-  it("are left out of a Thread on a Task, and of a session no Thread has", async () => {
+  it("show in a person's Thread on a Task as in their chat", async () => {
     const { thread, sessionId } = await withSession(() => ({
       kind: "task",
       taskId: randomUUID(),
     }));
+    const ideaId = randomUUID();
+
+    await app.get(ThreadService).postIdeaCard(sessionId, ideaId);
+
+    expect(await app.get(ThreadService).messages(thread.id)).toEqual([
+      expect.objectContaining({ kind: "idea", roleKey: thread.roleKey, ideaId }),
+    ]);
+  });
+
+  it("are left out of a Stage's Thread, and of a session no Thread has", async () => {
+    const { thread, sessionId } = await withSession(
+      () => ({ kind: "task", taskId: randomUUID() }),
+      { stageThread: true },
+    );
 
     await app.get(ThreadService).postIdeaCard(sessionId, randomUUID());
     await app.get(ThreadService).postOfficeStatus(randomUUID());

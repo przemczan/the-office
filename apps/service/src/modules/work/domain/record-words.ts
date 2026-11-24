@@ -365,19 +365,24 @@ export type ShapedInto =
 
 /**
  * An Idea's record as an Agent reads it, through `read_idea` or mentioned in a chat: its notes,
- * who captured it and when, its Attachments, the Task or Initiative it was shaped into, and its
- * History, the edits of its title, notes and Project with who made each.
+ * who captured it and when, its Attachments, the Task or Initiative it was shaped into, the Task
+ * it was found while working on, and its History, the edits of its title, notes and Project with
+ * who made each.
  */
 export function ideaRecordText(
   idea: Idea,
   shapedInto: ShapedInto | undefined,
   attachments: readonly Attachment[],
   edits: readonly RecordEdit[] = [],
+  foundWhileWorkingOn: Task | undefined = undefined,
 ): string {
   return [
     `${idea.title} (Idea ${idea.id})`,
     `- ${whereOf(idea.projectId)}; ${idea.state}`,
     ...(shapedInto ? [`- Shaped into: ${shapedIntoWords(shapedInto)}`] : []),
+    ...(foundWhileWorkingOn
+      ? [`- Found while working on: ${linkedTaskWords(foundWhileWorkingOn)}`]
+      : []),
     `- Captured by ${authorWords(idea.capturedBy)} on ${idea.capturedAt.toISOString()}`,
     "",
     "Notes:",

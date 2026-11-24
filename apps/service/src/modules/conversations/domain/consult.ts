@@ -85,13 +85,33 @@ export function consultantNamed(
   consultants: readonly ConsultantPerson[],
   askerRoleKey: string,
 ): ConsultantPerson | undefined {
-  const wanted = person?.trim().toLowerCase();
-  if (!wanted) return undefined;
   return consultants.find(
-    ({ roleKey, name, title }) =>
-      roleKey !== askerRoleKey &&
-      [roleKey, title, name].some((candidate) => candidate.toLowerCase() === wanted),
+    (consultant) => consultant.roleKey !== askerRoleKey && namesPerson(person, consultant),
   );
+}
+
+/** Whether a consult's `person` names this person, by their Role's key, title or name. */
+function namesPerson(
+  person: string | undefined,
+  { roleKey, name, title }: ConsultantPerson,
+): boolean {
+  const wanted = person?.trim().toLowerCase();
+  if (!wanted) return false;
+  return [roleKey, title, name].some((candidate) => candidate.toLowerCase() === wanted);
+}
+
+/**
+ * Why a request the asker puts to themselves is refused (spec §2.2): whatever they ask of their own
+ * Role, they do with their own tools, which are the same in every Thread the user talks to them in
+ * (spec §6), so the request would only be an empty card for the user. Undefined for any other
+ * consult, and for a question or an approval naming themselves, which still falls back to the user.
+ */
+export function requestToOneselfRefusal(
+  consult: Consult,
+  asker: ConsultantPerson,
+): string | undefined {
+  if (consult.kind !== "request" || !namesPerson(consult.person, asker)) return undefined;
+  return `You are the ${asker.title}: a request to yourself is never needed. Do it with your own tools, or tell the user plainly what you can't do and why.`;
 }
 
 /**

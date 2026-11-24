@@ -248,26 +248,27 @@ export class ThreadService {
     return { threadId: thread.id, initiativeId: thread.home.initiativeId };
   }
 
-  /** The Idea the person captured, as its card in the chat whose session is `sessionId`. */
+  /** The Idea the person captured, as its card in the Thread whose session is `sessionId`. */
   async postIdeaCard(sessionId: string, ideaId: string): Promise<void> {
-    await this.postInChat(sessionId, (roleKey) => ({ kind: "idea", roleKey, ideaId }));
+    await this.postInPersonsThread(sessionId, (roleKey) => ({ kind: "idea", roleKey, ideaId }));
   }
 
-  /** The Office status, as its card in the chat whose session is `sessionId`. */
+  /** The Office status, as its card in the Thread whose session is `sessionId`. */
   async postOfficeStatus(sessionId: string): Promise<void> {
-    await this.postInChat(sessionId, (roleKey) => ({ kind: "office-status", roleKey }));
+    await this.postInPersonsThread(sessionId, (roleKey) => ({ kind: "office-status", roleKey }));
   }
 
   /**
-   * Logs the person's card in the chat Thread with the session; a card belongs in a chat only, so
-   * none is logged for a session on a Task or one no Thread has.
+   * Logs the person's card in the Thread with the session, in any Thread the user talks to them in
+   * (spec §6, "A person's Office tools"); none for a Stage's Thread, which does its Stage's work
+   * only, or a session no Thread has.
    */
-  private async postInChat(
+  private async postInPersonsThread(
     sessionId: string,
     card: (roleKey: string) => MessageDraft,
   ): Promise<void> {
     const thread = await this.repository.findBySession(sessionId);
-    if (thread?.home.kind !== "chat") return;
+    if (thread === undefined || thread.stageThread) return;
     await this.log(thread.id, [card(thread.roleKey)]);
   }
 

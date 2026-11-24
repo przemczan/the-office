@@ -227,11 +227,14 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     ],
   }));
   // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
-  for (const name of consultationOfficeTools(await duties.heldBy(consultantKey), {
-    canCall: true,
-    onTask: false,
-    runEnvironment: false,
-  }).filter((tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL)) {
+  for (const name of consultationOfficeTools(
+    { held: await duties.heldBy(consultantKey), caretaker: false },
+    {
+      canCall: true,
+      onTask: false,
+      runEnvironment: false,
+    },
+  ).filter((tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL)) {
     app.get(OfficeToolRegistry).register({
       name,
       description: `Reads ${name}.`,

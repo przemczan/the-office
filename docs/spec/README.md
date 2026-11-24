@@ -54,7 +54,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### C
 
-- **Caused by, Found in version, Found while working on**: [2.1.3 Bug details](2.1.3-tasks.md#bug-details); screen: [Task page › Bug](screens/task-page.md#bug)
+- **Caused by, Found in version**: [2.1.3 Bug details](2.1.3-tasks.md#bug-details); screen: [Task page › Bug](screens/task-page.md#bug)
 - **Caretaker**: [2.2 Caretaker](2.2-people.md#caretaker); [6 The Caretaker with Allow changes on](6-permissions-and-safety.md#the-caretaker-with-allow-changes-on)
 - **Change Project settings, Project settings by Agents, `change_project_settings`**: [6 Project settings by Agents](6-permissions-and-safety.md#project-settings-by-agents); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches)
 - **CI run, Workflow**: [2.1.6 The CI tab](2.1.6-board-and-search.md#the-ci-tab); screen: [CI tab › Start a workflow window](screens/ci-runs.md#start-a-workflow-window)
@@ -105,6 +105,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Fire alarm, Sound the alarm**: [2.8 The alarm](2.8-fire-alarm.md#the-alarm); screen: [Shell › Fire alarm control](screens/shell.md#fire-alarm-control)
 - **Safe pause ASAP, Safe pause after the current Stages, Safe pause after the current Tasks (the fire alarm's ways)**: [2.8 Safe pause ASAP](2.8-fire-alarm.md#safe-pause-asap); [2.8 Safe pause after the current Stages](2.8-fire-alarm.md#safe-pause-after-the-current-stages); [2.8 Safe pause after the current Tasks](2.8-fire-alarm.md#safe-pause-after-the-current-tasks); [2.8 Making it stricter](2.8-fire-alarm.md#making-it-stricter); screen: [Shell › Fire alarm control](screens/shell.md#fire-alarm-control)
 - **First-run setup**: [2.10 First-run setup](2.10-users-and-signing-in.md#first-run-setup); screen: [Sign in › First user](screens/sign-in.md#first-user)
+- **Found while working on (a Task's, an Idea's), the default link from a Thread on a Task**: [2.1.3 Found while working on](2.1.3-tasks.md#found-while-working-on); [6 A person's Office tools](6-permissions-and-safety.md#a-persons-office-tools); screens: [Task page › Found while working on](screens/task-page.md#found-while-working-on), [Ideas tab › Idea card](screens/ideas.md#idea-card)
 - **Forced model and effort (Force this model and effort for everyone), a Project's setting for a person**: [5.4.5 The model and effort cascade](5.4.5-engines-and-cascade.md#the-model-and-effort-cascade); screen: [Project page › Engine](screens/project-page.md#engine)
 
 - **Feature switch, Connected devices / Test targets / GitHub issues / Run environment switches**: [2.1.1 Feature switches](2.1.1-projects.md#feature-switches); [2.1.1 Onboarding a Project](2.1.1-projects.md#onboarding-a-project); screen: [Project page › Features](screens/project-page.md#features)
@@ -171,6 +172,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### O
 
 - **Office action, covered by duties or by a record's creators**: [2.4.4 Office actions in Threads](2.4.4-messages.md#office-actions-in-threads); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions); [2.1.3 Office actions on a Task](2.1.3-tasks.md#office-actions-on-a-task); [2.1.4 Office actions on an Initiative](2.1.4-initiatives.md#office-actions-on-an-initiative)
+- **Office tools, a person's (the same in every Thread the user talks to them in), what each Thread kind adds**: [6 A person's Office tools](6-permissions-and-safety.md#a-persons-office-tools); [2.4.1 What each Thread adds](2.4.1-threads.md#what-each-thread-adds)
 - **Office command, Skill command**: [2.4.4 Commands in the message box](2.4.4-messages.md#commands-in-the-message-box); [2.6 Skill commands](2.6-skills.md#skill-commands); screen: [Thread › Commands](screens/thread.md#commands)
 - **Office device helper, the relay**: [2.13 The relay](2.13-connected-devices.md#the-relay); [2.13 The helper's start and stop](2.13-connected-devices.md#the-helpers-start-and-stop); [2.13 What the image needs](2.13-connected-devices.md#what-the-image-needs); [5.5 The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment); [5.3 Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)
 - **Office identity, Office ssh key, Trusted host, Unconfirmed host, Sign in with GitHub**: [5.5 The Office identity](5.5-git-and-isolation.md#the-office-identity); [2.3.4 The Office's own credentials for publishing](2.3.4-publish.md#the-offices-own-credentials-for-publishing); screen: [Settings › Office identity](screens/settings.md#office-identity)
@@ -350,7 +352,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.3.4 Publish](2.3.4-publish.md): the Publish Stage and its results, conflicts in the flow, the commit message, before and after publishing, pull requests.
   - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Stage templates, Project Pipelines, the move to routes back and Publish Stages.
 - [2.4 Conversations](2.4-conversations.md): index of the pages below.
-  - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what a Thread reads, Allow changes.
+  - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what each Thread adds, what a Thread reads, Allow changes.
   - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows, Waiting for you.
   - [2.4.3 Consultations](2.4.3-consultations.md): Consultation, calls from chats.
   - [2.4.4 Messages](2.4.4-messages.md): barge-in, Office actions, Mentions, images, Open page, commands.
@@ -420,7 +422,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 
 ### Safety and risks
 
-- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Hard switches, profiles, secrets, test instances, Actions, build rules.
+- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Hard switches, a person's Office tools, profiles, secrets, test instances, Actions, build rules.
 - [8. Risks](8-risks.md)
 
 ## Defaults
@@ -761,5 +763,6 @@ Where each default lives, by page:
   - [Hard switches by role](6-permissions-and-safety.md#hard-switches-by-role)
   - [Project setting changes listed](6-permissions-and-safety.md#project-setting-changes-listed)
   - [Default profiles](6-permissions-and-safety.md#default-profiles)
+  - [What a record made in a Thread links to](6-permissions-and-safety.md#what-a-record-made-in-a-thread-links-to)
 
 A new default goes into the Defaults of the page it belongs to and gets a line here; a new concept gets a line in the [topic map](#topic-map) ([AGENTS.md](../../AGENTS.md), "Knowledge base").

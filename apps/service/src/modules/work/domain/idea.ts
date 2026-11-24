@@ -16,6 +16,11 @@ export interface Idea {
   readonly taskId: string | undefined;
   /** The Initiative it was shaped into; undefined unless shaped into one. */
   readonly initiativeId: string | undefined;
+  /**
+   * The Task it was found while working on, set as it is captured in a person's Thread on that
+   * Task and never changed; undefined for none.
+   */
+  readonly foundWhileWorkingOn: string | undefined;
   readonly capturedBy: Author;
   readonly capturedAt: Date;
   /** When it was dropped, kept so a dropped Idea reads as one; undefined unless dropped. */

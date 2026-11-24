@@ -25,12 +25,16 @@ export interface IdeaChange<Event extends DomainEvent> {
   readonly edits?: readonly RecordEdit[];
 }
 
-/** Refuses with every reason. */
+/**
+ * A new Idea, found while working on the Task `foundWhileWorkingOn` when one is given. Refuses with
+ * every reason.
+ */
 export function captureIdea(
   id: string,
   given: NewIdea,
   capturedBy: Author,
   capturedAt: Date,
+  foundWhileWorkingOn?: string,
 ): IdeaChange<IdeaCaptured> {
   const newIdea = trimmedNewIdea(given);
   const problems = newIdeaProblems(newIdea);
@@ -41,6 +45,7 @@ export function captureIdea(
     state: "new",
     taskId: undefined,
     initiativeId: undefined,
+    foundWhileWorkingOn,
     capturedBy,
     capturedAt,
     droppedAt: undefined,

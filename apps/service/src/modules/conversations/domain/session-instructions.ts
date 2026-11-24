@@ -194,19 +194,21 @@ export const PERSON_READING_OFFICE_TOOLS = [
 export const ANSWER_DECISION_TOOL = "answer_decision";
 
 /**
- * The Office tools a chat session works with (spec §6): it reads every record and a Task's Stage
- * history, asks the user a Decision form inline in the chat, answers a Decision for the user when
- * they ask, captures an Idea, creates a Task and drafts a skill as a Proposal (Conversations'
- * `propose_skill`), and changes no file.
+ * The Office tools every person has in every Thread the user talks to them in (spec §6, "A
+ * person's Office tools"): they read every record and a Task's Stage history, answer a Decision for
+ * the user when they ask, capture an Idea, create a Task and draft a skill as a Proposal
+ * (Conversations' `propose_skill`); none changes a file.
  */
-export const CHAT_OFFICE_TOOLS = [
+export const PERSON_OFFICE_TOOLS = [
   ...PERSON_READING_OFFICE_TOOLS,
-  OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,
   "capture_idea",
   "create_task",
   PROPOSE_SKILL_TOOL,
 ] as const;
+
+/** The Office tools a chat session works with: the person's, and a Decision form inline in it. */
+export const CHAT_OFFICE_TOOLS = [...PERSON_OFFICE_TOOLS, OPEN_DECISION_TOOL] as const;
 
 /**
  * The Office tool the Default person to talk to and the Caretaker draft a Proposal of a Role
@@ -395,46 +397,97 @@ const PIPELINE_PROPOSAL_OFFICE_TOOLS = [
   PROPOSE_STAGE_TEMPLATE_TOOL,
 ] as const;
 
+/** Who a person is, beside the duties they hold, as far as it decides their Office tools. */
+export interface ToolHolder {
+  readonly held: HeldDuties;
+  /** They are the Caretaker, who drafts the set-up of The Office and how it works. */
+  readonly caretaker: boolean;
+}
+
 /**
- * A chat's Office tools for a person, by the duties they hold (spec §2.2): the Default person to
- * talk to doesn't turn work into Tasks but points to whoever plans, so never creates one, though
- * they may create an Initiative, for whoever shapes Initiatives to shape into Tasks; they draft
- * Roles, Office settings and prompt templates (a new text or a reset to the default, only when the
- * user asks) as Proposals the user applies, point the user to whoever is
- * responsible with a Link card, and show the Office status (ticket 06); they redirect with a Link
- * card and never relay, calling a person only when the user asks, as anyone else does (spec
- * §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
- * Initiative too, in their chat only. The Caretaker holds no duty, so has only the chat's own and
- * `caretakerChatOfficeTools`' Proposals.
+ * A person's Office tools, the same in every Thread the user talks to them in (spec §6, "A
+ * person's Office tools"), by the duties they hold (spec §2.2): the Default person to talk to
+ * doesn't turn work into Tasks but points to whoever plans, so never creates one, though they may
+ * create an Initiative, for whoever shapes Initiatives to shape into Tasks; they draft Roles,
+ * Office settings and prompt templates (a new text or a reset to the default, only when the user
+ * asks) as Proposals the user applies, point the user to whoever is responsible with a Link card,
+ * and show the Office status (ticket 06); they redirect with a Link card and never relay, calling
+ * a person only when the user asks, as anyone else does. Each has their duties' own tools besides:
+ * whoever shapes Initiatives creates an Initiative too. The Caretaker holds no duty, but drafts the
+ * set-up of The Office, its hires and duties as one Proposal, and reads and drafts changes to the
+ * Office settings, Role cards, Prompt templates and Pipelines, changes allowed or not, since a
+ * Proposal changes nothing until the user applies it (spec §6). Each Thread kind adds only its own
+ * tools to these, such as a chat's Decision form or the Planner's writing of a Plan.
  */
-export function chatOfficeTools(held: HeldDuties): readonly string[] {
+export function personOfficeTools({ held, caretaker }: ToolHolder): readonly string[] {
   const defaultPerson = held.includes("default-person-to-talk-to");
   return [
-    ...(defaultPerson
-      ? CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task")
-      : CHAT_OFFICE_TOOLS),
-    ...draftingOfficeTools(held),
-    ...(defaultPerson || held.includes("shapes-initiatives") ? [CREATE_INITIATIVE_TOOL] : []),
-    ...(defaultPerson ? DEFAULT_PERSON_OFFICE_TOOLS : []),
-    CONSULT_TOOL,
+    ...new Set([
+      ...(defaultPerson
+        ? PERSON_OFFICE_TOOLS.filter((name) => name !== "create_task")
+        : PERSON_OFFICE_TOOLS),
+      ...draftingOfficeTools(held),
+      ...(defaultPerson || held.includes("shapes-initiatives") ? [CREATE_INITIATIVE_TOOL] : []),
+      ...(defaultPerson ? DEFAULT_PERSON_OFFICE_TOOLS : []),
+      ...(caretaker
+        ? [
+            PROPOSE_OFFICE_SETUP_TOOL,
+            ...OFFICE_SETTINGS_OFFICE_TOOLS,
+            ...PIPELINE_PROPOSAL_OFFICE_TOOLS,
+          ]
+        : []),
+      CONSULT_TOOL,
+    ]),
   ];
 }
 
 /**
- * The Caretaker's chat's Office tools, in every Thread whether changes are allowed or not, since a
- * Proposal changes nothing until the user applies it (spec §2.2, §6): the chat's own for the duties
- * they hold, drafting the set-up of The Office, its hires and duties as one Proposal, and reading
- * and drafting changes to the Office settings, Role cards, Prompt templates and Pipelines.
+ * A Thread's Office tools: its person's, then those its kind adds (`threadKindTools`), each once.
  */
+export function threadOfficeTools(
+  holder: ToolHolder,
+  threadKindTools: readonly string[],
+): readonly string[] {
+  return [...new Set([...personOfficeTools(holder), ...threadKindTools])];
+}
+
+/** A chat's Office tools: the person's, with a Decision form asked inline in the chat. */
+export function chatOfficeTools(held: HeldDuties): readonly string[] {
+  return threadOfficeTools({ held, caretaker: false }, [OPEN_DECISION_TOOL]);
+}
+
+/** The Caretaker's chat's Office tools, in every Thread whether changes are allowed or not. */
 export function caretakerChatOfficeTools(held: HeldDuties): readonly string[] {
+  return threadOfficeTools({ held, caretaker: true }, [OPEN_DECISION_TOOL]);
+}
+
+/** The record a Thread is on, which decides what a record created in it links to by default. */
+export type ThreadRecordKind = "task" | "initiative";
+
+/**
+ * What a person does with their own Office tools in a Thread on a Task or an Initiative, as in
+ * their chat (spec §6, "A person's Office tools"): records and Proposals change no file, so they
+ * are made where the user asks, never sent to the person's chat. A Task created or an Idea captured
+ * in a Thread on a Task is found while working on it unless said otherwise; one in a Thread on an
+ * Initiative stands alone, since joining one brings its branch and Pipeline, which is done on purpose.
+ */
+export function personToolsRule(holder: ToolHolder, onRecord: ThreadRecordKind): string {
+  const { held, caretaker } = holder;
+  const creates = personOfficeTools(holder).includes("create_task");
+  const what = creates
+    ? "capture an Idea, create a Task in Backlog when the user asks for one or agrees to it (giving it a Description of what the user wants when they said more than the title)"
+    : "capture an Idea";
+  const records = creates ? "A Task you create or an Idea you capture" : "An Idea you capture";
+  const link =
+    onRecord === "task"
+      ? `${records} here is found while working on this Task: give taskId null when you or the user say it isn't.`
+      : `${records} here stands alone: a Task becomes part of an Initiative only by add_task or add_to_initiative, on purpose.`;
   return [
-    ...new Set([
-      ...chatOfficeTools(held),
-      PROPOSE_OFFICE_SETUP_TOOL,
-      ...OFFICE_SETTINGS_OFFICE_TOOLS,
-      ...PIPELINE_PROPOSAL_OFFICE_TOOLS,
-    ]),
-  ];
+    `Wherever the user talks to you, you have your own Office tools, as in your chat: read The Office's records, ${what}, draft what your Role drafts as Proposals the user applies, and call someone when the user asks. Records and Proposals change no file, so make them here when the user asks rather than sending them to your chat. ${link}`,
+    ...(held.includes("default-person-to-talk-to") ? [DEFAULT_PERSON_CALLING_RULE] : []),
+    ...(held.includes("onboards-projects") ? [READ_REPOSITORY_RULE] : []),
+    ...(caretaker ? [OFFICE_PROPOSALS_RULE] : []),
+  ].join("\n\n");
 }
 
 /**
@@ -502,26 +555,24 @@ export interface ConsultationPlace {
 
 /**
  * The Office tools a Consultant works a Consultation with: their own, never the asker's (spec §6).
- * They read every record and the Stage history, give their answer, and draft what their chat
- * drafts (an Idea, a Task in Backlog, a skill and their duties' Proposals), which the user applies.
- * They call someone themselves while the chain of calls allows one more (`canCall`); they open no
- * Decision of their own and change no file, but for the run environment definition, which a
- * Consultant whose card has the Run environment capability writes on a Task, as in an Agent Stage.
+ * They have the person's tools (`personOfficeTools`) and give their answer, but answer no Decision
+ * for the user and open none of their own; they call someone themselves only while the chain of
+ * calls allows one more (`canCall`). They change no file, but for the run environment definition,
+ * which a Consultant whose card has the Run environment capability writes on a Task, as in an Agent
+ * Stage.
  */
 export function consultationOfficeTools(
-  held: HeldDuties,
+  holder: ToolHolder,
   { canCall, onTask, runEnvironment }: ConsultationPlace,
 ): readonly string[] {
-  return [
-    ...PERSON_READING_OFFICE_TOOLS,
+  const notInAConsultation = new Set<string>([
+    ANSWER_DECISION_TOOL,
+    ...(canCall ? [] : [CONSULT_TOOL]),
+  ]);
+  return threadOfficeTools(holder, [
     ANSWER_CONSULTATION_TOOL,
-    "capture_idea",
-    "create_task",
-    PROPOSE_SKILL_TOOL,
-    ...draftingOfficeTools(held),
     ...(onTask ? stageCapabilityOfficeTools({ runEnvironment }) : []),
-    ...(canCall ? [CONSULT_TOOL] : []),
-  ];
+  ]).filter((name) => !notInAConsultation.has(name));
 }
 
 /**

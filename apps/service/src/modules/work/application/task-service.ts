@@ -107,7 +107,7 @@ export interface TaskDependencyLinks {
   readonly duplicateOf: Task | undefined;
   /** The Tasks dropped as duplicates of it, in the board's order. */
   readonly duplicates: readonly Task[];
-  /** The Task whose Pipeline found this Bug. */
+  /** The Task it was found while working on. */
   readonly foundWhileWorkingOn: Task | undefined;
 }
 
@@ -132,8 +132,9 @@ export class TaskService {
 
   /**
    * A new Task in Backlog, with no Pipeline yet, last on the board, with a Plan and a Definition of
-   * Done, unconfirmed, when its creator writes both, and where it comes from, when The Office made
-   * it or it is a Bug linked as it is created.
+   * Done, unconfirmed, when its creator writes both, and where it comes from: whether The Office
+   * made it, a Bug's Caused by, and the Task it was found while working on. Refused when a linked
+   * Task isn't there.
    */
   async create(
     given: NewTask,
