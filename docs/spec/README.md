@@ -41,6 +41,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Ask me again, Asked again**: [2.4.2 Sending a Decision](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Ask me again](screens/decision-card.md#ask-me-again)
 - **Attachment**: [2.1.2 Attachment](2.1.2-ideas-and-attachments.md#attachment); screen: [Task page › Attachments tab](screens/task-page.md#attachments-tab)
 - **Authenticator**: [2.10 The authenticator](2.10-users-and-signing-in.md#the-authenticator); screen: [Account › Authenticator](screens/account.md#authenticator)
+- **Authority, authority setting (Allowed, Consult a person, Ask me, Proposal, Never), one setting per Office tool or group, Own work**: [6 Authority](6-permissions-and-safety.md#authority); [6 Authority by role](6-permissions-and-safety.md#authority-by-role); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches); screen: [People › Role card tab](screens/people.md#role-card-tab)
 - **Auto mode**: [2.1.5 Auto mode](2.1.5-planning-and-start.md#auto-mode)
 - **Avatar**: [2.2 Avatar](2.2-people.md#avatar)
 
@@ -86,7 +87,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Drop, who may Drop**: [2.1.3 Dropping](2.1.3-tasks.md#dropping); [2.1.4 An Initiative is done](2.1.4-initiatives.md#an-initiative-is-done)
 - **Drop reason**: [2.1.3 Drop reason](2.1.3-tasks.md#drop-reason); screen: [Task page › Task menu](screens/task-page.md#task-menu); [Archived tab › Archived Tasks](screens/archived.md#archived-tasks)
 - **Dismiss, Dismissed**: [2.4.2 Dismiss](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Dismiss](screens/decision-card.md#dismiss)
-- **Duty**: [2.2 Duty](2.2-people.md#duty); [2.2 Duties](2.2-people.md#duties); screen: [Settings › Duties](screens/settings.md#duties)
+- **Duty, a duty is a job (who does it, who is asked first), not a permission**: [2.2 Duty](2.2-people.md#duty); [2.2 Duties](2.2-people.md#duties); screen: [Settings › Duties](screens/settings.md#duties)
 
 ### E
 
@@ -119,9 +120,9 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### H
 
 - **Handover note**: [2.5 Handover note](2.5-context-policy.md#handover-note); screen: [Thread › Handover note prefilled](screens/thread.md#handover-note-prefilled)
-- **Hard switch**: [6 Hard switches](6-permissions-and-safety.md#hard-switches); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches)
+- **Hard switch (one of four named groups of authority settings)**: [6 Hard switches](6-permissions-and-safety.md#hard-switches); [6 Authority](6-permissions-and-safety.md#authority); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches)
 - **Health reading, Statement shape**: [2.11.3 System health](2.11.3-system-health.md#system-health); [2.11.3 Routes are named by their template, statements by their shape](2.11.3-system-health.md#routes-are-named-by-their-template-statements-by-their-shape)
-- **History (of a Task, an Idea, an Initiative)**: [2.1.3 History](2.1.3-tasks.md#history); screens: [Task page › History](screens/task-page.md#history), [Ideas tab › History](screens/ideas.md#history), [Initiative page › History](screens/initiative-page.md#history)
+- **History (of a Task, an Idea, an Initiative), the user who asked**: [2.1.3 History](2.1.3-tasks.md#history); screens: [Task page › History](screens/task-page.md#history), [Ideas tab › History](screens/ideas.md#history), [Initiative page › History](screens/initiative-page.md#history)
 
 ### I
 
@@ -167,11 +168,12 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### N
 
+- **No bypass, Agents change Office state only through Office tools, the hook's loopback rule**: [6 No bypass](6-permissions-and-safety.md#no-bypass); [6 Build rules](6-permissions-and-safety.md#build-rules)
 - **Notification**: [2.7 A Notification](2.7-notifications.md#a-notification); [2.7 Kinds](2.7-notifications.md#kinds)
 
 ### O
 
-- **Office action, covered by duties or by a record's creators**: [2.4.4 Office actions in Threads](2.4.4-messages.md#office-actions-in-threads); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions); [2.1.3 Office actions on a Task](2.1.3-tasks.md#office-actions-on-a-task); [2.1.4 Office actions on an Initiative](2.1.4-initiatives.md#office-actions-on-an-initiative)
+- **Office action, its area, group and default authority**: [2.4.4 Office actions in Threads](2.4.4-messages.md#office-actions-in-threads); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions); [2.1.3 Office actions on a Task](2.1.3-tasks.md#office-actions-on-a-task); [2.1.4 Office actions on an Initiative](2.1.4-initiatives.md#office-actions-on-an-initiative)
 - **Office tools, a person's (the same in every Thread the user talks to them in), what each Thread kind adds**: [6 A person's Office tools](6-permissions-and-safety.md#a-persons-office-tools); [2.4.1 What each Thread adds](2.4.1-threads.md#what-each-thread-adds)
 - **Office command, Skill command**: [2.4.4 Commands in the message box](2.4.4-messages.md#commands-in-the-message-box); [2.6 Skill commands](2.6-skills.md#skill-commands); screen: [Thread › Commands](screens/thread.md#commands)
 - **Office device helper, the relay**: [2.13 The relay](2.13-connected-devices.md#the-relay); [2.13 The helper's start and stop](2.13-connected-devices.md#the-helpers-start-and-stop); [2.13 What the image needs](2.13-connected-devices.md#what-the-image-needs); [5.5 The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment); [5.3 Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)
@@ -199,6 +201,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Pipeline**: [2.3.2 A Pipeline is a flow](2.3.2-flows.md#a-pipeline-is-a-flow); screen: [Pipeline flow editor](screens/pipeline-flow-editor.md#pipeline-flow-editor)
 - **Pipeline rail**: screen: [Task page › Pipeline rail](screens/task-page.md#pipeline-rail)
 - **Plan the Initiative**: [2.1.4 Plan the Initiative](2.1.4-initiatives.md#plan-the-initiative)
+- **Preset, a preset's default vs set**: [2.2 Presets](2.2-people.md#presets); [6 Authority by role](6-permissions-and-safety.md#authority-by-role)
 - **Process, Sub-agent**: [2.9.1 Sub-agents and Processes](2.9.1-the-model.md#sub-agents-and-processes); screen: [Thread › Sub-agents and Processes](screens/thread.md#sub-agents-and-processes)
 - **Project**: [2.1.1 Project](2.1.1-projects.md#project); screen: [Projects page](screens/projects.md#projects-page-and-add-a-project)
 - **Project device, at rest, in use, Paired, Didn't answer, Not paired, Over USB**: [2.13 A Project's device](2.13-connected-devices.md#a-projects-device); [2.13 At rest and in use](2.13-connected-devices.md#at-rest-and-in-use); [2.13 A Project device over USB](2.13-connected-devices.md#a-project-device-over-usb); [2.13 One environment at a time](2.13-connected-devices.md#one-environment-at-a-time); [2.13 Removing a Project device](2.13-connected-devices.md#removing-a-project-device); screen: [Project page › Devices](screens/project-page.md#devices)
@@ -210,6 +213,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Project's own stand-in list, Use this Project's own list**: [5.4.6 A Project's own list](5.4.6-stand-in-engines-and-usage-windows.md#a-projects-own-list); screen: [Project page › Engine](screens/project-page.md#engine)
 - **Prompt template**: [2.2 Prompt templates](2.2-people.md#prompt-templates); [5.3 Prompt templates is its own module](5.3-modules.md#prompt-templates-is-its-own-module); screen: [Settings › Prompt templates](screens/settings.md#prompt-templates)
 - **Proposal**: [2.3.2 Route and condition Proposals](2.3.2-flows.md#route-and-condition-proposals); [2.3.5 Project commands by Proposal and by hand](2.3.5-library.md#project-commands-by-proposal-and-by-hand); screen: [Task page › Pipeline proposal](screens/task-page.md#pipeline-proposal)
+- **Proposals and approvals, the generic Proposal (kind office-action), a call ruled Proposal, approval card**: [2.4.2 Proposals and approvals](2.4.2-decisions.md#proposals-and-approvals); [6 Authority](6-permissions-and-safety.md#authority)
 - **Public address**: [5.1 The public address](5.1-shape.md#the-public-address); [2.10 Which ways work on which address](2.10-users-and-signing-in.md#which-ways-work-on-which-address)
 - **Publish Stage, Publish's results (Published, Nothing to publish, Conflict, After publishing failed)**: [2.3.4 Publish](2.3.4-publish.md#publish); [2.3.4 Publish's results](2.3.4-publish.md#publishs-results); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
 - **Publishing Task**: [2.1.4 Publishing Tasks](2.1.4-initiatives.md#publishing-tasks); [2.3.4 A Publishing Task's Publish](2.3.4-publish.md#a-publishing-tasks-publish)
@@ -274,11 +278,14 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Text file**: [2.1.2 Text files and PDFs](2.1.2-ideas-and-attachments.md#text-files-and-pdfs)
 - **Thread**: [2.4.1 Threads](2.4.1-threads.md#threads); screen: [Thread view](screens/thread.md#thread-view)
 - **Tokens and cost**: [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md#levels); screen: [Stats › Tokens and estimated cost over time](screens/stats.md#tokens-and-estimated-cost-over-time)
+- **Tool area, Core, tool loading (a session loads Core and its home's areas, the rest deferred)**: [6 Tool areas](6-permissions-and-safety.md#tool-areas); [5.4.1 Loading by area](5.4.1-engine-kinds.md#loading-by-area); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions)
+- **Trust anchor (the tools settable only to Proposal or Ask me, or Never)**: [6 The trust anchor](6-permissions-and-safety.md#the-trust-anchor)
 - **Turn**: [2.4.4 Barge-in](2.4.4-messages.md#barge-in); [2.4.5 Stop and Pause](2.4.5-stopping-and-restarts.md#stop-and-pause)
 
 ### U
 
 - **Usage estimate**: [2.1.5 Usage estimates](2.1.5-planning-and-start.md#usage-estimates)
+- **The user's alone (the list of actions no Agent takes, each with its reason)**: [6 The user's alone](6-permissions-and-safety.md#the-users-alone); [6 The trust anchor](6-permissions-and-safety.md#the-trust-anchor)
 
 ### W
 
@@ -299,7 +306,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Engine types**: [5.4.1 Engine kinds](5.4.1-engine-kinds.md#engine-kinds); [5.4.1 The AgentEngine port](5.4.1-engine-kinds.md#the-agentengine-port)
 - **Which engine, model and effort a session gets**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); [5.4.5 The model and effort cascade](5.4.5-engines-and-cascade.md#the-model-and-effort-cascade); `GET /tasks/:id/engine-cascade`: [5.4.5 The API](5.4.5-engines-and-cascade.md#the-api)
 - **Escalation and calls between people**: [2.2 Escalation](2.2-people.md#escalation); [2.2 Chains of calls](2.2-people.md#chains-of-calls)
-- **Hard switches by Role**: [6 Hard switches by role](6-permissions-and-safety.md#hard-switches-by-role); [6 Default profiles](6-permissions-and-safety.md#default-profiles)
+- **Authority by Role**: [6 Authority by role](6-permissions-and-safety.md#authority-by-role); [6 Default profiles](6-permissions-and-safety.md#default-profiles)
 - **How a Stage ends**: [2.3.1 How a Stage ends](2.3.1-stages.md#how-a-stage-ends)
 - **Manual order and priority**: [2.1.3 Priority and order](2.1.3-tasks.md#priority-and-order)
 - **Mark Ready**: [2.1.3 Ready](2.1.3-tasks.md#ready); [2.1.3 Mark Ready](2.1.3-tasks.md#mark-ready); screen: [Task page › Before Ready](screens/task-page.md#before-ready)
@@ -426,7 +433,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 
 ### Safety and risks
 
-- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Hard switches, a person's Office tools, profiles, secrets, test instances, Actions, build rules.
+- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Authority (one setting per Office tool or group, Hard switches, MCP tools), the trust anchor, the user's alone, no bypass, tool areas, a person's Office tools, profiles, secrets, test instances, Actions, build rules.
 - [8. Risks](8-risks.md)
 
 ## Defaults
@@ -491,6 +498,7 @@ Where each default lives, by page:
 - 2.3.1 Stages
   - [A Stage names a Role or a duty](2.3.1-stages.md#a-stage-names-a-role-or-a-duty)
   - [An Agent Stage's Project commands](2.3.1-stages.md#an-agent-stages-project-commands)
+  - [An Agent Stage's Office tools](2.3.1-stages.md#an-agent-stages-office-tools)
   - [An Agent Stage's message names the Stages after it](2.3.1-stages.md#an-agent-stages-message-names-the-stages-after-it)
   - [An Agent Stage may merge the base first](2.3.1-stages.md#an-agent-stage-may-merge-the-base-first)
   - [Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment)
@@ -681,6 +689,9 @@ Where each default lives, by page:
   - [Office updates is reached through BusyWork](5.3-modules.md#office-updates-is-reached-through-busywork)
 - 5.4.1 Engine port and kinds
   - [Office actions](5.4.1-engine-kinds.md#office-actions)
+  - [One ruling step](5.4.1-engine-kinds.md#one-ruling-step)
+  - [Per-kind Proposal tools fold in](5.4.1-engine-kinds.md#per-kind-proposal-tools-fold-in)
+  - [Loading by area](5.4.1-engine-kinds.md#loading-by-area)
   - [The `-p` fallback matches the Agent SDK adapter](5.4.1-engine-kinds.md#the--p-fallback-matches-the-agent-sdk-adapter)
   - [MCP servers for Agents](5.4.1-engine-kinds.md#mcp-servers-for-agents)
   - [Language servers for Agents](5.4.1-engine-kinds.md#language-servers-for-agents)
@@ -766,7 +777,9 @@ Where each default lives, by page:
   - [Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition)
   - [The environment check tool](5.5-git-and-isolation.md#the-environment-check-tool)
 - 6 Permissions and safety
-  - [Hard switches by role](6-permissions-and-safety.md#hard-switches-by-role)
+  - [Authority by role](6-permissions-and-safety.md#authority-by-role)
+  - [A missing authority value](6-permissions-and-safety.md#a-missing-authority-value)
+  - Tool loading: [5.4.1](5.4.1-engine-kinds.md#loading-by-area)
   - [Project setting changes listed](6-permissions-and-safety.md#project-setting-changes-listed)
   - [Default profiles](6-permissions-and-safety.md#default-profiles)
   - [What a record made in a Thread links to](6-permissions-and-safety.md#what-a-record-made-in-a-thread-links-to)

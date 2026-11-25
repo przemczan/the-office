@@ -84,7 +84,8 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 ## The approval card
 
-- For a call past a Hard switch ([6](../6-permissions-and-safety.md)): the question as Markdown, the context, the Consultation note, "<asker> recommends “<option>”: <reason>", and a group named "Options" with one button per option, the recommended one primary (such as **Allow once** and **Deny**).
+- For a call held past a Hard switch, an authority setting or an MCP tool ([6 Authority](../6-permissions-and-safety.md#authority)): the question as Markdown, the context, the Consultation note, "<asker> recommends “<option>”: <reason>", and a group named "Options" with one button per option, the recommended one primary (such as **Allow once** and **Deny**).
+- A held Office tool call names the real action and its input, never `call_office_tool`, and lists each field it changes, before and after, long texts as a diff, Secret values by name only ([2.4.2](../2.4.2-decisions.md#proposals-and-approvals)).
 - One click sends the answer; there is no comment, no Ask me again, no words.
 - Disabled while the asker answers (title says why) or an answer is sending; a refusal shows "The answer wasn't sent".
 

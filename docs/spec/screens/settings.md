@@ -51,6 +51,7 @@ Covers: the Settings page and its sections (Pipelines list, Stage templates and 
 - A row per duty: its label in bold, its description, and a select named by the label with **Nobody** and each hired Role's person ("Ada · Developer"; the Caretaker and anyone let go aren't offered).
 - A pick saves at once; the toast is "<duty>: <name> holds it now." or "<duty>: nobody holds it now."; there is no Save.
 - Notes under a row: the fallback while nobody holds it ("The Caretaker is the one to talk to.", "You do it yourself.", "Pipelines whose Stages name it are flagged, and Start is refused."), a holder let go named ("<name> held it and was let go; it goes back to them if they are hired back."), and a holder whose Consultant is off ("<name>'s Consultant is off, so they are passed over and you are asked.").
+- After a pick, the row lists the job's settings that differ on the new holder's card, "This job needs: <group> <value>, …", with **Give <name> these settings** (secondary) beside them; the previous holder's note reads "<name> keeps the authority on their card" ([2.2 Duty](../2.2-people.md#duty)).
 - A refusal shows under its row as "<duty> wasn't changed".
 - The duties: **Default person to talk to**, **Shapes Initiatives**, **Plans**, **Implements**, **Reviews**, **Asked first when a Stage runs out of tries**, **Onboards and repairs Projects**, **Default Consultant for MCP tool hard switches**.
 - Facts: [2.2](../2.2-people.md#duties-on-screen).

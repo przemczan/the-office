@@ -700,11 +700,11 @@ Everything that defines a Role: its person's name and title, responsibilities, i
 _Avoid_: Role config, definition, settings
 
 **Duty**:
-A built-in job The Office gives to whichever hired Role holds it, set in Settings › Duties: Default person to talk to, Shapes Initiatives, Asked first when a Stage runs out of tries, Onboards and repairs Projects, Default Consultant for MCP tool hard switches, Plans, Implements and Reviews. A Role **holds** a duty and is its **holder**; each duty has one holder or none, and falls back while nobody holds it. Where the spec names the Planner, the CTO, Devops or the Office Manager for a duty's job, it means that duty's holder.
+A built-in job The Office gives to whichever hired Role holds it, set in Settings › Duties: Default person to talk to, Shapes Initiatives, Asked first when a Stage runs out of tries, Onboards and repairs Projects, Default Consultant for MCP tool hard switches, Plans, Implements and Reviews. A Role **holds** a duty and is its **holder**; each duty has one holder or none, and falls back while nobody holds it. Where the spec names the Planner, the CTO, Devops or the Office Manager for a duty's job, it means that duty's holder. A duty is a job (who does it, and who is asked first), never a permission: what a person may do with Office tools is their authority. See [2.2](docs/spec/2.2-people.md#duty).
 _Avoid_: Responsibility (the Role card has responsibilities), assignment, function
 
 **Office action**:
-One thing the user can do on a record, such as adding a Task to an Initiative, declared once with exactly one cover, the duties that cover it or the creators of a record; its route on the record's page and its Office tool for Agents both come from that declaration. A person gets the tool when they hold a duty that covers it, or when their Thread may create that record (changing, Dropping, Archiving and Restoring Tasks, Ideas and Initiatives), in every Thread the user talks to them in but an Agent Stage; their Role's authority still says when they may use it without a Decision. Not an Action, which is a Project's on-demand run.
+One thing the user can do on a record, such as adding a Task to an Initiative, declared once with its tool area, its group and its default authority; its route on the record's page and its Office tool for Agents both come from that declaration. A person is offered its tool where their [Authority](docs/spec/6-permissions-and-safety.md#authority) for it isn't Never, loaded by its area; in an Agent Stage only the Stage's tools ([5.4.1](docs/spec/5.4.1-engine-kinds.md#office-actions)). Not an Action, which is a Project's on-demand run.
 _Avoid_: Command, operation, endpoint (in the UI), capability (a Role card's capabilities are another thing)
 
 **Avatar**:
@@ -811,12 +811,40 @@ _Avoid_: Branch cleanup, prune, auto-delete
 The context size, 180k tokens by default, past which The Office stops an Agent Stage's turn and asks for a Handover note alone, so a fresh session carries the Stage on; set Office-wide in Settings, or per Stage.
 _Avoid_: Max context, cutoff
 
+**Authority**:
+What a person may do with Office tools, and when. It is set on the Role card, one authority setting per Office tool or group of tools. See [6](docs/spec/6-permissions-and-safety.md#authority).
+_Avoid_: Permissions (the permission profile is another thing), access, rights
+
+**Authority setting**:
+The value of one Office tool's or group's authority: Allowed (the call runs), Consult _person_ (the call waits on that person's approval), Ask me (it waits on the user's approval), Proposal (the call drafts a Proposal, which the user applies) or Never (the tool isn't offered). A Change Project settings value missing from a Role card reads as Ask me, the Caretaker's as Never. See [6](docs/spec/6-permissions-and-safety.md#authority).
+_Avoid_: Permission level, flag, mode
+
+**Tool area**:
+The Office tools of one part of The Office, such as Work or Library: what a session loads together, and a section of the Role card's Authority. See [6](docs/spec/6-permissions-and-safety.md#tool-areas).
+_Avoid_: Tool category, toolset, module
+
+**Core**:
+The Office tools every session has loaded from the start. Not a tool area and not one settable group: reading and `consult` are always on, `answer_decision` on a Decision waiting on the user (never on an approval or a Proposal), `remember` while Shared memory is on, and `capture_idea` with its row in Ideas. See [6](docs/spec/6-permissions-and-safety.md#tool-areas).
+_Avoid_: Basics, default tools
+
 **Hard switch**:
-One of the few actions on a Role card that need someone's say whatever the Agent thinks (run installs, publish outside the Pipeline, change Roles, change Project settings), set to Allowed, Consult a person, Ask me or Never.
+One of four named groups of authority settings: Run installs, Publish outside the Pipeline, Change Roles and Change Project settings, each an authority setting like any other, Change Roles capped as part of the [trust anchor](docs/spec/6-permissions-and-safety.md#the-trust-anchor). Two of them hold Office tools; the other two are followed by the Agent, because no Office tool exists for them yet. See [6](docs/spec/6-permissions-and-safety.md#hard-switches).
 _Avoid_: Permission flag, guard, gate (for this)
 
+**Own work**:
+For one person, the Tasks, Ideas and Initiatives they created, plus every Task whose Stages they work or have worked. Some authority settings are about own work only. See [6](docs/spec/6-permissions-and-safety.md#authority).
+_Avoid_: Their records, assigned work
+
+**Trust anchor**:
+The Office tools that change the rules binding Agents: Role cards and their authority settings, Hard switches, approving held calls, passing a Gate on one's own work, and Secret values. Their setting is settable only to Proposal or Ask me, or Never (not offered), never Allowed or Consult a person, and The Office enforces the cap. See [6](docs/spec/6-permissions-and-safety.md#the-trust-anchor).
+_Avoid_: Root of trust, admin tools, protected tools
+
+**The user's alone**:
+The one list of actions no Agent takes, each with its reason: it holds the trust anchor's cap and the actions that have no Office tool at all. See [6](docs/spec/6-permissions-and-safety.md#the-users-alone).
+_Avoid_: Admin-only, forbidden actions, user-only
+
 **Change Project settings**:
-The Hard switch, enforced by The Office, behind the Office tools with which an Agent changes a Project's commands, test targets, Actions, environment variables and Run environment itself, recorded as its change; publishing, Secret variables' values, the Engine and Pipelines stay the user's, by Proposal or on the Project page.
+The Hard switch, enforced by The Office, behind the Office tools with which an Agent changes a Project's commands, test targets, Actions, environment variables and Run environment itself, recorded as its change. The Publishing settings (capped, [the user's alone](docs/spec/6-permissions-and-safety.md#the-users-alone)) and the other Project settings (Server values that aren't secret, the Engine, the Default Pipeline and Project Pipelines) are groups of their own in Projects and settings, and Secret variables' values are in the [trust anchor](docs/spec/6-permissions-and-safety.md#the-trust-anchor). See [6](docs/spec/6-permissions-and-safety.md#hard-switches).
 _Avoid_: Settings permission, config access
 
 **Project setting change**:
@@ -928,7 +956,7 @@ A Stage run whose Stage already had a run on the same Task, whenever that one ra
 _Avoid_: Rerun, attempt, repeat
 
 **Proposal**:
-A new or changed Role card or Office setting, or a Prompt template's new text or reset to its default (drafted only when the user asks), drafted by the holder of Default person to talk to or by the Caretaker, which takes effect only when the user confirms it.
+A change drafted for the user to apply, which takes effect only when the user applies it: a generic Proposal (kind `office-action`), drafted by any call whose authority setting is Proposal instead of running, whose applying runs the same handler as the user's click; or a per-kind Proposal from a `propose_*` tool not yet folded in, such as a new or changed Role card, Office setting or Prompt template. See [2.4.2](docs/spec/2.4.2-decisions.md#proposals-and-approvals).
 _Avoid_: Suggestion, draft, request
 
 **Caretaker**:

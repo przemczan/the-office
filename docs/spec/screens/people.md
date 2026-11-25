@@ -101,32 +101,43 @@ Covers: the People grid, a person's page (head, Overview, Work, Conversations, M
 ## Role card tab
 
 - Left: the block "Role card", the card read-only, in groups. Right: the block "Changes".
-- Groups, each with its title and a one-line description: **Identity** ("Who the person is, as People shows them."), **Work** ("What the Agent works from, and how much at once."), **Engine** ("How the person works on each engine type. Where they run is set by the Office, the Project, the Initiative or the Task."), **Capabilities** ("Enforced by The Office; combine them freely."), **Permissions** ("What the Agent may do, and who has a say in the few calls that need one."), **Skills** ("From the library in Settings; skills for everyone come with every Role."), **MCP servers** ("From the library in Settings. Each tool has its own setting, as a Hard switch; a Stage may narrow it.").
+- Groups, each with its title and a one-line description: **Identity** ("Who the person is, as People shows them."), **Work** ("What the Agent works from, and how much at once."), **Engine** ("How the person works on each engine type. Where they run is set by the Office, the Project, the Initiative or the Task."), **Capabilities** ("Enforced by The Office; combine them freely."), **Permissions** ("What the Agent may do in a Stage."), **Authority** ("What the person may do with Office tools, and when."), **MCP servers** ("From the library in Settings. Each tool has its own authority setting; a Stage may narrow it."), **Skills** ("From the library in Settings; skills for everyone come with every Role.").
 - Identity: "Name and title", "Responsibilities", "Duties" (the duties the person holds; "None." with the link "Change in Settings › Duties"; the Caretaker: "Holds no duty; it is the one to talk to while nobody holds Default person to talk to.").
 - Work: "Instructions", "Task limit", "Session default" (with its description).
 - Engine: "Works with", a small table with one row per engine type that has an engine listed or that the person sets: the type's icon and name, **Model** and **Effort**, each its value or "Engine's default" in muted text; a type with no engine listed is marked "No <type> engine is listed". Then "Runs on" (for someone not let go: the engine the engine cascade gives outside any Project with the model and effort they work with on it, "<model> · <effort> on <engine>", with a note naming what that engine can't do, "No engine: add one in Settings › Engines" when none, and the list "In <Project>: …" of Projects where another engine, model or effort applies, naming a Project's setting or force).
 - Capabilities: one line per capability, a check when on, a minus when off, with its hint.
-- Permissions: "Permission profile" (one line per part joined with " · "), "Hard switches" (each with its value, the note when it asks the user until the Role is hired, and a badge "Enforced by The Office" or "Followed by the Agent").
-- The Hard switches, in order: "Run installs", "Publish outside the Pipeline", "Change Roles", "Change Project settings" ([6](../6-permissions-and-safety.md#project-settings-by-agents)); the last two are badged "Enforced by The Office".
-- Skills: chips; "None yet. Give <name> skills from the library here or in Settings › Skills."
+- Permissions: "Permission profile" (one line per part joined with " · ").
+- Authority, in this order ([2.2](../2.2-people.md#authority-and-hard-switches), [6 Authority](../6-permissions-and-safety.md#authority)):
+  - one row per tool area with its value; where a value differs on own work and others' work, both on one row, "Own: Allowed · Others': Ask me";
+  - inside an area, its named groups (Change Roles and Change Project settings among them) and single tools whose value differs from the area's, or that are capped;
+  - then the followed groups, "Run installs" and "Publish outside the Pipeline", each badged "Followed by the Agent", Run installs adding "enforced on run_environment_check"; no other row carries a badge;
+  - beside them, the row "Approve held calls and apply Proposals", in no area ([6 The trust anchor](../6-permissions-and-safety.md#the-trust-anchor));
+  - a value that consults a Role not yet hired carries the note that it asks the user until the Role is hired.
+- A capped row reads "Proposal, Ask me or Never only", linking to its reason: the trust anchor ([6 The trust anchor](../6-permissions-and-safety.md#the-trust-anchor)), or The user's alone for Publishing settings ([6 The user's alone](../6-permissions-and-safety.md#the-users-alone)).
+- A value at the preset's default shows in muted text as "Preset default (<value>)", such as "Preset default (Ask me)"; a set value shows plainly ([2.2 Presets](../2.2-people.md#presets)).
 - MCP servers: each server by name with the badge "On" or "Off"; on: each tool and its setting; off: "Off: no session gets it until it is on". None: "None yet. Add them to the library in Settings › MCP servers, then give them to <name> with Edit Role."
-- For the Caretaker, the Task limit, Capabilities and Permissions groups say "Built in: fixed for the Caretaker."
+- Skills: chips; "None yet. Give <name> skills from the library here or in Settings › Skills."
+- For the Caretaker, the Task limit, Capabilities, Permissions and Authority groups say "Built in: fixed for the Caretaker." ([2.2](../2.2-people.md#caretaker)).
 - **Changes**: a timeline of every change since the hire, newest first as the service lists them, each with its day and time: "Hired", "Role card version N" with the changed fields joined by " · ", and a skills change line; each can end with "proposed by <name>". Under it: "Each change applies from the next session started."
 
 ## Edit Role and Hire from scratch
 
 - The same form (`RoleCardForm`) serves "Edit Role", "Hire a Role from scratch" and "Edit the proposed Role"; it fills the page in one card of the same groups, as editable fields.
 - Identity: **Name**, **Title**, **Responsibilities** (hint "One paragraph, shown on People.").
-- Work: **Instructions** (hint "What the Agent works from, with its authority as plain rules. Every session carries them, so keep them short."), **Task limit** (hint "Agents on Stages at once. None means no Pipeline may name the Role."; options "None: talks only" and "N at once"), **Session default** (hint "What a Thread does once its cache has cooled, an hour after the last call. A Stage's own choice still wins at a Stage boundary.").
+- Work: **Instructions** (hint "What the Agent works from: the job's guidance. What it may do is its Authority. Every session carries them, so keep them short."), **Task limit** (hint "Agents on Stages at once. None means no Pipeline may name the Role."; options "None: talks only" and "N at once"), **Session default** (hint "What a Thread does once its cache has cooled, an hour after the last call. A Stage's own choice still wins at a Stage boundary.").
 - Engine: **Model and effort for each engine type**, one row per engine type with an engine listed, in Settings › Engines' order, plus any type the person sets that has none (marked "No <type> engine is listed", with **Clear**): the type's icon and name, a **Model** select ("Engine's default" first, then the type's models) and an **Effort** select ("Engine's default" first, then the type's efforts; left out for a type that takes none). Hint: "Used on whichever account of the type a session lands on, and on a Stand-in Engine of that type. A Project can set its own for <name>."
 - An engine type's models are those its engines offer together; a model only some accounts offer is marked "Not on every account", as a session on another account works with that account's default model.
 - A saved model no engine of the type lists any more stays picked, "<model> · No longer offered", until another is picked ([5.4.5](../5.4.5-engines-and-cascade.md#models-an-engine-lists)).
 - Opening the Role card asks, in the background, each engine whose model list is older than a day; the models shown don't wait for it.
 - Capabilities: a switch per capability, with its hint.
-- Permissions: **Permission profile** (hint "What the Agent may do in a Stage. A Stage may narrow it, never widen it. Read-only git is always allowed."): switch "Edits files in its worktree", select "Runs", switch "Searches and fetches the web"; then one select per Hard switch, its hint the enforcement label (and "asks you until the Role is hired" when it consults a Role not yet hired).
-- Skills: a check per library skill ("For everyone" when it goes to every Role; "Off until you review it" while waiting for review).
+- Permissions: **Permission profile** (hint "What the Agent may do in a Stage. A Stage may narrow it, never widen it. Read-only git is always allowed."): switch "Edits files in its worktree", select "Runs", switch "Searches and fetches the web".
+- Authority: the rows of the Role card tab, each a select of its values (Allowed, Consult _person_, Ask me, Proposal, Never; a capped row offers only Proposal, Ask me and Never), its hint "Followed by the Agent" on a followed group, with "enforced on run_environment_check" added on Run installs (and "asks you until the Role is hired" when it consults a Role not yet hired).
+  - A row that differs on own and others' work has two selects, **Own** and **Others'**.
+  - A row at the preset's default shows "Preset default (<value>)" in muted text; a set row has **Reset to the preset's default** beside it ([2.2 Presets](../2.2-people.md#presets)).
+  - Saving it is a Role card change, under the trust anchor ([6 The trust anchor](../6-permissions-and-safety.md#the-trust-anchor)).
 - MCP servers: a check per library server and, for a ticked server that is on, a select per tool (label "MCP tool <name>", the tool's description as hint); tools whose names are too long for sessions are left out.
-- The Caretaker's form shows its capabilities, permission profile, Hard switches and Task limit disabled with "Built in: fixed for the Caretaker."; its MCP servers stay editable.
+- Skills: a check per library skill ("For everyone" when it goes to every Role; "Off until you review it" while waiting for review).
+- The Caretaker's form shows its capabilities, permission profile, Authority and Task limit disabled with "Built in: fixed for the Caretaker."; its MCP servers stay editable.
 - Save bar at the bottom: "You have unsaved changes." or "Changes apply at the next session start: a new Thread or the next Stage."; **Cancel**; **Save changes** (editing), or **Hire the Role** / **Hire <name>** (from scratch or from a Proposal).
 - A refusal shows as "The Role card can't be saved yet" (editing) or "The person can't be hired yet".
 - Saving from a Proposal applies the Proposal with the edited card. A Proposal no longer open shows the alert "This Proposal is no longer open": "It was applied or declined already; its card in the chat says which."; one that can't be read shows "The Proposal can't be read".
@@ -148,6 +159,7 @@ Covers: the People grid, a person's page (head, Overview, Work, Conversations, M
 ## Domain facts
 
 - Roles, the Caretaker, presets, the Role card, limits, memory, Avatar: [2.2](../2.2-people.md).
+- Authority, its settings and the Hard switches: [2.2](../2.2-people.md#authority-and-hard-switches) and [6 Authority](../6-permissions-and-safety.md#authority); each preset's defaults in [6 Authority by role](../6-permissions-and-safety.md#authority-by-role).
 - Duties and who holds one: [2.2](../2.2-people.md#duties-on-screen), set in [settings.md](settings.md#duties).
 - Setting up with nobody hired: [2.2](../2.2-people.md#setting-up-an-office-with-nobody-hired).
 - Task states: [2.1.3](../2.1.3-tasks.md#task-states).
