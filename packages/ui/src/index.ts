@@ -156,7 +156,6 @@ export {
   Tooltip,
   useCloseOnEscape,
   useEscapeWaitsFor,
-  useOpenedLast,
   type DialogProps,
   type DialogSize,
   type DialogStep,

@@ -67,7 +67,7 @@ Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a
 ### More menu
 
 - The actions above, then a divider.
-- **Edit…**: the window "Edit the Idea" with **Idea** (placeholder "Show battery level on the device list"), **Notes** (hint "Optional.", three rows) and **Where** (Office-wide or one Project), the button **Save**; toast "Idea saved: <title>." The alert "The Idea can't be saved yet" shows a refusal. Closing with changes asks first.
+- **Edit…**: the window "Edit the Idea" with **Idea** (placeholder "Show battery level on the device list"), **Notes** (hint "Optional. Type @ to mention a Task, Initiative, Decision or Idea.", three rows, saved with each mention as a Markdown link to its page, as a Task's Description is) and **Where** (Office-wide or one Project), the button **Save**; toast "Idea saved: <title>." The alert "The Idea can't be saved yet" shows a refusal. Closing with changes asks first.
 - **Attach…**: adds an Attachment ([2.1.2](../2.1.2-ideas-and-attachments.md)).
 - **Copy link**: copies the Idea's link ([shell.md](shell.md)).
 - A divider, then **Drop** (danger): toast "Idea dropped: <title>."; the Idea moves to Dropped.

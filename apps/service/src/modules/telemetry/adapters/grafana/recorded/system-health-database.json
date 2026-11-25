@@ -57,17 +57,15 @@
           }
         ]
       },
-      "queryP95": {
+      "queryBuckets": {
         "status": 200,
         "frames": [
           {
             "schema": {
-              "name": "",
-              "refId": "queryP95",
+              "refId": "queryBuckets",
               "meta": {
                 "type": "timeseries-multi",
                 "typeVersion": [0, 1],
-                "executedQueryString": "Expr: queryP95\nStep: 5m0s",
                 "custom": {
                   "resultType": "matrix"
                 }
@@ -87,10 +85,13 @@
                   "name": "Value",
                   "type": "number",
                   "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
+                    "frame": "float64"
                   },
-                  "labels": {},
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.0005"
+                  },
                   "config": {}
                 }
               ]
@@ -101,7 +102,1194 @@
                   1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
                   1794912600000, 1794912900000, 1794913200000
                 ],
-                [9.4, 9.8, 10.1, 48.2, 9.9, 9.5, 9.2, 9.3]
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.001"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.005"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 0, 10, 10, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.01"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [90, 90, 90, 0, 90, 90, 90, 90]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.025"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [100, 100, 100, 0, 100, 100, 100, 100]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.05"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [100, 100, 100, 50, 100, 100, 100, 100]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [100, 100, 100, 100, 100, 100, 100, 100]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "0.25"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [100, 100, 100, 100, 100, 100, 100, 100]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT",
+                    "le": "+Inf"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [100, 100, 100, 100, 100, 100, 100, 100]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.0005"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.001"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 10, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.005"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.01"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.025"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.05"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "0.25"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE",
+                    "le": "+Inf"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.0005"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 10, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.001"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.005"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.01"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.025"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.05"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "0.25"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "queryBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN",
+                    "le": "+Inf"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 20, 20, 20]
               ]
             }
           }
@@ -195,48 +1383,6 @@
             },
             "data": {
               "values": [[1794913200000], [27601.2]]
-            }
-          }
-        ]
-      },
-      "queriesTotalP95": {
-        "status": 200,
-        "frames": [
-          {
-            "schema": {
-              "name": "",
-              "refId": "queriesTotalP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: queriesTotalP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {},
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [9.9]]
             }
           }
         ]
@@ -361,254 +1507,6 @@
             },
             "data": {
               "values": [[1794913200000], [3000.2]]
-            }
-          }
-        ]
-      },
-      "tableP95": {
-        "status": 200,
-        "frames": [
-          {
-            "schema": {
-              "name": "",
-              "refId": "tableP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: tableP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "db_collection_name": "stage_runs",
-                    "db_operation_name": "SELECT"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [23.75]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "tableP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: tableP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "db_collection_name": "threads",
-                    "db_operation_name": "UPDATE"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [4.75]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "tableP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: tableP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "db_operation_name": "BEGIN"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [0.475]]
-            }
-          }
-        ]
-      },
-      "tableMax": {
-        "status": 200,
-        "frames": [
-          {
-            "schema": {
-              "name": "",
-              "refId": "tableMax",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: tableMax",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "db_collection_name": "stage_runs",
-                    "db_operation_name": "SELECT"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [250.0]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "tableMax",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: tableMax",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "db_collection_name": "threads",
-                    "db_operation_name": "UPDATE"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [25.0]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "tableMax",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: tableMax",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "db_operation_name": "BEGIN"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [1.0]]
             }
           }
         ]

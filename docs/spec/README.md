@@ -240,6 +240,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Setting a Project up (who does it, in a Stage, a Consultation or a chat)**: [2.2 Setting a Project up](2.2-people.md#setting-a-project-up); [2.3.1 Stage kinds](2.3.1-stages.md#stage-kinds)
 - **Setup token**: [2.10 The setup token](2.10-users-and-signing-in.md#the-setup-token)
 - **Shaping**: [2.1.4 Shaping without a CTO](2.1.4-initiatives.md#shaping-without-a-cto); [2.1.4 Initiative states](2.1.4-initiatives.md#initiative-states); screen: [Initiatives tab › Shaping card](screens/initiatives-tab.md#shaping-card)
+- **Side panels, one at a time**: [4 Side panels](4-ux-direction.md#side-panels); screen: [Shell › Needs you panel](screens/shell.md#needs-you-panel)
 - **Sign out, Signed-in device**: [2.10 Signed-in devices](2.10-users-and-signing-in.md#signed-in-devices); screen: [Account › Signed-in devices](screens/account.md#signed-in-devices)
 - **Skill**: [2.6 The library](2.6-skills.md#the-library); screen: [Settings › Skills](screens/settings.md#skills)
 - **Skill use**: [2.6 Skill uses](2.6-skills.md#skill-uses); [2.6 A skill use](2.6-skills.md#a-skill-use)

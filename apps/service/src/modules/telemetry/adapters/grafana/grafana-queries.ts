@@ -71,6 +71,7 @@ export const LABELS = {
   method: "http_request_method",
   operation: "db_operation_name",
   table: "db_collection_name",
+  bound: "le",
 } as const;
 
 export const SPLIT_LABELS: Readonly<Record<FullStatsSplit, string>> = {
@@ -102,21 +103,15 @@ export const REF = {
   systemCpu: "systemCpu",
   systemMemory: "systemMemory",
   requestsPerMinute: "requestsPerMinute",
-  requestP95: "requestP95",
+  requestBuckets: "requestBuckets",
   requestsTotal: "requestsTotal",
-  requestsTotalP95: "requestsTotalP95",
   routeCount: "routeCount",
-  routeP95: "routeP95",
-  routeMax: "routeMax",
   routeTotal: "routeTotal",
   queriesPerMinute: "queriesPerMinute",
-  queryP95: "queryP95",
+  queryBuckets: "queryBuckets",
   waiting: "waiting",
   queriesTotal: "queriesTotal",
-  queriesTotalP95: "queriesTotalP95",
   tableCount: "tableCount",
-  tableP95: "tableP95",
-  tableMax: "tableMax",
   tableTotal: "tableTotal",
 } as const;
 
@@ -243,14 +238,19 @@ export function costliestBreakdownQueryBody(
  *
  * Over time, each step `[step]`: the highest event loop lag (p99 and longest) and connections
  * waiting in it (`max_over_time`), the mean of CPU and memory (`avg_over_time`), and requests and
- * queries a minute and their p95 times from the histograms' increase in it. The Office's CPU is
- * sent as a share of all the workstation's cores; times the logical cores it is its share of one.
- * Every series is summed or averaged over its other labels (`instance` changes at a restart).
+ * queries a minute from the histograms' count in it. The Office's CPU is sent as a share of all
+ * the workstation's cores; times the logical cores it is its share of one. Every series is summed
+ * or averaged over its other labels.
  *
- * The totals and the slowest routes and queries are instant queries over the whole range, read
- * at its end. A row's Max is `histogram_quantile(1, …)`, the upper bound of the highest bucket that
- * holds a request or query: the histograms keep no exact maximum, so it is "at most", never below
- * the real one, except past the highest bound, where it is that bound.
+ * The totals, and each route's or table's count and total time, are instant queries over the
+ * whole range, read at its end from the histograms' `_count` and `_sum`, a few series each.
+ *
+ * Every p95 and Max is read by one query of the block's histogram buckets (`bucketsQuery`), each
+ * step's increase by bound and by route or table, which the adapter adds up by step, by row and
+ * over the range before taking the quantiles itself (`histogram-quantile.ts`). The buckets are by
+ * far the most series (each label set times each bound), sampled every few seconds: every query
+ * over them reads each series' samples over the range, so one, not one per figure, keeps 7 d and
+ * 30 d within Grafana's time limit.
  */
 export function systemHealthQueryBodies(
   prometheus: DataSourceRef,
@@ -262,8 +262,8 @@ export function systemHealthQueryBodies(
   const over = (refId: string, expr: string) => rangeQuery(prometheus, refId, expr, range);
   const once = (refId: string, expr: string) => instantPromQuery(prometheus, refId, expr);
   const percent = (metric: string) => `avg(avg_over_time(${metric}${step})) * 100`;
-  const routes = [LABELS.route, LABELS.method];
-  const tables = [LABELS.operation, LABELS.table];
+  const routes = [LABELS.route, LABELS.method].join(", ");
+  const tables = [LABELS.operation, LABELS.table].join(", ");
   const { requests, queries } = HEALTH_METRICS;
   return {
     responsiveness: {
@@ -290,65 +290,43 @@ export function systemHealthQueryBodies(
     requests: {
       queries: [
         over(REF.requestsPerMinute, `sum(increase(${requests}_count${step})) ${perMinute}`),
-        over(REF.requestP95, p95Of(requests, step)),
+        over(REF.requestBuckets, bucketsQuery(requests, routes, range.stepSeconds)),
         once(REF.requestsTotal, `sum(increase(${requests}_count${whole}))`),
-        once(REF.requestsTotalP95, p95Of(requests, whole)),
-        ...slowestQueries(once, requests, whole, routes, {
-          count: REF.routeCount,
-          p95: REF.routeP95,
-          max: REF.routeMax,
-          total: REF.routeTotal,
-        }),
+        once(REF.routeCount, `sum by (${routes}) (increase(${requests}_count${whole}))`),
+        once(REF.routeTotal, `sum by (${routes}) (increase(${requests}_sum${whole})) * 1000`),
       ],
       ...timeRange(range),
     },
     database: {
       queries: [
         over(REF.queriesPerMinute, `sum(increase(${queries}_count${step})) ${perMinute}`),
-        over(REF.queryP95, p95Of(queries, step)),
+        over(REF.queryBuckets, bucketsQuery(queries, tables, range.stepSeconds)),
         over(REF.waiting, `max(max_over_time(${HEALTH_METRICS.waiting}${step}))`),
         once(REF.queriesTotal, `sum(increase(${queries}_count${whole}))`),
-        once(REF.queriesTotalP95, p95Of(queries, whole)),
-        ...slowestQueries(once, queries, whole, tables, {
-          count: REF.tableCount,
-          p95: REF.tableP95,
-          max: REF.tableMax,
-          total: REF.tableTotal,
-        }),
+        once(REF.tableCount, `sum by (${tables}) (increase(${queries}_count${whole}))`),
+        once(REF.tableTotal, `sum by (${tables}) (increase(${queries}_sum${whole})) * 1000`),
       ],
       ...timeRange(range),
     },
   };
 }
 
-/** The p95 time, in ms, of all a histogram's observations in each window. */
-function p95Of(histogram: string, window: string): string {
-  return `histogram_quantile(0.95, sum by (le) (increase(${histogram}_bucket${window}))) * 1000`;
+/**
+ * A histogram's buckets' increase in each step, by bound (`le`) and the row's labels, read from
+ * the counters sampled every quarter step rather than from every raw sample: a subquery one sample
+ * longer than the step, so consecutive steps' samples meet and nothing between two samples falls
+ * out. Its `increase` stretches the samples' increase over the longer window by the same share for
+ * each bucket of a series, which no quantile sees. What it can miss: what a series counted after
+ * its last sample before a restart (a counter reset), at most a quarter step, and before its first
+ * sample.
+ */
+function bucketsQuery(histogram: string, labels: string, stepSeconds: number): string {
+  const sample = Math.max(1, Math.round(stepSeconds / BUCKET_SAMPLES_A_STEP));
+  return `sum by (le, ${labels}) (increase(${histogram}_bucket[${stepSeconds + sample}s:${sample}s]))`;
 }
 
-/** A slowest table's figures by the labels named: count, p95 and Max in ms, total time in ms. */
-function slowestQueries(
-  once: (refId: string, expr: string) => DsQuery,
-  histogram: string,
-  whole: string,
-  by: readonly string[],
-  refs: {
-    readonly count: string;
-    readonly p95: string;
-    readonly max: string;
-    readonly total: string;
-  },
-): DsQuery[] {
-  const labels = by.join(", ");
-  const quantile = (q: number) =>
-    `histogram_quantile(${q}, sum by (le, ${labels}) (increase(${histogram}_bucket${whole}))) * 1000`;
-  return [
-    once(refs.count, `sum by (${labels}) (increase(${histogram}_count${whole}))`),
-    once(refs.p95, quantile(0.95)),
-    once(refs.max, quantile(1)),
-    once(refs.total, `sum by (${labels}) (increase(${histogram}_sum${whole})) * 1000`),
-  ];
-}
+/** How many times a step the buckets are sampled. */
+const BUCKET_SAMPLES_A_STEP = 4;
 
 /** A PromQL query read once, at the range's end. */
 function instantPromQuery(prometheus: DataSourceRef, refId: string, expr: string): DsQuery {

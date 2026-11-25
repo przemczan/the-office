@@ -386,7 +386,7 @@ A consult asking a person to do something the asker can't, such as "ask Devops t
 _Avoid_: Task (for this), delegation, ticket
 
 **Mention**:
-A Task, Initiative, Idea or Decision named in a chat message or in a Task's Description, picked with `@` or pasted as the link to its page; in a chat message the Agent there is given its record with the message, and in a Description the link carries its id for an Agent to read it.
+A Task, Initiative, Idea or Decision named in a chat message, in a Task's Description, in an Idea's notes or in an Initiative's outcome, picked with `@` or pasted as the link to its page; in a chat message the Agent there is given its record with the message, and in a Description, notes or outcome the link carries its id for an Agent to read it.
 _Avoid_: Reference, tag, attachment (an image is attached to a message, but a record is mentioned in it, never attached)
 
 **Open page**:

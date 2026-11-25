@@ -15,10 +15,8 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 
 - Two panes, as Settings has: the Projects list on the left (about 260px wide), the open Project or the empty pane on the right.
 - The list is a navigation landmark labelled "Projects".
-- The items of the Projects the Project filter shows, in the service's order ([shell.md](shell.md)).
-- The list's foot, under the items:
-  - the note of Projects hidden by the Project filter;
-  - **Add a Project** and Ask Devops ([Add a Project](#add-a-project)).
+- The items of every Project, in the service's order ([shell.md](shell.md)); the Project filter doesn't narrow them.
+- The list's foot, under the items: **Add a Project** and Ask Devops ([Add a Project](#add-a-project)).
 - A read error of the Projects shows above both panes as a danger alert with the service's words.
 
 ## Project item
@@ -31,7 +29,6 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 - While the Project's latest Onboard Task is in flight, the second line starts with **Onboarding** (info, with a dot) ([2.1.1](../2.1.1-projects.md#onboarding-a-project)). An onboarded Project shows nothing more; its page says it.
 - Nothing sits at the item's end.
 - The open Project's item is marked active on every section and sub-address of its page.
-- A Project the Project filter hides still opens beside the list, from a link or an address, with no item marked.
 
 ## Add a Project
 
@@ -119,7 +116,6 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 
 - Projects page loading: the list shows its foot only; a read error shows the alert.
 - No Project: the list's foot alone, beside the empty pane.
-- Every Project hidden by the Project filter: the list's foot with the hidden note.
 - Narrow page, at a page width of 1224px and under:
   - `/projects` shows the list alone.
   - A Project's page shows alone, with a **‹ All Projects** link above it back to the list.

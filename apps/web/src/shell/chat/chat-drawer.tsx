@@ -8,7 +8,6 @@ import {
   IconButton,
   SidePanelEdge,
   useCloseOnEscape,
-  useOpenedLast,
 } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { markThreadSeen, startChatThread, threadQueries } from "../../api/conversations.ts";
@@ -57,7 +56,6 @@ export function ChatDrawer(): ReactNode {
         ?.find(({ key }) => key === chat.roleKey),
   });
   useCloseOnEscape(chat.isOpen, chat.close, frame, "side-panel");
-  const openedLast = useOpenedLast(frame);
   useDrawerFocus(chat.isOpen, frame);
   const [mentionedDecision, setMentionedDecision] = useState<Decision>();
   if (!chat.isOpen) return null;
@@ -65,7 +63,7 @@ export function ChatDrawer(): ReactNode {
   return (
     <aside
       ref={frame}
-      className={`chat-drawer ${layout.place}${openedLast ? " opened-last" : ""}`}
+      className={`chat-drawer ${layout.place}`}
       aria-label={person ? `Chat with ${person.card.name}` : "Chat"}
       tabIndex={-1}
     >

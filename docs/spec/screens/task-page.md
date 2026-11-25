@@ -471,6 +471,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - The panel is always mounted, so a draft, folds and the unread count survive closing.
 - **Close the conversation**, Esc and a press outside shut it.
 - A link to a Thread opens it; the way to an open Decision's card closes it.
+- Opening it closes the Needs you panel and the Activity panel, and leaves the chat drawer open under it; opening any of the three closes it ([4 Side panels](../4-ux-direction.md#side-panels)).
 
 ## States
 

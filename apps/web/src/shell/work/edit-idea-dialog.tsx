@@ -3,6 +3,7 @@ import type { Idea, IdeaEdit } from "@the-office/contracts";
 import { Button, Dialog } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { editIdea, ideaQueries } from "../../api/work.ts";
+import { useMentions } from "../mentions/mention-picker.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 import { IdeaFields } from "./idea-fields.tsx";
@@ -21,6 +22,7 @@ export function EditIdeaDialog({
     notes: idea.notes,
     projectId: idea.projectId,
   });
+  const mentions = useMentions(draft.notes, (notes) => setDraft({ ...draft, notes }));
   const queryClient = useQueryClient();
   const showToast = useToast();
   const editing = useMutation({
@@ -52,13 +54,13 @@ export function EditIdeaDialog({
         className="dialog-stack"
         onSubmit={(event) => {
           event.preventDefault();
-          editing.mutate(draft);
+          editing.mutate({ ...draft, notes: mentions.linked(draft.notes) });
         }}
       >
         {editing.error && (
           <RefusalAlert title="The Idea can't be saved yet" error={editing.error} />
         )}
-        <IdeaFields draft={draft} onChange={setDraft} />
+        <IdeaFields draft={draft} onChange={setDraft} mentions={mentions} />
       </form>
     </Dialog>
   );

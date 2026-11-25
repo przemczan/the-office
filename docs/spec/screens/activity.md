@@ -8,7 +8,7 @@ Covers: the Activity panel, its groups (Off-board Tasks and environment checks a
 - It lives in the address as `?activity=true` on the page under it; the old address `/activity` opens Now with the panel.
 - Its description counts Office-wide, as the figure does: "N running[, M ended not yet seen]".
 - Its left edge resizes it (handle "Resize the Activity panel"); its width is kept in this browser, and at a narrow window it fills the window.
-- It takes the [Needs you panel](shell.md#needs-you-panel)'s place, and the Needs you panel its place: one of the two is open at a time.
+- Opening it closes the [Needs you panel](shell.md#needs-you-panel) and a conversation's drawer, and leaves the chat drawer open under it; opening the chat closes it ([4 Side panels](../4-ux-direction.md#side-panels)).
 - Esc, a press outside it or its × closes it; following an item's link closes it too.
 - It reads `GET /activity` and follows `activity.changed` without a reload.
 

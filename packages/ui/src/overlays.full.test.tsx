@@ -2,14 +2,7 @@ import { act, useRef, useState, type ReactNode } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  Dialog,
-  Drawer,
-  Tooltip,
-  useCloseOnEscape,
-  useEscapeWaitsFor,
-  useOpenedLast,
-} from "./index.ts";
+import { Dialog, Drawer, Tooltip, useCloseOnEscape, useEscapeWaitsFor } from "./index.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -729,16 +722,6 @@ describe("the order of the side panels", () => {
 
     expect(onClosePanel).not.toHaveBeenCalled();
   });
-
-  it("tells a panel it lies over another once it opened after it", () => {
-    show(<OpeningPanels onClose={() => undefined} />);
-    openPanel("chat");
-    expect(document.querySelector("[data-panel='chat']")?.textContent).toContain("under");
-
-    openPanel("needs-you");
-    expect(document.querySelector("[data-panel='needs-you']")?.textContent).toContain("over");
-    expect(document.querySelector("[data-panel='chat']")?.textContent).toContain("under");
-  });
 });
 
 function trigger(): HTMLElement {
@@ -960,12 +943,7 @@ function NamedPanel({
 }): ReactNode {
   const panel = useRef<HTMLElement>(null);
   useCloseOnEscape(isOpen, onClose, panel, "side-panel");
-  const openedLast = useOpenedLast(panel);
-  return isOpen ? (
-    <aside ref={panel} data-panel={name}>
-      {openedLast ? "over" : "under"}
-    </aside>
-  ) : null;
+  return isOpen ? <aside ref={panel} data-panel={name} /> : null;
 }
 
 function SidePanelInOrder({ onClose }: { readonly onClose: () => void }): ReactNode {

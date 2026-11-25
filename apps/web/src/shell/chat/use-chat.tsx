@@ -3,10 +3,12 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { closePagePanels, SHELL_PANELS_CLOSED, useClosingShellPanels } from "../side-panels.ts";
 import { createChatStore, tabStorage, type ChatPlace, type ChatStore } from "./chat-store.ts";
 
 /** The chat drawer, and opening, closing and moving inside it. */
@@ -23,11 +25,25 @@ const ChatContext = createContext<ChatStore | undefined>(undefined);
 /**
  * Holds the chat in the shell, out of the address, so no link closes it and Back and Forward leave
  * it be. An address with `?chat=…&thread=…`, such as a Notification's or an old link, is a way in.
+ * Every way in closes the side panels over the page first (side-panels.ts), so the chat is never
+ * shown under one.
  */
 export function ChatProvider({ children }: { readonly children: ReactNode }): ReactNode {
   const [store] = useState(() => createChatStore(tabStorage()));
+  const closeShellPanels = useClosingShellPanels();
+  const opening = useMemo<ChatStore>(
+    () => ({
+      ...store,
+      open: (...args) => {
+        closePagePanels();
+        closeShellPanels();
+        store.open(...args);
+      },
+    }),
+    [store, closeShellPanels],
+  );
   useOpeningFromTheAddress(store);
-  return <ChatContext value={store}>{children}</ChatContext>;
+  return <ChatContext value={opening}>{children}</ChatContext>;
 }
 
 export function useChat(): ChatControls {
@@ -59,10 +75,19 @@ function useOpeningFromTheAddress(store: ChatStore): void {
   const navigate = useNavigate();
   useEffect(() => {
     if (chat === undefined && thread === undefined) return;
-    if (chat !== undefined) store.open(chat, thread);
+    if (chat !== undefined) {
+      closePagePanels();
+      store.open(chat, thread);
+    }
+    // The way in leaves the address, and with it any panel the chat would open under, in one move.
     void navigate({
       to: ".",
-      search: (current) => ({ ...current, chat: undefined, thread: undefined }),
+      search: (current) => ({
+        ...current,
+        chat: undefined,
+        thread: undefined,
+        ...(chat !== undefined && SHELL_PANELS_CLOSED),
+      }),
       hash: true,
       replace: true,
       resetScroll: false,

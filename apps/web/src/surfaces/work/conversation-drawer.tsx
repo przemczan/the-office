@@ -11,6 +11,7 @@ import {
   type RefObject,
 } from "react";
 import { DecisionCardLinkContext } from "../../shell/conversation/decision-card.tsx";
+import { useClosingShellPanels, usePagePanel } from "../../shell/side-panels.ts";
 import { useNarrowPage } from "../../shell/use-narrow-page.ts";
 import { drawerMoveOn, type DrawerAddress } from "./conversation-drawer-address.ts";
 import { useConversationFit } from "./conversation-fit.ts";
@@ -33,7 +34,9 @@ const ConversationDrawerContext = createContext<ConversationDrawer | undefined>(
 
 /**
  * Holds the drawer open or closed for everything on a page that leads to the conversation or away
- * from it. Keyed by record, so it starts closed on the next one.
+ * from it. Keyed by record, so it starts closed on the next one. One side panel at a time
+ * (side-panels.ts): opening it closes the Needs you panel and Activity, and either of them or the
+ * chat opening closes it; a chat drawer already open stays, under it.
  */
 export function ConversationDrawerProvider({
   onLinkToDecisionCard,
@@ -45,12 +48,23 @@ export function ConversationDrawerProvider({
 }): ReactNode {
   const narrow = useNarrowPage();
   const [open, setOpen] = useState(false);
+  const closeShellPanels = useClosingShellPanels();
   // Widened and narrowed again, the page must not come back dimmed.
   if (open && !narrow) setOpen(false);
   const value = useMemo(
-    () => ({ narrow, open, show: () => setOpen(true), close: () => setOpen(false) }),
-    [narrow, open],
+    () => ({
+      narrow,
+      open,
+      show: () => {
+        // Only a drawer lies over the page; beside it the conversation leaves the panels be.
+        if (narrow) closeShellPanels();
+        setOpen(true);
+      },
+      close: () => setOpen(false),
+    }),
+    [narrow, open, closeShellPanels],
   );
+  usePagePanel(open, value.close);
   return (
     <ConversationDrawerContext value={value}>
       <DecisionCardLinkContext

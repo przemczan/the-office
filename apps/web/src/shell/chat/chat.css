@@ -15,7 +15,8 @@
   background: var(--surface);
 }
 
-/* Under anything else opened after it, as a panel's dimmed backdrop, and over the page's own. */
+/* Under any other side panel, which closes as the chat opens (side-panels.ts), and over the page's
+   own. */
 .chat-drawer.over,
 .chat-drawer.fills {
   z-index: calc(var(--z-dropdown) - 1);
@@ -37,11 +38,6 @@
   inset: 0;
   width: auto;
   border-left: 0;
-}
-
-/* Opened over another side panel: above its dimmed backdrop. */
-.chat-drawer.opened-last {
-  z-index: calc(var(--z-drawer) + 1);
 }
 
 .chat-head {

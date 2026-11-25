@@ -51,6 +51,14 @@ Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, dens
 - Content is three panels filling the width, folding to two then one; every item is a card with air around it.
 - **Each block's left edge is coloured by its type or status**, a deliberate deviation from the design system.
 
+## Side panels
+
+- The side panels are the chat drawer, the Needs you panel, the Activity panel and the conversation's drawer on a narrow Task or Initiative page.
+- One of the Needs you panel, the Activity panel and the conversation's drawer is open at a time: opening one closes the others.
+- The chat drawer stays open as one of them opens, and that one covers it.
+- Opening the chat, whatever opens it (the Chat button, a Proposal or a Decision in a chat, a Link card, Ask in chat, an address with `?chat=`), closes the Needs you panel, the Activity panel and the conversation's drawer, so the chat is never shown under one.
+- Esc closes the side panel opened last, then the next ([4.1](4.1-ui-rules.md#closing-a-window)).
+
 ## Project mark
 
 - Every item shows its Project mark and name.

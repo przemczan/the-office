@@ -44,6 +44,7 @@ import {
   type QueryResults,
 } from "./grafana-frames.js";
 import { callGrafana, GRAFANA_TIMEOUT_MS } from "./grafana-http.js";
+import { boundOf, histogramQuantile, type Bucket } from "./histogram-quantile.js";
 import {
   costliestBreakdownQueryBody,
   costliestTopQueryBody,
@@ -243,17 +244,17 @@ function cpuAndMemoryOf(results: QueryResults, range: SteppedRange): CpuAndMemor
 }
 
 function requestsOf(results: QueryResults, range: SteppedRange): RequestsSeries {
-  const rows = slowestRowsOf(results, [LABELS.route, LABELS.method], {
+  const labels = [LABELS.route, LABELS.method];
+  const buckets = bucketsOf(results, REF.requestBuckets, labels, range);
+  const rows = slowestRowsOf(results, labels, buckets, {
     count: REF.routeCount,
-    p95: REF.routeP95,
-    max: REF.routeMax,
     total: REF.routeTotal,
   });
   return {
     perMinute: stepsOfRef(results, REF.requestsPerMinute, range),
-    p95Ms: stepsOfRef(results, REF.requestP95, range),
+    p95Ms: buckets.p95ByStep,
     total: instantOf(results, REF.requestsTotal) ?? 0,
-    totalP95Ms: instantOf(results, REF.requestsTotalP95) ?? null,
+    totalP95Ms: buckets.totalP95Ms,
     slowest: rows.map(({ labels: [template = "", method = ""], figures }): SlowestRoute => ({
       // A request no route answered carries no route template.
       route: template === "" ? null : { method, template },
@@ -263,18 +264,18 @@ function requestsOf(results: QueryResults, range: SteppedRange): RequestsSeries 
 }
 
 function databaseOf(results: QueryResults, range: SteppedRange): DatabaseSeries {
-  const rows = slowestRowsOf(results, [LABELS.operation, LABELS.table], {
+  const labels = [LABELS.operation, LABELS.table];
+  const buckets = bucketsOf(results, REF.queryBuckets, labels, range);
+  const rows = slowestRowsOf(results, labels, buckets, {
     count: REF.tableCount,
-    p95: REF.tableP95,
-    max: REF.tableMax,
     total: REF.tableTotal,
   });
   return {
     perMinute: stepsOfRef(results, REF.queriesPerMinute, range),
-    p95Ms: stepsOfRef(results, REF.queryP95, range),
+    p95Ms: buckets.p95ByStep,
     connectionsWaiting: stepsOfRef(results, REF.waiting, range),
     total: instantOf(results, REF.queriesTotal) ?? 0,
-    totalP95Ms: instantOf(results, REF.queriesTotalP95) ?? null,
+    totalP95Ms: buckets.totalP95Ms,
     slowest: rows.map(({ labels: [operation = "", table = ""], figures }): SlowestQuery => ({
       operation,
       table,
@@ -283,42 +284,99 @@ function databaseOf(results: QueryResults, range: SteppedRange): DatabaseSeries 
   };
 }
 
+/** A histogram's p95 times, in ms, from its buckets' increase by step and row. */
+interface BucketFigures {
+  /** Each step's p95 of every row, at the step's start; a step with nothing counted left out. */
+  readonly p95ByStep: SeriesPoint[];
+  /** The p95 over the range of every row; null with nothing counted. */
+  readonly totalP95Ms: number | null;
+  /** Each row's p95 and Max over the range, by its labels' values (`JSON.stringify`). */
+  readonly byRow: ReadonlyMap<string, { readonly p95Ms: number; readonly maxMs: number }>;
+}
+
 /**
- * A slowest table's rows: each label set counted in the range, with its p95, Max and total time
- * from the queries of the same labels; one with nothing counted in the range is left out.
+ * The bucket query's answer (`bucketsQuery`) added up by step over every row, by row over the
+ * steps, and over both for the range, each into its quantiles. A row's Max is its quantile 1: the
+ * upper bound of the highest bucket that counted anything in the range.
+ */
+function bucketsOf(
+  results: QueryResults,
+  ref: string,
+  labels: readonly string[],
+  range: SteppedRange,
+): BucketFigures {
+  const bySteps = new Map<number, Bucket[]>();
+  const byRow = new Map<string, Bucket[]>();
+  const all: Bucket[] = [];
+  for (const series of results.get(ref) ?? []) {
+    const le = boundOf(labelOf(series, LABELS.bound));
+    if (le === undefined) continue;
+    const row = rowKeyOf(series, labels);
+    const rowBuckets = byRow.get(row) ?? [];
+    byRow.set(row, rowBuckets);
+    for (const { at, value } of pointsOf(series, range, (one) => one)) {
+      const stepBuckets = bySteps.get(at.getTime()) ?? [];
+      bySteps.set(at.getTime(), stepBuckets);
+      stepBuckets.push({ le, count: value });
+      rowBuckets.push({ le, count: value });
+      all.push({ le, count: value });
+    }
+  }
+  return {
+    p95ByStep: [...bySteps]
+      .toSorted(([a], [b]) => a - b)
+      .flatMap(([at, buckets]) => {
+        const p95 = inMs(0.95, buckets);
+        return p95 === undefined ? [] : [{ at: new Date(at), value: p95 }];
+      }),
+    totalP95Ms: inMs(0.95, all) ?? null,
+    byRow: new Map(
+      [...byRow].map(([row, buckets]) => [
+        row,
+        { p95Ms: inMs(0.95, buckets) ?? 0, maxMs: inMs(1, buckets) ?? 0 },
+      ]),
+    ),
+  };
+}
+
+/** A quantile of the buckets, whose bounds are in seconds, in ms. */
+function inMs(phi: number, buckets: readonly Bucket[]): number | undefined {
+  const quantile = histogramQuantile(phi, buckets);
+  return quantile === undefined ? undefined : quantile * 1000;
+}
+
+function rowKeyOf(series: FrameSeries, labels: readonly string[]): string {
+  return JSON.stringify(labels.map((label) => labelOf(series, label)));
+}
+
+/**
+ * A slowest table's rows: each label set counted in the range, with its total time and, from the
+ * buckets, its p95 and Max; one with nothing counted in the range is left out.
  */
 function slowestRowsOf(
   results: QueryResults,
   labels: readonly string[],
-  refs: {
-    readonly count: string;
-    readonly p95: string;
-    readonly max: string;
-    readonly total: string;
-  },
+  buckets: BucketFigures,
+  refs: { readonly count: string; readonly total: string },
 ): { readonly labels: readonly string[]; readonly figures: SlowestFigures }[] {
-  const keyOf = (series: FrameSeries) => labels.map((label) => labelOf(series, label));
-  const valuesOf = (ref: string) =>
-    new Map(
-      (results.get(ref) ?? []).map((series) => [
-        JSON.stringify(keyOf(series)),
-        lastValueOf(series),
-      ]),
-    );
-  const p95 = valuesOf(refs.p95);
-  const max = valuesOf(refs.max);
-  const total = valuesOf(refs.total);
+  const total = new Map(
+    (results.get(refs.total) ?? []).map((series) => [
+      rowKeyOf(series, labels),
+      lastValueOf(series),
+    ]),
+  );
   return (results.get(refs.count) ?? []).flatMap((series) => {
     const count = lastValueOf(series);
     if (count <= 0) return [];
-    const key = JSON.stringify(keyOf(series));
+    const key = rowKeyOf(series, labels);
+    const times = buckets.byRow.get(key);
     return [
       {
-        labels: keyOf(series),
+        labels: labels.map((label) => labelOf(series, label)),
         figures: {
           count,
-          p95Ms: p95.get(key) ?? 0,
-          maxMs: max.get(key) ?? 0,
+          p95Ms: times?.p95Ms ?? 0,
+          maxMs: times?.maxMs ?? 0,
           totalMs: total.get(key) ?? 0,
         },
       },

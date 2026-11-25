@@ -5,6 +5,7 @@ import { useId, useState, type Dispatch, type ReactNode, type SetStateAction } f
 import { captureIdea, ideaQueries } from "../../api/work.ts";
 import { attachAll, type PendingAttachment } from "../attachments/pending-attachment.ts";
 import { PendingAttachmentsField } from "../attachments/pending-attachments-field.tsx";
+import { useMentions, type Mentions } from "../mentions/mention-picker.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 import { IdeaFields } from "./idea-fields.tsx";
@@ -14,6 +15,7 @@ export interface CaptureIdeaForm {
   readonly formId: string;
   readonly draft: NewIdea;
   readonly onChange: (draft: NewIdea) => void;
+  readonly mentions: Mentions;
   readonly pending: readonly PendingAttachment[];
   readonly onPendingChange: Dispatch<SetStateAction<readonly PendingAttachment[]>>;
   readonly capturing: UseMutationResult<Idea, Error, NewIdea>;
@@ -38,6 +40,7 @@ export function useCaptureIdea({
   readonly onClose: () => void;
 }): CaptureIdeaForm {
   const formId = useId();
+  const mentions = useMentions(draft.notes, (notes) => onChange({ ...draft, notes }));
   const queryClient = useQueryClient();
   const showToast = useToast();
   // Once captured, a failed Attachment is tried again without capturing the Idea twice.
@@ -57,7 +60,7 @@ export function useCaptureIdea({
       onClose();
     },
   });
-  return { formId, draft, onChange, pending, onPendingChange, capturing, captured };
+  return { formId, draft, onChange, mentions, pending, onPendingChange, capturing, captured };
 }
 
 /** Capture an Idea's submit. */
@@ -81,7 +84,7 @@ export function CaptureIdeaBody({ form }: { readonly form: CaptureIdeaForm }): R
       className="dialog-stack"
       onSubmit={(event) => {
         event.preventDefault();
-        capturing.mutate(form.draft);
+        capturing.mutate({ ...form.draft, notes: form.mentions.linked(form.draft.notes) });
       }}
     >
       {capturing.error && (
@@ -94,7 +97,7 @@ export function CaptureIdeaBody({ form }: { readonly form: CaptureIdeaForm }): R
           error={capturing.error}
         />
       )}
-      <IdeaFields draft={form.draft} onChange={form.onChange} />
+      <IdeaFields draft={form.draft} onChange={form.onChange} mentions={form.mentions} />
       <PendingAttachmentsField pending={form.pending} onChange={form.onPendingChange} />
     </form>
   );

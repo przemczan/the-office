@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Decision, RecordLink } from "@the-office/contracts";
+import { recordPath, type Decision, type RecordLink } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { createContext, useContext, type ReactNode } from "react";
 import { decisionQueries } from "../api/conversations.ts";
@@ -19,6 +19,8 @@ export const OpenMentionedDecisionContext = createContext<
 /**
  * A Task, Initiative, Decision or Idea mentioned in a message (spec §2.4), shown as a chip linking to it in the
  * app, named as the record is now. Until it is read, or once it is gone, the words written stand.
+ * Its `data-markdown-href` is the link it was written as, which copying it from the message writes
+ * back.
  */
 export function RecordMention({
   link,
@@ -28,9 +30,10 @@ export function RecordMention({
   /** The link's own words in the message. */
   readonly written: ReactNode;
 }): ReactNode {
+  const source = recordPath(link);
   switch (link.kind) {
     case "task":
-      return <TaskMention taskId={link.taskId} written={written} />;
+      return <TaskMention taskId={link.taskId} written={written} source={source} />;
     case "decision":
       return (
         <DecisionMention
@@ -38,25 +41,36 @@ export function RecordMention({
           threadId={link.threadId}
           decisionId={link.decisionId}
           written={written}
+          source={source}
         />
       );
     case "initiative":
-      return <InitiativeMention initiativeId={link.initiativeId} written={written} />;
+      return (
+        <InitiativeMention initiativeId={link.initiativeId} written={written} source={source} />
+      );
     case "idea":
-      return <IdeaMention ideaId={link.ideaId} written={written} />;
+      return <IdeaMention ideaId={link.ideaId} written={written} source={source} />;
   }
 }
 
 function TaskMention({
   taskId,
   written,
+  source,
 }: {
   readonly taskId: string;
   readonly written: ReactNode;
+  readonly source: string;
 }): ReactNode {
   const title = useQuery(taskQueries.one(taskId)).data?.title;
   return (
-    <Link className="record-mention" to="/tasks/$taskId" params={{ taskId }} title="Task">
+    <Link
+      data-markdown-href={source}
+      className="record-mention"
+      to="/tasks/$taskId"
+      params={{ taskId }}
+      title="Task"
+    >
       <Icon name={MENTION_KINDS.task.icon} size={12} />
       {title ?? shownWords(written, "task")}
     </Link>
@@ -68,11 +82,13 @@ function DecisionMention({
   threadId,
   decisionId,
   written,
+  source,
 }: {
   readonly taskId: string;
   readonly threadId: string | undefined;
   readonly decisionId: string;
   readonly written: ReactNode;
+  readonly source: string;
 }): ReactNode {
   const title = useQuery(taskQueries.one(taskId)).data?.title;
   const openDecision = useContext(OpenMentionedDecisionContext);
@@ -83,6 +99,7 @@ function DecisionMention({
   const waiting = unanswered?.find(({ id }) => id === decisionId);
   return (
     <Link
+      data-markdown-href={source}
       className="record-mention"
       to="/tasks/$taskId"
       params={{ taskId }}
@@ -103,13 +120,21 @@ function DecisionMention({
 function IdeaMention({
   ideaId,
   written,
+  source,
 }: {
   readonly ideaId: string;
   readonly written: ReactNode;
+  readonly source: string;
 }): ReactNode {
   const title = useQuery(ideaQueries.one(ideaId)).data?.title;
   return (
-    <Link className="record-mention" to="/work/ideas" search={{ idea: ideaId }} title="Idea">
+    <Link
+      data-markdown-href={source}
+      className="record-mention"
+      to="/work/ideas"
+      search={{ idea: ideaId }}
+      title="Idea"
+    >
       <Icon name={MENTION_KINDS.idea.icon} size={12} />
       {title ?? shownWords(written, "idea")}
     </Link>
@@ -119,13 +144,16 @@ function IdeaMention({
 function InitiativeMention({
   initiativeId,
   written,
+  source,
 }: {
   readonly initiativeId: string;
   readonly written: ReactNode;
+  readonly source: string;
 }): ReactNode {
   const name = useQuery(initiativeQueries.one(initiativeId)).data?.name;
   return (
     <Link
+      data-markdown-href={source}
       className="record-mention"
       to="/work/initiatives/$initiativeId"
       params={{ initiativeId }}

@@ -72,29 +72,32 @@ describe("GrafanaStatsSource, System health", () => {
     expect(queries.requestsPerMinute?.expr).toBe(
       "sum(increase(http_server_request_duration_seconds_count[300s])) * 60 / 300",
     );
-    expect(queries.requestP95?.expr).toBe(
-      "histogram_quantile(0.95, sum by (le) (increase(http_server_request_duration_seconds_bucket[300s]))) * 1000",
-    );
+    // Every p95 and Max from one read of the buckets, sampled every quarter step, each window one
+    // sample longer than the step so that consecutive steps' samples meet.
+    expect(queries.requestBuckets).toMatchObject({
+      expr: "sum by (le, http_route, http_request_method) (increase(http_server_request_duration_seconds_bucket[375s:75s]))",
+      range: true,
+      interval: "300s",
+    });
     expect(queries.requestsTotal).toMatchObject({
       expr: "sum(increase(http_server_request_duration_seconds_count[3600s]))",
       instant: true,
       range: false,
     });
-    expect(queries.routeP95?.expr).toBe(
-      "histogram_quantile(0.95, sum by (le, http_route, http_request_method) (increase(http_server_request_duration_seconds_bucket[3600s]))) * 1000",
-    );
-    expect(queries.routeMax?.expr).toBe(
-      "histogram_quantile(1, sum by (le, http_route, http_request_method) (increase(http_server_request_duration_seconds_bucket[3600s]))) * 1000",
-    );
     expect(queries.routeTotal?.expr).toBe(
       "sum by (http_route, http_request_method) (increase(http_server_request_duration_seconds_sum[3600s])) * 1000",
     );
     expect(queries.waiting?.expr).toBe(
       'max(max_over_time(db_client_connection_pending_requests{db_client_connection_pool_name=""}[300s]))',
     );
-    expect(queries.queryP95?.expr).toBe(
-      "histogram_quantile(0.95, sum by (le) (increase(office_db_query_duration_seconds_bucket[300s]))) * 1000",
+    expect(queries.queryBuckets?.expr).toBe(
+      "sum by (le, db_operation_name, db_collection_name) (increase(office_db_query_duration_seconds_bucket[375s:75s]))",
     );
+    // Nothing reads the buckets over the whole range, nor more than once a block.
+    const bucketReads = bodies.map(
+      (body) => body.queries.filter((query) => query.expr.includes("_bucket")).length,
+    );
+    expect(bucketReads).toEqual([0, 0, 1, 1]);
     expect(queries.tableCount?.expr).toBe(
       "sum by (db_operation_name, db_collection_name) (increase(office_db_query_duration_seconds_count[3600s]))",
     );
@@ -118,33 +121,59 @@ describe("GrafanaStatsSource, System health", () => {
     expect(valueOf(read["cpu-and-memory"]).officeCpuPercent[3]?.value).toBe(96.2);
 
     const requests = valueOf(read.requests);
-    // A step with no request has no p95 (NaN, null in Grafana's answer): left out.
-    expect(requests.p95Ms).toHaveLength(7);
-    expect(requests).toMatchObject({ total: 12301.4, totalP95Ms: 46.8 });
-    // A route with nothing in the range is left out; no route is "Unmatched".
+    // Each step's p95 over every route's buckets; a step with no request has none: left out.
+    expect(requests.p95Ms.map(({ at, value }) => [at.toISOString().slice(11, 16), value])).toEqual([
+      ["10:20", 175],
+      ["10:25", 175],
+      ["10:30", 175],
+      ["10:35", 725],
+      ["10:40", 175],
+      ["10:50", 175],
+      ["10:55", 175],
+    ]);
+    expect(requests.total).toBe(12301.4);
+    expect(requests.totalP95Ms).toBeCloseTo(215.278, 3);
+    // A route with nothing in the range is left out; no route is "Unmatched". Its p95 and Max are
+    // of its buckets over every step: Max the highest bound that counted a request.
     expect(requests.slowest).toEqual(
       expect.arrayContaining([
         {
           route: { method: "GET", template: "/api/tasks/:id/stage-runs" },
           count: 4021.6,
-          p95Ms: 237.5,
+          p95Ms: 781.25,
           maxMs: 1000,
           totalMs: 251032.4,
         },
-        { route: null, count: 177.5, p95Ms: 4.75, maxMs: 10, totalMs: 412.9 },
+        {
+          route: { method: "GET", template: "/api/tasks" },
+          count: 8102.3,
+          p95Ms: 47.5,
+          maxMs: 50,
+          totalMs: 98120.7,
+        },
       ]),
     );
+    const unmatched = requests.slowest.find((row) => row.route === null);
+    expect(unmatched).toMatchObject({ count: 177.5, maxMs: 10, totalMs: 412.9 });
+    expect(unmatched?.p95Ms).toBeCloseTo(9.5, 6);
     expect(requests.slowest).toHaveLength(3);
 
     const database = valueOf(read.database);
     expect(Math.max(...database.connectionsWaiting.map(({ value }) => value))).toBe(7);
+    expect(database.p95Ms.map(({ value }) => value)).toEqual([
+      14.5, 14.5, 14.5, 93, 14.5, 14.5, 14.5, 14.5,
+    ]);
+    expect(database.totalP95Ms).toBeCloseTo(47, 6);
+    const begin = database.slowest.find((row) => row.operation === "BEGIN");
+    expect(begin).toMatchObject({ table: "", count: 3000.2, maxMs: 1, totalMs: 600.4 });
+    expect(begin?.p95Ms).toBeCloseTo(0.95, 6);
     expect(database.slowest).toContainEqual({
-      operation: "BEGIN",
-      table: "",
-      count: 3000.2,
-      p95Ms: 0.475,
-      maxMs: 1,
-      totalMs: 600.4,
+      operation: "SELECT",
+      table: "stage_runs",
+      count: 9204.1,
+      p95Ms: expect.closeTo(60, 6),
+      maxMs: 100,
+      totalMs: 120411.3,
     });
   });
 

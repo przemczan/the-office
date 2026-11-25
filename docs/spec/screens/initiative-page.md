@@ -205,7 +205,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 
 - A fold "Outcome" (target icon), open by default.
 - Summary: its first line, or "Not written yet".
-- **Edit** while shaping only: editor "Outcome" ("What must be true once the Initiative is done, in Markdown."), **Save**, **Cancel**; refusal "The outcome wasn't saved".
+- **Edit** while shaping only: editor "Outcome" ("What must be true once the Initiative is done, in Markdown; type @ to mention a record."), **Save**, **Cancel**; refusal "The outcome wasn't saved".
 - Once active it changes only by a Proposal of whoever shapes Initiatives.
 - Empty: "Not written yet."
 

@@ -57,17 +57,15 @@
           }
         ]
       },
-      "requestP95": {
+      "requestBuckets": {
         "status": 200,
         "frames": [
           {
             "schema": {
-              "name": "",
-              "refId": "requestP95",
+              "refId": "requestBuckets",
               "meta": {
                 "type": "timeseries-multi",
                 "typeVersion": [0, 1],
-                "executedQueryString": "Expr: requestP95\nStep: 5m0s",
                 "custom": {
                   "resultType": "matrix"
                 }
@@ -87,10 +85,13 @@
                   "name": "Value",
                   "type": "number",
                   "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
+                    "frame": "float64"
                   },
-                  "labels": {},
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "0.005"
+                  },
                   "config": {}
                 }
               ]
@@ -101,7 +102,1194 @@
                   1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
                   1794912600000, 1794912900000, 1794913200000
                 ],
-                [44.1, 46.3, 47.9, 212.5, 45.0, null, 43.8, 44.6]
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "0.01"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "0.025"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "0.05"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "0.1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 0, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "0.25"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [19, 19, 19, 0, 19, 0, 19, 19]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "0.5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [19, 19, 19, 10, 19, 0, 19, 19]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 0, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs",
+                    "le": "+Inf"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [20, 20, 20, 20, 20, 0, 20, 20]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "0.005"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "0.01"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "0.025"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [40, 40, 40, 40, 40, 0, 40, 40]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "0.05"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [80, 80, 80, 80, 80, 0, 80, 80]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "0.1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [80, 80, 80, 80, 80, 0, 80, 80]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "0.25"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [80, 80, 80, 80, 80, 0, 80, 80]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "0.5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [80, 80, 80, 80, 80, 0, 80, 80]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [80, 80, 80, 80, 80, 0, 80, 80]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks",
+                    "le": "+Inf"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [80, 80, 80, 80, 80, 0, 80, 80]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "0.005"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [5, 5, 5, 5, 5, 0, 5, 5]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "0.01"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "0.025"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "0.05"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "0.1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "0.25"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "0.5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "1"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
+              ]
+            }
+          },
+          {
+            "schema": {
+              "refId": "requestBuckets",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "le": "+Inf"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [10, 10, 10, 10, 10, 0, 10, 10]
               ]
             }
           }
@@ -145,48 +1333,6 @@
             },
             "data": {
               "values": [[1794913200000], [12301.4]]
-            }
-          }
-        ]
-      },
-      "requestsTotalP95": {
-        "status": 200,
-        "frames": [
-          {
-            "schema": {
-              "name": "",
-              "refId": "requestsTotalP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: requestsTotalP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {},
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [46.8]]
             }
           }
         ]
@@ -351,254 +1497,6 @@
             },
             "data": {
               "values": [[1794913200000], [177.5]]
-            }
-          }
-        ]
-      },
-      "routeP95": {
-        "status": 200,
-        "frames": [
-          {
-            "schema": {
-              "name": "",
-              "refId": "routeP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: routeP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "http_request_method": "GET",
-                    "http_route": "/api/tasks/:id/stage-runs"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [237.5]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "routeP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: routeP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "http_request_method": "GET",
-                    "http_route": "/api/tasks"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [23.75]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "routeP95",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: routeP95",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "http_request_method": "GET"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [4.75]]
-            }
-          }
-        ]
-      },
-      "routeMax": {
-        "status": 200,
-        "frames": [
-          {
-            "schema": {
-              "name": "",
-              "refId": "routeMax",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: routeMax",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "http_request_method": "GET",
-                    "http_route": "/api/tasks/:id/stage-runs"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [1000.0]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "routeMax",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: routeMax",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "http_request_method": "GET",
-                    "http_route": "/api/tasks"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [250.0]]
-            }
-          },
-          {
-            "schema": {
-              "name": "",
-              "refId": "routeMax",
-              "meta": {
-                "type": "numeric-multi",
-                "typeVersion": [0, 1],
-                "executedQueryString": "Expr: routeMax",
-                "custom": {
-                  "resultType": "vector"
-                }
-              },
-              "fields": [
-                {
-                  "name": "Time",
-                  "type": "time",
-                  "typeInfo": {
-                    "frame": "time.Time"
-                  },
-                  "config": {}
-                },
-                {
-                  "name": "Value",
-                  "type": "number",
-                  "typeInfo": {
-                    "frame": "float64",
-                    "nullable": true
-                  },
-                  "labels": {
-                    "http_request_method": "GET"
-                  },
-                  "config": {}
-                }
-              ]
-            },
-            "data": {
-              "values": [[1794913200000], [10.0]]
             }
           }
         ]

@@ -1,16 +1,47 @@
 import { useNavigate } from "@tanstack/react-router";
 import { recordLinkOf } from "@the-office/contracts";
-import type { MouseEvent, ReactNode } from "react";
-import Markdown, { type Components } from "react-markdown";
+import type { ClipboardEvent, MouseEvent, ReactNode } from "react";
+import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { CopyableCodeBlock, CopyableQuote } from "./markdown-copy-blocks.tsx";
+import { selectionAsMarkdown } from "./markdown-copy.ts";
 import "./markdown-text.css";
 import { RecordMention } from "./record-mention.tsx";
 
-/** An Agent's "# Title" stays inside its message, out of the page's heading order. */
-function MarkdownHeading({ children }: { readonly children?: ReactNode }): ReactNode {
-  return <p className="markdown-heading">{children}</p>;
+/**
+ * An Agent's "# Title" stays inside its message, out of the page's heading order; its level stays
+ * on it, so copying writes it back as its heading.
+ */
+function MarkdownHeading({
+  children,
+  node,
+}: { readonly children?: ReactNode } & ExtraProps): ReactNode {
+  return (
+    <p className="markdown-heading" data-heading={node?.tagName.slice(1)}>
+      {children}
+    </p>
+  );
+}
+
+/**
+ * Copying a selection of the view puts it on the clipboard as Markdown, and as the HTML selected,
+ * so a message box it is pasted into keeps its formatting. A selection the browser copies as well
+ * is left to it.
+ */
+function copiedAsMarkdown(event: ClipboardEvent<HTMLElement>): void {
+  const selection = event.currentTarget.ownerDocument.getSelection();
+  if (selection === null || event.clipboardData === null) return;
+  let copied;
+  try {
+    copied = selectionAsMarkdown(event.currentTarget, selection);
+  } catch {
+    return;
+  }
+  if (copied === undefined) return;
+  event.clipboardData.setData("text/plain", copied.markdown);
+  event.clipboardData.setData("text/html", copied.html);
+  event.preventDefault();
 }
 
 /**
@@ -88,8 +119,9 @@ const DOCUMENT_COMPONENTS: Components = {
  * Text written by people and The Office, in Markdown. Raw HTML shows as text (there is no raw HTML
  * plugin) and unsafe link targets are dropped by the renderer's URL check. A link to a Task,
  * Initiative, Decision or Idea shows as a chip for it, one to another page of the app opens it in
- * place, and any other opens in a new tab. A code block or a quote has Copy. An inline one holds no
- * blocks, for a line inside a row. A single line break stays a break, as typed in a message.
+ * place, and any other opens in a new tab. A code block or a quote has Copy, and copying a
+ * selection copies it as Markdown. An inline one holds no blocks, for a line inside a row. A
+ * single line break stays a break, as typed in a message.
  */
 export function MarkdownText({
   text,
@@ -109,9 +141,13 @@ export function MarkdownText({
     </Markdown>
   );
   return inline ? (
-    <span className="markdown-text">{markdown}</span>
+    <span className="markdown-text" onCopy={copiedAsMarkdown}>
+      {markdown}
+    </span>
   ) : (
-    <div className="markdown-text">{markdown}</div>
+    <div className="markdown-text" onCopy={copiedAsMarkdown}>
+      {markdown}
+    </div>
   );
 }
 
@@ -122,7 +158,7 @@ export function MarkdownText({
  */
 export function MarkdownDocument({ text }: { readonly text: string }): ReactNode {
   return (
-    <div className="markdown-text markdown-document">
+    <div className="markdown-text markdown-document" onCopy={copiedAsMarkdown}>
       <Markdown remarkPlugins={DOCUMENT_PLUGINS} components={DOCUMENT_COMPONENTS}>
         {text}
       </Markdown>

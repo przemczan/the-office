@@ -18,7 +18,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type MouseEvent,
   type ReactNode,
   type RefObject,
@@ -237,19 +236,8 @@ export type EscapeLayer = "window" | "side-panel";
 
 /** The side panels open now, the one opened last at the end. */
 const openSidePanels: RefObject<HTMLElement | null>[] = [];
-const sidePanelListeners = new Set<() => void>();
 /** The menus open that aren't the design system's, which `[role="menu"]` finds. */
 let escapeWaitsFor = 0;
-
-function changeSidePanels(change: () => void): void {
-  change();
-  for (const listener of sidePanelListeners) listener();
-}
-
-function subscribeToSidePanels(onChange: () => void): () => void {
-  sidePanelListeners.add(onChange);
-  return () => sidePanelListeners.delete(onChange);
-}
 
 /** Windows are on the body, so what opened over another comes later in the document. */
 function topmostWindow(): Element | undefined {
@@ -283,14 +271,6 @@ export function useEscapeWaitsFor(open: boolean): void {
   }, [open]);
 }
 
-/** Whether this side panel opened after another still open, so it lies over that one. */
-export function useOpenedLast(element: RefObject<HTMLElement | null>): boolean {
-  return useSyncExternalStore(
-    subscribeToSidePanels,
-    () => openSidePanels.length > 1 && openSidePanels.at(-1) === element,
-  );
-}
-
 /**
  * Escape closes `element`, a window or a side panel, unless something is over it, which closes
  * alone: one press closes only the topmost thing.
@@ -307,9 +287,9 @@ export function useCloseOnEscape(
   const topmostAtKeyPress = useRef(false);
   useEffect(() => {
     if (!open || layer !== "side-panel") return;
-    changeSidePanels(() => openSidePanels.push(element));
+    openSidePanels.push(element);
     return () => {
-      changeSidePanels(() => openSidePanels.splice(openSidePanels.indexOf(element), 1));
+      openSidePanels.splice(openSidePanels.indexOf(element), 1);
     };
   }, [open, element, layer]);
   useEffect(() => {

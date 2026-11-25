@@ -6,9 +6,6 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { AskDevopsButton, useDevops } from "../../shell/ask-devops.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
-import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
-import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
-import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { SectionLayout, type MenuSection } from "../../shell/section-layout.tsx";
 import { AddProjectDialog } from "./add-project-dialog.tsx";
@@ -19,38 +16,25 @@ import "./projects.css";
 const AddProjectContext = createContext<(() => void) | undefined>(undefined);
 
 /**
- * The Projects The Office works on: an item each for those the Project filter shows, with adding one
- * at the list's foot, beside the open Project (spec screens/projects.md). A Project the filter
- * hides still opens beside the list, with no item marked.
+ * The Projects The Office works on: an item each, whatever the Project filter shows, with adding one
+ * at the list's foot, beside the open Project (spec screens/projects.md).
  */
 export function ProjectsPage(): ReactNode {
   const projects = useQuery(projectQueries.list());
-  const projectFilter = useProjectFilter();
   const { projectId } = useParams({ strict: false });
   const [adding, setAdding] = useState(false);
-  const { shown, elsewhere } = narrowed(projects.data ?? [], ({ id }) => projectFilter.shows([id]));
   const openAdding = (): void => setAdding(true);
   return (
     <div className="projects-page">
       {projects.error && <Alert tone="danger" title={projects.error.message} />}
       <SectionLayout
         label="Projects"
-        sections={shown.map(projectItem)}
+        sections={(projects.data ?? []).map(projectItem)}
         size="large"
         narrow="list-or-open"
         showingOpen={projectId !== undefined}
         back={{ label: "All Projects", to: "/projects" }}
-        foot={
-          <>
-            <InOtherProjectsNote
-              count={elsewhere}
-              one="Project"
-              many="Projects"
-              where="hidden by the Project filter"
-            />
-            <AddProjectActions addLabel="Add a Project" onAdd={openAdding} />
-          </>
-        }
+        foot={<AddProjectActions addLabel="Add a Project" onAdd={openAdding} />}
       >
         <AddProjectContext value={openAdding}>
           <Outlet />

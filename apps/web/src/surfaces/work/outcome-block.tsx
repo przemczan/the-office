@@ -46,8 +46,9 @@ export function OutcomeBlock({ initiative }: { readonly initiative: Initiative }
       {editing ? (
         <PartEditor
           label="Outcome"
-          hint="What must be true once the Initiative is done, in Markdown."
+          hint="What must be true once the Initiative is done, in Markdown; type @ to mention a record."
           initial={initiative.outcome}
+          mentions
           saving={writing.isPending}
           onSave={(outcome) => writing.mutate(outcome, { onSuccess: () => setEditing(false) })}
           onCancel={() => setEditing(false)}

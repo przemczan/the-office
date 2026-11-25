@@ -2284,7 +2284,7 @@ async function catchAnswers(
 }
 
 test(
-  "the Project filter narrows Needs you, the status strip and the Projects list, until Show all projects",
+  "the Project filter narrows Needs you, and the status strip, until Show all projects",
   { tag: "@full" },
   async ({ page }) => {
     const alpha = await addedProject(page, "Waiting alpha", "WA");
@@ -2311,8 +2311,8 @@ test(
 
     await page.goto("/projects");
     await expect(page.getByRole("link", { name: /Waiting alpha/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Waiting beta/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /hidden by the Project filter/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Waiting beta/ })).toBeVisible();
+    await expect(page.getByText(/hidden by the Project filter/)).toHaveCount(0);
 
     await page.goto("/now");
     await needsYou.getByRole("button", { name: /in other Projects.*Show all projects/ }).click();

@@ -2361,7 +2361,7 @@ test(
 );
 
 test(
-  "a Project the Project filter hides still opens beside the list, with no item marked",
+  "the Project filter doesn't narrow the Projects list, and a Project opens with its item marked",
   { tag: "@full" },
   async ({ page }) => {
     const shown = await addedProject(page, "Filter shown");
@@ -2373,14 +2373,14 @@ test(
     await page.keyboard.press("Escape");
     const list = projectsList(page);
     await expect(list.getByRole("link", { name: shown.name, exact: true })).toBeVisible();
-    await expect(list.getByRole("link", { name: hidden.name, exact: true })).toHaveCount(0);
-    await expect(page.getByText(/hidden by the Project filter/)).toBeVisible();
+    await expect(list.getByRole("link", { name: hidden.name, exact: true })).toBeVisible();
+    await expect(page.getByText(/hidden by the Project filter/)).toHaveCount(0);
 
     await page.goto(`/projects/${hidden.id}`);
     await expect(
       page.locator(".project-head").getByRole("heading", { name: hidden.name }),
     ).toBeVisible();
-    await expect(list.locator("a.active")).toHaveCount(0);
+    await expect(list.locator("a.active")).toHaveCount(1);
   },
 );
 

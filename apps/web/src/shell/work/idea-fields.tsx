@@ -1,20 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import type { NewIdea } from "@the-office/contracts";
-import { Field, Input, RadioGroup, Textarea } from "@the-office/ui";
+import { Field, Input, RadioGroup } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
+import { MentionField } from "../mentions/mention-field.tsx";
+import type { Mentions } from "../mentions/mention-picker.tsx";
 import { ProjectChip } from "../project-chip.tsx";
 
 /** The radio value for an Idea with no Project. */
 const OFFICE_WIDE = "";
 
-/** An Idea's title, notes and Project, as captured and as edited. */
+/**
+ * An Idea's title, notes and Project, as captured and as edited. `mentions` comes from `useMentions`
+ * on the notes, so the caller saves `mentions.linked(draft.notes)`.
+ */
 export function IdeaFields({
   draft,
   onChange,
+  mentions,
 }: {
   readonly draft: NewIdea;
   readonly onChange: (draft: NewIdea) => void;
+  readonly mentions: Mentions;
 }): ReactNode {
   const projects = useQuery(projectQueries.list());
   return (
@@ -26,12 +33,13 @@ export function IdeaFields({
         onChange={(event) => onChange({ ...draft, title: event.target.value })}
         autoFocus
       />
-      <Textarea
+      <MentionField
         label="Notes"
-        hint="Optional."
+        hint="Optional. Type @ to mention a Task, Initiative, Decision or Idea."
         rows={3}
         value={draft.notes}
-        onChange={(event) => onChange({ ...draft, notes: event.target.value })}
+        onChange={(notes) => onChange({ ...draft, notes })}
+        mentions={mentions}
       />
       <Field label="Where">
         <RadioGroup

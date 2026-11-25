@@ -45,7 +45,7 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 ## The log
 
 - Rows: an avatar on the left, the name and the time over what was said, one author's neighbouring messages as one turn; the user's own avatar is gray and named "You" (another user by their name); a person's is their Avatar or initials.
-- A turn's text is Markdown: sanitised, raw HTML shown as text, headings kept out of the page's outline, a link to a Task, Initiative, Decision or Idea drawn as its chip, a link to another page of the app opened in place; every fenced code block and every quote has **Copy** (labels "Copy the code" and "Copy the quote") in its corner, and copying shows a toast ([2.4.4](../2.4.4-messages.md#copy)).
+- A turn's text is Markdown: sanitised, raw HTML shown as text, headings kept out of the page's outline, a link to a Task, Initiative, Decision or Idea drawn as its chip, a link to another page of the app opened in place; every fenced code block and every quote has **Copy** (labels "Copy the code" and "Copy the quote") in its corner, and copying shows a toast; a selection copies as Markdown ([2.4.4](../2.4.4-messages.md#copy)).
 - A user's message may show, under its text: its images as thumbnails (each opens the viewer, which steps through them; one whose content no longer loads reads "Image removed"), the line "With <chip> open" for the Open page it carried, and its delivery mark.
 - Delivery marks: **Lands at the next safe point** (waiting, clock icon), **Delivered** (check), **Not delivered: the Stage ended first** (in a Stage Thread) or **Not delivered: <name> finished first**.
 - A message that sent a Handover note from a Link card reads "You · Handover note from <person>".
@@ -97,7 +97,7 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 - The text shows `@<name>`; on send, each record still in the text becomes a Markdown link to its page, which The Office reads as a Mention.
 - Empty: "Reading The Office's records…" while loading, then "Nothing matches “<query>”."
 - A Mention of a waiting Decision in a chat opens its window.
-- A Task's Description in New Task and on the Task page uses the same picker ([2.4.4](../2.4.4-messages.md#mentions)).
+- A Task's Description in New Task and on the Task page, an Idea's notes (Capture an Idea, Edit the Idea) and an Initiative's outcome use the same picker ([2.4.4](../2.4.4-messages.md#mentions)).
 
 ### Images
 

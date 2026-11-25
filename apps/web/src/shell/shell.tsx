@@ -18,6 +18,7 @@ import "./shell.css";
 import { StatusStrip } from "./status-strip.tsx";
 import { ToastProvider } from "./toasts.tsx";
 import { TopBar } from "./top-bar.tsx";
+import { usePageScrollReset } from "./use-page-scroll-reset.ts";
 import { useReportingActivity } from "./user-activity.ts";
 
 /** Shell A3 · Desk: the frame every surface opens in. */
@@ -48,6 +49,7 @@ function ShellFrame(): ReactNode {
   useRunRelays();
   const routeTitle = useMatches({ select: (matches) => matches.at(-1)?.staticData.title });
   const [pageHeading, setPageHeading] = usePageHeadingState();
+  const page = usePageScrollReset();
   const chat = useChat();
   const { place, width } = useChatDrawerLayout();
   const chatCovers = chat.isOpen && place !== "fills" ? width : 0;
@@ -68,7 +70,7 @@ function ShellFrame(): ReactNode {
         parent={pageHeading?.parent}
       />
       <StatusStrip />
-      <main className="shell-main">
+      <main ref={page} className="shell-main">
         <PageHeadingProvider setPageHeading={setPageHeading}>
           <Outlet />
         </PageHeadingProvider>

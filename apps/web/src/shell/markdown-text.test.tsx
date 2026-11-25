@@ -67,6 +67,30 @@ function withCopyCommand(run: () => boolean): Mock<(command: string) => boolean>
   return execCommand;
 }
 
+/**
+ * Selects all of the Markdown view and copies it as the browser would, answering what the page put
+ * on the clipboard, and whether it kept the browser's own copy.
+ */
+function copiedSelection(page: HTMLElement): {
+  readonly data: Record<string, string>;
+  readonly browsersOwn: boolean;
+} {
+  const view = page.querySelector(".markdown-text");
+  if (view === null) throw new Error("No Markdown view.");
+  const range = document.createRange();
+  range.selectNodeContents(view);
+  document.getSelection()?.removeAllRanges();
+  document.getSelection()?.addRange(range);
+  const data: Record<string, string> = {};
+  const setData = vi.fn<(kind: string, value: string) => void>((kind, value) => {
+    data[kind] = value;
+  });
+  const copy = new Event("copy", { bubbles: true, cancelable: true });
+  Object.defineProperty(copy, "clipboardData", { value: { setData } });
+  view.firstElementChild?.dispatchEvent(copy);
+  return { data, browsersOwn: !copy.defaultPrevented };
+}
+
 function selectedTextArea(): string {
   const textArea = document.querySelector("textarea");
   return textArea ? textArea.value.slice(textArea.selectionStart, textArea.selectionEnd) : "";
@@ -166,6 +190,36 @@ describe("MarkdownText", () => {
     await act(async () => appLink?.click());
 
     expect(pathname()).toBe("/projects/the-office");
+  });
+});
+
+describe("copying a selection of a message", () => {
+  afterEach(() => {
+    document.getSelection()?.removeAllRanges();
+    document.body.replaceChildren();
+  });
+
+  it("puts it on the clipboard as Markdown, its chip as its link and without the Copy button", async () => {
+    const { page } = await mounted(
+      `## Plan\n\n- **Fix** [the Task](/tasks/${TASK_ID})\n- Run it\n\n\`\`\`sh\nnpm test\n\`\`\``,
+    );
+
+    const { data, browsersOwn } = copiedSelection(page);
+
+    expect(browsersOwn).toBe(false);
+    expect(data["text/plain"]).toBe(
+      `## Plan\n\n- **Fix** [the Task](/tasks/${TASK_ID})\n- Run it\n\n\`\`\`sh\nnpm test\n\`\`\``,
+    );
+    expect(data["text/html"]).toContain("<strong>Fix</strong>");
+  });
+
+  it("leaves words with no formatting to the browser's own copy", async () => {
+    const { page } = await mounted("Just words.\n\nAnd more words.");
+
+    const { data, browsersOwn } = copiedSelection(page);
+
+    expect(browsersOwn).toBe(true);
+    expect(data).toEqual({});
   });
 });
 

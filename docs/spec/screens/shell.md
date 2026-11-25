@@ -167,6 +167,7 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 
 - A drawer titled "Needs you", description "<N> need(s) you, oldest first", opened from the strip's Needs you figure; it lies over any page and shows the same cards as Now, with the Waiting for you group under them ([now.md](now.md#waiting-for-you)); the description counts only the Decisions and Gates.
 - Its left edge resizes it (handle "Resize the Needs you panel"); its width is kept, and at a narrow window it fills the window.
+- Opening it closes the Activity panel and a conversation's drawer, and leaves the chat drawer open under it; opening the chat closes it ([4 Side panels](../4-ux-direction.md#side-panels)).
 - Esc closes one thing at a time: a menu, then a window, then the side panel opened last (the panel, the Activity panel, the chat drawer and a conversation's drawer are side panels).
 - Nothing shows while the panel is closed or Needs you is unread.
 - A Decision or Gate is answered in place; a Gate window's Open Changes goes to the Task and leaves the panel out of the address.
