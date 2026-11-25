@@ -53,7 +53,7 @@ export function projectPipelinesForTests(app: INestApplicationContext) {
         copiedFrom: { name: source.name, at: new Date() },
         brokenBeforeUpdate: null,
       };
-      await projectPipelines.add(projectPipeline, source.id);
+      await projectPipelines.add(projectPipeline);
       return projectPipeline;
     },
 

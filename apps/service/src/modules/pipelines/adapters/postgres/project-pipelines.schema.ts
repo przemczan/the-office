@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import type { StageChange } from "../../domain/stage-change.js";
 import type { Stage } from "../../domain/stage.js";
 
 /**
@@ -15,15 +14,7 @@ export const projectPipelines = pgTable(
     projectId: text("project_id").notNull(),
     name: text("name").notNull(),
     description: text("description").notNull(),
-    /**
-     * Legacy, kept for the previous release to read (migration `0206`): the office-wide Pipeline it
-     * was built on, or for a later copy the one at the root of its copies. Read only by the move.
-     */
-    basePipelineId: text("base_pipeline_id").notNull(),
-    /** Legacy alike: its Stage changes, `[]` for a copy. Read only by the move. */
-    stageChanges: jsonb("stage_changes").$type<readonly StageChange[]>().notNull(),
-    /** Its own flow; null until the move at start gave a legacy row the flow it builds. */
-    stages: jsonb("stages").$type<readonly Stage[]>(),
+    stages: jsonb("stages").$type<readonly Stage[]>().notNull(),
     copiedFromName: text("copied_from_name"),
     /** Null for one the move made. */
     copiedAt: timestamp("copied_at", { withTimezone: true }),

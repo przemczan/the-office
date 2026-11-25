@@ -1569,6 +1569,13 @@
       "when": 1795590272998,
       "tag": "0223_project_device_holders",
       "breakpoints": true
+    },
+    {
+      "idx": 224,
+      "version": "7",
+      "when": 1795630894530,
+      "tag": "0224_project_pipelines_drop_legacy",
+      "breakpoints": true
     }
   ]
 }

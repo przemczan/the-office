@@ -5,7 +5,6 @@ import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { pipelineNameProblems, type TakenName } from "./pipeline-names.js";
 import { unnamedRoutes } from "./route.js";
 import { sameAsKept, type Stage } from "./stage.js";
-import { buildStages, type StageChange } from "./stage-change.js";
 
 /** The Pipeline a Project Pipeline was copied from, by name, and when; for its words alone. */
 export interface CopiedFrom {
@@ -63,53 +62,6 @@ export interface PipelinesAround {
   readonly officeWide: readonly Pipeline[];
   /** Every Project's Project Pipelines but the one being saved. */
   readonly projectPipelines: readonly ProjectPipeline[];
-}
-
-/**
- * A Project Pipeline as The Office kept it before it held its own flow: an office-wide base
- * Pipeline and the Stage changes the Project made to it.
- */
-export interface LegacyProjectPipeline {
-  readonly id: string;
-  readonly projectId: string;
-  readonly name: string;
-  readonly description: string;
-  readonly basePipelineId: string;
-  readonly stageChanges: readonly StageChange[];
-}
-
-/**
- * The one converter of a legacy Project Pipeline (spec §2.3.5, "The move to routes back and Publish
- * Stages"): the flow its base Pipeline and its Stage changes build, kept as its own. One that was
- * Broken keeps what still applied, with why it was Broken. Both the move at start and the read of a
- * row not yet moved call it, so they can't differ. `base` is undefined when the base Pipeline is gone.
- */
-export function movedProjectPipeline(
-  legacy: LegacyProjectPipeline,
-  base: Pipeline | undefined,
-): ProjectPipeline {
-  const { id, projectId, name, description } = legacy;
-  if (!base) {
-    return {
-      id,
-      projectId,
-      name,
-      description,
-      stages: [],
-      copiedFrom: { name: legacy.basePipelineId, at: null },
-      brokenBeforeUpdate: [`Its base Pipeline "${legacy.basePipelineId}" is gone.`],
-    };
-  }
-  const { stages, broken } = buildStages(base, legacy.stageChanges);
-  return {
-    id,
-    projectId,
-    name,
-    description,
-    stages,
-    copiedFrom: { name: base.name, at: null },
-    brokenBeforeUpdate: broken.length === 0 ? null : broken.map(({ text }) => text),
-  };
 }
 
 /** The Project Pipeline as a Pipeline a Task copies its Stages from. */

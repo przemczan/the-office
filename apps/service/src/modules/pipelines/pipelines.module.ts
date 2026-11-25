@@ -30,7 +30,6 @@ import { AlarmResumes } from "./application/alarm-resumes.js";
 import { GateService } from "./application/gate-service.js";
 import { GateStageRunner } from "./application/gate-stage-runner.js";
 import { PipelineLibraryEditor } from "./application/pipeline-library-editor.js";
-import { ProjectPipelineMoveOver } from "./application/project-pipeline-move-over.js";
 import { PublishStage } from "./application/publish-stage.js";
 import { RoleFillings } from "./application/role-fillings.js";
 import { RolesNamedInStages } from "./application/roles-named-in-stages.js";
@@ -187,7 +186,6 @@ export class PipelinesModule {
         TaskRoleEngines,
         RolesNamedInStages,
         PipelineLibraryEditor,
-        ProjectPipelineMoveOver,
         StageTemplateLibraryEditor,
         LinkedStages,
         StaffingHolds,

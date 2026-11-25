@@ -454,7 +454,7 @@ export class PipelineLibraryEditor {
       new Date(),
       stages && (await this.withLiveLinks({ stages })).stages,
     );
-    await this.projectPipelines.add(projectPipeline, edit.copyOf);
+    await this.projectPipelines.add(projectPipeline);
     await this.events.publish(event);
     return projectPipeline;
   }
