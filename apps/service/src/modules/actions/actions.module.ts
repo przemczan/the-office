@@ -1,6 +1,7 @@
 import { Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../office-updates/index.js";
+import { DevicesActionDevices } from "./adapters/devices/devices-action-devices.js";
 import { DomainEventSignals } from "./adapters/events/domain-event-signals.js";
 import { ActionRunsController } from "./adapters/http/action-runs.controller.js";
 import { ActionSettingsController } from "./adapters/http/action-settings.controller.js";
@@ -21,6 +22,7 @@ import { ActionRuns } from "./application/action-runs.js";
 import { CommandRuns } from "./application/command-runs.js";
 import { RunsInBackground } from "./application/runs-in-background.js";
 import { WorkflowRuns } from "./application/workflow-runs.js";
+import { ActionDevices } from "./ports/action-devices.js";
 import { ActionProjects } from "./ports/action-projects.js";
 import { ActionRunRepository } from "./ports/action-run-repository.js";
 import { ActionRunSignals } from "./ports/action-run-signals.js";
@@ -32,10 +34,11 @@ import { CommandRunEnvironments } from "./ports/command-run-environments.js";
 
 export interface ActionsModuleOptions {
   /**
-   * Work, Projects, Run environments and Test instances: Work's `TaskService`,
+   * Work, Projects, Run environments, Test instances and Devices: Work's `TaskService`,
    * `InitiativeService` and `FireAlarmService`; Projects' `ActionRunSettings`,
    * `ActionRunCheckouts`, `ActionWorkflows`, `ActionLastRuns` and `TestTargets`; Run environments'
-   * `ActionRunEnvironments`; Test instances' `TestInstances`.
+   * `ActionRunEnvironments`; Test instances' `TestInstances`; Devices' `ProjectDevices` and
+   * `ConnectedDevices`.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
 }
@@ -54,6 +57,7 @@ export class ActionsModule {
         { provide: ActionWorkflowHost, useClass: ProjectsWorkflowHost },
         { provide: CommandRunEnvironments, useClass: RunEnvironmentsCommandRuns },
         { provide: ActionTestInstances, useClass: TestInstancesActionRuns },
+        { provide: ActionDevices, useClass: DevicesActionDevices },
         { provide: ActionSources, useClass: WorkActionSources },
         { provide: ActionRunSignals, useClass: DomainEventSignals },
         ActionLastRunsRegistration,

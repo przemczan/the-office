@@ -19,6 +19,8 @@ export type RunAction = {
         readonly commandKey: string;
         readonly commandsBefore: readonly string[];
         readonly timeLimitMinutes: number | null;
+        /** The Project device the run holds while it runs, by its id; null for none. */
+        readonly projectDeviceId: string | null;
       };
     }
   | { readonly kind: "test-target"; readonly settings: { readonly targetKey: string } }

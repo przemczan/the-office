@@ -22,7 +22,7 @@ export interface TestInstanceMove {
 /**
  * Test instances' side of a Test target run (spec §2.15, "Kinds"): the launch, run as the Action,
  * by Test instances' rules (a refusal, such as Test instances at once, is an ActionRunRefused in
- * its words), its stop by the user and its log.
+ * its words), its stop by the user and its log. Installing is running, Installed succeeded.
  */
 export abstract class ActionTestInstances {
   abstract launch(
@@ -31,6 +31,8 @@ export abstract class ActionTestInstances {
     targetKey: string,
     by: ActionRunUser,
     runAs: { readonly actionKey: string; readonly actionName: string },
+    /** The tab that relays the device an Install on a device target installs on. */
+    relayTab: string | undefined,
   ): Promise<RunTestInstance>;
 
   abstract read(id: string): Promise<RunTestInstance>;

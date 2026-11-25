@@ -64,6 +64,13 @@ export function actionInputWith<Leaves extends z.ZodType<boolean>>(leavesTheWork
           .describe(
             `Its own time limit in minutes, ${ACTION_TIME_LIMIT_MINUTES.min} to ${ACTION_TIME_LIMIT_MINUTES.max}; null or left out for the default ${ACTION_TIME_LIMIT_MINUTES.default}.`,
           ),
+        projectDeviceId: z
+          .string()
+          .nullable()
+          .default(null)
+          .describe(
+            "The id of one of the Project's devices, as list_projects lists them under Devices, which its run holds for the whole run, so another run or instance can't use it meanwhile; null or left out for none.",
+          ),
       }),
     }),
     z.object({

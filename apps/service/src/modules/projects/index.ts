@@ -41,6 +41,8 @@ export {
 } from "./application/devcontainer-services.js";
 export {
   TestTargets,
+  type InstallTargetLaunchSettings,
+  type RunTargetLaunchSettings,
   type TestTargetCommandBefore,
   type TestTargetLaunchSettings,
 } from "./application/test-targets.js";
@@ -67,6 +69,8 @@ export {
 export {
   DEFAULT_PORT_VARIABLE,
   type EditedTestTarget,
+  type InstallTestTarget,
+  type RunTestTarget,
   type TestTarget,
   type TestTargetField,
   type TestTargetSetter,

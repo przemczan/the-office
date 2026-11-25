@@ -17,7 +17,9 @@ export type DisconnectedBecause =
   | "device-unplugged"
   | "run-environment-turned-off"
   | "connected-devices-switched-off"
-  | "error";
+  | "error"
+  /** The Action run or test instance that held a Project device let go of it. */
+  | "run-ended";
 
 /** What the helper notices about a serial board (spec §2.13, "Serial boards"). */
 export const HELPER_NOTICE_CODES = [
@@ -43,11 +45,30 @@ export interface DeviceUser {
   readonly name: string;
 }
 
-/** One device connected, or once connected, to one Task's run environment. */
+/**
+ * What holds a Project device other than a Task (spec §2.13, "One environment at a time"): an
+ * Action run or a test instance, with its name as "<device> is in use by <name>." says it. The run
+ * gives the name, so Devices never reads Actions or Test instances.
+ */
+export type RunHolder =
+  | { readonly kind: "action-run"; readonly actionRunId: string; readonly name: string }
+  | { readonly kind: "test-instance"; readonly testInstanceId: string; readonly name: string };
+
+/**
+ * One device connected, or once connected, to one Task's run environment, or a run's hold of a
+ * Project device in the run's own environment: exactly one of `taskId` and `runHolder`.
+ */
 export interface ConnectedDevice {
   readonly id: string;
-  readonly taskId: string;
-  /** The Task's Project, whose Run environment setting it needs On. */
+  /** The Task it is connected to; null for a run's hold. */
+  readonly taskId: string | null;
+  /** The Action run or test instance holding the Project device; null for a Task's device. */
+  readonly runHolder: RunHolder | null;
+  /** The tab that relays a run's device over USB, which opens it as it sees this record; else null. */
+  readonly relayTab: string | null;
+  /** Whether it was ever Connected, kept so a restart doesn't forget it. */
+  readonly everConnected: boolean;
+  /** The holder's Project, whose Run environment setting it needs On. */
   readonly projectId: string;
   /** The Project device it was lent from (spec §2.13, "Lent to a Task"); null for one the Task connected itself. */
   readonly projectDeviceId: string | null;
@@ -158,6 +179,9 @@ export function connectingDevice(given: NewConnectedDevice): {
   const device: ConnectedDevice = {
     ...given,
     projectDeviceId: given.projectDeviceId ?? null,
+    runHolder: null,
+    relayTab: null,
+    everConnected: false,
     state: "connecting",
     disconnectedBecause: null,
     disconnectedBy: null,
@@ -194,6 +218,48 @@ export function lentDevice(
   return { device: waiting, event: changed(waiting) };
 }
 
+/** A run's hold of a Project device, made as the run's step that needs it starts. */
+export interface NewHeldDevice {
+  readonly id: string;
+  readonly runHolder: RunHolder;
+  readonly projectId: string;
+  readonly projectDeviceId: string;
+  readonly kind: ConnectedDeviceKind;
+  readonly name: string;
+  readonly deviceKey: string;
+  /** The tab relaying a device over USB; null for a phone over wireless debugging. */
+  readonly relayTab: string | null;
+  readonly connectedBy: DeviceUser;
+  readonly connectedAt: Date;
+}
+
+/**
+ * A Project device held by a run (spec §2.13, "In use"), Connecting in the run's environment,
+ * which already runs: a device over USB until the starting tab's relay and the helper are up, a
+ * phone over wireless debugging until adb connects to it with the Project's key.
+ */
+export function heldDevice(given: NewHeldDevice): {
+  readonly device: ConnectedDevice;
+  readonly event: ConnectedDeviceChanged;
+} {
+  const device: ConnectedDevice = {
+    ...given,
+    taskId: null,
+    everConnected: false,
+    state: "connecting",
+    disconnectedBecause: null,
+    disconnectedBy: null,
+    problem: null,
+    endpoint: null,
+    rfc2217Url: null,
+    baudRate: null,
+    roundTripMs: null,
+    notice: null,
+    disconnectedAt: null,
+  };
+  return { device, event: changed(device) };
+}
+
 export function isOpen(device: ConnectedDevice): boolean {
   return device.state !== "disconnected";
 }
@@ -225,6 +291,7 @@ export function deviceConnected(
   return withChange({
     ...device,
     state: "connected",
+    everConnected: true,
     endpoint,
     rfc2217Url,
     name,
@@ -282,9 +349,11 @@ export function noticesOf(device: ConnectedDevice): DeviceNotice[] {
 
 /**
  * The run environment isn't running: from Connecting or Connected. A phone over wireless debugging
- * keeps its `<address>:<port>`, which its next start connects to again.
+ * keeps its `<address>:<port>`, which its next start connects to again. A run's hold never waits,
+ * as the run starts its environment first: nothing for one.
  */
 export function deviceWaiting(device: ConnectedDevice): ConnectedDeviceChange {
+  if (device.runHolder !== null) return undefined;
   if (device.state !== "connecting" && device.state !== "connected") return undefined;
   const endpoint = device.kind === "android-wireless" ? device.endpoint : null;
   return withChange({
@@ -389,6 +458,52 @@ export function androidSerialOf(devices: readonly ConnectedDevice[]): string | u
   return serials.length === 1 ? serials[0] : undefined;
 }
 
+/** Said when a run's phone over wireless debugging doesn't answer at its address and Port. */
+export function didntAnswer(device: Pick<ConnectedDevice, "name">): string {
+  return `${device.name} didn't answer.`;
+}
+
+/** Said when the tab that starts a run can't find or open its device over USB. */
+export function notPluggedIn(device: Pick<ConnectedDevice, "name">): string {
+  return `${device.name} isn't plugged into this computer, or the browser can't open it.`;
+}
+
+/** Said when the tab relaying a run's device over USB closed. */
+export function relayTabClosed(device: Pick<ConnectedDevice, "name">): string {
+  return `The tab relaying ${device.name} was closed.`;
+}
+
+/** Said when a run let go of its device before it connected. */
+export function letGoBeforeConnecting(device: Pick<ConnectedDevice, "name">): string {
+  return `The run let go of ${device.name} before it connected.`;
+}
+
+/** Said when a run's environment isn't running as its device connects. */
+export const RUN_ENVIRONMENT_NOT_RUNNING = "The run's environment isn't running.";
+
+/** Said when the Project's Connected devices were switched off under a run's hold. */
+export const CONNECTED_DEVICES_SWITCHED_OFF = "The Project's Connected devices were switched off.";
+
+/** Why a run's hold ended before it was held, in 2.13's words, from its Disconnected record. */
+export function holdProblemOf(device: ConnectedDevice): string {
+  switch (device.disconnectedBecause) {
+    case "device-unplugged":
+      return device.kind === "android-wireless" ? didntAnswer(device) : notPluggedIn(device);
+    case "tab-closed":
+      return relayTabClosed(device);
+    case "run-environment-turned-off":
+      return RUN_ENVIRONMENT_OFF;
+    case "connected-devices-switched-off":
+      return CONNECTED_DEVICES_SWITCHED_OFF;
+    case "by-user":
+      return `${device.disconnectedBy?.name ?? "A user"} disconnected ${device.name}.`;
+    case "error":
+      return device.problem ?? `${device.name} couldn't be connected.`;
+    default:
+      return letGoBeforeConnecting(device);
+  }
+}
+
 export const KIND_WORDS: Readonly<Record<ConnectedDeviceKind, string>> = {
   "android-usb": "Android phone over USB",
   "serial-usb": "Serial board over USB",
@@ -430,5 +545,12 @@ function withChange(device: ConnectedDevice): ConnectedDeviceChange {
 }
 
 function changed(device: ConnectedDevice): ConnectedDeviceChanged {
-  return new ConnectedDeviceChanged(device.taskId, device.id, device.projectDeviceId, device.state);
+  return new ConnectedDeviceChanged(
+    device.taskId,
+    device.id,
+    device.projectDeviceId,
+    device.state,
+    device.runHolder,
+    device.relayTab,
+  );
 }

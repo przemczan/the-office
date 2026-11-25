@@ -53,6 +53,7 @@ function toActionResponse(action: Action): ActionResponse {
           commandKey: action.settings.commandKey,
           commandsBefore: [...action.settings.commandsBefore],
           timeLimitMinutes: action.settings.timeLimitMinutes,
+          projectDeviceId: action.settings.projectDeviceId,
         },
       };
     case "test-target":

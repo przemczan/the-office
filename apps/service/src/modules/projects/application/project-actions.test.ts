@@ -13,6 +13,7 @@ import type { TestTarget } from "../domain/test-target.js";
 import { InMemoryActionRepository } from "../ports/action-repository.fixtures.js";
 import type { TestTargetRepository } from "../ports/test-target-repository.js";
 import type { ManualWorkflowList, ManualWorkflows } from "./manual-workflows.js";
+import type { ProjectDeviceLines } from "./project-device-lines.js";
 import { ProjectActions } from "./project-actions.js";
 import type { ProjectService } from "./project-service.js";
 
@@ -44,7 +45,12 @@ const BUILD: ActionFields = {
   key: "build-web",
   name: "Build web",
   kind: "project-command",
-  settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: 30 },
+  settings: {
+    commandKey: "build",
+    commandsBefore: ["install"],
+    timeLimitMinutes: 30,
+    projectDeviceId: null,
+  },
   leavesTheWorkstation: false,
 };
 
@@ -87,6 +93,17 @@ function setUp(project: Project = aProject()) {
       return listing;
     },
   };
+  const devices: Pick<ProjectDeviceLines, "of"> = {
+    of: async () => [
+      {
+        id: "device-1",
+        kind: "Android phone",
+        name: "Pixel 9",
+        state: "Paired",
+        androidPhone: true,
+      },
+    ],
+  };
   const repository = new InMemoryActionRepository();
   const events = new EventBus();
   const published: DomainEvent[] = [];
@@ -96,6 +113,7 @@ function setUp(project: Project = aProject()) {
     repository,
     testTargets as TestTargetRepository,
     workflows as ManualWorkflows,
+    devices as ProjectDeviceLines,
     events,
   );
   return {
@@ -119,7 +137,26 @@ async function refusalOf(promise: Promise<unknown>): Promise<readonly string[]> 
   return (error as ProjectRefused).reasons;
 }
 
+const holding = (projectDeviceId: string): ActionFields => ({
+  ...BUILD,
+  settings: { ...BUILD.settings, projectDeviceId },
+});
+
 describe("ProjectActions.change", () => {
+  it("saves a Project command Action holding one of the Project's devices, and refuses another", async () => {
+    const { actions } = setUp();
+    const saved = await actions.change("admin-panel", [holding("device-1")], ANN, ANN_SAVES);
+
+    expect(saved).toEqual([
+      expect.objectContaining({
+        settings: expect.objectContaining({ projectDeviceId: "device-1" }),
+      }),
+    ]);
+    expect(
+      await refusalOf(actions.change("admin-panel", [holding("device-9")], ANN, ANN_SAVES)),
+    ).toEqual([`Action "build-web": device-9 isn't one of «Admin panel»'s devices.`]);
+  });
+
   it("saves the page's list set by the user, Leaves the workstation as sent", async () => {
     const { actions, published } = setUp();
 

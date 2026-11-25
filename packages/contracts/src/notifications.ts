@@ -335,6 +335,7 @@ export const notificationKindSchema = z.enum([
   "outcomes.initiative-done",
   "outcomes.test-instance.running",
   "outcomes.test-instance.built",
+  "outcomes.test-instance.installed",
   "outcomes.test-instance.failed",
   "outcomes.action-run.succeeded",
   "outcomes.action-run.failed",

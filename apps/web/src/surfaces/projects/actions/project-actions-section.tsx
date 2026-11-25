@@ -12,6 +12,7 @@ import { useState, type ReactNode } from "react";
 import { actionRunQueries } from "../../../api/action-runs.ts";
 import { actionQueries, useSaveActions } from "../../../api/actions.ts";
 import { ciRunQueries } from "../../../api/ci-runs.ts";
+import { deviceQueries } from "../../../api/devices.ts";
 import { proposalQueries } from "../../../api/conversations.ts";
 import { projectQueries } from "../../../api/projects.ts";
 import { ACTION_KIND_LABELS } from "../../../shell/action-words.ts";
@@ -87,6 +88,7 @@ export function ProjectActionsSection(): ReactNode {
       before={
         <RunActionButton
           action={action}
+          runEnvironment={project.runEnvironment}
           lastRun={lastRunOf(runs, action.key)}
           onRun={() => setRunning(action.key)}
         />
@@ -207,19 +209,31 @@ export function ProjectActionsSection(): ReactNode {
 }
 
 /**
- * What the Actions' warnings are read against: the Project's test targets, and the workflows on its
- * base branch, read only while one of its Actions is a Workflow.
+ * What the Actions' warnings are read against: the Project's test targets, its devices, and the
+ * workflows on its base branch, each read only while one of its Actions names one.
  */
 function useActionContext(project: Project, actions: readonly Action[] | undefined): ActionContext {
   const targets = useQuery({
     ...projectQueries.testTargets(project.id),
     enabled: actions?.some(({ kind }) => kind === "test-target") ?? false,
   });
+  const devices = useQuery({
+    ...deviceQueries.ofProject(project.id),
+    enabled:
+      actions?.some(
+        (action) => action.kind === "project-command" && action.settings.projectDeviceId !== null,
+      ) ?? false,
+  });
   const workflows = useQuery({
     ...ciRunQueries.workflows(project.id, project.baseBranch),
     enabled: actions?.some(({ kind }) => kind === "workflow") ?? false,
   });
-  return { project, targets: targets.data?.targets, workflows: workflows.data };
+  return {
+    project,
+    targets: targets.data?.targets,
+    devices: devices.data?.devices,
+    workflows: workflows.data,
+  };
 }
 
 /** Removing an Action at once, saved with the whole list; back to the list when it was open. */
@@ -371,7 +385,7 @@ function ActionItem({
             {...parts}
           />
           {tools}
-          <ActionWarnings warnings={warnings} />
+          <ActionWarnings project={project} action={action} warnings={warnings} />
         </>
       )}
     />
@@ -416,7 +430,11 @@ function OpenAction({
           <ActionRunsLine action={action} targets={context.targets} />
         </span>
         {setBy !== undefined && <span className="test-target-set-by">{setBy}</span>}
-        <ActionWarnings warnings={actionWarnings(action, context)} />
+        <ActionWarnings
+          project={project}
+          action={action}
+          warnings={actionWarnings(action, context)}
+        />
       </div>
     </Card>
   );

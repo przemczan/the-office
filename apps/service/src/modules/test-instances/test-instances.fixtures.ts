@@ -11,10 +11,12 @@ import { OfficePort, TestInstanceLimits } from "./application/test-instance-limi
 import { TestInstances } from "./application/test-instances.js";
 import type { LaunchedBy, TestInstance } from "./domain/test-instance.js";
 import { InitiativesForTests } from "./ports/initiatives.fixtures.js";
+import { InstallDevicesForTests } from "./ports/install-devices.fixtures.js";
 import {
   ProjectTestTargetsForTests,
+  type InstallTargetForTests,
   type ProjectForTests,
-  type TargetForTests,
+  type RunTargetForTests,
 } from "./ports/project-test-targets.fixtures.js";
 import { TestInstanceRepositoryForTests } from "./ports/test-instance-repository.fixtures.js";
 import { TestInstanceSettingsForTests } from "./ports/test-instance-settings-store.fixtures.js";
@@ -38,7 +40,7 @@ export const BRANCH_FILES: Readonly<Record<string, string>> = {
   "scripts/start.sh": "#!/bin/sh\nexec node server.js\n",
 };
 
-export const WEB_TARGET: TargetForTests = {
+export const WEB_TARGET: RunTargetForTests = {
   key: "web",
   name: "Web app",
   kind: "hosted",
@@ -54,7 +56,7 @@ export const BUILD_SECRET = "build-s1gning-value";
 /** Where the Build to install target's APKs land in the checkout. */
 export const APK_PATTERN = "app/build/outputs/apk/**/*.apk";
 
-export const BUILD_TARGET: TargetForTests = {
+export const BUILD_TARGET: RunTargetForTests = {
   key: "android",
   name: "Android app",
   kind: "build-to-install",
@@ -62,6 +64,22 @@ export const BUILD_TARGET: TargetForTests = {
   outputPatterns: [APK_PATTERN],
   variables: [{ name: "FLAVOUR", value: "debug" }],
   secretVariables: [{ name: "SIGNING_TOKEN", value: BUILD_SECRET }],
+};
+
+/** A Project device of `shop`'s, a phone over wireless debugging. */
+export const PIXEL = {
+  id: "5d0c7e6a-1b2c-4d3e-8f90-a1b2c3d4e5f6",
+  name: "Pixel",
+  kind: "android-wireless",
+} as const;
+
+/** An Install on a device target of `shop`'s: the Build to install target's files, on the Pixel. */
+export const INSTALL_TARGET: InstallTargetForTests = {
+  key: "phone",
+  name: "Install on Pixel",
+  kind: "install-on-a-device",
+  buildTargetKey: "android",
+  projectDeviceId: PIXEL.id,
 };
 
 /**
@@ -81,6 +99,8 @@ export interface TestInstancesTestbed {
   readonly settings: TestInstanceSettingsForTests;
   readonly initiatives: InitiativesForTests;
   readonly projects: ProjectTestTargetsForTests;
+  /** The Project's devices, "Pixel" among them for `shop`. */
+  readonly devices: InstallDevicesForTests;
   readonly schedule: ManualSchedule;
   readonly events: EventBus;
   readonly officeData: OfficeDataDirectory;
@@ -105,6 +125,8 @@ export function testInstancesTestbed(
   const settings = new TestInstanceSettingsForTests();
   const initiatives = new InitiativesForTests();
   const projects = new ProjectTestTargetsForTests();
+  const devices = new InstallDevicesForTests();
+  devices.put("shop", PIXEL);
   const files = new InstanceFiles(officeData);
   const running = new RunningTestInstances(schedule, settings);
   const retention = new TestBuildRetention(repository, initiatives, files, schedule, events);
@@ -121,6 +143,7 @@ export function testInstancesTestbed(
     events,
     new OfficePort(TESTBED_OFFICE_PORT),
     retention,
+    devices,
   );
   instances.onModuleInit();
   const limits = new TestInstanceLimits(settings, new OfficePort(TESTBED_OFFICE_PORT), events);
@@ -153,6 +176,7 @@ export function testInstancesTestbed(
     settings,
     initiatives,
     projects,
+    devices,
     schedule,
     events,
     officeData,

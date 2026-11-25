@@ -1,6 +1,14 @@
-import type { Action, ActionRun, ActionRunSourceTip } from "@the-office/contracts";
+import type {
+  Action,
+  ActionRun,
+  ActionRunSourceTip,
+  ActionRunStart,
+  ProjectDevice,
+} from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerDeviceTransport, type RequestedDevice } from "../../../api/device-relay.ts";
+import { registerBrowserDeviceTransports } from "../../../shell/devices/device-parts.tsx";
 import {
   buttonNamed,
   closePage,
@@ -10,7 +18,7 @@ import {
   until,
   type Answers,
 } from "../../../shell/page.fixtures.tsx";
-import { aRun, BUILD, INSTALL, RELEASE, uuid } from "./actions.fixtures.ts";
+import { aRun, BUILD, INSTALL, ON_PIXEL, PIXEL, RELEASE, uuid } from "./actions.fixtures.ts";
 import { ProjectActionsSection } from "./project-actions-section.tsx";
 
 vi.mock("../../../shell/ask-devops.tsx", () => ({
@@ -283,6 +291,108 @@ describe("the Run window", () => {
       { source: { kind: "branch", branch: "main" }, commit: TIP.commit },
       { source: { kind: "branch", branch: "main" }, commit: MOVED_TIP.commit },
     ]);
+  });
+});
+
+/** A WebUSB stand-in that opens Pixel 8 without the picker; answers how often it was let go. */
+function allowedPixel(): { readonly released: () => number; readonly remove: () => void } {
+  // The browser's own transports first, so the stand-in, registered last, is the one used.
+  registerBrowserDeviceTransports();
+  let released = 0;
+  const pixel: RequestedDevice = {
+    name: PIXEL.name,
+    deviceKey: PIXEL.deviceKey,
+    attach: () => {
+      throw new Error("Not attached in this test");
+    },
+    onUnplugged: () => () => undefined,
+    release: () => {
+      released += 1;
+    },
+  };
+  const remove = registerDeviceTransport({
+    kind: "android-usb",
+    request: () => Promise.resolve(pixel),
+    remembered: () => Promise.resolve(pixel),
+  });
+  return { released: () => released, remove };
+}
+
+describe("a run that holds a device over USB", () => {
+  const PIXEL_OVER_USB: ProjectDevice = {
+    ...PIXEL,
+    kind: "android-usb",
+    address: null,
+    port: null,
+    state: "over-usb",
+  };
+  const devices = { "GET /api/projects/admin-panel/devices": ok({ devices: [PIXEL_OVER_USB] }) };
+  const RUNS = `POST ${ACTIONS_PATH}/${ON_PIXEL.key}/runs`;
+
+  it("disables Run in a browser that can't reach the device", async () => {
+    serving([ON_PIXEL], {}, devices);
+    const page = await opened();
+
+    press(buttonNamed(rowOf(page, ON_PIXEL.name), `Run ${ON_PIXEL.name}`));
+    const window = dialogNamed(`Run ${ON_PIXEL.name}`);
+    await until(() =>
+      expect(shownText(window)).toContain("Needs Chrome or Edge to reach Pixel 8."),
+    );
+    expect(buttonNamed(window, "Run")?.disabled).toBe(true);
+  });
+
+  it("opens the device, names this tab in the start, and tells the user to keep it open", async () => {
+    const pixel = allowedPixel();
+    const sent = serving(
+      [ON_PIXEL],
+      {},
+      {
+        ...devices,
+        [RUNS]: () => ({
+          status: 200,
+          body: aRun(uuid(7), { actionKey: ON_PIXEL.key, outcome: null, endedAt: null }),
+        }),
+      },
+    );
+    const page = await opened();
+
+    press(buttonNamed(rowOf(page, ON_PIXEL.name), `Run ${ON_PIXEL.name}`));
+    const window = dialogNamed(`Run ${ON_PIXEL.name}`);
+    await until(() =>
+      expect(shownText(window)).toContain("Keep this tab open until the run lets go of Pixel 8."),
+    );
+    press(buttonNamed(window, "Run"));
+
+    await until(() => expect(sent.some(({ request }) => request === RUNS)).toBe(true));
+    const start = sent.find(({ request }) => request === RUNS)?.body as ActionRunStart;
+    expect(start.relayTab).toMatch(/^[0-9a-f-]{36}$/);
+    expect(pixel.released()).toBe(0);
+    pixel.remove();
+  });
+
+  it("lets the device go when the start is refused", async () => {
+    const pixel = allowedPixel();
+    serving(
+      [ON_PIXEL],
+      {},
+      {
+        ...devices,
+        [RUNS]: () => ({ status: 409, body: { message: "Pixel 8 is in use by Fix the login." } }),
+      },
+    );
+    const page = await opened();
+
+    press(buttonNamed(rowOf(page, ON_PIXEL.name), `Run ${ON_PIXEL.name}`));
+    const window = dialogNamed(`Run ${ON_PIXEL.name}`);
+    await until(() => expect(buttonNamed(window, "Run")?.disabled).toBe(false));
+    await until(() => expect(shownText(window)).toContain("Keep this tab open"));
+    press(buttonNamed(window, "Run"));
+
+    await until(() =>
+      expect(document.body.textContent).toContain("Pixel 8 is in use by Fix the login."),
+    );
+    expect(pixel.released()).toBe(1);
+    pixel.remove();
   });
 });
 

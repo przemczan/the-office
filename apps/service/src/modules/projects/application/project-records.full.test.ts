@@ -301,7 +301,12 @@ describe("ProjectRecords.of", () => {
             key: "build-web",
             name: "Build web",
             kind: "project-command",
-            settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: null },
+            settings: {
+              commandKey: "build",
+              commandsBefore: ["install"],
+              timeLimitMinutes: null,
+              projectDeviceId: null,
+            },
             leavesTheWorkstation: false,
             setBy: { name: ann, kind: ann, settings: ann, leavesTheWorkstation: ann },
           },
@@ -335,6 +340,58 @@ describe("ProjectRecords.of", () => {
     ]);
   });
 
+  it("names the device an Install on a device target installs on and a Project command Action holds", async () => {
+    const records = recordsOver([aProject()], {
+      devices: {
+        "admin-panel": [
+          {
+            id: "device-1",
+            kind: "Android phone over USB",
+            name: "Pixel 9",
+            state: "Over USB",
+            androidPhone: true,
+          },
+        ],
+      },
+      testTargets: {
+        "admin-panel": [
+          {
+            key: "phone",
+            name: "Install on the phone",
+            kind: "install-on-a-device",
+            buildTargetKey: "android",
+            projectDeviceId: "device-1",
+            setBy: {},
+          },
+        ],
+      },
+      actions: {
+        "admin-panel": [
+          {
+            key: "build-web",
+            name: "Build web",
+            kind: "project-command",
+            settings: {
+              commandKey: "build",
+              commandsBefore: [],
+              timeLimitMinutes: null,
+              projectDeviceId: "device-1",
+            },
+            leavesTheWorkstation: false,
+            setBy: {},
+          },
+        ],
+      },
+    });
+
+    const record = (await records.of("admin-panel")) ?? "";
+
+    expect(record).toContain(
+      "  - phone (Install on the phone, Install on a device): Installs android on Pixel 9 (device-1); set by: name unknown, kind unknown, Build to install target unknown, device unknown",
+    );
+    expect(record).toContain("holds Pixel 9 (device-1) while it runs");
+  });
+
   it("names each Action's last run as the Actions module's registered reader gives it", async () => {
     const records = recordsOver([aProject()], {
       actions: {
@@ -343,7 +400,12 @@ describe("ProjectRecords.of", () => {
             key: "build-web",
             name: "Build web",
             kind: "project-command",
-            settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: 15 },
+            settings: {
+              commandKey: "build",
+              commandsBefore: [],
+              timeLimitMinutes: 15,
+              projectDeviceId: null,
+            },
             leavesTheWorkstation: false,
             setBy: {},
           },
@@ -351,7 +413,12 @@ describe("ProjectRecords.of", () => {
             key: "lint",
             name: "Lint",
             kind: "project-command",
-            settings: { commandKey: "lint", commandsBefore: [], timeLimitMinutes: null },
+            settings: {
+              commandKey: "lint",
+              commandsBefore: [],
+              timeLimitMinutes: null,
+              projectDeviceId: null,
+            },
             leavesTheWorkstation: false,
             setBy: {},
           },
@@ -381,8 +448,15 @@ describe("ProjectRecords.of", () => {
             kind: "Android phone over wireless debugging",
             name: "Pixel 9",
             state: "In use by Install on the phone",
+            androidPhone: true,
           },
-          { id: "device-2", kind: "Serial board over USB", name: "Arduino Uno", state: "Over USB" },
+          {
+            id: "device-2",
+            kind: "Serial board over USB",
+            name: "Arduino Uno",
+            state: "Over USB",
+            androidPhone: false,
+          },
         ],
       },
     });
@@ -401,12 +475,24 @@ describe("ProjectRecords.of", () => {
     lines.register(() => Promise.reject(new Error("The database is down.")));
     lines.register(() =>
       Promise.resolve([
-        { id: "device-1", kind: "Serial board over USB", name: "Uno", state: "Over USB" },
+        {
+          id: "device-1",
+          kind: "Serial board over USB",
+          name: "Uno",
+          state: "Over USB",
+          androidPhone: false,
+        },
       ]),
     );
 
     expect(await lines.of("admin-panel")).toEqual([
-      { id: "device-1", kind: "Serial board over USB", name: "Uno", state: "Over USB" },
+      {
+        id: "device-1",
+        kind: "Serial board over USB",
+        name: "Uno",
+        state: "Over USB",
+        androidPhone: false,
+      },
     ]);
   });
 

@@ -1,20 +1,35 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { BusyWork } from "../../office-updates/index.js";
-import { failedRun, shortCommit, succeededRun, type ActionRun } from "../domain/action-run.js";
+import {
+  failedRun,
+  runName,
+  shortCommit,
+  succeededRun,
+  type ActionRun,
+} from "../domain/action-run.js";
 import { ActionRunRefused } from "../domain/action-run-refused.js";
 import {
   commandsGone,
   couldNotRun,
+  deviceLetGoOf,
   exitCodeWords,
   ranOutOfTime,
 } from "../domain/action-run-words.js";
+import {
+  ActionDevices,
+  type ActionDevice,
+  type ActionDeviceHoldDisconnected,
+} from "../ports/action-devices.js";
 import {
   ActionProjects,
   type CommandRunSettings,
   type RunProject,
 } from "../ports/action-projects.js";
-import { CommandRunEnvironments } from "../ports/command-run-environments.js";
+import {
+  CommandRunEnvironments,
+  type RunInEnvironment,
+} from "../ports/command-run-environments.js";
 import { ActionRunLogs, type LineMask } from "./action-run-logs.js";
 import { ActionRunRecords } from "./action-run-records.js";
 import { RunsInBackground } from "./runs-in-background.js";
@@ -25,6 +40,20 @@ interface CommandsEnd {
   readonly name: string;
   readonly exitCode: number | undefined;
   readonly endedBy?: "timeout" | "stop" | "could-not-run";
+}
+
+/** The Project device a command run holds, and the tab that relays it over USB. */
+export interface CommandRunDevice extends ActionDevice {
+  readonly relayTab: string | undefined;
+}
+
+/** A run going on here: its abort, and the device it holds, if any. */
+interface GoingRun {
+  readonly run: ActionRun;
+  readonly controller: AbortController;
+  readonly device: CommandRunDevice | undefined;
+  /** Its hold's id once the device is held, until the run lets go of it. */
+  holdId?: string | undefined;
 }
 
 /**
@@ -38,7 +67,7 @@ interface CommandsEnd {
 export class CommandRuns {
   private readonly logger = new Logger(CommandRuns.name);
   /** Each run going on here, aborted as it stops. */
-  private readonly going = new Map<string, AbortController>();
+  private readonly going = new Map<string, GoingRun>();
 
   constructor(
     private readonly projects: ActionProjects,
@@ -48,21 +77,23 @@ export class CommandRuns {
     private readonly schedule: Schedule,
     private readonly background: RunsInBackground,
     private readonly busyWork: BusyWork,
+    private readonly devices: ActionDevices,
   ) {}
 
   /**
    * Runs it in the background; the row is Running already. A scheduled Office update waits for it,
-   * as for a Script Stage (spec §5.1.2).
+   * as for a Script Stage (spec §5.1.2). A run given a device holds it in its compose project
+   * before its first command and lets go of it as it ends.
    */
-  begin(run: ActionRun, project: RunProject): void {
+  begin(run: ActionRun, project: RunProject, device?: CommandRunDevice): void {
     const controller = new AbortController();
-    this.going.set(run.id, controller);
+    this.going.set(run.id, { run, controller, device });
     const endBusyWork = this.busyWork.begin({
       kind: "action-run",
       label: `The Action ${run.actionName} on ${project.name}`,
     });
     this.background.start(`The Action run ${run.id} didn't run.`, () =>
-      this.ran(run, project, controller.signal).finally(() => {
+      this.ran(run, project, device, controller.signal).finally(() => {
         this.going.delete(run.id);
         endBusyWork();
       }),
@@ -75,7 +106,7 @@ export class CommandRuns {
    */
   async halt(runId: string): Promise<void> {
     const going = this.going.get(runId);
-    going?.abort();
+    going?.controller.abort();
     // Its compose project, if it has one, is taken down now: what runs in it ends with it.
     await this.environments.stop(runId).catch((error: unknown) => {
       this.logger.error(`The compose project of the Action run ${runId} wasn't removed.`, error);
@@ -86,6 +117,30 @@ export class CommandRuns {
   /** Whether the run goes on here: started since The Office started. */
   isGoing(runId: string): boolean {
     return this.going.has(runId);
+  }
+
+  /** The run going on here that names the Project device, held yet or not; undefined for none. */
+  runNaming(projectDeviceId: string): ActionRun | undefined {
+    for (const { run, device } of this.going.values()) {
+      if (device?.id === projectDeviceId) return run;
+    }
+    return undefined;
+  }
+
+  /**
+   * A run's hold was Disconnected: when something else ended it while the run held it (Run
+   * environment turned Off, the tab closed, the device unplugged), the run stops Failed, naming
+   * why, and what it started is removed; its own letting go changes nothing.
+   */
+  async holdDisconnected({ actionRunId, holdId }: ActionDeviceHoldDisconnected): Promise<void> {
+    const going = this.going.get(actionRunId);
+    if (going?.holdId !== holdId || going.device === undefined) return;
+    const why = await this.devices.endedFromOutside(holdId);
+    if (why === undefined || going.holdId !== holdId || going.controller.signal.aborted) return;
+    going.holdId = undefined;
+    going.controller.abort();
+    await this.fail(going.run, deviceLetGoOf(going.device.name, why), undefined);
+    await this.halt(actionRunId);
   }
 
   /**
@@ -102,7 +157,12 @@ export class CommandRuns {
     }
   }
 
-  private async ran(run: ActionRun, project: RunProject, signal: AbortSignal): Promise<void> {
+  private async ran(
+    run: ActionRun,
+    project: RunProject,
+    device: CommandRunDevice | undefined,
+    signal: AbortSignal,
+  ): Promise<void> {
     let mask: LineMask | undefined;
     try {
       const settings = await this.projects.commandRunOf(run.projectId, run.actionKey);
@@ -124,7 +184,7 @@ export class CommandRuns {
       );
       if (signal.aborted) return;
       const end = project.runEnvironmentOn
-        ? await this.inEnvironment(run, checkout, settings, signal)
+        ? await this.inEnvironment(run, checkout, settings, device, signal)
         : await this.onWorkstation(run, settings, signal);
       if (signal.aborted || end.endedBy === "stop") return;
       await this.ended(run, end, settings);
@@ -149,6 +209,7 @@ export class CommandRuns {
     run: ActionRun,
     checkout: string,
     settings: CommandRunSettings,
+    device: CommandRunDevice | undefined,
     signal: AbortSignal,
   ): Promise<CommandsEnd> {
     const office = officeVariables(run);
@@ -175,7 +236,49 @@ export class CommandRuns {
       mask: settings.mask,
       timeoutMs: settings.timeoutMs,
       signal,
+      ...(device === undefined
+        ? {}
+        : {
+            withDeviceHelper: true,
+            onEnvironment: (environment) => this.held(run, device, environment, settings),
+          }),
     });
+  }
+
+  /**
+   * Holds the run's device in its compose project, before its first command (spec §5.5, "An
+   * Action run's checkout"): its variables for every command, let go of as the run ends. Not
+   * held, the run fails in Devices' words, nothing run.
+   */
+  private async held(
+    run: ActionRun,
+    device: CommandRunDevice,
+    environment: Parameters<NonNullable<RunInEnvironment["onEnvironment"]>>[0],
+    settings: CommandRunSettings,
+  ): Promise<{ variables: readonly { name: string; value: string }[]; release(): Promise<void> }> {
+    await this.logs.note(run.id, `Holding ${device.name}.`, settings.mask);
+    const hold = await this.devices.hold({
+      projectId: run.projectId,
+      projectDeviceId: device.id,
+      actionRunId: run.id,
+      holderName: runName(run),
+      startedBy: run.startedBy,
+      environment,
+      relayTab: device.relayTab,
+      signal: environment.signal,
+    });
+    if (!hold.held) throw new ActionRunRefused([hold.problem]);
+    const { holdId } = hold;
+    const going = this.going.get(run.id);
+    if (going !== undefined) going.holdId = holdId;
+    return {
+      variables: hold.variables,
+      release: async () => {
+        // Forgotten first: its own letting go isn't an end from outside.
+        if (going?.holdId === holdId) going.holdId = undefined;
+        await this.devices.letGo(holdId);
+      },
+    };
   }
 
   private async onWorkstation(

@@ -159,8 +159,8 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     ...engineLines(project, surroundings.engines),
     `- Project skills: ${projectSkillsWords(project)}`,
     `- Server values: ${serverValuesWords(serverValues)}`,
-    ...testTargetLines(testTargets),
-    ...actionLines(actions, lastRuns),
+    ...testTargetLines(testTargets, devices),
+    ...actionLines(actions, lastRuns, devices),
     ...deviceLines(devices),
   ].join("\n");
 }
@@ -196,14 +196,27 @@ const TEST_TARGET_FIELD_WORDS: Readonly<Record<TestTargetField, string>> = {
   commandsBefore: "commands before the entry point",
   portVariable: "port variable",
   memoryMegabytes: "memory per service",
+  buildTargetKey: "Build to install target",
+  projectDeviceId: "device",
 };
 
 /** Each target with who set each value last; a Secret variable by name alone (spec §2.12). */
-function testTargetLines(targets: readonly TestTarget[]): string[] {
+function testTargetLines(
+  targets: readonly TestTarget[],
+  devices: readonly ProjectDeviceLine[],
+): string[] {
   if (targets.length === 0) return ["- Test targets: none"];
   return [
     "- Test targets:",
     ...targets.map((target) => {
+      if (target.kind === "install-on-a-device") {
+        const device = devices.find(({ id }) => id === target.projectDeviceId);
+        const on = device ? `${device.name} (${target.projectDeviceId})` : target.projectDeviceId;
+        return [
+          `  - ${target.key} (${target.name}, ${TEST_TARGET_KIND_NAMES[target.kind]}): Installs ${target.buildTargetKey} on ${on}`,
+          `set by: ${setByWords(target)}`,
+        ].join("; ");
+      }
       const own =
         target.kind === "build-to-install"
           ? `output files ${listed(target.outputPatterns)}`
@@ -237,6 +250,7 @@ const ACTION_FIELD_WORDS: Readonly<Record<ActionField, string>> = {
 function actionLines(
   actions: readonly Action[],
   lastRuns: ReadonlyMap<string, ActionLastRun>,
+  devices: readonly ProjectDeviceLine[],
 ): string[] {
   if (actions.length === 0) return ["- Actions: none"];
   return [
@@ -247,7 +261,7 @@ function actionLines(
         return `${ACTION_FIELD_WORDS[field]} ${setter ? setterWords(setter) : "unknown"}`;
       }).join(", ");
       return [
-        `  - ${action.key} (${action.name}, ${ACTION_KIND_NAMES[action.kind]}): ${actionSettingsWords(action)}`,
+        `  - ${action.key} (${action.name}, ${ACTION_KIND_NAMES[action.kind]}): ${actionSettingsWords(action, devices)}`,
         action.leavesTheWorkstation ? "leaves the workstation" : "stays on the workstation",
         `set by: ${setBy}`,
         `last run: ${lastRunWords(lastRuns.get(action.key))}`,
@@ -262,15 +276,19 @@ function lastRunWords(lastRun: ActionLastRun | undefined): string {
     : `${lastRun.state}, started ${lastRun.startedAt.toISOString()}`;
 }
 
-function actionSettingsWords(action: Action): string {
+function actionSettingsWords(action: Action, devices: readonly ProjectDeviceLine[]): string {
   switch (action.kind) {
     case "project-command": {
-      const { commandKey, commandsBefore, timeLimitMinutes } = action.settings;
+      const { commandKey, commandsBefore, timeLimitMinutes, projectDeviceId } = action.settings;
       const limit =
         timeLimitMinutes === null
           ? `the default ${ACTION_TIME_LIMIT_MINUTES.default} minutes`
           : `${timeLimitMinutes} minutes`;
-      return `command ${commandKey}; commands before it ${listed(commandsBefore)}; time limit ${limit}`;
+      const device =
+        projectDeviceId === null
+          ? ""
+          : `; holds ${devices.find(({ id }) => id === projectDeviceId)?.name ?? "a device"} (${projectDeviceId}) while it runs`;
+      return `command ${commandKey}; commands before it ${listed(commandsBefore)}; time limit ${limit}${device}`;
     }
     case "test-target":
       return `test target ${action.settings.targetKey}`;

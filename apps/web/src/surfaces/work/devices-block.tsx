@@ -40,6 +40,7 @@ import {
 } from "../../shell/devices/device-relays.ts";
 import { DEVICE_KIND_WORDS, KEEP_TAB_OPEN } from "../../shell/devices/device-words.ts";
 import {
+  holderName,
   isOverUsb,
   PROJECT_DEVICE_STATE_TONES,
   PROJECT_DEVICE_STATE_WORDS,
@@ -71,7 +72,7 @@ import {
   serialLineWords,
   USE_PROJECT_DEVICE,
 } from "./device-words.ts";
-import { openProjectDeviceOverUsb } from "./project-device-lend.ts";
+import { openProjectDeviceOverUsb } from "../../shell/devices/project-device-over-usb.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
 import { WirelessPairingForm } from "./wireless-pairing-form.tsx";
@@ -490,7 +491,7 @@ function projectDeviceChoice(
       label: (
         <span className="devices-kind">
           {head}
-          <span className="devices-kind-why">{inUseByWords(device.inUseBy.title)}</span>
+          <span className="devices-kind-why">{inUseByWords(holderName(device.inUseBy))}</span>
         </span>
       ),
     };

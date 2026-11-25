@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { entryPointProblems, sameEntryPoint, type EntryPointTree } from "../domain/entry-point.js";
+import {
+  entryPointProblems,
+  sameEntryPoint,
+  type EntryPoint,
+  type EntryPointTree,
+} from "../domain/entry-point.js";
 import { OutputMask } from "../domain/output-mask.js";
 import { INSTALL_COMMAND_KEY, type Project } from "../domain/project.js";
 import type { ProjectVariable } from "../domain/project-environment.js";
@@ -14,34 +19,45 @@ import {
   appliedTargets,
   proposedTestTargets,
   proposedTestTargetsProblems,
-  type ProposedTestTargetFields,
   type ProposedTestTargets,
   type TestTargetsToPropose,
 } from "../domain/proposed-test-targets.js";
 import {
   editedTestTargets,
+  installTargetProblems,
   sameTestTargets,
   secretsWithoutValue,
   setByAfter,
   testTargetLabel,
   testTargetProblems,
+  type DeviceForTarget,
   type EditedTestTarget,
+  type InstallTestTarget,
+  type RunTestTarget,
   type TestTarget,
   type TestTargetSetter,
 } from "../domain/test-target.js";
 import { TestTargetRepository } from "../ports/test-target-repository.js";
 import { CommittedFiles } from "./committed-files.js";
 import { DevcontainerServices } from "./devcontainer-services.js";
+import { ProjectDeviceLines } from "./project-device-lines.js";
 import { ensureFeatureOn } from "./project-features.js";
 import { ProjectService } from "./project-service.js";
 
 /**
- * What launching a test target needs (spec §2.12): the target as kept, whether the Project's Run
- * environment is On, and the target's own variables with their values, the only ones a test
- * instance gets (spec §6, "Test instances"), never the Project's environment.
+ * What launching a test target needs (spec §2.12): by its kind, a run target's settings or an
+ * Install on a device target's, which asks for the Build to install target's launch settings too.
  */
-export interface TestTargetLaunchSettings {
-  readonly target: TestTarget;
+export type TestTargetLaunchSettings = RunTargetLaunchSettings | InstallTargetLaunchSettings;
+
+/**
+ * What launching a Hosted or Build to install target needs: the target as kept, whether the
+ * Project's Run environment is On, and the target's own variables with their values, the only ones
+ * a test instance gets (spec §6, "Test instances"), never the Project's environment.
+ */
+export interface RunTargetLaunchSettings {
+  readonly kind: RunTestTarget["kind"];
+  readonly target: RunTestTarget;
   readonly runEnvironmentOn: boolean;
   /** The target's variables, then each Secret variable with a value, `secret` set. */
   readonly variables: readonly ProjectVariable[];
@@ -62,6 +78,25 @@ export interface TestTargetLaunchSettings {
   readonly memoryMegabytes: number | undefined;
 }
 
+/**
+ * What launching an Install on a device target needs: the target, the Project device it installs
+ * on and the launch settings of the Build to install target whose files it installs.
+ */
+export interface InstallTargetLaunchSettings {
+  readonly kind: "install-on-a-device";
+  readonly target: InstallTestTarget;
+  readonly runEnvironmentOn: boolean;
+  /** The Build to install target's key, as the target names it. */
+  readonly buildTargetKey: string;
+  /** The Project device's id, as the target names it; the device may be gone since it was saved. */
+  readonly projectDeviceId: string;
+  /**
+   * The Build to install target's launch settings, to launch its build; undefined when the Project
+   * has no Build to install target of that key now.
+   */
+  readonly build: RunTargetLaunchSettings | undefined;
+}
+
 /** One of the Project's commands as a launch runs it before the entry point. */
 export interface TestTargetCommandBefore {
   readonly key: string;
@@ -71,7 +106,10 @@ export interface TestTargetCommandBefore {
 }
 
 /** A target, or a Proposal's, whose entry point is checked against a commit. */
-type EntryPointOwner = Pick<ProposedTestTargetFields, "key" | "entryPoint">;
+interface EntryPointOwner {
+  readonly key: string;
+  readonly entryPoint: EntryPoint;
+}
 
 /**
  * A Project's test targets (spec §2.12): written whole on the Project page or by an applied
@@ -85,6 +123,7 @@ export class TestTargets {
     private readonly repository: TestTargetRepository,
     private readonly files: CommittedFiles,
     private readonly devcontainerServices: DevcontainerServices,
+    private readonly devices: ProjectDeviceLines,
     private readonly events: EventBus,
   ) {}
 
@@ -114,6 +153,7 @@ export class TestTargets {
     const commandKeys = keysOf(project);
     // Fetched before the Project is held, so no fetch runs while other changes wait.
     const before = await this.repository.listOf(projectId);
+    const devices = await this.devicesFor(projectId, edit);
     const freshBase =
       entryPointsChanged(before, editedTestTargets(before, edit)).length > 0
         ? await this.files.freshBase(projectId)
@@ -122,7 +162,10 @@ export class TestTargets {
       projectId,
       async (stored) => {
         const edited = editedTestTargets(stored, edit);
-        const problems = testTargetProblems(edited, commandKeys);
+        const problems = [
+          ...testTargetProblems(edited, commandKeys),
+          ...installTargetProblems(edited, project.name, devices, devicesChanged(stored, edited)),
+        ];
         if (problems.length > 0) throw new ProjectRefused(problems);
         const toCheck = entryPointsChanged(stored, edited);
         if (toCheck.length > 0) {
@@ -162,7 +205,7 @@ export class TestTargets {
     const commandKeys = keysOf(project);
     const current = await this.repository.listOf(projectId);
     const proposed = proposedTestTargets(current, given);
-    const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
+    const problems = await this.proposedProblemsOf(project, current, proposed, commandKeys);
     if (problems.length > 0) throw new ProjectRefused(problems);
     const entryProblems = await this.proposedEntryPointsProblems(projectId, proposed);
     if (entryProblems.length > 0) throw new ProjectRefused(entryProblems);
@@ -175,7 +218,8 @@ export class TestTargets {
     if (!project) return [new ProjectNotFound(projectId).message];
     if (!isFeatureOn(project, "test-targets"))
       return [switchedOffWords("test-targets", project.name)];
-    const problems = proposedTestTargetsProblems(
+    const problems = await this.proposedProblemsOf(
+      project,
       await this.repository.listOf(projectId),
       proposed,
       keysOf(project),
@@ -205,10 +249,17 @@ export class TestTargets {
     const commandKeys = keysOf(project);
     const toCheck = entryPointsProposed(proposed);
     const commit = toCheck.length > 0 ? await this.files.freshBase(projectId) : undefined;
+    const devices = await this.devicesFor(projectId, appliedTargets([], proposed));
     await this.repository.update(
       projectId,
       async (current) => {
-        const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
+        const problems = this.proposedProblemsWith(
+          project,
+          current,
+          proposed,
+          commandKeys,
+          devices,
+        );
         if (problems.length > 0) throw new ProjectRefused(problems);
         if (commit !== undefined) {
           const entryProblems = await this.entryPointsProblems(projectId, commit, toCheck);
@@ -232,43 +283,69 @@ export class TestTargets {
   async entryPointProblemsAt(projectId: string, commit: string, key: string): Promise<string[]> {
     const target = (await this.list(projectId)).find((each) => each.key === key);
     if (!target) return [`The Project has no test target with the key "${key}".`];
-    return this.entryPointsProblems(projectId, commit, [target]);
+    // Install on a device has none: it installs the files of a Build to install target's build.
+    return "entryPoint" in target ? this.entryPointsProblems(projectId, commit, [target]) : [];
   }
 
   /**
    * What a launch of the target `key` needs, its Secret variables' values among them, which never
-   * leave the service. Refused (ProjectRefused) when the Project has no such target, and
+   * leave the service; an Install on a device target's carries the launch settings of the Build to
+   * install target it names, too. Refused (ProjectRefused) when the Project has no such target, and
    * (FeatureSwitchedOff) while it has Test targets switched off.
    */
   async launchSettingsOf(projectId: string, key: string): Promise<TestTargetLaunchSettings> {
     const project = await this.projects.read(projectId);
     ensureFeatureOn(project, "test-targets");
-    const target = (await this.repository.listOf(projectId)).find((each) => each.key === key);
+    const targets = await this.repository.listOf(projectId);
+    const target = targets.find((each) => each.key === key);
     if (!target)
       throw new ProjectRefused([`The Project has no test target with the key "${key}".`]);
-    const secrets = target.secretVariables.flatMap(({ name, value }) =>
-      value === null ? [] : [{ name, value, secret: true }],
-    );
-    const runnable = runnableCommandsOf(project);
-    const commandsBefore = target.commandsBefore.flatMap((commandKey) =>
-      runnable.filter((each) => each.key === commandKey),
+    if (target.kind !== "install-on-a-device") return runLaunchSettingsOf(project, target);
+    const build = targets.find(
+      (each) => each.key === target.buildTargetKey && each.kind === "build-to-install",
     );
     return {
+      kind: target.kind,
       target,
       runEnvironmentOn: project.runEnvironment === "on",
-      commandsBefore,
-      missingCommands: target.commandsBefore.filter(
-        (commandKey) => !runnable.some((each) => each.key === commandKey),
-      ),
-      portVariable: target.kind === "build-to-install" ? undefined : target.portVariable,
-      memoryMegabytes: target.memoryMegabytes ?? undefined,
-      variables: [
-        ...target.variables.map(({ name, value }) => ({ name, value, secret: false })),
-        ...secrets,
-      ],
-      secretsWithoutValue: secretsWithoutValue(target),
-      mask: OutputMask.ofSecrets(secrets),
+      buildTargetKey: target.buildTargetKey,
+      projectDeviceId: target.projectDeviceId,
+      build: build && "entryPoint" in build ? runLaunchSettingsOf(project, build) : undefined,
     };
+  }
+
+  /** The Project's devices, asked for only when one of `targets` is an Install on a device. */
+  private async devicesFor(
+    projectId: string,
+    targets: readonly { readonly kind: string }[],
+  ): Promise<readonly DeviceForTarget[]> {
+    return targets.some(({ kind }) => kind === "install-on-a-device")
+      ? this.devices.of(projectId)
+      : [];
+  }
+
+  /** The Proposal's problems by the page's rules, then what its Install on a device targets name. */
+  private async proposedProblemsOf(
+    project: Project,
+    current: readonly TestTarget[],
+    proposed: ProposedTestTargets,
+    commandKeys: readonly string[],
+  ): Promise<string[]> {
+    const devices = await this.devicesFor(project.id, appliedTargets([], proposed));
+    return this.proposedProblemsWith(project, current, proposed, commandKeys, devices);
+  }
+
+  private proposedProblemsWith(
+    project: Project,
+    current: readonly TestTarget[],
+    proposed: ProposedTestTargets,
+    commandKeys: readonly string[],
+    devices: readonly DeviceForTarget[],
+  ): string[] {
+    const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
+    if (problems.length > 0) return problems;
+    const applied = appliedTargets(current, proposed);
+    return installTargetProblems(applied, project.name, devices, devicesChanged(current, applied));
   }
 
   private async proposedEntryPointsProblems(
@@ -328,20 +405,67 @@ export function runnableCommandsOf(project: Project): TestTargetCommandBefore[] 
   ];
 }
 
-/** The targets of `edited` added, or whose entry point changed from `stored`'s. */
+/** What launching `target` needs: its own settings, as the Project is now. */
+function runLaunchSettingsOf(project: Project, target: RunTestTarget): RunTargetLaunchSettings {
+  const secrets = target.secretVariables.flatMap(({ name, value }) =>
+    value === null ? [] : [{ name, value, secret: true }],
+  );
+  const runnable = runnableCommandsOf(project);
+  return {
+    kind: target.kind,
+    target,
+    runEnvironmentOn: project.runEnvironment === "on",
+    commandsBefore: target.commandsBefore.flatMap((commandKey) =>
+      runnable.filter((each) => each.key === commandKey),
+    ),
+    missingCommands: target.commandsBefore.filter(
+      (commandKey) => !runnable.some((each) => each.key === commandKey),
+    ),
+    portVariable: target.kind === "build-to-install" ? undefined : target.portVariable,
+    memoryMegabytes: target.memoryMegabytes ?? undefined,
+    variables: [
+      ...target.variables.map(({ name, value }) => ({ name, value, secret: false })),
+      ...secrets,
+    ],
+    secretsWithoutValue: secretsWithoutValue(target),
+    mask: OutputMask.ofSecrets(secrets),
+  };
+}
+
+/** The targets of `edited` that run an entry point, added or with one changed from `stored`'s. */
 function entryPointsChanged(
   stored: readonly TestTarget[],
   edited: readonly TestTarget[],
-): TestTarget[] {
-  return edited.filter((target) => {
+): RunTestTarget[] {
+  return edited.flatMap((target) => {
+    if (!("entryPoint" in target)) return [];
     const before = stored.find(({ key }) => key === target.key);
-    return !before || !sameEntryPoint(before.entryPoint, target.entryPoint);
+    return before && "entryPoint" in before && sameEntryPoint(before.entryPoint, target.entryPoint)
+      ? []
+      : [target];
+  });
+}
+
+/** The keys of the Install on a device targets of `edited` added, or whose device changed. */
+function devicesChanged(stored: readonly TestTarget[], edited: readonly TestTarget[]): string[] {
+  return edited.flatMap((target) => {
+    if (target.kind !== "install-on-a-device") return [];
+    const before = stored.find(({ key }) => key === target.key);
+    return before?.kind === "install-on-a-device" &&
+      before.projectDeviceId === target.projectDeviceId
+      ? []
+      : [target.key];
   });
 }
 
 /** The targets a Proposal adds, or whose entry point it changes. */
 function entryPointsProposed(proposed: ProposedTestTargets): EntryPointOwner[] {
-  return proposed.targets.flatMap(({ from, to }) =>
-    to !== null && (from === null || !sameEntryPoint(from.entryPoint, to.entryPoint)) ? [to] : [],
-  );
+  return proposed.targets.flatMap(({ from, to }) => {
+    if (to === null || !("entryPoint" in to)) return [];
+    return from === null ||
+      !("entryPoint" in from) ||
+      !sameEntryPoint(from.entryPoint, to.entryPoint)
+      ? [to]
+      : [];
+  });
 }

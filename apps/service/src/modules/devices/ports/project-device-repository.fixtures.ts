@@ -1,9 +1,27 @@
+import type { ConnectedDevice } from "../domain/connected-device.js";
 import type { ProjectDevice, ProjectDeviceChange } from "../domain/project-device.js";
-import { ProjectDeviceRepository, type ProjectDeviceUpdate } from "./project-device-repository.js";
+import type { ConnectedDeviceRepository } from "./connected-device-repository.js";
+import { ConnectedDevicesForTests } from "./connected-device-repository.fixtures.js";
+import {
+  ProjectDeviceRepository,
+  type LockedProjectDevice,
+  type ProjectDeviceUpdate,
+} from "./project-device-repository.js";
 
-/** Project devices in memory, a device key unique per Project as the index holds it. */
+/**
+ * Project devices in memory, a device key unique per Project as the index holds it, and each
+ * device's lock one unit of work at a time, over the Connected device records given.
+ */
 export class ProjectDevicesForTests extends ProjectDeviceRepository {
   readonly devices = new Map<string, ProjectDevice>();
+  /** The last unit of work queued for each device's lock. */
+  private readonly locks = new Map<string, Promise<unknown>>();
+
+  constructor(
+    private readonly records: ConnectedDeviceRepository = new ConnectedDevicesForTests(),
+  ) {
+    super();
+  }
 
   insert(device: ProjectDevice): Promise<"kept" | "device-key-taken"> {
     if (this.keyTaken(device)) return Promise.resolve("device-key-taken");
@@ -44,10 +62,37 @@ export class ProjectDevicesForTests extends ProjectDeviceRepository {
     return Promise.resolve(this.devices.delete(id));
   }
 
+  withDeviceLocked<Result>(
+    id: string,
+    work: (locked: LockedProjectDevice | undefined) => Promise<Result>,
+  ): Promise<Result> {
+    const previous = this.locks.get(id) ?? Promise.resolve();
+    const next = previous.then(
+      () => work(this.lockedOf(id)),
+      () => work(this.lockedOf(id)),
+    );
+    this.locks.set(id, next);
+    return next;
+  }
+
   pairing(): Promise<readonly ProjectDevice[]> {
     return Promise.resolve(
       [...this.devices.values()].filter(({ pairingStep }) => pairingStep !== null),
     );
+  }
+
+  private lockedOf(id: string): LockedProjectDevice | undefined {
+    const device = this.devices.get(id);
+    if (device === undefined) return undefined;
+    return {
+      device,
+      holding: () => this.records.openOfProjectDevice(id),
+      insertRecord: (record: ConnectedDevice) => this.records.insert(record),
+      update: (change) => this.update(id, change),
+      remove: async () => {
+        await this.remove(id);
+      },
+    };
   }
 
   private keyTaken(device: ProjectDevice): boolean {

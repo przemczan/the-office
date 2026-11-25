@@ -21,11 +21,8 @@ export interface PhoneToPair {
   readonly pairingPort: number;
 }
 
-/** A device whose Task's run environment adb runs in. */
-export type PhoneOfTask = Pick<ConnectedDevice, "id" | "taskId" | "projectId">;
-
 /** A phone over wireless debugging that was paired: its adb serial, `<address>:<port>`. */
-export type PairedPhone = PhoneOfTask & { readonly endpoint: string };
+export type PairedPhone = Pick<ConnectedDevice, "id"> & { readonly endpoint: string };
 
 /** How a pairing or a reconnect ended. */
 export type WirelessEnd =
@@ -51,11 +48,6 @@ export class WirelessDevices {
     private readonly adb: AdbInRunEnvironment,
     private readonly schedule: Schedule,
   ) {}
-
-  /** adb's check, the Project's key, `adb pair` and `adb connect` in the Task's run environment. */
-  pair(phone: PhoneOfTask, target: PhoneToPair, pairingCode: string): Promise<WirelessEnd> {
-    return this.pairIn(this.placeOf(phone), target, pairingCode);
-  }
 
   /**
    * adb's check, the Project's key, `adb pair` and `adb connect` where adb runs, then the model,
@@ -94,13 +86,12 @@ export class WirelessDevices {
   }
 
   /**
-   * adb's check, the Project's key and `adb connect` to the paired phone, never pairing, within
-   * `WIRELESS_RECONNECT_TIMEOUT_MS`; never throws.
+   * adb's check, the Project's key and `adb connect` to the paired phone where adb runs, never
+   * pairing, within `WIRELESS_RECONNECT_TIMEOUT_MS`; never throws.
    */
-  async reconnect(phone: PairedPhone): Promise<WirelessEnd> {
+  async reconnect(phone: PairedPhone, place: AdbPlace): Promise<WirelessEnd> {
     try {
       return await this.within(WIRELESS_RECONNECT_TIMEOUT_MS, { kind: "unanswered" }, async () => {
-        const place = this.placeOf(phone);
         const ready = await this.adbReady(place);
         if (ready !== undefined) return ready;
         if (!(await this.adb.connect(place, phone.endpoint))) return { kind: "unanswered" };
@@ -113,9 +104,9 @@ export class WirelessDevices {
     }
   }
 
-  /** The phone was disconnected: adb forgets its serial, best effort. */
-  async disconnected(phone: PairedPhone): Promise<void> {
-    await this.disconnectIn(this.placeOf(phone), phone.endpoint);
+  /** The phone was disconnected: adb forgets its serial where it runs, best effort. */
+  async disconnected(phone: PairedPhone, place: AdbPlace): Promise<void> {
+    await this.disconnectIn(place, phone.endpoint);
   }
 
   /** adb forgets the serial where it runs, best effort. */
@@ -123,10 +114,6 @@ export class WirelessDevices {
     await this.adb.disconnect(place, endpoint).catch((error: unknown) => {
       this.logger.warn(`adb disconnect ${endpoint} in ${place.label} failed.`, error);
     });
-  }
-
-  private placeOf(phone: PhoneOfTask): AdbPlace {
-    return this.adb.inTask(phone.taskId, phone.projectId);
   }
 
   /** adb is there and the Project's key written: nothing, or how it ended instead. */

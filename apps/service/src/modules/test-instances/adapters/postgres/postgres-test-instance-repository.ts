@@ -77,6 +77,27 @@ export class PostgresTestInstanceRepository extends TestInstanceRepository {
     return rows.map(instanceOf);
   }
 
+  async newestBuilt(
+    projectId: string,
+    targetKey: string,
+    branch: string,
+  ): Promise<TestInstance | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(testInstances)
+      .where(
+        and(
+          eq(testInstances.projectId, projectId),
+          eq(testInstances.targetKey, targetKey),
+          eq(testInstances.branch, branch),
+          eq(testInstances.state, "built"),
+        ),
+      )
+      .orderBy(desc(testInstances.endedAt), desc(testInstances.launchedAt))
+      .limit(1);
+    return row && instanceOf(row);
+  }
+
   update(
     id: string,
     change: (instance: TestInstance) => TestInstanceChange,
@@ -130,6 +151,12 @@ function rowOf(instance: TestInstance): Row {
     filesRemovedAt: instance.filesRemovedAt ?? null,
     actionKey: instance.runAs?.actionKey ?? null,
     actionName: instance.runAs?.actionName ?? null,
+    projectDeviceId: instance.device?.projectDeviceId ?? null,
+    deviceName: instance.device?.name ?? null,
+    deviceKind: instance.device?.kind ?? null,
+    buildInstanceId: instance.buildInstanceId ?? null,
+    builtForTargetKey: instance.builtFor?.targetKey ?? null,
+    builtForTargetName: instance.builtFor?.targetName ?? null,
   };
 }
 
@@ -156,5 +183,14 @@ function instanceOf(row: Row): TestInstance {
       row.actionKey === null || row.actionName === null
         ? undefined
         : { actionKey: row.actionKey, actionName: row.actionName },
+    device:
+      row.projectDeviceId === null || row.deviceName === null || row.deviceKind === null
+        ? undefined
+        : { projectDeviceId: row.projectDeviceId, name: row.deviceName, kind: row.deviceKind },
+    buildInstanceId: row.buildInstanceId ?? undefined,
+    builtFor:
+      row.builtForTargetKey === null || row.builtForTargetName === null
+        ? undefined
+        : { targetKey: row.builtForTargetKey, targetName: row.builtForTargetName },
   };
 }

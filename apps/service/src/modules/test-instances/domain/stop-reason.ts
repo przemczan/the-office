@@ -29,18 +29,23 @@ export function stopWords(reason: StopReason): string {
 
 /** Why an instance left Building by a restart failed (spec §2.12, "Test instance states"). */
 export const RESTARTED_WHILE_BUILDING = "The Office restarted while it was Building.";
+/** Why an Install on a device instance left Installing by a restart failed. */
+export const RESTARTED_WHILE_INSTALLING = "The Office restarted while it was Installing.";
 
 /** The launch's refusals, in the words the Initiative's page shows as they are. */
 export const INITIATIVE_NOT_ACTIVE = "Test instances launch only while the Initiative is active.";
 export const RUN_ENVIRONMENT_OFF =
   "Turn the Project's Run environment On to launch a Hosted test instance.";
+/** An Install on a device target needs it On, as a device does (spec §2.12, "Install on a device"). */
+export const RUN_ENVIRONMENT_OFF_FOR_INSTALL =
+  "Turn the Project's Run environment On to install on a device.";
 
 export function noInitiativeBranch(projectId: string): string {
   return `The Initiative has no branch in ${projectId}, so nothing there can be launched.`;
 }
 
 export function notLaunchable(name: string): string {
-  return `${name} can't be launched; only Hosted and Build to install test targets launch for now.`;
+  return `${name} can't be launched; only Hosted, Build to install and Install on a device test targets launch for now.`;
 }
 
 export function notRunning(name: string): string {

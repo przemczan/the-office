@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   PROJECT_DEVICE_NAME_MAX_LENGTH,
+  type ProjectDeviceHolder,
   type Project,
   type ProjectDevice,
 } from "@the-office/contracts";
@@ -27,6 +28,7 @@ import {
 import { DEVICE_KIND_WORDS } from "../../shell/devices/device-words.ts";
 import {
   isOverUsb,
+  holderName,
   LAST_USE_ENDED_WORDS,
   PROJECT_DEVICE_STATE_TONES,
   PROJECT_DEVICE_STATE_WORDS,
@@ -323,10 +325,7 @@ function ProjectDeviceRow({
             </Badge>
             {holder !== null && (
               <span className="devices-row-meta">
-                by{" "}
-                <Link to="/tasks/$taskId" params={{ taskId: holder.taskId }}>
-                  {holder.title}
-                </Link>
+                by <HolderLink projectId={device.projectId} holder={holder} />
               </span>
             )}
           </div>
@@ -340,9 +339,7 @@ function ProjectDeviceRow({
           ) : (
             <>
               Last used by{" "}
-              <Link to="/tasks/$taskId" params={{ taskId: device.lastUse.holder.taskId }}>
-                {device.lastUse.holder.title}
-              </Link>
+              <HolderLink projectId={device.projectId} holder={device.lastUse.holder} />
               {` · ${momentWords(device.lastUse.endedAt)} · ${LAST_USE_ENDED_WORDS[device.lastUse.endedBecause]}`}
             </>
           )}
@@ -383,13 +380,46 @@ function ProjectDeviceRow({
             label={`Remove ${device.name}`}
             size="sm"
             disabled={holder !== null || removing}
-            title={holder === null ? undefined : removeHeldWords(holder.title)}
+            title={holder === null ? undefined : removeHeldWords(holderName(holder))}
             onClick={onRemove}
           />
         </div>
       )}
     </li>
   );
+}
+
+/**
+ * What holds a device, or last did, linked: a Task to its page, a test instance to its row in Test
+ * instances; an Action run by its name, as its record says no Action to open.
+ */
+function HolderLink({
+  projectId,
+  holder,
+}: {
+  readonly projectId: string;
+  readonly holder: ProjectDeviceHolder;
+}): ReactNode {
+  switch (holder.kind) {
+    case "task":
+      return (
+        <Link to="/tasks/$taskId" params={{ taskId: holder.taskId }}>
+          {holder.title}
+        </Link>
+      );
+    case "test-instance":
+      return (
+        <Link
+          to="/projects/$projectId/test-targets"
+          params={{ projectId }}
+          search={{ testInstance: holder.testInstanceId }}
+        >
+          {holder.name}
+        </Link>
+      );
+    case "action-run":
+      return holder.name;
+  }
 }
 
 /** Rename in place: at most 60 characters, Save and Cancel. */

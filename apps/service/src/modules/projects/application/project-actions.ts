@@ -33,6 +33,7 @@ import {
 import { ActionRepository } from "../ports/action-repository.js";
 import { TestTargetRepository } from "../ports/test-target-repository.js";
 import { ManualWorkflows, type ManualWorkflowList } from "./manual-workflows.js";
+import { ProjectDeviceLines } from "./project-device-lines.js";
 import { ensureFeatureOn } from "./project-features.js";
 import { ProjectService } from "./project-service.js";
 
@@ -55,6 +56,7 @@ export class ProjectActions {
     private readonly repository: ActionRepository,
     private readonly testTargets: TestTargetRepository,
     private readonly workflows: ManualWorkflows,
+    private readonly devices: ProjectDeviceLines,
     private readonly events: EventBus,
   ) {}
 
@@ -205,6 +207,7 @@ export class ProjectActions {
       commandBeforeKeys:
         project.installCommand === "" ? commandKeys : [INSTALL_COMMAND_KEY, ...commandKeys],
       targetKeys: (await this.testTargets.listOf(project.id)).map(({ key }) => key),
+      deviceIds: (await this.devices.of(project.id)).map(({ id }) => id),
       variables: project.environment.set,
     };
   }

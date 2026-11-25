@@ -26,6 +26,8 @@ export const disconnectedBecauseSchema = z.enum([
   "run-environment-turned-off",
   "connected-devices-switched-off",
   "error",
+  /** The Action run or test instance that held a Project device let go of it as it ended. */
+  "run-ended",
 ]);
 export type DisconnectedBecause = z.infer<typeof disconnectedBecauseSchema>;
 
@@ -48,10 +50,22 @@ export const DEVICE_KEY_MAX_LENGTH = 500;
 /** The longest error in words the browser may report about its device. */
 export const DEVICE_RELAY_PROBLEM_MAX_LENGTH = 500;
 
-/** One device connected, or once connected, to one Task's run environment. */
+/**
+ * The id a tab gives itself as it starts a run that may hold a Project device over USB (spec 2.13,
+ * "A Project device over USB"): the run's Connecting record names it, and that tab alone opens the
+ * device and relays it until the run lets go.
+ */
+export const relayTabSchema = z.uuid();
+export type RelayTab = z.infer<typeof relayTabSchema>;
+
+/**
+ * One device connected, or once connected, to one Task's run environment, or held by an Action run
+ * or a test instance in its own.
+ */
 export const connectedDeviceSchema = z.object({
   id: z.uuid(),
-  taskId: z.string(),
+  /** The Task it is connected to; null for an Action run's or a test instance's hold. */
+  taskId: z.string().nullable(),
   /** The Project device it was lent from (spec 2.13, "Lent to a Task"); null for one the Task connected itself. */
   projectDeviceId: z.uuid().nullable(),
   kind: connectedDeviceKindSchema,
@@ -160,11 +174,13 @@ export const projectDeviceRestStateSchema = projectDeviceStateSchema.exclude(["i
 export type ProjectDeviceRestState = z.infer<typeof projectDeviceRestStateSchema>;
 
 /**
- * What holds a Project device, or last held it: a Task it is lent to. The Install on a device
- * Task adds an Action run and a test instance.
+ * What holds a Project device, or last held it: a Task it is lent to, an Action run or a test
+ * instance, each with its name as "<device> is in use by <name>." says it.
  */
 export const projectDeviceHolderSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("task"), taskId: z.string(), title: z.string() }),
+  z.object({ kind: z.literal("action-run"), actionRunId: z.uuid(), name: z.string() }),
+  z.object({ kind: z.literal("test-instance"), testInstanceId: z.uuid(), name: z.string() }),
 ]);
 export type ProjectDeviceHolder = z.infer<typeof projectDeviceHolderSchema>;
 
@@ -343,12 +359,22 @@ export const deviceRelayServerMessageSchema = z.discriminatedUnion("type", [
 ]);
 export type DeviceRelayServerMessage = z.infer<typeof deviceRelayServerMessageSchema>;
 
-/** A Task's Connected device changed (connected, its state, disconnected), so its Devices section reads them again. */
+/**
+ * A Connected device changed (connected, its state, disconnected): a Task's, so its Devices section
+ * reads them again, or a run's hold, so the tab named by `relayTab` opens the device's relay while
+ * it is Connecting and lets go of it once Disconnected.
+ */
 export const connectedDeviceWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     type: z.literal("connected-device.changed"),
-    taskId: z.string(),
+    /** Null for a run's hold. */
+    taskId: z.string().nullable(),
     deviceId: z.uuid(),
+    /** The tab that relays a run's device over USB; null otherwise. */
+    relayTab: relayTabSchema.nullable(),
+    /** The Project device it came from; null for one a Task connected itself. */
+    projectDeviceId: z.uuid().nullable(),
+    state: connectedDeviceStateSchema,
   }),
 ]);
 export type ConnectedDeviceWebEvent = z.infer<typeof connectedDeviceWebEventSchema>;

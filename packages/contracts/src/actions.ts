@@ -22,13 +22,18 @@ export const ACTION_KINDS = ["project-command", "test-target", "workflow"] as co
 export const actionKindSchema = z.enum(ACTION_KINDS);
 export type ActionKind = z.infer<typeof actionKindSchema>;
 
-/** A Project command Action's settings: the command, the commands before it, its own time limit. */
+/**
+ * A Project command Action's settings: the command, the commands before it, its own time limit and
+ * the Project device its run holds.
+ */
 export const projectCommandActionSettingsSchema = z.object({
   commandKey: z.string(),
   /** The Project's commands run before it, `install` among them, in order, by their keys. */
   commandsBefore: z.array(z.string()).default([]),
   /** Its own time limit in minutes; null when the default applies. */
   timeLimitMinutes: z.number().int().nullable().default(null),
+  /** The Project device its run holds while it runs, by its id; null for none (spec §2.15). */
+  projectDeviceId: z.string().nullable().default(null),
 });
 export type ProjectCommandActionSettings = z.infer<typeof projectCommandActionSettingsSchema>;
 

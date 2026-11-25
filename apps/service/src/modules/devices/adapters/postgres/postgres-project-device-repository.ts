@@ -4,8 +4,14 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { ProjectDevice, ProjectDeviceChange } from "../../domain/project-device.js";
 import {
   ProjectDeviceRepository,
+  type LockedProjectDevice,
   type ProjectDeviceUpdate,
 } from "../../ports/project-device-repository.js";
+import {
+  insertConnectedDevice,
+  openOfProjectDevice,
+  type Queries,
+} from "./postgres-connected-device-repository.js";
 import { projectDevices } from "./project-devices.schema.js";
 
 type Row = typeof projectDevices.$inferSelect;
@@ -80,6 +86,20 @@ export class PostgresProjectDeviceRepository extends ProjectDeviceRepository {
     return removed.length > 0;
   }
 
+  withDeviceLocked<Result>(
+    id: string,
+    work: (locked: LockedProjectDevice | undefined) => Promise<Result>,
+  ): Promise<Result> {
+    return this.database.transaction(async (transaction) => {
+      const [row] = await transaction
+        .select()
+        .from(projectDevices)
+        .where(eq(projectDevices.id, id))
+        .for("update");
+      return work(row && lockedOf(transaction, deviceOf(row)));
+    });
+  }
+
   async pairing(): Promise<readonly ProjectDevice[]> {
     const rows = await this.database
       .select()
@@ -87,6 +107,34 @@ export class PostgresProjectDeviceRepository extends ProjectDeviceRepository {
       .where(isNotNull(projectDevices.pairingStep));
     return rows.map(deviceOf);
   }
+}
+
+/** The held row's unit of work, each write in a savepoint, so a refused one leaves the rest. */
+function lockedOf(transaction: Queries, device: ProjectDevice): LockedProjectDevice {
+  return {
+    device,
+    holding: () => openOfProjectDevice(transaction, device.id),
+    insertRecord: (record) => insertConnectedDevice(transaction, record),
+    update: async (change) => {
+      const changed = change(device);
+      if (changed === undefined) return { kind: "unchanged" };
+      try {
+        await transaction.transaction(async (savepoint) => {
+          await savepoint
+            .update(projectDevices)
+            .set(rowOf(changed.device))
+            .where(eq(projectDevices.id, device.id));
+        });
+        return { kind: "changed", change: changed };
+      } catch (error) {
+        if (isDeviceKeyTaken(error)) return { kind: "device-key-taken" };
+        throw error;
+      }
+    },
+    remove: async () => {
+      await transaction.delete(projectDevices).where(eq(projectDevices.id, device.id));
+    },
+  };
 }
 
 function isDeviceKeyTaken(error: unknown): boolean {

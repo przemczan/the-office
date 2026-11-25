@@ -8,6 +8,7 @@ export interface StoredActionSettings {
   readonly commandKey?: string;
   readonly commandsBefore?: readonly string[];
   readonly timeLimitMinutes?: number | null;
+  readonly projectDeviceId?: string | null;
   readonly targetKey?: string;
   readonly file?: string;
   readonly inputs?: Readonly<Record<string, string>>;
@@ -45,6 +46,7 @@ export function actionOfStored({
           commandKey: settings.commandKey ?? "",
           commandsBefore: settings.commandsBefore ?? [],
           timeLimitMinutes: settings.timeLimitMinutes ?? null,
+          projectDeviceId: settings.projectDeviceId ?? null,
         },
       };
     case "test-target":

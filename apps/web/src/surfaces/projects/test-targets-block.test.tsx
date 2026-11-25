@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
   EditedTestTarget,
   Project,
+  ProjectDevice,
   ProjectTestTargetsChat,
   Role,
   TaskState,
@@ -11,6 +12,7 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../shell/toasts.tsx";
+import { PIXEL } from "./actions/actions.fixtures.ts";
 import { TestTargetsBlock } from "./test-targets-block.tsx";
 
 const held = vi.hoisted(() => ({
@@ -261,9 +263,10 @@ const WEB: TestTarget = {
 };
 
 /** Answers the target list, the Office limits and a save, which answers what it was sent. */
-function servingTargets(targets: readonly TestTarget[]) {
+function servingTargets(targets: readonly TestTarget[], devices: readonly ProjectDevice[] = []) {
   const fetched = vi.fn<(url: string, request?: RequestInit) => Promise<Response>>(
     (url, request) => {
+      if (url.endsWith("/devices")) return Promise.resolve(Response.json({ devices }));
       if (url.endsWith("/test-targets") && request?.method === "PUT") {
         const sent = JSON.parse(String(request.body)) as { targets: object[] };
         return Promise.resolve(
@@ -420,5 +423,103 @@ describe("the Project page's Test targets block, commands before, port variable 
     expect(memory.textContent).toContain("it builds on the workstation, which ignores it.");
     expect(page.textContent).not.toContain("Port variable");
     expect(page.textContent).toContain("The Office sets OFFICE_TEST_INSTANCE=true.");
+  });
+});
+
+const ANDROID_BUILD: TestTarget = {
+  key: "android",
+  name: "Android app",
+  kind: "build-to-install",
+  entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
+  outputPatterns: ["app/build/*.apk"],
+  variables: [],
+  secretVariables: [],
+  commandsBefore: [],
+  memoryMegabytes: null,
+  setBy: {},
+};
+
+const BOARD: ProjectDevice = {
+  ...PIXEL,
+  id: "6c1d7e2f-3a4b-4c5d-8e6f-7a8b9c0d1e2f",
+  kind: "serial-usb",
+  deviceKey: "usb-board",
+  name: "Dev board",
+};
+
+const INSTALL_ON_PIXEL: TestTarget = {
+  key: "on-pixel",
+  name: "Android on Pixel",
+  kind: "install-on-a-device",
+  buildTargetKey: "android",
+  projectDeviceId: PIXEL.id,
+  setBy: {},
+};
+
+describe("the Project page's Test targets block, Install on a device", () => {
+  it("adds one from the Project's Build to install targets and Android phones", async () => {
+    const fetched = servingTargets([WEB, ANDROID_BUILD], [PIXEL, BOARD]);
+    const { page, queryClient } = await shown();
+
+    press(buttonNamed(page, "Add a test target"));
+    const kind = [...page.querySelectorAll<HTMLElement>("button, [role=radio]")].find(
+      (each) => each.textContent.trim() === "Install on a device",
+    );
+    if (!kind) throw new Error("No Install on a device");
+    act(() => kind.click());
+
+    const build = control(page, "Build to install target") as HTMLSelectElement;
+    expect([...build.options].map((option) => option.textContent)).toContain(
+      "Android app · android",
+    );
+    expect([...build.options].map((option) => option.textContent)).not.toContain("Web app · web");
+    await vi.waitFor(() => {
+      const labels = [...(control(page, "Device") as HTMLSelectElement).options].map(
+        (option) => option.textContent,
+      );
+      expect(labels).toContain("Pixel 8 · Android phone over wireless debugging · Paired");
+      expect(labels.join("|")).not.toContain("Dev board");
+    });
+
+    fill(control(page, "Key"), "on-pixel");
+    fill(control(page, "Name"), "Android on Pixel");
+    fill(build, "android");
+    fill(control(page, "Device"), PIXEL.id);
+    await act(async () => {
+      buttonNamed(page, "Save").click();
+      await vi.waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    });
+    const put = fetched.mock.calls.find(([, request]) => request?.method === "PUT");
+    const sent = JSON.parse(String(put?.[1]?.body)) as { targets: EditedTestTarget[] };
+    expect(sent.targets.at(-1)).toMatchObject({
+      kind: "install-on-a-device",
+      key: "on-pixel",
+      name: "Android on Pixel",
+      buildTargetKey: "android",
+      projectDeviceId: PIXEL.id,
+    });
+  });
+
+  it("reads Installs <build target> on <device> in its row", async () => {
+    servingTargets([ANDROID_BUILD, INSTALL_ON_PIXEL], [PIXEL]);
+    const { page } = await shown();
+
+    const row = group(page, "Android on Pixel");
+    await vi.waitFor(() => expect(row.textContent).toContain("Installs Android app on Pixel 8"));
+    expect(row.textContent).not.toContain("anymore");
+  });
+
+  it("warns when its Build to install target or its device is gone", async () => {
+    servingTargets([INSTALL_ON_PIXEL], []);
+    const { page } = await shown();
+
+    const row = group(page, "Android on Pixel");
+    await vi.waitFor(() =>
+      expect(row.textContent).toContain("Its device isn't one of Admin panel's devices anymore."),
+    );
+    expect(row.textContent).toContain(
+      "android isn't one of Admin panel's Build to install targets anymore.",
+    );
+    expect(row.textContent).toContain("Installs android on its device");
   });
 });

@@ -27,8 +27,10 @@ import {
 import { Fragment, useState, type ReactNode } from "react";
 import { useSaveActions } from "../../../api/actions.ts";
 import { ciRunQueries } from "../../../api/ci-runs.ts";
+import { deviceQueries } from "../../../api/devices.ts";
 import { projectQueries } from "../../../api/projects.ts";
 import { ACTION_KIND_LABELS, minutesWords } from "../../../shell/action-words.ts";
+import { DEVICE_KIND_WORDS } from "../../../shell/devices/device-words.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { TEST_TARGET_KIND_LABELS } from "../../../shell/test-target-words.ts";
 import { useToast } from "../../../shell/toasts.tsx";
@@ -273,6 +275,7 @@ function ProjectCommandFields({
         commandsBefore={draft.commandsBefore}
         change={(commandsBefore) => change({ commandsBefore })}
       />
+      <DeviceField project={project} draft={draft} change={change} />
       <div className="test-target-field" role="group" aria-label="Time limit">
         <span className="test-target-field-label">Time limit</span>
         {own === null ? (
@@ -330,6 +333,55 @@ function ProjectCommandFields({
         ; never The Office&apos;s own sign-ins. A token it needs goes in a Secret variable.
       </p>
     </>
+  );
+}
+
+/** The Project device a Project command's run holds while it runs, or None. */
+function DeviceField({
+  project,
+  draft,
+  change,
+}: {
+  readonly project: Project;
+  readonly draft: ActionDraft;
+  readonly change: (fields: Partial<ActionDraft>) => void;
+}): ReactNode {
+  const devices = useQuery(deviceQueries.ofProject(project.id));
+  if (devices.error) {
+    return <RefusalAlert title="The devices can't be read" error={devices.error} />;
+  }
+  if (!devices.data) return null;
+  const listed = devices.data.devices;
+  if (listed.length === 0 && draft.projectDeviceId === null) {
+    return (
+      <p className="project-block-note">
+        {project.name} has no devices yet.{" "}
+        <Link to="/projects/$projectId/devices" params={{ projectId: project.id }}>
+          Add one under Devices
+        </Link>
+      </p>
+    );
+  }
+  const chosen = draft.projectDeviceId ?? "";
+  const known = listed.some(({ id }) => id === chosen);
+  return (
+    <Select
+      label="Device"
+      hint="Held by the run while it runs. Needs Run environment On."
+      options={[
+        { value: "", label: "None" },
+        // A device the Project no longer has stays shown, so the select says what the Action names.
+        ...(chosen === "" || known ? [] : [{ value: chosen, label: chosen }]),
+        ...listed.map(({ id, name, kind }) => ({
+          value: id,
+          label: `${name} · ${DEVICE_KIND_WORDS[kind]}`,
+        })),
+      ]}
+      value={chosen}
+      onChange={(projectDeviceId) =>
+        change({ projectDeviceId: projectDeviceId === "" ? null : projectDeviceId })
+      }
+    />
   );
 }
 

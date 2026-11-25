@@ -1,11 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import type { ConnectedDevice, ConnectedDeviceChange } from "../../domain/connected-device.js";
+import type {
+  ConnectedDevice,
+  ConnectedDeviceChange,
+  RunHolder,
+} from "../../domain/connected-device.js";
 import { ConnectedDeviceRepository } from "../../ports/connected-device-repository.js";
 import { connectedDevices } from "./connected-devices.schema.js";
 
 type Row = typeof connectedDevices.$inferSelect;
+
+/** The database, or a transaction on it. */
+export type Queries = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 const UNIQUE_VIOLATION = "23505";
 const OPEN = ne(connectedDevices.state, "disconnected");
@@ -20,23 +27,11 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
     return this.insertTrying(device, 2);
   }
 
-  private async insertTrying(
+  private insertTrying(
     device: ConnectedDevice,
     tries: number,
   ): Promise<{ readonly heldBy?: ConnectedDevice }> {
-    try {
-      await this.database.insert(connectedDevices).values(rowOf(device));
-      return {};
-    } catch (error) {
-      if (!isUniqueViolation(error) || tries <= 1) throw error;
-    }
-    const [holder] = await this.database
-      .select()
-      .from(connectedDevices)
-      .where(and(eq(connectedDevices.deviceKey, device.deviceKey), OPEN));
-    // Disconnected between the refusal and this read: the device is free again, so try once more.
-    if (holder === undefined) return this.insertTrying(device, tries - 1);
-    return { heldBy: deviceOf(holder) };
+    return insertConnectedDevice(this.database, device, tries);
   }
 
   async find(id: string): Promise<ConnectedDevice | undefined> {
@@ -44,7 +39,7 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
       .select()
       .from(connectedDevices)
       .where(eq(connectedDevices.id, id));
-    return row && deviceOf(row);
+    return row && connectedDeviceOf(row);
   }
 
   update(
@@ -58,11 +53,11 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
         .where(eq(connectedDevices.id, id))
         .for("update");
       if (!row) return undefined;
-      const changed = change(deviceOf(row));
+      const changed = change(connectedDeviceOf(row));
       if (changed === undefined) return undefined;
       await transaction
         .update(connectedDevices)
-        .set(rowOf(changed.device))
+        .set(connectedDeviceRowOf(changed.device))
         .where(eq(connectedDevices.id, id));
       return changed;
     });
@@ -74,7 +69,7 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
       .from(connectedDevices)
       .where(eq(connectedDevices.taskId, taskId))
       .orderBy(desc(connectedDevices.connectedAt), desc(connectedDevices.id));
-    return rows.map(deviceOf);
+    return rows.map(connectedDeviceOf);
   }
 
   async openOfTask(taskId: string): Promise<readonly ConnectedDevice[]> {
@@ -83,7 +78,7 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
       .from(connectedDevices)
       .where(and(eq(connectedDevices.taskId, taskId), OPEN))
       .orderBy(asc(connectedDevices.connectedAt), asc(connectedDevices.id));
-    return rows.map(deviceOf);
+    return rows.map(connectedDeviceOf);
   }
 
   async openOfProject(projectId: string): Promise<readonly ConnectedDevice[]> {
@@ -92,17 +87,11 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
       .from(connectedDevices)
       .where(and(eq(connectedDevices.projectId, projectId), OPEN))
       .orderBy(asc(connectedDevices.connectedAt));
-    return rows.map(deviceOf);
+    return rows.map(connectedDeviceOf);
   }
 
-  async openOfProjectDevice(projectDeviceId: string): Promise<ConnectedDevice | undefined> {
-    const [row] = await this.database
-      .select()
-      .from(connectedDevices)
-      .where(and(eq(connectedDevices.projectDeviceId, projectDeviceId), OPEN))
-      .orderBy(asc(connectedDevices.connectedAt))
-      .limit(1);
-    return row && deviceOf(row);
+  openOfProjectDevice(projectDeviceId: string): Promise<ConnectedDevice | undefined> {
+    return openOfProjectDevice(this.database, projectDeviceId);
   }
 
   async allOpen(): Promise<readonly ConnectedDevice[]> {
@@ -111,8 +100,48 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
       .from(connectedDevices)
       .where(OPEN)
       .orderBy(asc(connectedDevices.connectedAt));
-    return rows.map(deviceOf);
+    return rows.map(connectedDeviceOf);
   }
+}
+
+/**
+ * Keeps the record unless an open one holds its device key, answering that one instead; in a
+ * transaction, the insert runs in a savepoint of its own, so a refusal leaves the rest standing.
+ */
+export async function insertConnectedDevice(
+  database: Queries,
+  device: ConnectedDevice,
+  tries = 2,
+): Promise<{ readonly heldBy?: ConnectedDevice }> {
+  try {
+    await database.transaction(async (savepoint) => {
+      await savepoint.insert(connectedDevices).values(connectedDeviceRowOf(device));
+    });
+    return {};
+  } catch (error) {
+    if (!isUniqueViolation(error) || tries <= 1) throw error;
+  }
+  const [holder] = await database
+    .select()
+    .from(connectedDevices)
+    .where(and(eq(connectedDevices.deviceKey, device.deviceKey), OPEN));
+  // Disconnected between the refusal and this read: the device is free again, so try once more.
+  if (holder === undefined) return insertConnectedDevice(database, device, tries - 1);
+  return { heldBy: connectedDeviceOf(holder) };
+}
+
+/** The record not Disconnected lent from, or held as, the Project device, if one holds it. */
+export async function openOfProjectDevice(
+  database: Queries,
+  projectDeviceId: string,
+): Promise<ConnectedDevice | undefined> {
+  const [row] = await database
+    .select()
+    .from(connectedDevices)
+    .where(and(eq(connectedDevices.projectDeviceId, projectDeviceId), OPEN))
+    .orderBy(asc(connectedDevices.connectedAt))
+    .limit(1);
+  return row && connectedDeviceOf(row);
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -125,10 +154,17 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-function rowOf(device: ConnectedDevice): Row {
+/** The row of a record, its holder in the column of its kind. */
+export function connectedDeviceRowOf(device: ConnectedDevice): Row {
   return {
     id: device.id,
     taskId: device.taskId,
+    actionRunId: device.runHolder?.kind === "action-run" ? device.runHolder.actionRunId : null,
+    testInstanceId:
+      device.runHolder?.kind === "test-instance" ? device.runHolder.testInstanceId : null,
+    holderName: device.runHolder?.name ?? null,
+    relayTab: device.relayTab,
+    everConnected: device.everConnected,
     projectId: device.projectId,
     projectDeviceId: device.projectDeviceId,
     kind: device.kind,
@@ -149,10 +185,14 @@ function rowOf(device: ConnectedDevice): Row {
   };
 }
 
-function deviceOf(row: Row): ConnectedDevice {
+/** The record of a row, its run holder named by `holder_name`. */
+export function connectedDeviceOf(row: Row): ConnectedDevice {
   return {
     id: row.id,
     taskId: row.taskId,
+    runHolder: runHolderOf(row),
+    relayTab: row.relayTab,
+    everConnected: row.everConnected,
     projectId: row.projectId,
     projectDeviceId: row.projectDeviceId,
     kind: row.kind,
@@ -171,4 +211,13 @@ function deviceOf(row: Row): ConnectedDevice {
     connectedAt: row.connectedAt,
     disconnectedAt: row.disconnectedAt,
   };
+}
+
+function runHolderOf(row: Row): RunHolder | null {
+  const name = row.holderName ?? "";
+  if (row.actionRunId !== null) return { kind: "action-run", actionRunId: row.actionRunId, name };
+  if (row.testInstanceId !== null) {
+    return { kind: "test-instance", testInstanceId: row.testInstanceId, name };
+  }
+  return null;
 }

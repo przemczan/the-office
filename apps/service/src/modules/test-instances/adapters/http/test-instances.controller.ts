@@ -74,10 +74,14 @@ export class TestInstancesController {
     @Body(new ContractPipe(projectTestInstanceLaunchSchema)) launch: ProjectTestInstanceLaunch,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TestInstanceResponse> {
-    const instance = await this.instances.launchOnBranch(id, launch.branch, launch.targetKey, {
-      kind: "user",
-      user: userOf(signedIn),
-    });
+    const instance = await this.instances.launchOnBranch(
+      id,
+      launch.branch,
+      launch.targetKey,
+      { kind: "user", user: userOf(signedIn) },
+      undefined,
+      launch.relayTab,
+    );
     return instanceResponse(instance);
   }
 
@@ -124,11 +128,21 @@ function projectInstancesResponse(project: ProjectTestInstances): ProjectTestIns
 }
 
 function targetResponse(target: LaunchableTarget): ProjectTestInstancesResponse["targets"][number] {
+  const { installs } = target;
   return {
     key: target.key,
     name: target.name,
     kind: target.kind,
-    entryPoint: entryPointResponse(target.entryPoint),
+    entryPoint: target.entryPoint === undefined ? null : entryPointResponse(target.entryPoint),
+    installs:
+      installs === undefined
+        ? null
+        : {
+            buildTargetKey: installs.buildTargetKey,
+            buildTargetName: installs.buildTargetName ?? null,
+            projectDeviceId: installs.projectDeviceId,
+            device: installs.device === undefined ? null : { ...installs.device },
+          },
   };
 }
 
@@ -152,6 +166,9 @@ export function instanceResponse(instance: TestInstanceOnBranch): TestInstanceRe
     files: instance.files.map(({ name, size }) => ({ name, size })),
     filesRemoved: instance.filesRemovedAt !== undefined,
     runAs: instance.runAs === undefined ? null : { ...instance.runAs },
+    device: instance.device === undefined ? null : { ...instance.device },
+    buildInstanceId: instance.buildInstanceId ?? null,
+    builtFor: instance.builtFor === undefined ? null : { ...instance.builtFor },
   };
 }
 

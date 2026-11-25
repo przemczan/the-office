@@ -1,6 +1,7 @@
 import {
   ACTIVE_TEST_INSTANCE_STATES,
   type Author,
+  type InstallSettings,
   type Role,
   type TestInstance,
   type TestInstanceKind,
@@ -15,6 +16,8 @@ export const TEST_INSTANCE_STATE_WORDS: Readonly<Record<TestInstanceState, strin
   building: "Building",
   running: "Running",
   built: "Built",
+  installing: "Installing",
+  installed: "Installed",
   stopped: "Stopped",
   failed: "Failed",
 };
@@ -25,6 +28,8 @@ export const TEST_INSTANCE_STATE_TONES: Readonly<
   building: "info",
   running: "success",
   built: "success",
+  installing: "info",
+  installed: "success",
   stopped: "neutral",
   failed: "danger",
 };
@@ -36,9 +41,42 @@ export function isActive(state: TestInstanceState): boolean {
   return ACTIVE_TEST_INSTANCE_STATES.includes(state);
 }
 
-/** Only a Hosted target needs the Project's Run environment On; a build runs on the workstation. */
+/**
+ * A Hosted target and an Install on a device need the Project's Run environment On; a build runs
+ * on the workstation without it.
+ */
 export function needsRunEnvironment(target: { readonly kind: TestInstanceKind }): boolean {
-  return target.kind === "hosted";
+  return target.kind === "hosted" || target.kind === "install-on-a-device";
+}
+
+/** The states a badge shows with a spinner: the instance is working toward its next state. */
+export function isWorking(state: TestInstanceState): boolean {
+  return state === "building" || state === "installing";
+}
+
+/** An Install on a device instance's line: "on Pixel 8". */
+export function onDeviceWords(deviceName: string): string {
+  return `on ${deviceName}`;
+}
+
+/** A Build to install instance an Install on a device launched: "Built for Install on Pixel". */
+export function builtForWords(targetName: string): string {
+  return `Built for ${targetName}`;
+}
+
+/** An Install on a device's link to the build it launched, while that build runs. */
+export const ITS_BUILD = "Its build";
+
+/** An Install on a device's link to the Built files it reused: "Reusing a1b2c3d's build". */
+export function reusingBuildWords(commit: string | null): string {
+  return commit === null ? "Reusing a build" : `Reusing ${commit.slice(0, 7)}'s build`;
+}
+
+/** "Installs <target> on <device>": what an Install on a device target installs, where. */
+export function installsWords(installs: InstallSettings): string {
+  return `Installs ${installs.buildTargetName ?? installs.buildTargetKey} on ${
+    installs.device?.name ?? "a device that's gone"
+  }`;
 }
 
 /** A Built instance's files, once a newer build or its Initiative's end removed them. */

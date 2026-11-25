@@ -562,6 +562,7 @@ function toEditedActionResponse(action: ActionFields): EditedActionResponse {
           commandKey: action.settings.commandKey,
           commandsBefore: [...action.settings.commandsBefore],
           timeLimitMinutes: action.settings.timeLimitMinutes,
+          projectDeviceId: action.settings.projectDeviceId,
         },
       };
     case "test-target":
@@ -578,6 +579,15 @@ function toEditedActionResponse(action: ActionFields): EditedActionResponse {
 function toProposedTestTargetFieldsResponse(
   fields: ProposedTestTargetFields,
 ): ProposedTestTargetFieldsResponse {
+  if (fields.kind === "install-on-a-device") {
+    return {
+      key: fields.key,
+      name: fields.name,
+      kind: fields.kind,
+      buildTargetKey: fields.buildTargetKey,
+      projectDeviceId: fields.projectDeviceId,
+    };
+  }
   const entryPoint =
     fields.entryPoint.kind === "devcontainer-service"
       ? { ...fields.entryPoint }

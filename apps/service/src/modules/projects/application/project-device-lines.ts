@@ -9,6 +9,8 @@ export interface ProjectDeviceLine {
   readonly name: string;
   /** For example "Paired", "Didn't answer", "Not paired", "Over USB" or "In use by <holder>". */
   readonly state: string;
+  /** Whether it is an Android phone, over USB or over wireless debugging, which a target installs on. */
+  readonly androidPhone: boolean;
 }
 
 export type ProjectDeviceLister = (projectId: string) => Promise<readonly ProjectDeviceLine[]>;

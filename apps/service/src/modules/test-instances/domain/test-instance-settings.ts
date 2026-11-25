@@ -1,6 +1,6 @@
 /** The Test instances limits (spec §2.12, Defaults), Office-wide. */
 export interface TestInstanceSettings {
-  /** How many instances may be Building or Running together. */
+  /** How many instances may be Building, Installing or Running together. */
   readonly testInstancesAtOnce: number;
   /** Minutes a Running Hosted instance may go with no request before it stops. */
   readonly idleMinutes: number;
@@ -50,7 +50,7 @@ export type ActiveInstanceName =
   | { readonly targetName: string; readonly initiativeName: string }
   | { readonly targetName: string; readonly branch: string };
 
-/** Why one more instance can't launch now; undefined while there is room (Building counts). */
+/** Why one more instance can't launch now; undefined while there is room (Building and Installing count). */
 export function overTheLimit(
   active: readonly ActiveInstanceName[],
   testInstancesAtOnce: number,
@@ -64,5 +64,5 @@ export function overTheLimit(
     )
     .join(", ");
   const count = active.length === 1 ? "1 test instance is" : `${active.length} test instances are`;
-  return `${count} building or running: ${named}. Stop one to launch another.`;
+  return `${count} building, installing or running: ${named}. Stop one to launch another.`;
 }

@@ -7,9 +7,12 @@ import {
   built,
   failed,
   filesRemoved,
+  installed,
   launchedInstance,
+  startedInstalling,
   startedRunning,
   stopped,
+  withBuild,
   type TestInstance,
 } from "../../domain/test-instance.js";
 import { PostgresTestInstanceRepository } from "./postgres-test-instance-repository.js";
@@ -218,6 +221,87 @@ describe("PostgresTestInstanceRepository", () => {
     );
     expect(everywhere.map(({ id }) => id)).toEqual([otherTarget.id, newer.id, older.id]);
     expect((await repository.active()).map(({ id }) => id)).toContain(building.id);
+  });
+
+  it("keeps an Install on a device instance's device and build, and the build's Built for", async () => {
+    const projectId = `devices-${randomUUID()}`;
+    const launchedBy = { kind: "user" as const, user: { userId: "user-ann", name: "Ann Lee" } };
+    const device = {
+      projectDeviceId: randomUUID(),
+      name: "Pixel",
+      kind: "android-wireless" as const,
+    };
+    const install = launchedInstance({
+      id: randomUUID(),
+      initiativeId: undefined,
+      projectId,
+      branch: "main",
+      targetKey: "phone",
+      targetName: "Install on Pixel",
+      kind: "install-on-a-device",
+      device,
+      launchedBy,
+      at: new Date("2003-03-01T10:00:00Z"),
+    });
+    const builtFor = { targetKey: "phone", targetName: "Install on Pixel" };
+    const aBuild = (at: string): TestInstance =>
+      launchedInstance({
+        id: randomUUID(),
+        initiativeId: undefined,
+        projectId,
+        branch: "main",
+        targetKey: "android",
+        targetName: "Android app",
+        kind: "build-to-install",
+        builtFor,
+        launchedBy,
+        at: new Date(at),
+      });
+    const older = aBuild("2003-03-01T09:00:00Z");
+    const build = aBuild("2003-03-01T10:00:00Z");
+    for (const each of [install, older, build]) await repository.add(each);
+    await repository.update(older.id, (kept) =>
+      built(kept, BUILT_FILES, new Date("2003-03-01T09:30:00Z")),
+    );
+    expect(await repository.newestBuilt(projectId, "android", "main")).toMatchObject({
+      id: older.id,
+    });
+
+    await repository.update(install.id, (kept) => withBuild(kept, build.id));
+    expect(await repository.find(install.id)).toEqual({ ...install, buildInstanceId: build.id });
+    expect(await repository.find(build.id)).toMatchObject({ builtFor, device: undefined });
+    expect((await repository.active()).map(({ id }) => id)).toEqual(
+      expect.arrayContaining([install.id, build.id]),
+    );
+
+    await repository.update(build.id, (kept) =>
+      built(kept, BUILT_FILES, new Date("2003-03-01T10:30:00Z")),
+    );
+    expect(await repository.newestBuilt(projectId, "android", "main")).toMatchObject({
+      id: build.id,
+      builtFor,
+    });
+    expect(await repository.newestBuilt(projectId, "android", "other")).toBeUndefined();
+
+    const installing = await repository.update(install.id, (kept) =>
+      startedInstalling(kept, build.id),
+    );
+    expect(installing?.event).toMatchObject({
+      from: "building",
+      to: "installing",
+      deviceName: "Pixel",
+    });
+    expect((await repository.active()).map(({ id }) => id)).toContain(install.id);
+    await repository.update(install.id, (kept) =>
+      installed(kept, new Date("2003-03-01T10:32:00Z")),
+    );
+    expect(await repository.find(install.id)).toMatchObject({
+      state: "installed",
+      device,
+      buildInstanceId: build.id,
+      builtFor: undefined,
+      endedAt: new Date("2003-03-01T10:32:00Z"),
+    });
   });
 
   it("lists the instances Built or Failed since a time, newest first, across Initiatives", async () => {

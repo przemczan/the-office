@@ -28,9 +28,11 @@ export class AndroidUsbDevices {
     private readonly schedule: Schedule,
   ) {}
 
-  /** The helper is ready at the endpoint: answers why the phone can't be used, or nothing. */
-  async helperReady(device: ConnectedAndroidPhone): Promise<string | undefined> {
-    const place = this.placeOf(device);
+  /**
+   * The helper is ready at the endpoint, in the place adb runs: answers why the phone can't be
+   * used, or nothing.
+   */
+  async helperReady(device: ConnectedAndroidPhone, place: AdbPlace): Promise<string | undefined> {
     const check = await this.adb.ensureAdb(place);
     if (check === "missing") return ADB_MISSING;
     if (check === "not-running") return undefined;
@@ -47,6 +49,7 @@ export class AndroidUsbDevices {
    */
   connectionsClosed(
     device: ConnectedAndroidPhone,
+    place: AdbPlace,
     current: (id: string) => Promise<ConnectedDevice | undefined>,
   ): void {
     const now = this.schedule.now().getTime();
@@ -59,23 +62,16 @@ export class AndroidUsbDevices {
       async () => {
         const kept = await current(device.id);
         if (kept?.state !== "connected" || kept.endpoint !== device.endpoint) return;
-        await this.adb.connect(this.placeOf(device), device.endpoint);
+        await this.adb.connect(place, device.endpoint);
       },
     );
   }
 
   /** The device was disconnected: adb forgets its serial, best effort. */
-  async disconnected(device: ConnectedAndroidPhone): Promise<void> {
+  async disconnected(device: ConnectedAndroidPhone, place: AdbPlace): Promise<void> {
     this.reconnectedAt.delete(device.id);
-    await this.adb.disconnect(this.placeOf(device), device.endpoint).catch((error: unknown) => {
-      this.logger.warn(
-        `adb disconnect ${device.endpoint} in the Task ${device.taskId} failed.`,
-        error,
-      );
+    await this.adb.disconnect(place, device.endpoint).catch((error: unknown) => {
+      this.logger.warn(`adb disconnect ${device.endpoint} in ${place.label} failed.`, error);
     });
-  }
-
-  private placeOf(device: ConnectedAndroidPhone): AdbPlace {
-    return this.adb.inTask(device.taskId, device.projectId);
   }
 }

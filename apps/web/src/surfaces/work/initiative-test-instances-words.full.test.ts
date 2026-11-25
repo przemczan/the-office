@@ -28,6 +28,9 @@ function anInstance(state: TestInstanceState, commit: string | null = null): Tes
     files: [],
     filesRemoved: false,
     runAs: null,
+    device: null,
+    buildInstanceId: null,
+    builtFor: null,
   };
 }
 
@@ -42,6 +45,7 @@ function projectWith(...instances: TestInstance[]): InitiativeTestInstancesProje
         name: "Office",
         kind: "hosted",
         entryPoint: { kind: "devcontainer-service", service: "web" },
+        installs: null,
         instances,
       },
     ],

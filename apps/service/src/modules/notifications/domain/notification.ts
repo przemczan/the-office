@@ -415,6 +415,15 @@ export function testInstanceBuilt(
   );
 }
 
+/** "Install on Pixel on main is Installed." (spec §2.7, "Test instance Outcomes"). */
+export function testInstanceInstalled(instance: TestInstanceWords): NotificationDraft {
+  return testInstanceOutcome(
+    "outcomes.test-instance.installed",
+    instance,
+    `${instance.targetName} ${placeOf(instance)} is Installed.`,
+  );
+}
+
 export function testInstanceFailed(instance: TestInstanceWords, reason: string): NotificationDraft {
   return testInstanceOutcome(
     "outcomes.test-instance.failed",

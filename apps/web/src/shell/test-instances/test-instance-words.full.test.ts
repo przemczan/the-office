@@ -1,6 +1,17 @@
 import type { TestInstance, TestInstanceState } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { instanceLine, logLinesOf } from "./test-instance-words.ts";
+import {
+  builtForWords,
+  installsWords,
+  instanceLine,
+  isActive,
+  isWorking,
+  logLinesOf,
+  needsRunEnvironment,
+  onDeviceWords,
+  reusingBuildWords,
+  TEST_INSTANCE_STATE_WORDS,
+} from "./test-instance-words.ts";
 
 const LAUNCHED_AT = "2026-11-20T14:02:00.000Z";
 
@@ -24,6 +35,9 @@ function anInstance(state: TestInstanceState, commit: string | null = null): Tes
     files: [],
     filesRemoved: false,
     runAs: null,
+    device: null,
+    buildInstanceId: null,
+    builtFor: null,
   };
 }
 
@@ -46,5 +60,39 @@ describe("the log's lines", () => {
       { kind: "output", text: "listening" },
       { kind: "failed", text: "Failed: no answer." },
     ]);
+  });
+});
+
+describe("an Install on a device's words", () => {
+  const PIXEL = { projectDeviceId: "d1", name: "Pixel 8", kind: "android-wireless" } as const;
+
+  it("names its states, which are active, and Installing as working", () => {
+    expect(TEST_INSTANCE_STATE_WORDS.installing).toBe("Installing");
+    expect(TEST_INSTANCE_STATE_WORDS.installed).toBe("Installed");
+    expect(isActive("installing")).toBe(true);
+    expect(isActive("installed")).toBe(false);
+    expect(isWorking("installing")).toBe(true);
+    expect(isWorking("installed")).toBe(false);
+    expect(needsRunEnvironment({ kind: "install-on-a-device" })).toBe(true);
+  });
+
+  it("says where it installs, what it built for and which build it reuses", () => {
+    expect(onDeviceWords("Pixel 8")).toBe("on Pixel 8");
+    expect(builtForWords("Install on Pixel")).toBe("Built for Install on Pixel");
+    expect(reusingBuildWords("a1b2c3d4e5f6")).toBe("Reusing a1b2c3d's build");
+    expect(reusingBuildWords(null)).toBe("Reusing a build");
+  });
+
+  it("says what a target installs, by the names the Project has now", () => {
+    const installs = {
+      buildTargetKey: "app",
+      buildTargetName: "Android app",
+      projectDeviceId: "d1",
+      device: PIXEL,
+    };
+    expect(installsWords(installs)).toBe("Installs Android app on Pixel 8");
+    expect(installsWords({ ...installs, buildTargetName: null, device: null })).toBe(
+      "Installs app on a device that's gone",
+    );
   });
 });

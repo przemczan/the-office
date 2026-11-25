@@ -1,7 +1,9 @@
-import type { Action, TestTarget } from "@the-office/contracts";
+import { Link } from "@tanstack/react-router";
+import type { Action, Project, TestTarget } from "@the-office/contracts";
 import { Badge, Icon, IconButton, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ACTION_KIND_LABELS, leavesTheWorkstationWords } from "../../../shell/action-words.ts";
+import { NEEDS_RUN_ENVIRONMENT_TO_RUN, needsRunEnvironmentToRun } from "./action-words.ts";
 
 /** Its kind with what it runs: "Project command · build", "Test target · Web app", "Workflow · release.yml". */
 export function ActionRunsLine({
@@ -87,9 +89,21 @@ export function ActionTools({
   );
 }
 
-/** The warnings on an Action whose settings name something gone, each with its mark. */
-export function ActionWarnings({ warnings }: { readonly warnings: readonly string[] }): ReactNode {
-  if (warnings.length === 0) return null;
+/**
+ * The warnings on an Action whose settings name something gone, each with its mark, and its
+ * device's need of Run environment On, with a link to it.
+ */
+export function ActionWarnings({
+  project,
+  action,
+  warnings,
+}: {
+  readonly project: Pick<Project, "id" | "runEnvironment">;
+  readonly action: Action;
+  readonly warnings: readonly string[];
+}): ReactNode {
+  const needsOn = needsRunEnvironmentToRun(action, project.runEnvironment);
+  if (warnings.length === 0 && !needsOn) return null;
   return (
     <span className="action-warnings">
       {warnings.map((warning) => (
@@ -98,6 +112,15 @@ export function ActionWarnings({ warnings }: { readonly warnings: readonly strin
           {warning}
         </span>
       ))}
+      {needsOn && (
+        <span className="test-target-warning">
+          <Icon name="triangle-alert" size={13} />
+          {NEEDS_RUN_ENVIRONMENT_TO_RUN}{" "}
+          <Link to="/projects/$projectId/run-environment" params={{ projectId: project.id }}>
+            Run environment
+          </Link>
+        </span>
+      )}
     </span>
   );
 }

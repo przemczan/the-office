@@ -23,6 +23,7 @@ const CONTEXT: ActionContext = {
   commandKeys: ["build", "lint"],
   commandBeforeKeys: ["install", "build", "lint"],
   targetKeys: ["android"],
+  deviceIds: ["device-1"],
   variables: [],
 };
 
@@ -37,7 +38,12 @@ const BUILD: ActionFields = {
   key: "build-web",
   name: "Build web",
   kind: "project-command",
-  settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: null },
+  settings: {
+    commandKey: "build",
+    commandsBefore: ["install"],
+    timeLimitMinutes: null,
+    projectDeviceId: null,
+  },
   leavesTheWorkstation: false,
 };
 
@@ -61,6 +67,11 @@ function kept(fields: ActionFields, setBy: Action["setBy"] = {}): Action {
   return { ...fields, setBy };
 }
 
+const holding = (projectDeviceId: string): ActionFields => ({
+  ...BUILD,
+  settings: { ...BUILD.settings, projectDeviceId },
+});
+
 describe("an Action's rules", () => {
   it("take each kind naming what the Project has", () => {
     expect(actionProblems([BUILD, PHONE, RELEASE], CONTEXT)).toEqual([]);
@@ -74,7 +85,12 @@ describe("an Action's rules", () => {
             ...BUILD,
             key: "Build",
             name: "x".repeat(61),
-            settings: { commandKey: "deploy", commandsBefore: ["seed"], timeLimitMinutes: 241 },
+            settings: {
+              commandKey: "deploy",
+              commandsBefore: ["seed"],
+              timeLimitMinutes: 241,
+              projectDeviceId: null,
+            },
           },
           { ...PHONE, settings: { targetKey: "ios" } },
           { ...PHONE, name: "" },
@@ -92,6 +108,13 @@ describe("an Action's rules", () => {
       `Action "phone": ios isn't one of «Shop»'s test targets.`,
       `Action "phone": Give it a name.`,
       `Action "release": Give the Workflow's file, such as release.yml.`,
+    ]);
+  });
+
+  it("take a Project command Action holding one of the Project's devices, and refuse one it hasn't", () => {
+    expect(actionProblems([holding("device-1")], CONTEXT)).toEqual([]);
+    expect(actionProblems([holding("device-9")], CONTEXT)).toEqual([
+      `Action "build-web": device-9 isn't one of «Shop»'s devices.`,
     ]);
   });
 
@@ -162,7 +185,11 @@ describe("who set each value", () => {
       settings: DANA,
     });
     expect(
-      setByAfter(before, { ...BUILD, settings: { ...BUILD.settings, timeLimitMinutes: 30 } }, ANN),
+      setByAfter(
+        before,
+        { ...BUILD, settings: { ...BUILD.settings, timeLimitMinutes: 30, projectDeviceId: null } },
+        ANN,
+      ),
     ).toEqual({ name: DANA, kind: DANA, settings: ANN });
   });
 });

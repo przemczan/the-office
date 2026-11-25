@@ -78,6 +78,8 @@ export function disconnectedWhy(
       return "Connected devices switched off";
     case "error":
       return device.problem === null ? "error" : `error: ${device.problem}`;
+    case "run-ended":
+      return "run ended";
     case null:
       return "";
   }

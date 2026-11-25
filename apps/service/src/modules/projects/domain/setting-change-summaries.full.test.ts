@@ -70,7 +70,12 @@ describe("testTargetsSummary and actionsSummary", () => {
       key: "build",
       name: "Build",
       kind: "project-command",
-      settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: null },
+      settings: {
+        commandKey: "build",
+        commandsBefore: [],
+        timeLimitMinutes: null,
+        projectDeviceId: null,
+      },
       leavesTheWorkstation: false,
       setBy: {},
     } as Action;

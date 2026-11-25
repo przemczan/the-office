@@ -6,7 +6,20 @@ export interface ListedTarget {
   readonly name: string;
   /** Its kind; the outlined ones aren't launched and aren't listed. */
   readonly kind: string;
-  readonly entryPoint: TargetEntryPoint;
+  /** A Hosted or Build to install target's entry point; undefined for Install on a device. */
+  readonly entryPoint: TargetEntryPoint | undefined;
+  /** An Install on a device target's settings; undefined for every other kind. */
+  readonly installs: ListedInstall | undefined;
+}
+
+/**
+ * What an Install on a device target installs, and on what: its Build to install target, named as
+ * the Project has it now (undefined when it has none of that key), and its Project device's id.
+ */
+export interface ListedInstall {
+  readonly buildTargetKey: string;
+  readonly buildTargetName: string | undefined;
+  readonly projectDeviceId: string;
 }
 
 /** Hides the target's own Secret variables' values, as `[secret NAME]`, line by line or streamed. */
@@ -55,11 +68,11 @@ export interface WorkstationBuildEnd {
   readonly endedBy: "timeout" | "stop" | "could-not-run" | undefined;
 }
 
-/** What launching a target needs, its Secret variables' values among them. */
+/** What launching a Hosted or Build to install target needs, its Secret variables' values among them. */
 export interface TargetLaunch {
   readonly key: string;
   readonly name: string;
-  readonly kind: string;
+  readonly kind: "hosted" | "build-to-install" | "deployed-elsewhere";
   readonly entryPoint: TargetEntryPoint;
   /** A Hosted target's port inside its container; undefined for other kinds. */
   readonly containerPort: number | undefined;
@@ -77,6 +90,23 @@ export interface TargetLaunch {
   readonly portVariable: string | undefined;
   /** The target's own Memory per service in MB; undefined when the Office-wide value applies. */
   readonly memoryMegabytes: number | undefined;
+  readonly mask: InstanceMask;
+}
+
+/**
+ * What launching an Install on a device target needs: its Project device and the launch of the
+ * Build to install target whose files it installs (spec §2.12, "Install on a device").
+ */
+export interface InstallLaunch {
+  readonly key: string;
+  readonly name: string;
+  readonly kind: "install-on-a-device";
+  readonly runEnvironmentOn: boolean;
+  readonly buildTargetKey: string;
+  readonly projectDeviceId: string;
+  /** The Build to install target's launch; undefined when the Project has no such target now. */
+  readonly build: TargetLaunch | undefined;
+  /** Hides the build target's Secret variables in the instance's log, as its build's does. */
   readonly mask: InstanceMask;
 }
 
@@ -106,7 +136,7 @@ export abstract class ProjectTestTargets {
   abstract runEnvironmentOn(projectId: string): Promise<boolean>;
 
   /** Refused when the Project has no such target, or has Test targets switched off. */
-  abstract launchOf(projectId: string, key: string): Promise<TargetLaunch>;
+  abstract launchOf(projectId: string, key: string): Promise<TargetLaunch | InstallLaunch>;
 
   /** Why the target's entry point isn't one of the repository's at `commit`; empty when it is. */
   abstract entryPointProblemsAt(projectId: string, commit: string, key: string): Promise<string[]>;

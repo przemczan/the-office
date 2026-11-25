@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   editedTestTargets,
+  fieldsOfKind,
+  installTargetProblems,
+  sameTestTargets,
   setByAfter,
   shownTestTargets,
   testTargetProblems,
@@ -11,7 +14,7 @@ import {
 const ANN: TestTargetSetter = { by: "user", user: { userId: "user-ann", name: "Ann" } };
 const BEN: TestTargetSetter = { by: "user", user: { userId: "user-ben", name: "Ben" } };
 
-const WEB: TestTarget = {
+const WEB: Extract<TestTarget, { kind: "hosted" }> = {
   key: "web",
   name: "Web app",
   kind: "hosted",
@@ -56,7 +59,8 @@ describe("editedTestTargets", () => {
         { name: "MAPS_KEY", value: null },
       ],
     });
-    expect(edited && shownTestTargets([edited])[0]?.secretVariables).toEqual([
+    const [shown] = edited ? shownTestTargets([edited]) : [];
+    expect(shown && "secretVariables" in shown ? shown.secretVariables : undefined).toEqual([
       { name: "API_KEY", valueSet: true },
       { name: "MAPS_KEY", valueSet: false },
     ]);
@@ -163,5 +167,102 @@ describe("testTargetProblems", () => {
     for (const memoryMegabytes of [0, 256, 700, 65_537, 66_048, 1024.5]) {
       expect(testTargetProblems([{ ...WEB, memoryMegabytes }], COMMAND_KEYS)).toEqual([words]);
     }
+  });
+});
+
+const BUILD: TestTarget = {
+  ...WEB,
+  key: "apk",
+  name: "APK",
+  kind: "build-to-install",
+  outputPatterns: ["app/build/outputs/apk/debug/*.apk"],
+  setBy: {},
+};
+
+const INSTALL: TestTarget = {
+  key: "phone",
+  name: "Install on the phone",
+  kind: "install-on-a-device",
+  buildTargetKey: "apk",
+  projectDeviceId: "device-1",
+  setBy: { name: ANN },
+};
+
+const PHONES = [
+  { id: "device-1", androidPhone: true },
+  { id: "device-2", androidPhone: false },
+];
+
+describe("Install on a device", () => {
+  it("has only its name, kind, Build to install target and device as fields", () => {
+    expect(fieldsOfKind("install-on-a-device")).toEqual([
+      "name",
+      "kind",
+      "buildTargetKey",
+      "projectDeviceId",
+    ]);
+    expect(fieldsOfKind("hosted")).not.toContain("buildTargetKey");
+    expect(Object.keys(setByAfter(undefined, INSTALL, BEN))).toEqual([
+      "name",
+      "kind",
+      "buildTargetKey",
+      "projectDeviceId",
+    ]);
+  });
+
+  it("is saved with a Build to install target among the targets and no entry point", () => {
+    expect(testTargetProblems([BUILD, INSTALL], COMMAND_KEYS)).toEqual([]);
+    expect(
+      editedTestTargets(
+        [],
+        [{ ...INSTALL, buildTargetKey: " apk ", projectDeviceId: " device-1 " }],
+      ),
+    ).toEqual([{ ...INSTALL, setBy: {} }]);
+    expect(shownTestTargets([INSTALL])).toEqual([INSTALL]);
+  });
+
+  it("tells a changed device or Build to install target from the same", () => {
+    expect(sameTestTargets([BUILD, INSTALL], [BUILD, { ...INSTALL }])).toBe(true);
+    expect(sameTestTargets([INSTALL], [{ ...INSTALL, projectDeviceId: "device-2" }])).toBe(false);
+    expect(sameTestTargets([INSTALL], [{ ...INSTALL, buildTargetKey: "web" }])).toBe(false);
+    expect(sameTestTargets([WEB], [INSTALL])).toBe(false);
+  });
+
+  it("is refused naming a Build to install target the Project lacks, or one of another kind", () => {
+    expect(installTargetProblems([INSTALL], "Shop", PHONES, ["phone"])).toEqual([
+      `Test target "phone": apk isn't one of «Shop»'s Build to install targets.`,
+    ]);
+    expect(
+      installTargetProblems([{ ...WEB, key: "apk" }, INSTALL], "Shop", PHONES, ["phone"]),
+    ).toHaveLength(1);
+    expect(installTargetProblems([BUILD, INSTALL], "Shop", PHONES, ["phone"])).toEqual([]);
+  });
+
+  it("is refused naming a device that is missing or no Android phone, when it is to be checked", () => {
+    expect(
+      installTargetProblems([BUILD, { ...INSTALL, projectDeviceId: "device-2" }], "Shop", PHONES, [
+        "phone",
+      ]),
+    ).toEqual([`Test target "phone": device-2 isn't an Android phone among «Shop»'s devices.`]);
+    expect(
+      installTargetProblems([BUILD, { ...INSTALL, projectDeviceId: "gone" }], "Shop", PHONES, [
+        "phone",
+      ]),
+    ).toEqual([`Test target "phone": gone isn't an Android phone among «Shop»'s devices.`]);
+    expect(
+      installTargetProblems([BUILD, { ...INSTALL, projectDeviceId: "gone" }], "Shop", PHONES, []),
+    ).toEqual([]);
+  });
+
+  it("asks for both settings, and Deployed elsewhere stays unbuilt", () => {
+    expect(
+      testTargetProblems([{ ...INSTALL, buildTargetKey: "", projectDeviceId: "" }], COMMAND_KEYS),
+    ).toEqual([
+      `Test target "phone": Give the Build to install target it installs.`,
+      `Test target "phone": Give the device it installs on.`,
+    ]);
+    expect(
+      testTargetProblems([{ ...WEB, key: "remote", kind: "deployed-elsewhere" }], COMMAND_KEYS),
+    ).toEqual([`Test target "remote": Deployed elsewhere isn't built yet.`]);
   });
 });

@@ -108,3 +108,23 @@ export function couldNotRun(name: string): string {
 export function didNotShow(hostName: string): string {
   return `${hostName} didn't show the run in 60 seconds; it may still run there.`;
 }
+
+/** An Action naming a device started with Run environment Off (spec §2.15, "Where a run runs"). */
+export function deviceNeedsRunEnvironmentOn(actionName: string, deviceName: string): string {
+  return `${actionName} holds ${deviceName}, which needs Run environment On.`;
+}
+
+/** The run fails at its start when the device it names is no longer the Project's. */
+export function deviceGone(projectDeviceId: string): string {
+  return `The Project's device ${projectDeviceId} is gone; pick the device again in the Project's Actions.`;
+}
+
+/** "Pixel is in use by Install on my phone on main.", as Devices names a run holding it (spec §2.13). */
+export function deviceInUseBy(deviceName: string, holderName: string): string {
+  return `${deviceName} is in use by ${holderName}.`;
+}
+
+/** Failed when the run's hold ended from outside: "Pixel was let go of: Run environment turned Off." */
+export function deviceLetGoOf(deviceName: string, why: string): string {
+  return `${deviceName} was let go of: ${why.replace(/\.$/, "")}.`;
+}

@@ -30,6 +30,7 @@ export class TestInstancesActionRuns extends ActionTestInstances {
     targetKey: string,
     by: ActionRunUser,
     runAs: { readonly actionKey: string; readonly actionName: string },
+    relayTab: string | undefined,
   ): Promise<RunTestInstance> {
     const instance = await translated(() =>
       this.instances.launchOnBranch(
@@ -38,6 +39,7 @@ export class TestInstancesActionRuns extends ActionTestInstances {
         targetKey,
         { kind: "user", user: by },
         runAs,
+        relayTab,
       ),
     );
     return runInstanceOf(instance);

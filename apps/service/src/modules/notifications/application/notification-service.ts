@@ -64,6 +64,7 @@ import {
   actionRunSucceeded,
   testInstanceBuilt,
   testInstanceFailed,
+  testInstanceInstalled,
   testInstanceRunning,
   windowMove,
   windowNearlyUsed,
@@ -309,9 +310,10 @@ export class NotificationService implements OnModuleInit {
   }
 
   /**
-   * A test instance Running, Built or Failed is an Outcome in the UI's voice (spec §2.7 Defaults,
-   * "Test instance Outcomes"); its next state makes it stale, so that clears it first. A build
-   * failed by the user's own Stop or by its Initiative ending tells them nothing new.
+   * A test instance Running, Built, Installed or Failed is an Outcome in the UI's voice (spec §2.7
+   * Defaults, "Test instance Outcomes"); its next state makes it stale, so that clears it first. A
+   * build or an install failed by the user's own Stop or by its Initiative ending tells them nothing
+   * new, nor does a build an Install on a device instance launched: the install's Outcome tells.
    */
   private subscribeToTestInstances(): void {
     this.events.subscribe(TestInstanceStateChanged, async (changed) => {
@@ -344,17 +346,21 @@ export class NotificationService implements OnModuleInit {
   private async testInstanceOutcome(
     changed: TestInstanceStateChanged,
   ): Promise<NotificationDraft | undefined> {
+    if (changed.builtFor !== undefined) return undefined;
     switch (changed.to) {
       case "running":
         return testInstanceRunning(await this.testInstanceWords(changed));
       case "built":
         return testInstanceBuilt(await this.testInstanceWords(changed), changed.files);
+      case "installed":
+        return testInstanceInstalled(await this.testInstanceWords(changed));
       case "failed": {
         const { stoppedBy, failedReason = "" } = changed;
         if (stoppedBy === "by-user" || stoppedBy === "initiative-ended") return undefined;
         return testInstanceFailed(await this.testInstanceWords(changed), failedReason);
       }
       case "building":
+      case "installing":
       case "stopped":
         return undefined;
     }

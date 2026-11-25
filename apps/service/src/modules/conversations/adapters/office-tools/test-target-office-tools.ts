@@ -31,13 +31,15 @@ export const targetInput = z.object({
     ),
   name: z.string().describe("The target's name, as the user reads it."),
   kind: z
-    .enum(["hosted", "build-to-install"])
+    .enum(["hosted", "build-to-install", "install-on-a-device"])
     .describe(
-      "hosted: the app runs in the Task's run environment and is opened by its port; build-to-install: a build whose output files the user downloads and installs.",
+      "hosted: the app runs in the Task's run environment and is opened by its port; build-to-install: a build whose output files the user downloads and installs; install-on-a-device: builds one of the Project's Build to install targets and installs it on one of the Project's Android phones, with buildTargetKey and projectDeviceId and no entry point, variables, commandsBefore or memory of its own.",
     ),
-  entryPoint: entryPointSchema.describe(
-    "One of the repository's own entry points, never a command line: a file in the repository (repository-file, by its path from the root), a script of a package manifest (package-script), a Gradle task run through the repository's ./gradlew (gradle-task), or a service of the repository's .devcontainer/ (devcontainer-service, Hosted only). Arguments are given one by one and never read by a shell: no pipes, ;, &&, redirections or substitutions.",
-  ),
+  entryPoint: entryPointSchema
+    .optional()
+    .describe(
+      "Hosted and Build to install only, and required for them: one of the repository's own entry points, never a command line: a file in the repository (repository-file, by its path from the root), a script of a package manifest (package-script), a Gradle task run through the repository's ./gradlew (gradle-task), or a service of the repository's .devcontainer/ (devcontainer-service, Hosted only). Arguments are given one by one and never read by a shell: no pipes, ;, &&, redirections or substitutions.",
+    ),
   port: z
     .number()
     .int()
@@ -48,6 +50,18 @@ export const targetInput = z.object({
     .default(DEFAULT_PORT_VARIABLE)
     .describe(
       `Hosted only: the variable The Office sets to the port in the app's service, ${DEFAULT_PORT_VARIABLE} when left out; a variable's name (letters, digits and _, not starting with a digit), never OFFICE_TEST_INSTANCE nor one of the target's own variables.`,
+    ),
+  buildTargetKey: z
+    .string()
+    .optional()
+    .describe(
+      "Install on a device only, and required for it: the key of the Project's Build to install target whose build it installs, as it is in the same save.",
+    ),
+  projectDeviceId: z
+    .string()
+    .optional()
+    .describe(
+      "Install on a device only, and required for it: the id of the Project device it installs on, an Android phone, as list_projects lists it under Devices.",
     ),
   outputPatterns: z
     .array(z.string())
@@ -118,7 +132,7 @@ export class TestTargetOfficeTools implements OnModuleInit {
           .array(z.string())
           .optional()
           .describe(
-            "Each value the user set that this changes on purpose, as key.field, such as web.port; field is one of name, kind, entryPoint, port, portVariable, outputPatterns, variables, secretVariables, commandsBefore and memoryMegabytes. Removing a target changes each of its values. A value the user set that isn't named here is refused, so read the targets first and name only what you mean to change.",
+            "Each value the user set that this changes on purpose, as key.field, such as web.port; field is one of name, kind, entryPoint, port, portVariable, outputPatterns, variables, secretVariables, commandsBefore, memoryMegabytes, buildTargetKey and projectDeviceId. Removing a target changes each of its values. A value the user set that isn't named here is refused, so read the targets first and name only what you mean to change.",
           ),
       }),
       run: async ({ project: projectId, targets, removeTargets, changeUserSet }, { sessionId }) => {
@@ -161,6 +175,20 @@ export function proposedTargets(targets: readonly TargetInput[]): ProposedTestTa
   const proposed = targets.flatMap((target): ProposedTestTargetFields[] => {
     const { key, name, entryPoint, variables, secretVariables, commandsBefore, memoryMegabytes } =
       target;
+    if (target.kind === "install-on-a-device") {
+      const { buildTargetKey, projectDeviceId } = target;
+      if (buildTargetKey === undefined || projectDeviceId === undefined) {
+        problems.push(
+          `Test target "${key}" is Install on a device, so it needs buildTargetKey and projectDeviceId.`,
+        );
+        return [];
+      }
+      return [{ key, name, kind: "install-on-a-device", buildTargetKey, projectDeviceId }];
+    }
+    if (entryPoint === undefined) {
+      problems.push(`Test target "${key}" needs an entryPoint.`);
+      return [];
+    }
     const fields = {
       key,
       name,

@@ -37,7 +37,12 @@ const BUILD_WEB: Action = {
   key: "build-web",
   name: "Build web",
   kind: "project-command",
-  settings: { commandKey: "build", commandsBefore: ["install", "lint"], timeLimitMinutes: null },
+  settings: {
+    commandKey: "build",
+    commandsBefore: ["install", "lint"],
+    timeLimitMinutes: null,
+    projectDeviceId: null,
+  },
   leavesTheWorkstation: false,
   setBy: {},
 };
@@ -96,7 +101,12 @@ describe("ActionRunSettings", () => {
     const run = await settingsOver(project, [
       {
         ...BUILD_WEB,
-        settings: { commandKey: "deploy", commandsBefore: ["install", "e2e"], timeLimitMinutes: 5 },
+        settings: {
+          commandKey: "deploy",
+          commandsBefore: ["install", "e2e"],
+          timeLimitMinutes: 5,
+          projectDeviceId: null,
+        },
       },
     ]).commandRunOf(project.id, "build-web");
 

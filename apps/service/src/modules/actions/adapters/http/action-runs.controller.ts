@@ -104,6 +104,7 @@ export function actionRunResponse(run: ActionRun): ActionRunResponse {
     exitCode: run.exitCode ?? null,
     endedBecause: run.endedBecause ?? null,
     testInstanceId: run.testInstanceId ?? null,
+    deviceName: run.deviceName ?? null,
     ciRun: run.ciRun ?? null,
     workflowRunsUrl: run.workflowRunsUrl ?? null,
   };

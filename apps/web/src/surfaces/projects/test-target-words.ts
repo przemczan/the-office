@@ -55,12 +55,13 @@ export function targetSetByWords(
 
 /** The Secret variables whose value isn't typed yet, such as those a Proposal named. */
 export function secretsNeedingValues(target: TestTarget): readonly string[] {
+  if (target.kind === "install-on-a-device") return [];
   return target.secretVariables.filter(({ valueSet }) => !valueSet).map(({ name }) => name);
 }
 
 /** Whether the target can't launch until the Project's Run environment is On. */
 export function needsRunEnvironment(target: TestTarget, setting: RunEnvironmentSetting): boolean {
-  return target.kind === "hosted" && setting !== "on";
+  return (target.kind === "hosted" || target.kind === "install-on-a-device") && setting !== "on";
 }
 
 /** A test target as its editor shows it: lists one per line, the port as typed. */
@@ -89,6 +90,10 @@ export interface TestTargetDraft {
   readonly portVariable: string;
   /** The target's own Memory per service in MB; null for the Office-wide value. */
   readonly memoryMegabytes: number | null;
+  /** Install on a device: the Build to install target whose files it installs, by its key. */
+  readonly buildTargetKey: string;
+  /** Install on a device: the Project device it installs on, by its id. */
+  readonly projectDeviceId: string;
 }
 
 /** A new target's editor: Hosted, on the root package manifest's script. */
@@ -110,9 +115,21 @@ export const NEW_TEST_TARGET_DRAFT: TestTargetDraft = {
   commandsBefore: [],
   portVariable: DEFAULT_PORT_VARIABLE,
   memoryMegabytes: null,
+  buildTargetKey: "",
+  projectDeviceId: "",
 };
 
 export function testTargetDraftOf(target: TestTarget): TestTargetDraft {
+  if (target.kind === "install-on-a-device") {
+    return {
+      ...NEW_TEST_TARGET_DRAFT,
+      key: target.key,
+      name: target.name,
+      kind: target.kind,
+      buildTargetKey: target.buildTargetKey,
+      projectDeviceId: target.projectDeviceId,
+    };
+  }
   const { entryPoint } = target;
   return {
     ...NEW_TEST_TARGET_DRAFT,
@@ -172,6 +189,7 @@ export function notACommandWords(key: string): string {
  * port as the variable it is set in (`PORT=3000`), and its own Memory per service when it has one.
  */
 export function targetDetailsWords(target: TestTarget): readonly string[] {
+  if (target.kind === "install-on-a-device") return [];
   return [
     ...(target.commandsBefore.length > 0
       ? [`Commands before: ${commandsBeforeWords(target.commandsBefore)}`]
@@ -181,6 +199,11 @@ export function targetDetailsWords(target: TestTarget): readonly string[] {
       ? []
       : [`Memory per service ${memoryWords(target.memoryMegabytes)}`]),
   ];
+}
+
+/** On an Install on a device whose Build to install target is gone. */
+export function notABuildTargetWords(targetKey: string, projectName: string): string {
+  return `${targetKey} isn't one of ${projectName}'s Build to install targets anymore.`;
 }
 
 /** The list with the item at `index` moved by `by` places, or as it was at either end. */
@@ -226,6 +249,7 @@ export function withNewTargetSecret(draft: TestTargetDraft): TestTargetDraft {
 export function editedTestTargetOf(
   draft: TestTargetDraft,
 ): { readonly target: EditedTestTarget } | { readonly problems: readonly string[] } {
+  if (draft.kind === "install-on-a-device") return installTargetOf(draft);
   const problems: string[] = [];
   const variables = linesOf(draft.variables).flatMap((line) => {
     const equals = line.indexOf("=");
@@ -267,6 +291,26 @@ export function editedTestTargetOf(
   };
 }
 
+/** An Install on a device's two settings, each chosen; the service checks they are the Project's. */
+function installTargetOf(
+  draft: TestTargetDraft,
+): { readonly target: EditedTestTarget } | { readonly problems: readonly string[] } {
+  const problems = [
+    ...(draft.buildTargetKey === "" ? ["Choose the Build to install target to install."] : []),
+    ...(draft.projectDeviceId === "" ? ["Choose the device to install on."] : []),
+  ];
+  if (problems.length > 0) return { problems };
+  return {
+    target: {
+      key: draft.key.trim(),
+      name: draft.name.trim(),
+      kind: "install-on-a-device",
+      buildTargetKey: draft.buildTargetKey,
+      projectDeviceId: draft.projectDeviceId,
+    },
+  };
+}
+
 function entryPointOf(draft: TestTargetDraft): EntryPoint {
   const args = linesOf(draft.arguments);
   switch (draft.entryPointKind) {
@@ -292,6 +336,10 @@ function linesOf(text: string): string[] {
 
 /** A target as the whole list sends it back unchanged: each Secret variable keeps its value. */
 export function keptTestTarget(target: TestTarget): EditedTestTarget {
+  if (target.kind === "install-on-a-device") {
+    const { setBy: _setBy, ...fields } = target;
+    return fields;
+  }
   const { setBy: _setBy, secretVariables, ...fields } = target;
   return { ...fields, secretVariables: secretVariables.map(({ name }) => ({ name })) };
 }

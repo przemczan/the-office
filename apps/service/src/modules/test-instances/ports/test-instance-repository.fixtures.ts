@@ -62,6 +62,26 @@ export class TestInstanceRepositoryForTests extends TestInstanceRepository {
     );
   }
 
+  newestBuilt(
+    projectId: string,
+    targetKey: string,
+    branch: string,
+  ): Promise<TestInstance | undefined> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(
+          (instance) =>
+            instance.projectId === projectId &&
+            instance.targetKey === targetKey &&
+            instance.branch === branch &&
+            instance.state === "built",
+        )
+        .toReversed()
+        .toSorted((one, other) => (other.endedAt?.getTime() ?? 0) - (one.endedAt?.getTime() ?? 0))
+        .at(0),
+    );
+  }
+
   update(
     id: string,
     change: (instance: TestInstance) => TestInstanceChange,

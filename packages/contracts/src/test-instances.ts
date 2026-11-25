@@ -1,27 +1,43 @@
 import { z } from "zod";
+import { connectedDeviceKindSchema, relayTabSchema } from "./devices.js";
 import { webEventSchema } from "./events.js";
 import { entryPointSchema, testTargetKeySchema } from "./test-targets.js";
 import { authorSchema } from "./work.js";
 
 /** The kinds a Test instance may be (spec §2.12, "Kinds"). */
-export const testInstanceKindSchema = z.enum(["hosted", "build-to-install"]);
+export const testInstanceKindSchema = z.enum(["hosted", "build-to-install", "install-on-a-device"]);
 export type TestInstanceKind = z.infer<typeof testInstanceKindSchema>;
 
 /**
  * A Test instance's state (spec §2.12, "Test instance states"): Hosted goes Building → Running →
- * Stopped, or Failed; Built is Build to install's.
+ * Stopped, or Failed; Built is Build to install's; Install on a device goes Building → Installing →
+ * Installed, or Failed.
  */
 export const testInstanceStateSchema = z.enum([
   "building",
   "running",
   "built",
+  "installing",
+  "installed",
   "stopped",
   "failed",
 ]);
 export type TestInstanceState = z.infer<typeof testInstanceStateSchema>;
 
 /** The states that count toward Test instances at once; a Hosted instance holds its Proxy port. */
-export const ACTIVE_TEST_INSTANCE_STATES: readonly TestInstanceState[] = ["building", "running"];
+export const ACTIVE_TEST_INSTANCE_STATES: readonly TestInstanceState[] = [
+  "building",
+  "installing",
+  "running",
+];
+
+/** The Project device an Install on a device instance installs on, as it was at launch. */
+export const testInstanceDeviceSchema = z.object({
+  projectDeviceId: z.uuid(),
+  name: z.string(),
+  kind: connectedDeviceKindSchema,
+});
+export type TestInstanceDevice = z.infer<typeof testInstanceDeviceSchema>;
 
 /** One of a Built instance's files: its name and its size in bytes. */
 export const testBuildFileSchema = z.object({ name: z.string(), size: z.number().int().min(0) });
@@ -58,15 +74,39 @@ export const testInstanceSchema = z.object({
   filesRemoved: z.boolean(),
   /** The Action whose run launched it, shown "Run as <Action>"; null when launched by hand. */
   runAs: z.object({ actionKey: z.string(), actionName: z.string() }).nullable(),
+  /** An Install on a device instance's device, shown "on <device>"; null for every other kind. */
+  device: testInstanceDeviceSchema.nullable(),
+  /** An Install on a device instance's build, launched or reused, once it has one; null otherwise. */
+  buildInstanceId: z.uuid().nullable(),
+  /**
+   * A Build to install instance an Install on a device instance launched, shown "Built for
+   * <target>": that Install on a device target; null for every other.
+   */
+  builtFor: z.object({ targetKey: z.string(), targetName: z.string() }).nullable(),
 });
 export type TestInstance = z.infer<typeof testInstanceSchema>;
+
+/**
+ * What an Install on a device target installs, and on what: its Build to install target and its
+ * Project device, each by its name as the Project has it now, or null when it is gone.
+ */
+export const installSettingsSchema = z.object({
+  buildTargetKey: z.string(),
+  buildTargetName: z.string().nullable(),
+  projectDeviceId: z.string(),
+  device: testInstanceDeviceSchema.nullable(),
+});
+export type InstallSettings = z.infer<typeof installSettingsSchema>;
 
 /** A test target of a Project as the Initiative page's Test instances block shows it. */
 export const initiativeTestTargetSchema = z.object({
   key: z.string(),
   name: z.string(),
   kind: testInstanceKindSchema,
-  entryPoint: entryPointSchema,
+  /** A Hosted or Build to install target's entry point; null for Install on a device. */
+  entryPoint: entryPointSchema.nullable(),
+  /** An Install on a device target's settings; null for every other kind. */
+  installs: installSettingsSchema.nullable(),
   /** Its instances on this Initiative, newest first. */
   instances: z.array(testInstanceSchema),
 });
@@ -108,12 +148,15 @@ export const testInstanceBranchSchema = z
     { error: "That isn't a branch's name." },
   );
 
-/** A Hosted or Build to install test target of a Project, to launch. */
+/** A Hosted, Build to install or Install on a device test target of a Project, to launch. */
 export const launchableTestTargetSchema = z.object({
   key: z.string(),
   name: z.string(),
   kind: testInstanceKindSchema,
-  entryPoint: entryPointSchema,
+  /** A Hosted or Build to install target's entry point; null for Install on a device. */
+  entryPoint: entryPointSchema.nullable(),
+  /** An Install on a device target's settings; null for every other kind. */
+  installs: installSettingsSchema.nullable(),
 });
 export type LaunchableTestTarget = z.infer<typeof launchableTestTargetSchema>;
 
@@ -148,6 +191,8 @@ export type ProjectTestInstances = z.infer<typeof projectTestInstancesSchema>;
 export const projectTestInstanceLaunchSchema = z.object({
   branch: testInstanceBranchSchema,
   targetKey: testTargetKeySchema,
+  /** The tab relaying an Install on a device target's device over USB (spec §2.13). */
+  relayTab: relayTabSchema.optional(),
 });
 export type ProjectTestInstanceLaunch = z.infer<typeof projectTestInstanceLaunchSchema>;
 
@@ -155,6 +200,8 @@ export type ProjectTestInstanceLaunch = z.infer<typeof projectTestInstanceLaunch
 export const testInstanceLaunchSchema = z.object({
   projectId: z.string(),
   targetKey: testTargetKeySchema,
+  /** The tab relaying an Install on a device target's device over USB (spec §2.13). */
+  relayTab: relayTabSchema.optional(),
 });
 export type TestInstanceLaunch = z.infer<typeof testInstanceLaunchSchema>;
 
@@ -190,7 +237,7 @@ export interface TestInstanceLimitBounds {
   readonly max: number;
 }
 
-/** Settings › Office limits: how many test instances may be Building or Running together. */
+/** Settings › Office limits: how many test instances may be Building, Installing or Running together. */
 export const TEST_INSTANCES_AT_ONCE: TestInstanceLimitBounds = { min: 1, max: 6 };
 /** Settings › Office limits: minutes a Running Hosted instance may go with no request. */
 export const IDLE_TIME_MINUTES: TestInstanceLimitBounds = { min: 5, max: 240 };

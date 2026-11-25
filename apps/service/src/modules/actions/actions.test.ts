@@ -13,6 +13,7 @@ import {
   DEPLOY_SECRET,
   FIX_TIP,
   MAIN_TIP,
+  PIXEL_ID,
   type ActionsTestbed,
 } from "./actions.fixtures.js";
 import { RunEnvironmentsCommandRuns } from "./adapters/run-environments/run-environments-command-runs.js";
@@ -286,6 +287,131 @@ describe("a Project command run in the run environment", () => {
   });
 });
 
+/** Waits until the run's commands run, held running. */
+async function untilExecuting(runtime: ScriptedContainerRuntime): Promise<void> {
+  for (let tries = 0; tries < 100 && runtime.executions.length === 0; tries++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+describe("a Project command run holding a Project device", () => {
+  const RELAY_TAB = "5a1b0000-0000-4000-8000-000000000001";
+  const WITH_TAB = { ...FROM_MAIN, relayTab: RELAY_TAB } as const;
+
+  it("holds it before its commands, which get ANDROID_SERIAL, and lets go of it as it ends", async () => {
+    const runtime = new ScriptedContainerRuntime();
+    await onRunEnvironment(runtime);
+
+    const started = await testbed.runs.start("shop", "install-app", WITH_TAB, ANN);
+
+    expect(started.deviceName).toBe("Pixel 9");
+    expect(await settledRun(started.id)).toMatchObject({
+      outcome: "succeeded",
+      deviceName: "Pixel 9",
+    });
+    expect(testbed.devices.holds).toEqual([
+      {
+        holdId: "hold-1",
+        projectDeviceId: PIXEL_ID,
+        actionRunId: started.id,
+        holderName: "Install app on main",
+        relayTab: RELAY_TAB,
+        ended: "run-ended",
+      },
+    ]);
+    const [execution] = runtime.executions;
+    expect(JSON.stringify(execution?.variables)).toContain("127.0.0.1:41234");
+    // Each value by its carrier, the script naming it.
+    expect(execution?.script).toContain("ANDROID_SERIAL");
+    expect(await logOf(started.id)).toContain("Holding Pixel 9.");
+  });
+
+  it("lets go of it on Stop", async () => {
+    const runtime = new ScriptedContainerRuntime();
+    runtime.keepExecsRunning();
+    await onRunEnvironment(runtime);
+    const started = await testbed.runs.start("shop", "install-app", WITH_TAB, ANN);
+    await untilExecuting(runtime);
+
+    await testbed.runs.stop(started.id, { kind: "by-user", user: ANN });
+
+    expect(await settledRun(started.id)).toMatchObject({ outcome: "stopped" });
+    expect(testbed.devices.holds[0]?.ended).toBe("run-ended");
+  });
+
+  it("is refused while the device is held, naming the holder, or by a run starting here", async () => {
+    const runtime = new ScriptedContainerRuntime();
+    runtime.keepExecsRunning();
+    await onRunEnvironment(runtime);
+    testbed.devices.heldElsewhere.set(PIXEL_ID, "the Task «Fix the cart»");
+
+    await expect(testbed.runs.start("shop", "install-app", WITH_TAB, ANN)).rejects.toMatchObject({
+      reasons: ["Pixel 9 is in use by the Task «Fix the cart»."],
+    });
+    expect(testbed.repository.runs.size).toBe(0);
+
+    testbed.devices.heldElsewhere.clear();
+    const first = await testbed.runs.start("shop", "install-app", WITH_TAB, ANN);
+    const shop = testbed.shop.actions.find(({ key }) => key === "install-app");
+    if (shop === undefined) throw new Error("No install-app.");
+    testbed.shop.actions.push({ ...shop, key: "install-again", name: "Install again" });
+    await expect(testbed.runs.start("shop", "install-again", WITH_TAB, BOB)).rejects.toMatchObject({
+      reasons: ["Pixel 9 is in use by Install app on main."],
+    });
+    await testbed.runs.stop(first.id, { kind: "by-user", user: ANN });
+  });
+
+  it("fails in Devices' words when the hold isn't made, nothing run", async () => {
+    const runtime = new ScriptedContainerRuntime();
+    await onRunEnvironment(runtime);
+    testbed.devices.holdProblem =
+      "Pixel 9 isn't plugged into this computer, or the browser can't open it.";
+
+    const started = await testbed.runs.start("shop", "install-app", WITH_TAB, ANN);
+
+    expect(await settledRun(started.id)).toMatchObject({
+      outcome: "failed",
+      endedBecause: "Pixel 9 isn't plugged into this computer, or the browser can't open it.",
+    });
+    expect(runtime.executions).toEqual([]);
+  });
+
+  it("fails naming why when its hold ends from outside", async () => {
+    const runtime = new ScriptedContainerRuntime();
+    runtime.keepExecsRunning();
+    await onRunEnvironment(runtime);
+    const started = await testbed.runs.start("shop", "install-app", WITH_TAB, ANN);
+    await untilExecuting(runtime);
+
+    testbed.devices.endFromOutside("hold-1", "Run environment turned Off");
+
+    expect(await settledRun(started.id)).toMatchObject({
+      outcome: "failed",
+      endedBecause: "Pixel 9 was let go of: Run environment turned Off.",
+    });
+    expect(runtime.steps.some((step) => step.startsWith("down "))).toBe(true);
+    expect(await logOf(started.id)).toContain(
+      "Failed: Pixel 9 was let go of: Run environment turned Off.",
+    );
+  });
+
+  it("is refused with Run environment Off, and fails at its start when the device is gone", async () => {
+    testbed = await actionsTestbed();
+
+    await expect(testbed.runs.start("shop", "install-app", FROM_MAIN, ANN)).rejects.toMatchObject({
+      reasons: ["Install app holds Pixel 9, which needs Run environment On."],
+    });
+
+    testbed.devices.devices.clear();
+    const gone = await testbed.runs.start("shop", "install-app", FROM_MAIN, ANN);
+    expect(gone).toMatchObject({
+      outcome: "failed",
+      endedBecause: `The Project's device ${PIXEL_ID} is gone; pick the device again in the Project's Actions.`,
+    });
+    expect(testbed.projects.workstationRuns).toEqual([]);
+  });
+});
+
 describe("a start", () => {
   it("refuses a second run of an Action while one runs, started one at a time", async () => {
     testbed = await actionsTestbed();
@@ -432,6 +558,31 @@ describe("a Test target run", () => {
       status: { state: "built" },
       outcome: "succeeded",
       testInstanceId: instance?.id,
+    });
+  });
+
+  it("counts Installed as succeeded, Installing as running, and passes the start's relay tab", async () => {
+    testbed = await actionsTestbed();
+    const relayTab = "5a1b0000-0000-4000-8000-000000000002";
+
+    const started = await testbed.runs.start(
+      "shop",
+      "install-phone",
+      { ...FROM_MAIN, relayTab },
+      ANN,
+    );
+
+    const [instance] = [...testbed.testInstances.instances.values()];
+    expect(instance?.relayTab).toBe(relayTab);
+    testbed.testInstances.move(instance?.id ?? "", { state: "installing" });
+    expect(await settledRun(started.id)).toMatchObject({
+      status: { state: "installing" },
+      outcome: undefined,
+    });
+    testbed.testInstances.move(instance?.id ?? "", { state: "installed" });
+    expect(await settledRun(started.id)).toMatchObject({
+      status: { state: "installed" },
+      outcome: "succeeded",
     });
   });
 

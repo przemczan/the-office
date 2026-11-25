@@ -1,5 +1,6 @@
 import { Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
+import { DevicesInstallDevices } from "./adapters/devices/devices-install-devices.js";
 import { TestBuildFilesController } from "./adapters/http/test-build-files.controller.js";
 import { TestInstanceOpenController } from "./adapters/http/test-instance-open.controller.js";
 import { TestInstanceSettingsController } from "./adapters/http/test-instance-settings.controller.js";
@@ -19,6 +20,7 @@ import { OfficePort, TestInstanceLimits } from "./application/test-instance-limi
 import { OfficeHost, TestInstanceProxy } from "./application/test-instance-proxy.js";
 import { TestInstances } from "./application/test-instances.js";
 import { Initiatives } from "./ports/initiatives.js";
+import { InstallDevices } from "./ports/install-devices.js";
 import { ProjectTestTargets } from "./ports/project-test-targets.js";
 import { ProxyListeners } from "./ports/proxy-listeners.js";
 import { TestInstanceRepository } from "./ports/test-instance-repository.js";
@@ -26,8 +28,9 @@ import { TestInstanceSettingsStore } from "./ports/test-instance-settings-store.
 
 export interface TestInstancesModuleOptions {
   /**
-   * Work, Projects and Run environments: Work's `InitiativeService`, Projects' `ProjectService`,
-   * `TestTargets` and `TestInstanceCheckouts`, Run environments' `HostedServices`.
+   * Work, Projects, Run environments and Devices: Work's `InitiativeService`, Projects'
+   * `ProjectService`, `TestTargets` and `TestInstanceCheckouts`, Run environments'
+   * `HostedServices`, Devices' `ProjectDevices`.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   /** The port The Office itself listens on, which the Proxy ports may not hold. */
@@ -59,6 +62,7 @@ export class TestInstancesModule {
         { provide: TestInstanceSettingsStore, useClass: PostgresTestInstanceSettings },
         { provide: Initiatives, useClass: WorkInitiatives },
         { provide: ProjectTestTargets, useClass: ProjectsTestTargets },
+        { provide: InstallDevices, useClass: DevicesInstallDevices },
         InstanceFiles,
         RunningTestInstances,
         TestBuildLinks,

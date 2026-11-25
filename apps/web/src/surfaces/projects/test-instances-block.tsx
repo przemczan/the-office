@@ -237,26 +237,32 @@ function BranchGroup({
           return (
             <TestTargetLaunchRow
               key={target.key}
+              projectId={project.id}
               projectName={project.name}
               runEnvironmentOn={shown.runEnvironmentOn}
               branchCommit={testBranch.branchCommit}
               target={target}
               instances={instances}
               launchKey={launchKey}
-              onLaunch={() =>
+              onLaunch={(openRelay) =>
                 actions.launch({
                   key: launchKey,
                   targetName: target.name,
-                  send: () =>
+                  openRelay,
+                  send: (relayTab) =>
                     launchOnBranch(project.id, {
                       branch: testBranch.name,
                       targetKey: target.key,
+                      ...(relayTab !== undefined && { relayTab }),
                     }),
                 })
               }
               actions={actions}
               aboutInstance={aboutInstance}
               linkedTo={linkedTo}
+              findInstance={(instanceId) =>
+                testBranch.instances.find(({ id }) => id === instanceId)
+              }
             />
           );
         })}

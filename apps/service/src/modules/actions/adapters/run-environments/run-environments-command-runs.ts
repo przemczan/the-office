@@ -15,8 +15,26 @@ export class RunEnvironmentsCommandRuns extends CommandRunEnvironments {
   }
 
   async run(start: RunInEnvironment): Promise<RunInEnvironmentEnd> {
+    const { onEnvironment } = start;
     try {
-      return await this.environments.run(start);
+      return await this.environments.run({
+        ...start,
+        // The hook's refusal ends the run in its words, as Run environments takes it.
+        ...(onEnvironment === undefined
+          ? {}
+          : {
+              onEnvironment: async (environment) => {
+                try {
+                  return await onEnvironment(environment);
+                } catch (error) {
+                  if (error instanceof ActionRunRefused) {
+                    throw new RunEnvironmentRefused(error.reasons);
+                  }
+                  throw error;
+                }
+              },
+            }),
+      });
     } catch (error) {
       if (error instanceof RunEnvironmentRefused) throw new ActionRunRefused(error.reasons);
       throw error;

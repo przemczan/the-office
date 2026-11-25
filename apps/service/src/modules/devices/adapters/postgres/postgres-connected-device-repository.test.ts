@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { sql, type SQL } from "drizzle-orm";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   connectingDevice,
   deviceBaudRateSet,
@@ -9,12 +11,15 @@ import {
   deviceDisconnected,
   deviceNoticed,
   deviceRoundTripMeasured,
+  heldDevice,
   type ConnectedDevice,
+  type RunHolder,
 } from "../../domain/connected-device.js";
 import { PostgresConnectedDeviceRepository } from "./postgres-connected-device-repository.js";
 
 let app: INestApplication;
 let repository: PostgresConnectedDeviceRepository;
+let database: Database;
 
 beforeAll(async () => {
   ({ app } = await startTestApplication({
@@ -22,11 +27,25 @@ beforeAll(async () => {
     providers: [PostgresConnectedDeviceRepository],
   }));
   repository = app.get(PostgresConnectedDeviceRepository);
+  database = app.get(DATABASE);
 });
 
 afterAll(async () => {
   await app.close();
 });
+
+/** The constraint that refused the statement; undefined when it ran. */
+async function constraintRefusing(statement: SQL): Promise<string | undefined> {
+  try {
+    await database.execute(statement);
+    return undefined;
+  } catch (error) {
+    const cause: unknown = error instanceof Error ? (error.cause ?? error) : error;
+    return typeof cause === "object" && cause !== null && "constraint" in cause
+      ? String(cause.constraint)
+      : String(error);
+  }
+}
 
 /** A device of this test's own Task and Project, under a key no other file's rows hold. */
 function aDevice(taskId: string, deviceKey: string, at: Date, projectId = "shop"): ConnectedDevice {
@@ -89,6 +108,7 @@ describe("PostgresConnectedDeviceRepository", () => {
     expect(await repository.find(device.id)).toEqual({
       ...device,
       state: "connected",
+      everConnected: true,
       endpoint: "127.0.0.1:41234",
     });
 
@@ -147,11 +167,64 @@ describe("PostgresConnectedDeviceRepository", () => {
     expect(await repository.find(device.id)).toEqual({
       ...device,
       state: "connected",
+      everConnected: true,
       endpoint: "/dev/ttyACM0",
       rfc2217Url: "rfc2217://127.0.0.1:2217",
       baudRate: 115_200,
       roundTripMs: 312,
       notice: "port-busy",
     });
+  });
+
+  it("keeps a run's hold with its holder, name, relay tab and whether it was ever Connected", async () => {
+    const holders: RunHolder[] = [
+      { kind: "action-run", actionRunId: randomUUID(), name: "Install on my phone" },
+      { kind: "test-instance", testInstanceId: randomUUID(), name: "Install on a device" },
+    ];
+    for (const holder of holders) {
+      const { device } = heldDevice({
+        id: randomUUID(),
+        runHolder: holder,
+        projectId: "shop",
+        projectDeviceId: randomUUID(),
+        kind: "android-usb",
+        name: "Pixel 9",
+        deviceKey: `usb:${randomUUID()}`,
+        relayTab: randomUUID(),
+        connectedBy: { userId: "user-ann", name: "Ann Lee" },
+        connectedAt: new Date("2004-01-06T10:00:00Z"),
+      });
+      await repository.insert(device);
+
+      expect(await repository.find(device.id)).toEqual(device);
+      expect(device).toMatchObject({ taskId: null, everConnected: false });
+      await repository.update(device.id, (kept) => deviceConnected(kept, "127.0.0.1:41234"));
+      await repository.update(device.id, (kept) =>
+        deviceDisconnected(kept, { because: "run-ended", at: new Date("2004-01-06T10:05:00Z") }),
+      );
+      expect(await repository.find(device.id)).toMatchObject({
+        runHolder: holder,
+        everConnected: true,
+        state: "disconnected",
+        disconnectedBecause: "run-ended",
+      });
+    }
+  });
+
+  it("refuses a record with no holder, or with two", async () => {
+    const device = aDevice(randomUUID(), `usb:${randomUUID()}`, new Date("2004-01-07T10:00:00Z"));
+    await repository.insert(device);
+
+    expect(
+      await constraintRefusing(
+        sql`update connected_devices set task_id = null where id = ${device.id}`,
+      ),
+    ).toBe("connected_devices_one_holder");
+    expect(
+      await constraintRefusing(
+        sql`update connected_devices set action_run_id = ${randomUUID()} where id = ${device.id}`,
+      ),
+    ).toBe("connected_devices_one_holder");
+    expect((await repository.find(device.id))?.taskId).toBe(device.taskId);
   });
 });

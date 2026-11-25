@@ -218,26 +218,32 @@ function ProjectGroup({
             {targets.map((target) => (
               <TestTargetLaunchRow
                 key={target.key}
+                projectId={group.projectId}
                 projectName={projectName}
                 runEnvironmentOn={group.runEnvironmentOn}
                 branchCommit={group.branchCommit}
                 target={target}
                 instances={target.instances}
                 launchKey={`${group.projectId}-${target.key}`}
-                onLaunch={() =>
+                onLaunch={(openRelay) =>
                   actions.launch({
                     key: `${group.projectId}-${target.key}`,
                     targetName: target.name,
-                    send: () =>
+                    openRelay,
+                    send: (relayTab) =>
                       launchTestInstance(initiativeId, {
                         projectId: group.projectId,
                         targetKey: target.key,
+                        ...(relayTab !== undefined && { relayTab }),
                       }),
                   })
                 }
                 actions={actions}
                 filesNote={actions.readOnly ? FILES_REMOVED_LATER : undefined}
                 linkedTo={linkedTo}
+                findInstance={(instanceId) =>
+                  targets.flatMap(({ instances }) => instances).find(({ id }) => id === instanceId)
+                }
               />
             ))}
           </ul>

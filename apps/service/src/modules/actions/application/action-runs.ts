@@ -5,6 +5,7 @@ import { OfficeTestInstance } from "../../../platform/test-instance/office-test-
 import {
   failedRun,
   isRunning,
+  runName,
   startedRun,
   stateWords,
   stoppedRun,
@@ -19,6 +20,9 @@ import {
 import { ActionRunNotFound, ActionRunRefused } from "../domain/action-run-refused.js";
 import {
   actionsAtOnceFull,
+  deviceGone,
+  deviceInUseBy,
+  deviceNeedsRunEnvironmentOn,
   FIRE_ALARM_ON,
   IN_A_TEST_INSTANCE,
   initiativeHasNoBranch,
@@ -36,6 +40,7 @@ import {
   taskOfAnotherProject,
   WORKFLOW_HAS_NO_STOP,
 } from "../domain/action-run-words.js";
+import { ActionDevices, type ActionDevice } from "../ports/action-devices.js";
 import { ActionProjects, type RunAction, type RunProject } from "../ports/action-projects.js";
 import { ActionRunRepository, ActionRunningAlready } from "../ports/action-run-repository.js";
 import { ActionSettingsStore } from "../ports/action-settings-store.js";
@@ -57,10 +62,14 @@ export type ActionRunSource =
   | { readonly kind: "task"; readonly taskId: string }
   | { readonly kind: "initiative"; readonly initiativeId: string };
 
-/** A start: what it runs from, and the commit its confirm step showed. */
+/**
+ * A start: what it runs from, the commit its confirm step showed, and the tab that relays a
+ * device over USB, for an Action that holds one or a target that installs on one.
+ */
 export interface ActionRunStart {
   readonly source: ActionRunSource;
   readonly commit?: string | undefined;
+  readonly relayTab?: string | undefined;
 }
 
 /** What a start from a source would run, or why it can't be read. */
@@ -111,6 +120,12 @@ interface ResolvedSource {
   readonly chosen: string;
 }
 
+/** The Project device a command run names: none, gone since the Action was saved, or there. */
+type NamedDevice =
+  | { readonly kind: "none" }
+  | { readonly kind: "gone"; readonly id: string }
+  | { readonly kind: "there"; readonly device: ActionDevice };
+
 /**
  * Action runs (spec §2.15): starting an Action on a branch, a Task or an Initiative, refused by the
  * switch, a test instance of The Office, the fire alarm, one run of each Action at a time, Actions
@@ -132,6 +147,7 @@ export class ActionRuns implements OnModuleInit, OnModuleDestroy {
     private readonly projects: ActionProjects,
     private readonly sources: ActionSources,
     private readonly testInstances: ActionTestInstances,
+    private readonly devices: ActionDevices,
     private readonly commandRuns: CommandRuns,
     private readonly workflowRuns: WorkflowRuns,
     private readonly records: ActionRunRecords,
@@ -147,6 +163,13 @@ export class ActionRuns implements OnModuleInit, OnModuleDestroy {
       this.background.start(
         `The Action run of the test instance ${move.instanceId} didn't follow it.`,
         () => this.followInstance(move),
+      );
+    });
+    this.devices.onHoldDisconnected((hold) => {
+      // In the background: the bus waits for its handlers inside the device's change.
+      this.background.start(
+        `The Action run ${hold.actionRunId} didn't follow its device's hold.`,
+        () => this.commandRuns.holdDisconnected(hold),
       );
     });
   }
@@ -221,7 +244,8 @@ export class ActionRuns implements OnModuleInit, OnModuleDestroy {
    * Starts the Action on what was chosen, answering the run Running (a Test target run Building, a
    * Workflow run Starting) at once; the run goes on in the background. Refused (ActionRunRefused),
    * never queued, in the spec's words; an Action the Project doesn't have is ActionRunNotFound. A
-   * command, target or Workflow gone since fails the run, naming it.
+   * command, target, device or Workflow gone since fails the run, naming it. An Action naming a
+   * device needs Run environment On and the device free, refused naming its holder.
    */
   async start(
     projectId: string,
@@ -261,24 +285,34 @@ export class ActionRuns implements OnModuleInit, OnModuleDestroy {
     const targetThere =
       action.kind !== "test-target" ||
       (await this.projects.hasTestTarget(projectId, action.settings.targetKey));
+    const named = await this.namedDevice(project, action);
+    if (named.kind === "there" && !project.runEnvironmentOn) {
+      throw new ActionRunRefused([deviceNeedsRunEnvironmentOn(action.name, named.device.name)]);
+    }
 
     const { run, instance } = await this.oneAtATime(() =>
-      this.added(project, action, source, tip.commit, by, targetThere),
+      this.added(project, action, source, tip.commit, by, {
+        targetThere,
+        named,
+        relayTab: start.relayTab,
+      }),
     );
     await this.records.started(run);
     switch (action.kind) {
       case "project-command":
-        this.commandRuns.begin(run, project);
+        if (named.kind === "gone") return this.failedAtStart(run, deviceGone(named.id));
+        this.commandRuns.begin(
+          run,
+          project,
+          named.kind === "there" ? { ...named.device, relayTab: start.relayTab } : undefined,
+        );
         return run;
       case "workflow":
         this.workflowRuns.begin(run, action.settings.inputs);
         return run;
       case "test-target":
         if (instance === undefined) {
-          const because = targetGone(action.settings.targetKey);
-          await this.logs.note(run.id, `Failed: ${because}`);
-          const at = this.schedule.now();
-          return (await this.records.change(run.id, (kept) => failedRun(kept, because, at))) ?? run;
+          return this.failedAtStart(run, targetGone(action.settings.targetKey));
         }
         return (await this.applyInstance(run.id, instance)) ?? run;
     }
@@ -382,14 +416,38 @@ export class ActionRuns implements OnModuleInit, OnModuleDestroy {
     return this.background.settled();
   }
 
-  /** The checks of the running runs and Actions at once, then the insert, one start at a time. */
+  /** A run that can't run what its Action names, Failed as it starts, naming it. */
+  private async failedAtStart(run: ActionRun, because: string): Promise<ActionRun> {
+    await this.logs.note(run.id, `Failed: ${because}`);
+    const at = this.schedule.now();
+    return (await this.records.change(run.id, (kept) => failedRun(kept, because, at))) ?? run;
+  }
+
+  /** The Project device a command Action names, as it is now. */
+  private async namedDevice(project: RunProject, action: RunAction): Promise<NamedDevice> {
+    if (action.kind !== "project-command" || action.settings.projectDeviceId === null) {
+      return { kind: "none" };
+    }
+    const id = action.settings.projectDeviceId;
+    const device = await this.devices.deviceOf(project.id, id);
+    return device === undefined ? { kind: "gone", id } : { kind: "there", device };
+  }
+
+  /**
+   * The checks of the running runs, Actions at once and the device's holder, then the insert, one
+   * start at a time.
+   */
   private async added(
     project: RunProject,
     action: RunAction,
     source: ResolvedSource,
     commit: string,
     by: ActionRunUser,
-    targetThere: boolean,
+    given: {
+      readonly targetThere: boolean;
+      readonly named: NamedDevice;
+      readonly relayTab: string | undefined;
+    },
   ): Promise<{ run: ActionRun; instance: RunTestInstance | undefined }> {
     const running = await this.repository.running();
     const now = this.schedule.now();
@@ -404,18 +462,25 @@ export class ActionRuns implements OnModuleInit, OnModuleDestroy {
         throw new ActionRunRefused([actionsAtOnceFull(commandRuns)]);
       }
     }
+    const { named } = given;
+    if (named.kind === "there") {
+      // A run started here that hasn't held it yet holds it as far as a start goes.
+      const naming = this.commandRuns.runNaming(named.device.id);
+      if (naming !== undefined) {
+        throw new ActionRunRefused([deviceInUseBy(named.device.name, runName(naming))]);
+      }
+      await this.devices.checkFree(project.id, named.device.id);
+    }
     const id = randomUUID();
     const instance =
-      action.kind === "test-target" && targetThere
+      action.kind === "test-target" && given.targetThere
         ? await this.testInstances.launch(
             project.id,
             source.branch,
             action.settings.targetKey,
             by,
-            {
-              actionKey: action.key,
-              actionName: action.name,
-            },
+            { actionKey: action.key, actionName: action.name },
+            given.relayTab,
           )
         : undefined;
     const run = startedRun({
@@ -430,6 +495,7 @@ export class ActionRuns implements OnModuleInit, OnModuleDestroy {
       startedBy: by,
       at: now,
       ...(instance === undefined ? {} : { testInstanceId: instance.id }),
+      ...(named.kind === "there" ? { deviceName: named.device.name } : {}),
       ...(action.kind === "workflow" ? { workflowFile: action.settings.file } : {}),
     });
     try {

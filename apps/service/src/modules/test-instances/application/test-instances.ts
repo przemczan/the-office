@@ -4,7 +4,11 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { ProjectFeaturesChanged } from "../../projects/index.js";
-import { HostedServices, RunEnvironmentRefused } from "../../run-environments/index.js";
+import {
+  HostedServices,
+  RunEnvironmentRefused,
+  type TestInstallEnvironment,
+} from "../../run-environments/index.js";
 import { InitiativeStateChanged } from "../../work/index.js";
 import {
   BY_RESTART,
@@ -15,7 +19,9 @@ import {
   noInitiativeBranch,
   notLaunchable,
   RESTARTED_WHILE_BUILDING,
+  RESTARTED_WHILE_INSTALLING,
   RUN_ENVIRONMENT_OFF,
+  RUN_ENVIRONMENT_OFF_FOR_INSTALL,
   secretsWithoutValue,
   stopWords,
   type StopReason,
@@ -41,15 +47,35 @@ import {
   type BuildEnd,
 } from "../domain/test-build.js";
 import {
+  adbInstallArguments,
+  apksOf,
+  buildFailed,
+  buildingWords,
+  buildTargetGone,
+  deviceLetGo,
+  holderNameOf,
+  ignoredWords,
+  INSTALL_RAN_OUT,
+  INSTALL_TIMEOUT_MS,
+  installFailureOf,
+  NO_APK,
+  reusingWords,
+} from "../domain/device-install.js";
+import {
   built,
+  countedTowardTheLimit,
   failed,
+  installed,
   isActive,
   launchedInstance,
+  startedInstalling,
   startedRunning,
   stopped,
+  withBuild,
   withCommit,
   type LaunchedBy,
   type TestInstance,
+  type TestInstanceDeviceKind,
   type TestInstanceRunAs,
   type TestInstanceKind,
   type TestInstanceState,
@@ -60,25 +86,46 @@ import {
   type TargetEntryPoint,
 } from "../domain/entry-point.js";
 import { Initiatives } from "../ports/initiatives.js";
+import { InstallDevices } from "../ports/install-devices.js";
 import {
   ProjectTestTargets,
+  type InstallLaunch,
   type InstanceMask,
+  type ListedInstall,
   type TargetLaunch,
 } from "../ports/project-test-targets.js";
 import { TestInstanceRepository } from "../ports/test-instance-repository.js";
 import { TestInstanceSettingsStore } from "../ports/test-instance-settings-store.js";
+import { runAdbInstall } from "./adb-install.js";
 import { keepOutputs } from "./build-outputs.js";
 import { InstanceFiles } from "./instance-files.js";
 import { TestBuildRetention } from "./test-build-retention.js";
 import { OfficePort } from "./test-instance-limits.js";
 import { RunningTestInstances } from "./running-test-instances.js";
 
-/** A Hosted or Build to install test target, as a page lists it to launch. */
+/** A Hosted, Build to install or Install on a device test target, as a page lists it to launch. */
 export interface LaunchableTarget {
   readonly key: string;
   readonly name: string;
   readonly kind: TestInstanceKind;
-  readonly entryPoint: TargetEntryPoint;
+  /** A Hosted or Build to install target's entry point; undefined for Install on a device. */
+  readonly entryPoint: TargetEntryPoint | undefined;
+  /** An Install on a device target's settings, with its device's name now; undefined otherwise. */
+  readonly installs: LaunchableInstall | undefined;
+}
+
+/**
+ * What an Install on a device target installs, on what: names as the Project has them now, each
+ * undefined when it is gone.
+ */
+export interface LaunchableInstall extends ListedInstall {
+  readonly device:
+    | {
+        readonly projectDeviceId: string;
+        readonly name: string;
+        readonly kind: TestInstanceDeviceKind;
+      }
+    | undefined;
 }
 
 /** A test instance with its branch read, as every page shows it. */
@@ -122,6 +169,8 @@ export interface ProjectTestInstances {
 export interface Launch {
   readonly projectId: string;
   readonly targetKey: string;
+  /** The tab relaying an Install on a device target's device over USB (spec §2.13). */
+  readonly relayTab?: string | undefined;
 }
 
 /** What every launch comes to: the target, the branch and the Initiative it is linked to. */
@@ -132,6 +181,8 @@ interface LaunchRequest {
   readonly initiativeId: string | undefined;
   /** The Action whose run launches it; undefined for a launch by hand. */
   readonly runAs?: TestInstanceRunAs | undefined;
+  /** The tab relaying an Install on a device target's device over USB. */
+  readonly relayTab?: string | undefined;
 }
 
 /** The instance's log from an offset, and its state, so a reader stops once it has ended. */
@@ -143,11 +194,21 @@ export interface InstanceLog {
 
 /** What The Office holds in memory for an instance from its launch until it ends. */
 interface Held {
-  /** Ends a launch still Building. */
+  /** Ends a launch still Building, or an install still Installing: its stop. */
   readonly building: AbortController;
   /** Its target's Secret variables, hidden in every line of its log. */
   readonly mask: InstanceMask;
   idleStop?: Wait;
+  /** How it was stopped, once it was. */
+  stoppedBy?: StopReason;
+  /** An Install on a device instance's: the tab relaying its device over USB. */
+  readonly relayTab?: string | undefined;
+  /** An Install on a device instance's hold of its device while it has one. */
+  holdId?: string;
+  /** Ends its install step early: the Install time ran out, or its hold ended. */
+  installing?: AbortController;
+  /** Why its install step was ended early: the Install time ran out, or its hold ended. */
+  installEnd?: "timeout" | "hold-ended";
 }
 
 /**
@@ -179,6 +240,7 @@ export class TestInstances implements OnModuleInit {
     private readonly events: EventBus,
     private readonly officePort: OfficePort,
     private readonly retention: TestBuildRetention,
+    private readonly devices: InstallDevices,
   ) {}
 
   onModuleInit(): void {
@@ -196,11 +258,19 @@ export class TestInstances implements OnModuleInit {
         this.stopEachOfProject(projectId, BY_TEST_TARGETS_OFF),
       );
     });
+    // A hold ended by something else than its own letting go (the Run environment turned Off,
+    // Connected devices switched off) ends the install step, which fails the instance.
+    this.devices.onHoldEnded((instanceId, holdId) => {
+      const held = this.held.get(instanceId);
+      if (held?.holdId !== holdId || held.installing === undefined) return;
+      held.installEnd ??= "hold-ended";
+      held.installing.abort();
+    });
   }
 
   /**
-   * A group per Project where the Initiative has a branch, each with its Hosted and Build to install
-   * test targets; none for a Project with Test targets switched off.
+   * A group per Project where the Initiative has a branch, each with its Hosted, Build to install
+   * and Install on a device test targets; none for a Project with Test targets switched off.
    */
   async listFor(initiativeId: string): Promise<InitiativeTestProject[]> {
     const initiative = await this.initiatives.find(initiativeId);
@@ -234,7 +304,7 @@ export class TestInstances implements OnModuleInit {
   }
 
   /**
-   * The Project's Hosted and Build to install test targets and every instance launched on it,
+   * The Project's launchable test targets and every instance launched on it,
    * linked to an Initiative or not, by branch; no targets while it has Test targets switched off.
    */
   async listForProject(projectId: string): Promise<ProjectTestInstances> {
@@ -276,7 +346,7 @@ export class TestInstances implements OnModuleInit {
    */
   async launchOnInitiative(
     initiativeId: string,
-    { projectId, targetKey }: Launch,
+    { projectId, targetKey, relayTab }: Launch,
     by: LaunchedBy,
   ): Promise<TestInstanceOnBranch> {
     const initiative = await this.initiatives.find(initiativeId);
@@ -284,7 +354,10 @@ export class TestInstances implements OnModuleInit {
     if (initiative.state !== "active") throw new TestInstanceRefused([INITIATIVE_NOT_ACTIVE]);
     const onProject = initiative.branches.find((each) => each.projectId === projectId);
     if (!onProject) throw new TestInstanceRefused([noInitiativeBranch(projectId)]);
-    return this.launch({ projectId, branch: onProject.branch, targetKey, initiativeId }, by);
+    return this.launch(
+      { projectId, branch: onProject.branch, targetKey, initiativeId, relayTab },
+      by,
+    );
   }
 
   /**
@@ -292,7 +365,8 @@ export class TestInstances implements OnModuleInit {
    * Initiative whose branch it is, if any, else to none. A branch neither the repository nor its
    * remote has fails the launch as its checkout's fetch does, naming the branch. `runAs` names the
    * Action whose run launches it, kept and shown "Run as <Action>" (spec §2.15, "Action run"); the
-   * launch is otherwise the same, refused by the same rules.
+   * launch is otherwise the same, refused by the same rules. `relayTab` is the tab relaying an
+   * Install on a device target's device over USB.
    */
   async launchOnBranch(
     projectId: string,
@@ -300,9 +374,13 @@ export class TestInstances implements OnModuleInit {
     targetKey: string,
     by: LaunchedBy,
     runAs?: TestInstanceRunAs,
+    relayTab?: string,
   ): Promise<TestInstanceOnBranch> {
     const initiative = await this.initiatives.activeInitiativeOnBranch(projectId, branch);
-    return this.launch({ projectId, branch, targetKey, initiativeId: initiative?.id, runAs }, by);
+    return this.launch(
+      { projectId, branch, targetKey, initiativeId: initiative?.id, runAs, relayTab },
+      by,
+    );
   }
 
   /**
@@ -313,6 +391,7 @@ export class TestInstances implements OnModuleInit {
    */
   private async launch(launch: LaunchRequest, by: LaunchedBy): Promise<TestInstanceOnBranch> {
     const target = await this.targets.launchOf(launch.projectId, launch.targetKey);
+    if (target.kind === "install-on-a-device") return this.launchInstall(launch, target, by);
     const hosted = target.kind === "hosted" && target.containerPort !== undefined;
     if (!hosted && target.kind !== "build-to-install") {
       throw new TestInstanceRefused([notLaunchable(target.name)]);
@@ -326,10 +405,7 @@ export class TestInstances implements OnModuleInit {
     if (problems.length > 0) throw new TestInstanceRefused(problems);
 
     const { instance, idleMinutes } = await this.oneAtATime(async () => {
-      const settings = await this.settings.read();
-      const active = await this.repository.active();
-      const over = overTheLimit(await this.namesOf(active), settings.testInstancesAtOnce);
-      if (over !== undefined) throw new TestInstanceRefused([over]);
+      const { settings, active } = await this.withinTheLimit();
       const given = {
         id: randomUUID(),
         initiativeId: launch.initiativeId,
@@ -366,14 +442,16 @@ export class TestInstances implements OnModuleInit {
   }
 
   /**
-   * Stops a Building or Running instance: Stopped, or Failed for a Build to install one, saying how
-   * it stopped; its port freed, its containers, volumes and checkout removed, the reason last in
-   * its log. One that has ended already stays as it is.
+   * Stops a Building, Installing or Running instance: Stopped, or Failed for a Build to install or
+   * Install on a device one, saying how it stopped; its port freed, its containers, volumes and
+   * checkout removed, the reason last in its log; an Install on a device one stops the build it
+   * launched with it and lets go of its device. One that has ended already stays as it is.
    */
   async stop(id: string, reason: StopReason = BY_USER): Promise<TestInstanceOnBranch> {
     const instance = await this.read(id);
     if (!isActive(instance)) return instance;
     const held = this.held.get(id);
+    if (held) held.stoppedBy ??= reason;
     held?.building.abort();
     const words = stopWords(reason);
     const change = await this.repository.update(id, (kept) =>
@@ -382,6 +460,7 @@ export class TestInstances implements OnModuleInit {
     if (!change?.event) return this.read(id);
     await this.files.note(id, words, held?.mask);
     await this.ended(change.instance, change.event);
+    await this.stopItsBuild(change.instance, reason);
     return { ...change.instance, branch: instance.branch };
   }
 
@@ -405,21 +484,19 @@ export class TestInstances implements OnModuleInit {
 
   /**
    * As The Office starts (from office.ts, never a module's start): every instance left Running
-   * ends Stopped and every one left Building Failed, saying The Office restarted; then the
-   * runtime's Hosted instances and the checkouts left are removed. Logs stay.
+   * ends Stopped and every one left Building or Installing Failed, saying The Office restarted;
+   * then the runtime's Hosted instances, install environments and the checkouts left are removed.
+   * Logs stay.
    */
   async sweep(): Promise<void> {
     const at = this.schedule.now();
     for (const instance of await this.repository.active()) {
-      const building = instance.state === "building";
+      const words = restartWordsOf(instance.state);
       const change = await this.repository.update(instance.id, (kept) =>
-        building ? failed(kept, RESTARTED_WHILE_BUILDING, at) : stopped(kept, BY_RESTART, at),
+        words === undefined ? stopped(kept, BY_RESTART, at) : failed(kept, words, at),
       );
       if (!change?.event) continue;
-      await this.files.note(
-        instance.id,
-        building ? RESTARTED_WHILE_BUILDING : stopWords(BY_RESTART),
-      );
+      await this.files.note(instance.id, words ?? stopWords(BY_RESTART));
       await this.events.publish(change.event);
     }
     await this.hostedServices.sweep();
@@ -428,9 +505,81 @@ export class TestInstances implements OnModuleInit {
     }
   }
 
+  /**
+   * An Install on a device launch: refused, with every reason, unless the Project's Run environment
+   * is On and its Build to install target there with its Secret variables typed; then while its
+   * device isn't free, naming the holder, and while the limit has no room. Answers the instance
+   * Building at once; its checkout, its build or the reuse of one, and the install go on in the
+   * background.
+   */
+  private async launchInstall(
+    launch: LaunchRequest,
+    target: InstallLaunch,
+    by: LaunchedBy,
+  ): Promise<TestInstanceOnBranch> {
+    const { build } = target;
+    const problems = [
+      ...(target.runEnvironmentOn ? [] : [RUN_ENVIRONMENT_OFF_FOR_INSTALL]),
+      ...(build === undefined ? [buildTargetGone(target.buildTargetKey)] : []),
+      ...(build === undefined || build.secretsWithoutValue.length === 0
+        ? []
+        : [secretsWithoutValue(build.secretsWithoutValue)]),
+    ];
+    if (build === undefined || problems.length > 0) throw new TestInstanceRefused(problems);
+    const device = await this.devices.checkFree(launch.projectId, target.projectDeviceId);
+
+    const instance = await this.oneAtATime(async () => {
+      await this.withinTheLimit();
+      const made = launchedInstance({
+        id: randomUUID(),
+        initiativeId: launch.initiativeId,
+        projectId: launch.projectId,
+        branch: launch.branch,
+        targetKey: target.key,
+        targetName: target.name,
+        launchedBy: by,
+        at: this.schedule.now(),
+        runAs: launch.runAs,
+        kind: "install-on-a-device",
+        device: { projectDeviceId: device.id, name: device.name, kind: device.kind },
+      });
+      await this.repository.add(made);
+      return made;
+    });
+    const held: Held = {
+      building: new AbortController(),
+      mask: target.mask,
+      relayTab: launch.relayTab,
+    };
+    this.held.set(instance.id, held);
+    await this.events.publish(
+      new TestInstanceLaunched(instance.id, instance.projectId, instance.initiativeId, undefined),
+    );
+    this.inBackground(`The Test instance ${instance.id} didn't install.`, () =>
+      this.install(instance, launch.branch, build, held),
+    );
+    return { ...instance, branch: launch.branch };
+  }
+
   /** Waits for the launches and stops going on in the background, for a test. */
   async settled(): Promise<void> {
     while (this.background.size > 0) await Promise.all(this.background);
+  }
+
+  /**
+   * The settings and every active instance, refused, naming those that count, when Test instances
+   * at once has no room; run inside `oneAtATime` with the insert.
+   */
+  private async withinTheLimit(): Promise<{
+    readonly settings: Awaited<ReturnType<TestInstanceSettingsStore["read"]>>;
+    readonly active: readonly TestInstance[];
+  }> {
+    const settings = await this.settings.read();
+    const active = await this.repository.active();
+    const counted = countedTowardTheLimit(active);
+    const over = overTheLimit(await this.namesOf(counted), settings.testInstancesAtOnce);
+    if (over !== undefined) throw new TestInstanceRefused([over]);
+    return { settings, active };
   }
 
   /** The lowest free Proxy port; never The Office's own, should OFFICE_PORT fall inside the range. */
@@ -454,7 +603,7 @@ export class TestInstances implements OnModuleInit {
   private async checkedOut(
     instance: TestInstance,
     branch: string,
-    target: TargetLaunch,
+    target: TargetLaunch | undefined,
     held: Held,
   ): Promise<boolean> {
     const { id, projectId } = instance;
@@ -472,6 +621,8 @@ export class TestInstances implements OnModuleInit {
         new TestInstanceCommitRecorded(id, projectId, instance.initiativeId, commit),
       );
     }
+    // Install on a device runs no entry point of its own: its build's is checked at its launch.
+    if (target === undefined) return true;
     const problems = await this.targets.entryPointProblemsAt(projectId, commit, target.key);
     if (problems.length > 0) throw new TestInstanceRefused(problems);
     return true;
@@ -594,6 +745,233 @@ export class TestInstances implements OnModuleInit {
   }
 
   /**
+   * An Install on a device instance in the background: its checkout, then the build target's newest
+   * Built files on the branch when they are of its commit and still kept, else a build of its own;
+   * then the install. Failed with why, unless it was stopped meanwhile.
+   */
+  private async install(
+    instance: TestInstance,
+    branch: string,
+    build: TargetLaunch,
+    held: Held,
+  ): Promise<void> {
+    const signal = held.building.signal;
+    try {
+      if (!(await this.checkedOut(instance, branch, undefined, held))) return;
+      const buildId =
+        (await this.reusedBuild(instance, branch, build, held)) ??
+        (await this.buildFor(instance, branch, build, held));
+      if (buildId === undefined) return;
+      await this.installFrom(instance, buildId, held);
+    } catch (error) {
+      if (signal.aborted) return;
+      await this.fail(instance.id, reasonOf(error));
+    }
+  }
+
+  /**
+   * The build target's newest Built instance on the branch, when it ran the commit this instance
+   * checked out and its files are still kept (spec §2.12, "Reusing Built files"); its id, said in
+   * the log, or undefined.
+   */
+  private async reusedBuild(
+    instance: TestInstance,
+    branch: string,
+    build: TargetLaunch,
+    held: Held,
+  ): Promise<string | undefined> {
+    const [checkedOut, newest] = await Promise.all([
+      this.repository.find(instance.id),
+      this.repository.newestBuilt(instance.projectId, build.key, branch),
+    ]);
+    const commit = checkedOut?.commit;
+    if (
+      newest === undefined ||
+      commit === undefined ||
+      newest.commit !== commit ||
+      newest.filesRemovedAt !== undefined
+    ) {
+      return undefined;
+    }
+    await this.files.note(
+      instance.id,
+      reusingWords({
+        id: newest.id,
+        commit: newest.commit,
+        builtAt: newest.endedAt ?? newest.launchedAt,
+      }),
+      held.mask,
+    );
+    return newest.id;
+  }
+
+  /**
+   * Launches a Build to install instance of the build target on the same branch for the install,
+   * made, linked and kept as any other, "Built for" the install's target, and waits for it while
+   * the install is Building (spec §2.12, "Its build"). The two count as one toward the limit, so
+   * the build is linked to the install before anyone counts it. Answers the build's id once Built;
+   * undefined once the install was stopped, or failed with the build's reason.
+   */
+  private async buildFor(
+    install: TestInstance,
+    branch: string,
+    build: TargetLaunch,
+    held: Held,
+  ): Promise<string | undefined> {
+    const made = await this.oneAtATime(async () => {
+      const buildInstance = launchedInstance({
+        id: randomUUID(),
+        initiativeId: install.initiativeId,
+        projectId: install.projectId,
+        branch,
+        targetKey: build.key,
+        targetName: build.name,
+        launchedBy: install.launchedBy,
+        at: this.schedule.now(),
+        kind: "build-to-install",
+        builtFor: { targetKey: install.targetKey, targetName: install.targetName },
+      });
+      const linked = await this.repository.update(install.id, (kept) =>
+        withBuild(kept, buildInstance.id),
+      );
+      // Stopped meanwhile: no build.
+      if (!linked) return undefined;
+      await this.repository.add(buildInstance);
+      return buildInstance;
+    });
+    if (made === undefined) return undefined;
+    const buildHeld: Held = { building: new AbortController(), mask: build.mask };
+    this.held.set(made.id, buildHeld);
+    await this.events.publish(
+      new TestInstanceLaunched(made.id, made.projectId, made.initiativeId, undefined),
+    );
+    await this.files.note(install.id, buildingWords(made.id, build.name), held.mask);
+    if (held.building.signal.aborted) {
+      // Stopped as its build was made, before the stop could see it: the build stops too.
+      await this.stop(made.id, held.stoppedBy ?? BY_USER);
+      return undefined;
+    }
+    await this.runBuild(made, branch, build, buildHeld);
+    if (held.building.signal.aborted) return undefined;
+    const ended = await this.repository.find(made.id);
+    if (ended?.state === "built") return made.id;
+    await this.fail(install.id, buildFailed(ended?.failedReason));
+    return undefined;
+  }
+
+  /**
+   * Installing the build's files on the device (spec §2.12, "Installing"), the Install time counted
+   * from here: only its `.apk` files, its own environment from its checkout's definition with the
+   * files mounted, the device held there, then adb. Installed on adb's `Success`, else Failed with
+   * why; the device let go of, then the environment removed, however it ends.
+   */
+  private async installFrom(instance: TestInstance, buildId: string, held: Held): Promise<void> {
+    const { id, projectId, device } = instance;
+    const build = await this.repository.find(buildId);
+    const moved = await this.repository.update(id, (kept) => startedInstalling(kept, buildId));
+    if (!moved?.event || device === undefined) return;
+    await this.events.publish(moved.event);
+
+    const installing = new AbortController();
+    held.installing = installing;
+    const timeout = this.schedule.once(
+      `test-instance-install-${id}`,
+      new Date(this.schedule.now().getTime() + INSTALL_TIMEOUT_MS),
+      () => {
+        held.installEnd ??= "timeout";
+        installing.abort();
+        return Promise.resolve();
+      },
+    );
+    const signal = AbortSignal.any([held.building.signal, installing.signal]);
+    let environment: TestInstallEnvironment | undefined;
+    let failure: string | undefined;
+    try {
+      const { apks, others } = apksOf(build?.files.map(({ name }) => name) ?? []);
+      if (apks.length === 0) throw new TestInstanceRefused([NO_APK]);
+      if (others.length > 0) await this.files.note(id, ignoredWords(others), held.mask);
+      // A device taken while the build ran fails it here, before its environment starts.
+      await this.devices.checkFree(projectId, device.projectDeviceId);
+      const install = await this.targets.installSettingsOf(projectId);
+      const started = await this.hostedServices.install({
+        instanceId: id,
+        projectId,
+        checkout: this.files.checkoutOf(id),
+        buildFiles: this.files.buildFilesOf(buildId),
+        installCommand: install.installCommand,
+        installInputs: install.installInputs,
+        installVariables: install.installVariables,
+        logFile: this.files.logOf(id),
+        mask: held.mask,
+        signal,
+      });
+      environment = started;
+      const hold = await this.devices.hold({
+        projectId,
+        projectDeviceId: device.projectDeviceId,
+        instanceId: id,
+        holderName: holderNameOf(await this.nameOf(instance)),
+        startedBy: instance.launchedBy.user,
+        environment: {
+          label: `the Test instance ${id}`,
+          checksUser: started.checksUser,
+          attach: (attachment) => started.attach(attachment),
+        },
+        relayTab: held.relayTab,
+        signal,
+      });
+      if (hold.holdId !== undefined) held.holdId = hold.holdId;
+      if (!hold.held) throw new TestInstanceRefused([hold.problem]);
+      await this.files.note(id, `Installing ${apks.join(", ")} on ${device.name}.`, held.mask);
+      const end = await runAdbInstall(
+        started,
+        adbInstallArguments(hold.serial, started.filesMount, apks),
+        this.files.logOf(id),
+        held.mask,
+        signal,
+      );
+      failure = installFailureOf(end, device.name);
+    } catch (error) {
+      failure = reasonOf(error);
+    } finally {
+      timeout.cancel();
+      held.installing = undefined;
+    }
+    await this.letGoOf(id, held);
+    await environment?.remove();
+    // Stopped: the stop wrote how it ended.
+    if (held.building.signal.aborted) return;
+    if (installing.signal.aborted) {
+      failure = held.installEnd === "timeout" ? INSTALL_RAN_OUT : deviceLetGo(device.name);
+    }
+    if (failure !== undefined) {
+      await this.fail(id, failure);
+      return;
+    }
+    const change = await this.repository.update(id, (kept) => installed(kept, this.schedule.now()));
+    if (!change?.event) return;
+    await this.files.note(id, `Installed on ${device.name}.`, held.mask);
+    await this.ended(change.instance, change.event);
+  }
+
+  /** Lets go of an install's device, once; its own Disconnected then fails nothing. */
+  private async letGoOf(id: string, held: Held): Promise<void> {
+    const { holdId } = held;
+    if (holdId === undefined) return;
+    held.holdId = undefined;
+    await this.devices.letGo(holdId).catch((error: unknown) => {
+      this.logger.warn(`The device of the Test instance ${id} wasn't let go of.`, error);
+    });
+  }
+
+  /** An Install on a device instance stopped while its build runs: the build stops with it. */
+  private async stopItsBuild(instance: TestInstance, reason: StopReason): Promise<void> {
+    if (instance.kind !== "install-on-a-device" || instance.buildInstanceId === undefined) return;
+    const build = await this.repository.find(instance.buildInstanceId);
+    if (build !== undefined && isActive(build)) await this.stop(build.id, reason);
+  }
+
+  /**
    * Runs the build: in the Project's run environment when it is On, through `HostedServices`,
    * otherwise on the workstation the way checks run there; only the target's own variables.
    */
@@ -665,7 +1043,7 @@ export class TestInstances implements OnModuleInit {
     });
   }
 
-  /** Building or Running → Failed, saying why in its log too, and what it holds removed. */
+  /** Building, Installing or Running → Failed, saying why in its log too, and what it holds removed. */
   private async fail(id: string, reason: string): Promise<void> {
     const change = await this.repository.update(id, (kept) =>
       failed(kept, reason, this.schedule.now()),
@@ -682,8 +1060,10 @@ export class TestInstances implements OnModuleInit {
     this.held.delete(instance.id);
     this.running.remove(instance.id);
     await this.events.publish(event);
+    // An install lets go of its device before its environment goes.
+    if (held?.holdId !== undefined) await this.letGoOf(instance.id, held);
     // A build's compose project goes as its build ends, which a stop's abort ends.
-    if (instance.kind === "hosted") {
+    if (instance.kind !== "build-to-install") {
       await this.hostedServices.stop(instance.id).catch((error: unknown) => {
         this.logger.warn(`The Test instance ${instance.id} wasn't removed.`, error);
       });
@@ -724,30 +1104,60 @@ export class TestInstances implements OnModuleInit {
     }
   }
 
-  /** The Project's Hosted and Build to install targets; none while Test targets are off. */
+  /**
+   * The Project's Hosted, Build to install and Install on a device targets, the last with their
+   * device's name now; none while Test targets are off.
+   */
   private async launchableTargetsOf(projectId: string): Promise<LaunchableTarget[]> {
     const [on, targets] = await Promise.all([
       this.targets.testTargetsOn(projectId),
       this.targets.targetsOf(projectId),
     ]);
-    return on ? launchableOf(targets) : [];
+    if (!on) return [];
+    const devices = targets.some(({ installs }) => installs !== undefined)
+      ? await this.devices.devicesOf(projectId)
+      : [];
+    return targets.flatMap(({ key, name, kind, entryPoint, installs }): LaunchableTarget[] => {
+      if (kind === "install-on-a-device" && installs !== undefined) {
+        const device = devices.find(({ id }) => id === installs.projectDeviceId);
+        return [
+          {
+            key,
+            name,
+            kind,
+            entryPoint: undefined,
+            installs: {
+              ...installs,
+              device: device && {
+                projectDeviceId: device.id,
+                name: device.name,
+                kind: device.kind,
+              },
+            },
+          },
+        ];
+      }
+      return (kind === "hosted" || kind === "build-to-install") && entryPoint !== undefined
+        ? [{ key, name, kind, entryPoint, installs: undefined }]
+        : [];
+    });
   }
 
   /**
    * Each instance as the limit's refusal names it: by its target's name and its Initiative's, or
    * its branch's when it is linked to none.
    */
-  private async namesOf(active: readonly TestInstance[]): Promise<ActiveInstanceName[]> {
-    return Promise.all(
-      active.map(async (instance) => {
-        const { targetName, initiativeId } = instance;
-        if (initiativeId === undefined) {
-          return { targetName, branch: (await this.onBranch(instance)).branch };
-        }
-        const initiative = await this.initiatives.find(initiativeId);
-        return { targetName, initiativeName: initiative?.name ?? "an Initiative" };
-      }),
-    );
+  private namesOf(active: readonly TestInstance[]): Promise<ActiveInstanceName[]> {
+    return Promise.all(active.map((instance) => this.nameOf(instance)));
+  }
+
+  private async nameOf(instance: TestInstance): Promise<ActiveInstanceName> {
+    const { targetName, initiativeId } = instance;
+    if (initiativeId === undefined) {
+      return { targetName, branch: (await this.onBranch(instance)).branch };
+    }
+    const initiative = await this.initiatives.find(initiativeId);
+    return { targetName, initiativeName: initiative?.name ?? "an Initiative" };
   }
 
   /**
@@ -784,13 +1194,16 @@ export class TestInstances implements OnModuleInit {
   }
 }
 
-/** The targets a test instance can be launched from: Hosted and Build to install. */
-function launchableOf(
-  targets: Awaited<ReturnType<ProjectTestTargets["targetsOf"]>>,
-): LaunchableTarget[] {
-  return targets.flatMap(({ key, name, kind, entryPoint }) =>
-    kind === "hosted" || kind === "build-to-install" ? [{ key, name, kind, entryPoint }] : [],
-  );
+/** Why an instance left in `state` by a restart failed; undefined for one that only stops. */
+function restartWordsOf(state: TestInstanceState): string | undefined {
+  switch (state) {
+    case "building":
+      return RESTARTED_WHILE_BUILDING;
+    case "installing":
+      return RESTARTED_WHILE_INSTALLING;
+    default:
+      return undefined;
+  }
 }
 
 /** A launch whose target runs a command the Project no longer has fails, naming it. */

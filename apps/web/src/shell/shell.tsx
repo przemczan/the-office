@@ -6,6 +6,7 @@ import { ChatDrawer } from "./chat/chat-drawer.tsx";
 import { useChatDrawerLayout } from "./chat/chat-drawer-width.ts";
 import { ChatProvider, useChat } from "./chat/use-chat.tsx";
 import { DecisionDraftsProvider } from "./conversation/decision-drafts.tsx";
+import { useRunRelays } from "./devices/run-relays.ts";
 import { HandoverNotesProvider } from "./conversation/handover-notes.tsx";
 import { ThreadDraftsProvider } from "./conversation/thread-drafts.tsx";
 import { FireAlarmReviewProvider } from "./fire-alarm/fire-alarm-review.tsx";
@@ -44,6 +45,7 @@ export function Shell(): ReactNode {
 }
 
 function ShellFrame(): ReactNode {
+  useRunRelays();
   const routeTitle = useMatches({ select: (matches) => matches.at(-1)?.staticData.title });
   const [pageHeading, setPageHeading] = usePageHeadingState();
   const chat = useChat();

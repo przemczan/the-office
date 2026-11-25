@@ -6,7 +6,12 @@ export function aProjectCommandAction(fields: Partial<EditedAction> = {}): Edite
     key: "build-web",
     name: "Build web",
     kind: "project-command",
-    settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: 30 },
+    settings: {
+      commandKey: "build",
+      commandsBefore: ["install"],
+      timeLimitMinutes: 30,
+      projectDeviceId: null,
+    },
     leavesTheWorkstation: false,
     ...fields,
   } as EditedAction;

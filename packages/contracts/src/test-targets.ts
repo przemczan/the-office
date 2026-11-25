@@ -13,7 +13,7 @@ export const testTargetKeySchema = z
     `A test target's key is lower-case letters, digits and "-", starting with a letter.`,
   );
 
-/** The kinds a test target may be; only the first two are built (spec §2.12, "Kinds"). */
+/** The kinds a test target may be; all but the last are built (spec §2.12, "Kinds"). */
 export const testTargetKindSchema = z.enum([
   "hosted",
   "build-to-install",
@@ -97,6 +97,8 @@ export const testTargetFieldSchema = z.enum([
   "commandsBefore",
   "portVariable",
   "memoryMegabytes",
+  "buildTargetKey",
+  "projectDeviceId",
 ]);
 export type TestTargetField = z.infer<typeof testTargetFieldSchema>;
 
@@ -118,8 +120,8 @@ export type TestTargetSetBy = z.infer<typeof testTargetSetBySchema>;
 /**
  * A test target's fields for its kind, with its Secret variables in the given form (by name with
  * whether a value is set when answered, with an optional value when saved, by name alone when
- * proposed) and the `extra` fields every kind has. The outlined kinds take a Hosted's fields, so
- * they can be named and refused in words.
+ * proposed) and the `extra` fields every kind has. The outlined kind takes a Hosted's fields, so
+ * it can be named and refused in words; Install on a device takes only its two settings.
  */
 function testTargetOfKind<Secret extends z.ZodType, Extra extends z.ZodRawShape>(
   secret: Secret,
@@ -149,7 +151,14 @@ function testTargetOfKind<Secret extends z.ZodType, Extra extends z.ZodRawShape>
       commandsBefore: commandsBeforeSchema,
       memoryMegabytes: targetMemorySchema,
     }),
-    z.object({ ...head, kind: z.literal("install-on-a-device"), ...hostedFields }),
+    z.object({
+      ...head,
+      kind: z.literal("install-on-a-device"),
+      /** The Build to install target whose files it installs, by its key. */
+      buildTargetKey: z.string(),
+      /** The Project device it installs on, an Android phone, by its id. */
+      projectDeviceId: z.string(),
+    }),
     z.object({ ...head, kind: z.literal("deployed-elsewhere"), ...hostedFields }),
   ]);
 }

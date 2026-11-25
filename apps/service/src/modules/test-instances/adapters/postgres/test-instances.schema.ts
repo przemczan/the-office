@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type {
   LaunchedBy,
+  TestInstanceDeviceKind,
   TestInstanceKind,
   TestInstanceState,
 } from "../../domain/test-instance.js";
@@ -53,6 +54,16 @@ export const testInstances = pgTable(
     actionKey: text("action_key"),
     /** That Action's name at the launch; null when launched by hand. */
     actionName: text("action_name"),
+    /** An Install on a device instance's Project device, Devices' record named by id alone. */
+    projectDeviceId: uuid("project_device_id"),
+    /** That device's name and kind at the launch, kept should it be renamed or removed. */
+    deviceName: text("device_name"),
+    deviceKind: text("device_kind").$type<TestInstanceDeviceKind>(),
+    /** An Install on a device instance's build, the Build to install instance it launched or reused. */
+    buildInstanceId: uuid("build_instance_id"),
+    /** A build an Install on a device instance launched: that target's key and name, "Built for <name>". */
+    builtForTargetKey: text("built_for_target_key"),
+    builtForTargetName: text("built_for_target_name"),
   },
   (table) => [
     index("test_instances_initiative").on(table.initiativeId, table.launchedAt),
@@ -63,9 +74,12 @@ export const testInstances = pgTable(
       .where(sql`${table.state} in ('building', 'running')`),
     check(
       "test_instances_state",
-      sql`${table.state} in ('building', 'running', 'built', 'stopped', 'failed')`,
+      sql`${table.state} in ('building', 'running', 'built', 'installing', 'installed', 'stopped', 'failed')`,
     ),
-    check("test_instances_kind", sql`${table.kind} in ('hosted', 'build-to-install')`),
+    check(
+      "test_instances_kind",
+      sql`${table.kind} in ('hosted', 'build-to-install', 'install-on-a-device')`,
+    ),
   ],
 );
 

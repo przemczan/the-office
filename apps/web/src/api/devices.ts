@@ -204,7 +204,9 @@ export const deviceEventInvalidations: Readonly<
 > = {
   "connected-device.changed": (event) => {
     const parsed = connectedDeviceWebEventSchema.safeParse(event);
-    return parsed.success ? [deviceQueries.ofTask(parsed.data.taskId).queryKey] : [DEVICES];
+    if (!parsed.success) return [DEVICES];
+    // A run's hold shows on its Project device, which project-device.changed reads again.
+    return parsed.data.taskId === null ? [] : [deviceQueries.ofTask(parsed.data.taskId).queryKey];
   },
 };
 

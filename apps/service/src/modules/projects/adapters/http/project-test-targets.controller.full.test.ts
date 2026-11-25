@@ -69,16 +69,10 @@ describe("PUT /api/projects/:id/test-targets refuses", REAL_GIT_TEST, () => {
     ]);
   });
 
-  it("the outlined kinds, as not built yet", async () => {
+  it("Deployed elsewhere, as not built yet", async () => {
     expect(
-      await reasonsFor([
-        aHostedTarget({ kind: "install-on-a-device" }),
-        aHostedTarget({ key: "remote", kind: "deployed-elsewhere" }),
-      ]),
-    ).toEqual([
-      `Test target "web": Install on a device isn't built yet.`,
-      `Test target "remote": Deployed elsewhere isn't built yet.`,
-    ]);
+      await reasonsFor([aHostedTarget({ key: "remote", kind: "deployed-elsewhere" })]),
+    ).toEqual([`Test target "remote": Deployed elsewhere isn't built yet.`]);
   });
 
   it("output patterns leaving the repository, or none", async () => {

@@ -2,8 +2,11 @@ import { stringify as stringifyYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 import type { RunEnvironmentDefinition } from "./run-environment-definition.js";
 import {
+  DEVICE_HELPER_MOUNT,
   entryPointCommandOf,
   hostedOverrideOf,
+  installOverrideOf,
+  TEST_BUILD_FILES_MOUNT,
   hostedProjectNameOf,
   type HostedRun,
   type RunEnvironmentLimits,
@@ -208,6 +211,58 @@ describe("hostedOverrideOf", () => {
       "The port 70000 isn't a port from 1 to 65535.",
       'The variable name "A=B" isn\'t one: use letters, digits and _, not starting with a digit.',
     ]);
+  });
+});
+
+describe("installOverrideOf", () => {
+  const override = installOverrideOf(
+    DEFINITION,
+    {
+      testInstanceId: "2b1c",
+      projectId: "shop",
+      deviceHelperFolder: "/data/device-helper",
+      buildFiles: "/data/test-builds/9f8e",
+    },
+    "the-office/shop:key",
+    "abc",
+    LIMITS,
+    10,
+  );
+
+  it("mounts the device helper's folder and the build's files alone, both read-only, in the devcontainer's service", () => {
+    const app = servicesOf(override)["app"];
+
+    expect(app).toMatchObject({ image: "the-office/shop:key", pull_policy: "never" });
+    expect(app?.["volumes"]).toEqual([
+      {
+        type: "bind",
+        source: "/data/device-helper",
+        target: DEVICE_HELPER_MOUNT,
+        read_only: true,
+      },
+      {
+        type: "bind",
+        source: "/data/test-builds/9f8e",
+        target: TEST_BUILD_FILES_MOUNT,
+        read_only: true,
+      },
+    ]);
+    expect(app).not.toHaveProperty("working_dir");
+    expect(app).not.toHaveProperty("environment");
+    expect(stringifyYaml(override)).not.toContain("ports:");
+  });
+
+  it("labels every service, network and volume as the instance's and puts the Office-wide limits on every service", () => {
+    for (const service of Object.values(servicesOf(override))) {
+      expect(service["labels"]).toEqual(LABELS);
+      expect(service["mem_limit"]).toBe("4096m");
+    }
+    expect(servicesOf(override)["web"]).not.toHaveProperty("volumes");
+    expect(override["networks"]).toEqual({
+      default: { labels: LABELS },
+      backend: { labels: LABELS },
+    });
+    expect(override["volumes"]).toEqual({ data: { labels: LABELS } });
   });
 });
 

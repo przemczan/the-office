@@ -446,6 +446,59 @@ export function buildOverrideOf(
   };
 }
 
+/** What an Install on a device Test instance's override is made of, beside the definition and image. */
+export interface TestInstallRun {
+  readonly testInstanceId: string;
+  readonly projectId: string;
+  /** `<office-data>/device-helper/`, mounted read-only at DEVICE_HELPER_MOUNT. */
+  readonly deviceHelperFolder: string;
+  /** The build's kept files, `<office-data>/test-builds/<build id>/`, mounted read-only at TEST_BUILD_FILES_MOUNT. */
+  readonly buildFiles: string;
+}
+
+/**
+ * Where an Install on a device Test instance's devcontainer service sees the files of the build it
+ * installs: one path whatever the Office data directory is.
+ */
+export const TEST_BUILD_FILES_MOUNT = "/office-test-build";
+
+/**
+ * The compose file The Office puts over the checkout's for an Install on a device Test instance
+ * (spec §2.12, "Installing"): the devcontainer's service on the Project's image with two host
+ * folders alone, both read-only, the device helper's at DEVICE_HELPER_MOUNT and the build's kept
+ * files at TEST_BUILD_FILES_MOUNT; no checkout, no target variables and no port; the labels on
+ * every service, network and volume, and the Office-wide limits on every service.
+ */
+export function installOverrideOf(
+  definition: RunEnvironmentDefinition,
+  run: TestInstallRun,
+  image: string,
+  instance: string,
+  limits: RunEnvironmentLimits,
+  hostCores: number,
+): Record<string, unknown> {
+  const labels = {
+    ...testInstanceLabels(instance, run.testInstanceId),
+    [LABEL.project]: run.projectId,
+  };
+  const services = Object.fromEntries(
+    definition.services.map((service) => [
+      service,
+      {
+        labels,
+        ...serviceLimitsOf(limits, hostCores, service === definition.service),
+        ...(service === definition.service
+          ? devcontainerServiceOverride(definition, undefined, image, [
+              deviceHelperMount(run.deviceHelperFolder),
+              { ...bindMount(run.buildFiles, true), target: TEST_BUILD_FILES_MOUNT },
+            ])
+          : {}),
+      },
+    ]),
+  );
+  return { services, ...networksAndVolumesOf(definition, labels) };
+}
+
 /** The labels of what an Action run's compose project holds; the run's id is enough to find it. */
 export function actionRunLabels(instance: string, runId: string): Labels {
   return { ...officeLabels(instance), [LABEL.actionRun]: runId };

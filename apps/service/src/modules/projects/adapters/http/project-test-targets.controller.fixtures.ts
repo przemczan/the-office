@@ -50,6 +50,17 @@ export function aHostedTarget(fields: Partial<EditedTestTarget> = {}): EditedTes
   } as EditedTestTarget;
 }
 
+export function anInstallOnADeviceTarget(fields: Partial<EditedTestTarget> = {}): EditedTestTarget {
+  return {
+    key: "phone",
+    name: "Install on the phone",
+    kind: "install-on-a-device",
+    buildTargetKey: "android",
+    projectDeviceId: "device-1",
+    ...fields,
+  } as EditedTestTarget;
+}
+
 export function aBuildToInstallTarget(fields: Partial<EditedTestTarget> = {}): EditedTestTarget {
   return {
     key: "android",

@@ -17,6 +17,7 @@ import { RunsInBackground } from "./application/runs-in-background.js";
 import { WorkflowRuns } from "./application/workflow-runs.js";
 import type { ActionRunUser } from "./domain/action-run.js";
 import {
+  ActionDevicesForTests,
   ActionProjectsForTests,
   ActionRunRepositoryForTests,
   ActionRunSignalsForTests,
@@ -32,6 +33,9 @@ export const ANN: ActionRunUser = { userId: "user-ann", name: "Ann Lee" };
 export const BOB: ActionRunUser = { userId: "user-bob", name: "Bob Kay" };
 
 export const DEPLOY_SECRET = "s3cret-deploy-token";
+
+/** The Shop's phone, which its Action "Install app" holds. */
+export const PIXEL_ID = "0b0e0000-0000-4000-8000-000000000009";
 
 export const MAIN_TIP = "c0ffee0000000000000000000000000000000001";
 export const FIX_TIP = "f1e0000000000000000000000000000000000002";
@@ -68,6 +72,7 @@ export interface ActionsTestbed {
   readonly projects: ActionProjectsForTests;
   readonly sources: ActionSourcesForTests;
   readonly testInstances: ActionTestInstancesForTests;
+  readonly devices: ActionDevicesForTests;
   readonly host: ActionWorkflowHostForTests;
   readonly signals: ActionRunSignalsForTests;
   readonly logs: ActionRunLogs;
@@ -106,6 +111,7 @@ export async function actionsTestbed(
   const projects = new ActionProjectsForTests(folder);
   const sources = new ActionSourcesForTests();
   const testInstances = new ActionTestInstancesForTests();
+  const devices = new ActionDevicesForTests();
   const host = new ActionWorkflowHostForTests(() => schedule.now());
   const signals = new ActionRunSignalsForTests();
   const background = new RunsInBackground();
@@ -120,6 +126,7 @@ export async function actionsTestbed(
     schedule,
     background,
     busyWork,
+    devices,
   );
   const workflowRuns = new WorkflowRuns(host, repository, records, logs, schedule, background);
   const runs = new ActionRuns(
@@ -128,6 +135,7 @@ export async function actionsTestbed(
     projects,
     sources,
     testInstances,
+    devices,
     commandRuns,
     workflowRuns,
     records,
@@ -156,21 +164,48 @@ export async function actionsTestbed(
         name: "Build web",
         leavesTheWorkstation: false,
         kind: "project-command",
-        settings: { commandKey: "build-web", commandsBefore: ["install"], timeLimitMinutes: null },
+        settings: {
+          commandKey: "build-web",
+          commandsBefore: ["install"],
+          timeLimitMinutes: null,
+          projectDeviceId: null,
+        },
       },
       {
         key: "lint",
         name: "Lint",
         leavesTheWorkstation: false,
         kind: "project-command",
-        settings: { commandKey: "lint", commandsBefore: [], timeLimitMinutes: 5 },
+        settings: {
+          commandKey: "lint",
+          commandsBefore: [],
+          timeLimitMinutes: 5,
+          projectDeviceId: null,
+        },
       },
       {
         key: "deploy",
         name: "Deploy",
         leavesTheWorkstation: true,
         kind: "project-command",
-        settings: { commandKey: "deploy", commandsBefore: [], timeLimitMinutes: null },
+        settings: {
+          commandKey: "deploy",
+          commandsBefore: [],
+          timeLimitMinutes: null,
+          projectDeviceId: null,
+        },
+      },
+      {
+        key: "install-app",
+        name: "Install app",
+        leavesTheWorkstation: false,
+        kind: "project-command",
+        settings: {
+          commandKey: "install-app",
+          commandsBefore: [],
+          timeLimitMinutes: null,
+          projectDeviceId: PIXEL_ID,
+        },
       },
       {
         key: "install-phone",
@@ -199,6 +234,7 @@ export async function actionsTestbed(
       { key: "build-web", name: "Build web", commandLine: "npm run build" },
       { key: "lint", name: "Lint", commandLine: "npm run lint" },
       { key: "deploy", name: "Deploy", commandLine: "./deploy.sh" },
+      { key: "install-app", name: "Install app", commandLine: "adb install app.apk" },
     ],
     targetKeys: ["android"],
     branches: {
@@ -219,6 +255,7 @@ export async function actionsTestbed(
     secret: { name: "DEPLOY_TOKEN", value: DEPLOY_SECRET },
   };
   projects.put(shop);
+  devices.devices.set(PIXEL_ID, { id: PIXEL_ID, name: "Pixel 9", projectId: "shop" });
   sources.tasks.set(taskId, {
     id: taskId,
     title: "Fix the cart",
@@ -240,6 +277,7 @@ export async function actionsTestbed(
     projects,
     sources,
     testInstances,
+    devices,
     host,
     signals,
     logs,

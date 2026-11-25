@@ -49,6 +49,7 @@ const OFFICE: LaunchableTestTarget = {
   name: "Office",
   kind: "hosted",
   entryPoint: { kind: "package-script", manifest: "package.json", script: "start", arguments: [] },
+  installs: null,
 };
 
 const APP: LaunchableTestTarget = {
@@ -56,6 +57,7 @@ const APP: LaunchableTestTarget = {
   name: "Android app",
   kind: "build-to-install",
   entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
+  installs: null,
 };
 
 const RUNNING: TestInstance = {
@@ -77,6 +79,9 @@ const RUNNING: TestInstance = {
   files: [],
   filesRemoved: false,
   runAs: null,
+  device: null,
+  buildInstanceId: null,
+  builtFor: null,
 };
 
 const STOPPED: TestInstance = {
@@ -409,5 +414,75 @@ describe("a Project's Test instances", () => {
     );
     expect(link?.getAttribute("href")).toBe("/projects/website/test-targets#test-targets");
     expect(page.querySelector('[role="combobox"]')).toBeNull();
+  });
+
+  describe("an Install on a device", () => {
+    const PIXEL_DEVICE = {
+      projectDeviceId: "5b0c6d1e-2f3a-4b4c-8d5e-6f7a8b9c0d1e",
+      name: "Pixel 8",
+      kind: "android-wireless" as const,
+    };
+    const INSTALL: LaunchableTestTarget = {
+      key: "on-pixel",
+      name: "Install on Pixel",
+      kind: "install-on-a-device",
+      entryPoint: null,
+      installs: {
+        buildTargetKey: "app",
+        buildTargetName: "Android app",
+        projectDeviceId: PIXEL_DEVICE.projectDeviceId,
+        device: PIXEL_DEVICE,
+      },
+    };
+    const BUILD: TestInstance = {
+      ...STOPPED,
+      id: "44444444-5555-4666-8777-888888888888",
+      targetKey: "app",
+      targetName: "Android app",
+      kind: "build-to-install",
+      state: "building",
+      builtFor: { targetKey: "on-pixel", targetName: "Install on Pixel" },
+    };
+    const INSTALLING: TestInstance = {
+      ...STOPPED,
+      id: "55555555-6666-4777-8888-999999999999",
+      targetKey: "on-pixel",
+      targetName: "Install on Pixel",
+      kind: "install-on-a-device",
+      state: "installing",
+      endedAt: null,
+      device: PIXEL_DEVICE,
+      buildInstanceId: BUILD.id,
+    };
+
+    it("says Installing on the device, with Stop and Log, and Built for on its build", async () => {
+      const { page } = await rendered(
+        shownWith([{ name: "main", branchCommit: "aaaa", instances: [INSTALLING, BUILD] }], {
+          targets: [INSTALL, APP],
+        }),
+        notFound,
+      );
+
+      const row = rowOf(page, "Install on Pixel");
+      expect(row.textContent).toContain("Installing");
+      expect(row.textContent).toContain("on Pixel 8");
+      expect(buttonOf(row, "Stop")).toBeDefined();
+      expect(buttonOf(row, "Log")).toBeDefined();
+      expect(rowOf(page, "Android app").textContent).toContain("Built for Install on Pixel");
+    });
+
+    it("says Installed on the device once it is done", async () => {
+      const installed: TestInstance = { ...INSTALLING, state: "installed" };
+      const { page } = await rendered(
+        shownWith([{ name: "main", branchCommit: "aaaa", instances: [installed] }], {
+          targets: [INSTALL],
+        }),
+        notFound,
+      );
+
+      const row = rowOf(page, "Install on Pixel");
+      expect(row.textContent).toContain("Installed");
+      expect(row.textContent).toContain("on Pixel 8");
+    });
   });
 });

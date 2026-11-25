@@ -626,6 +626,8 @@ Where each default lives, by page:
   - [adb steps](2.13-connected-devices.md#adb-steps)
   - [adb reconnect](2.13-connected-devices.md#adb-reconnect)
   - [The pairing's wait](2.13-connected-devices.md#the-pairings-wait)
+  - [The pairing environment's start](2.13-connected-devices.md#the-pairing-environments-start)
+  - [A run's relay](2.13-connected-devices.md#a-runs-relay)
   - [A paired phone's reconnect](2.13-connected-devices.md#a-paired-phones-reconnect)
   - [The adb key's size](2.13-connected-devices.md#the-adb-keys-size)
   - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)

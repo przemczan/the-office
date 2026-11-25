@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { SIGNED_IN_FOR_TESTS } from "../../../../platform/http/signed-in-requests.fixtures.js";
+import { ProjectDeviceLines } from "../../application/project-device-lines.js";
 import { projectsHttp, startProjectsApplication } from "../../projects.controller.fixtures.js";
 import {
   createTemporaryRepository,
@@ -13,6 +14,7 @@ import {
 import {
   aBuildToInstallTarget,
   aHostedTarget,
+  anInstallOnADeviceTarget,
   commitEntryPoints,
 } from "./project-test-targets.controller.fixtures.js";
 
@@ -47,7 +49,88 @@ const BY_YOU = {
   user: { userId: SIGNED_IN_FOR_TESTS.userId, name: SIGNED_IN_FOR_TESTS.name },
 };
 
+function hasDevices(): void {
+  app.get(ProjectDeviceLines, { strict: false }).register(async () => [
+    {
+      id: "device-1",
+      kind: "Android phone over USB",
+      name: "Pixel 9",
+      state: "Over USB",
+      androidPhone: true,
+    },
+    {
+      id: "device-2",
+      kind: "Serial board over USB",
+      name: "Uno",
+      state: "Over USB",
+      androidPhone: false,
+    },
+  ]);
+}
+
 describe("PUT /api/projects/:id/test-targets", REAL_GIT_TEST, () => {
+  it("saves an Install on a device target with a Build to install target and an Android phone", async () => {
+    const project = await addProject();
+    hasDevices();
+
+    const response = await send("PUT", `/projects/${project.id}/test-targets`, {
+      targets: [aBuildToInstallTarget(), anInstallOnADeviceTarget()],
+    });
+
+    expect(response.status).toBe(200);
+    const { targets } = testTargetListSchema.parse(await response.json());
+    expect(targets[1]).toEqual({
+      ...anInstallOnADeviceTarget(),
+      setBy: {
+        name: BY_YOU,
+        kind: BY_YOU,
+        buildTargetKey: BY_YOU,
+        projectDeviceId: BY_YOU,
+      },
+    });
+    const read = await fetch(`${url}/api/projects/${project.id}/test-targets`);
+    expect(testTargetListSchema.parse(await read.json()).targets).toEqual(targets);
+  });
+
+  it("refuses an Install on a device target naming a missing or wrong-kind Build to install target", async () => {
+    const project = await addProject();
+    hasDevices();
+
+    const missing = await send("PUT", `/projects/${project.id}/test-targets`, {
+      targets: [anInstallOnADeviceTarget()],
+    });
+    const wrongKind = await send("PUT", `/projects/${project.id}/test-targets`, {
+      targets: [aHostedTarget({ key: "android" }), anInstallOnADeviceTarget()],
+    });
+
+    for (const response of [missing, wrongKind]) {
+      expect(response.status).toBe(422);
+      expect(projectRefusalSchema.parse(await response.json()).reasons).toEqual([
+        expect.stringContaining(
+          `android isn't one of «${project.name}»'s Build to install targets.`,
+        ),
+      ]);
+    }
+  });
+
+  it("refuses an Install on a device target naming a device that is missing or no Android phone", async () => {
+    const project = await addProject();
+    hasDevices();
+
+    for (const projectDeviceId of ["gone", "device-2"]) {
+      const response = await send("PUT", `/projects/${project.id}/test-targets`, {
+        targets: [aBuildToInstallTarget(), anInstallOnADeviceTarget({ projectDeviceId })],
+      });
+
+      expect(response.status).toBe(422);
+      expect(projectRefusalSchema.parse(await response.json()).reasons).toEqual([
+        expect.stringContaining(
+          `${projectDeviceId} isn't an Android phone among «${project.name}»'s devices.`,
+        ),
+      ]);
+    }
+  });
+
   it("saves Hosted and Build to install targets set by you, a Secret variable's value never sent back", async () => {
     const project = await addProject();
     published.length = 0;
@@ -96,7 +179,9 @@ describe("PUT /api/projects/:id/test-targets", REAL_GIT_TEST, () => {
 
     expect(response.status).toBe(200);
     const [target] = testTargetListSchema.parse(await response.json()).targets;
-    expect(target?.secretVariables).toEqual([{ name: "API_KEY", valueSet: true }]);
+    expect(target && "secretVariables" in target ? target.secretVariables : []).toEqual([
+      { name: "API_KEY", valueSet: true },
+    ]);
     expect(target?.name).toBe("Web");
 
     const again = await send("PUT", `/projects/${project.id}/test-targets`, {

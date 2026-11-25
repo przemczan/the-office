@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { TestInstance } from "@the-office/contracts";
 import { ApiError } from "../../api/api-client.ts";
 import { linkTestBuildFile, openTestInstance, stopTestInstance } from "../../api/test-instances.ts";
+import type { RunRelay } from "../devices/run-relays.ts";
 import { useNotices, useToast } from "../toasts.tsx";
 import type { ShownTestBuildLink } from "./test-build-qr-dialog.tsx";
 import {
@@ -16,7 +17,13 @@ export interface TestInstanceLaunching {
   /** Which row it launches from, as that row's `launchKey`, such as `<project>-<target>`. */
   readonly key: string;
   readonly targetName: string;
-  readonly send: () => Promise<TestInstance>;
+  /**
+   * Opens the Project device an Install on a device relays from this tab, as the user launches
+   * it; null when it relays none, undefined when the browser's picker closed with none picked.
+   */
+  readonly openRelay?: () => Promise<RunRelay | null | undefined>;
+  /** Sends the launch, with the tab relaying its device when it has one. */
+  readonly send: (relayTab: string | undefined) => Promise<TestInstance>;
 }
 
 /** What a row's actions do, shared by every row and the Log window. */
@@ -52,7 +59,16 @@ export function useTestInstanceActions({
   const refused = (key: string, title: string, error: Error): void =>
     notices.show({ key, title, description: reasonsOf(error) });
   const launching = useMutation({
-    mutationFn: (launch: TestInstanceLaunching) => launch.send(),
+    mutationFn: async (launch: TestInstanceLaunching) => {
+      const relay = launch.openRelay === undefined ? null : await launch.openRelay();
+      if (relay === undefined) return undefined;
+      try {
+        return await launch.send(relay?.relayTab);
+      } catch (error) {
+        relay?.release();
+        throw error;
+      }
+    },
     onSuccess: () => readAgain(),
     onError: (error, launch) =>
       refused(`test-instance-launch-${launch.key}`, launchRefusedTitle(launch.targetName), error),

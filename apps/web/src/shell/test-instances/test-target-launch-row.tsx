@@ -4,19 +4,26 @@ import { Badge, Button, FoldButton, Icon, LinkButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { testBuildFileAddress } from "../../api/test-instances.ts";
 import { fileSizeWords } from "../repository-files/repository-files-words.ts";
+import { useRunRelayStart, type RunRelayStart } from "../devices/run-relays.ts";
 import { entryPointWords, TEST_TARGET_KIND_LABELS } from "../test-target-words.ts";
 import { useClock } from "../use-clock.ts";
 import {
   branchMovedPast,
+  builtForWords,
   earlierWords,
   FILES_REMOVED,
   instanceAddress,
+  installsWords,
   instanceLine,
   isActive,
+  isWorking,
+  ITS_BUILD,
   launchDisabledWhy,
   NEEDS_RUN_ENVIRONMENT,
   needsRunEnvironment,
   NEWER_COMMITS,
+  onDeviceWords,
+  reusingBuildWords,
   TEST_INSTANCE_STATE_TONES,
   TEST_INSTANCE_STATE_WORDS,
 } from "./test-instance-words.ts";
@@ -29,6 +36,7 @@ import "./test-instances.css";
  * Built instance's files, then the earlier instances folded under it.
  */
 export function TestTargetLaunchRow({
+  projectId,
   projectName,
   runEnvironmentOn,
   branchCommit,
@@ -40,7 +48,9 @@ export function TestTargetLaunchRow({
   filesNote,
   aboutInstance,
   linkedTo,
+  findInstance,
 }: {
+  readonly projectId: string;
   readonly projectName: string;
   readonly runEnvironmentOn: boolean;
   /** The tip of the branch it launches on, as far as The Office knows it. */
@@ -50,7 +60,8 @@ export function TestTargetLaunchRow({
   readonly instances: readonly TestInstance[];
   /** The `key` its launches carry, so the row knows its own is waiting. */
   readonly launchKey: string;
-  readonly onLaunch: () => void;
+  /** Launches it, opening first, as the user launches it, the device it relays from this tab. */
+  readonly onLaunch: (openRelay: RunRelayStart["open"]) => void;
   readonly actions: TestInstanceActions;
   /** Under a Built instance's files, such as when they are removed. */
   readonly filesNote?: string;
@@ -58,8 +69,11 @@ export function TestTargetLaunchRow({
   readonly aboutInstance?: (instance: TestInstance) => ReactNode;
   /** The instance a link leads to, by its id: an earlier one unfolds the earlier instances. */
   readonly linkedTo?: string;
+  /** Another instance shown on the page, by its id, such as the build an Install launched. */
+  readonly findInstance?: (instanceId: string) => TestInstance | undefined;
 }): ReactNode {
   const now = useClock();
+  const relayStart = useRunRelayStart(projectId, target.installs?.projectDeviceId ?? null);
   const [newest, ...earlier] = instances;
   const linkedEarlier = earlier.some(({ id }) => id === linkedTo);
   const [earlierOpen, setEarlierOpen] = useState(linkedEarlier);
@@ -72,6 +86,9 @@ export function TestTargetLaunchRow({
   const launching = actions.launchingKey === launchKey;
   const launchable = !actions.readOnly && (newest === undefined || !isActive(newest.state));
   const runEnvironmentMissing = needsRunEnvironment(target) && !runEnvironmentOn;
+  const launchDisabledTitle = runEnvironmentMissing
+    ? launchDisabledWhy(projectName)
+    : relayStart.unreachable;
   return (
     <li className="test-instances-target" aria-label={target.name} data-test-instance={newest?.id}>
       <div className="test-instances-row">
@@ -79,7 +96,7 @@ export function TestTargetLaunchRow({
           <div className="test-instances-line">
             <span className="test-instances-name">{target.name}</span>
             <Badge size="sm">
-              <Icon name={target.kind === "hosted" ? "globe" : "package"} size={11} />
+              <Icon name={TARGET_KIND_ICONS[target.kind]} size={11} />
               {TEST_TARGET_KIND_LABELS[target.kind]}
             </Badge>
           </div>
@@ -89,7 +106,9 @@ export function TestTargetLaunchRow({
                 <span>Not launched yet</span>
                 <Separator />
                 <code className="test-instances-entry-point">
-                  {entryPointWords(target.entryPoint)}
+                  {target.installs !== null
+                    ? installsWords(target.installs)
+                    : target.entryPoint !== null && entryPointWords(target.entryPoint)}
                 </code>
               </>
             ) : (
@@ -100,6 +119,7 @@ export function TestTargetLaunchRow({
                     {instanceAddress(newest.port, window.location.hostname)}
                   </span>
                 )}
+                <InstanceAbout instance={newest} findInstance={findInstance} />
                 <span>{instanceLine(newest, now)}</span>
                 {aboutInstance?.(newest)}
                 {newest.state === "built" && newest.filesRemoved && (
@@ -151,9 +171,9 @@ export function TestTargetLaunchRow({
               variant="secondary"
               iconLeft={<Icon name={newest === undefined ? "play" : "rotate-cw"} size={14} />}
               loading={launching}
-              disabled={runEnvironmentMissing || launching}
-              title={runEnvironmentMissing ? launchDisabledWhy(projectName) : undefined}
-              onClick={onLaunch}
+              disabled={launchDisabledTitle !== undefined || launching}
+              title={launchDisabledTitle}
+              onClick={() => onLaunch(relayStart.open)}
             >
               {newest === undefined ? "Launch" : "Launch again"}
             </Button>
@@ -187,6 +207,7 @@ export function TestTargetLaunchRow({
               {earlier.map((instance) => (
                 <li key={instance.id} data-test-instance={instance.id}>
                   <TestInstanceStateBadge instance={instance} />
+                  <InstanceAbout instance={instance} findInstance={findInstance} />
                   <span>{instanceLine(instance, now)}</span>
                   {aboutInstance?.(instance)}
                   <Button
@@ -289,7 +310,7 @@ export function TestInstanceStateBadge({
 }): ReactNode {
   return (
     <Badge size="sm" tone={TEST_INSTANCE_STATE_TONES[instance.state]}>
-      {instance.state === "building" && (
+      {isWorking(instance.state) && (
         <span className="test-instances-spinner" aria-hidden="true">
           <Icon name="loader-circle" size={11} />
         </span>
@@ -297,6 +318,54 @@ export function TestInstanceStateBadge({
       {TEST_INSTANCE_STATE_WORDS[instance.state]}
     </Badge>
   );
+}
+
+const TARGET_KIND_ICONS: Readonly<Record<LaunchableTestTarget["kind"], string>> = {
+  hosted: "globe",
+  "build-to-install": "package",
+  "install-on-a-device": "smartphone",
+};
+
+/**
+ * What an instance says of its Install on a device: "on <device>" and the build it launched or
+ * reused, linked; or, on a build an Install launched, "Built for <target>".
+ */
+function InstanceAbout({
+  instance,
+  findInstance,
+}: {
+  readonly instance: TestInstance;
+  readonly findInstance: ((instanceId: string) => TestInstance | undefined) | undefined;
+}): ReactNode {
+  if (instance.builtFor !== null) {
+    return <span>{builtForWords(instance.builtFor.targetName)}</span>;
+  }
+  if (instance.device === null) return null;
+  const buildId = instance.buildInstanceId;
+  return (
+    <>
+      <span>{onDeviceWords(instance.device.name)}</span>
+      {buildId !== null && (
+        <Link
+          to="."
+          search={(previous: Record<string, unknown>) => ({ ...previous, testInstance: buildId })}
+        >
+          {buildLinkWords(instance, findInstance?.(buildId))}
+        </Link>
+      )}
+    </>
+  );
+}
+
+/**
+ * "Its build" for the build an Install launched, while it runs and after; "Reusing <commit>'s
+ * build" for Built files it reused, which were Built from the commit it installs.
+ */
+function buildLinkWords(instance: TestInstance, build: TestInstance | undefined): string {
+  const launchedByIt =
+    instance.state === "building" ||
+    (build?.builtFor?.targetKey === instance.targetKey && build.launchedAt >= instance.launchedAt);
+  return launchedByIt ? ITS_BUILD : reusingBuildWords(build?.commit ?? instance.commit);
 }
 
 function Separator(): ReactNode {

@@ -77,7 +77,12 @@ describe("PUT /api/projects/:id/actions", REAL_GIT_TEST, () => {
       await send("PUT", `/projects/${project.id}/actions`, {
         actions: [
           aProjectCommandAction({
-            settings: { commandKey: "deploy", commandsBefore: [], timeLimitMinutes: null },
+            settings: {
+              commandKey: "deploy",
+              commandsBefore: [],
+              timeLimitMinutes: null,
+              projectDeviceId: null,
+            },
           }),
           aProjectCommandAction({ name: "Again" }),
           {

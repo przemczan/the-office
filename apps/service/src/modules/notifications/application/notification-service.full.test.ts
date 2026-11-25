@@ -179,6 +179,8 @@ function moved(
     readonly failedReason?: string;
     readonly stoppedBy?: TestInstanceStateChanged["stoppedBy"];
     readonly files?: readonly string[];
+    readonly branch?: string;
+    readonly builtFor?: string;
   } = {},
 ): TestInstanceStateChanged {
   return new TestInstanceStateChanged(
@@ -189,10 +191,12 @@ function moved(
     to,
     undefined,
     details.targetName ?? "Web app",
-    "feature/search",
+    details.branch ?? "feature/search",
     details.failedReason,
     details.stoppedBy,
     details.files ?? [],
+    undefined,
+    details.builtFor,
   );
 }
 
@@ -956,6 +960,36 @@ describe("NotificationService", () => {
       ]);
       await reportActivity({ kind: "test-instances", projectId: "the-office" });
       expect(await ownOpen(instance.instanceId)).toEqual([]);
+    });
+
+    it("tells Installed, and nothing of the build an install launched", async () => {
+      const build = { instanceId: randomUUID() };
+      const install = { instanceId: randomUUID() };
+
+      await events.publish(
+        moved(build, "building", "built", {
+          targetName: "Android app",
+          files: ["app.apk"],
+          builtFor: "Install on Pixel",
+        }),
+      );
+      await events.publish(
+        moved({ instanceId: randomUUID() }, "building", "failed", {
+          targetName: "Android app",
+          failedReason: "The build ended with exit code 1.",
+          builtFor: "Install on Pixel",
+        }),
+      );
+      await events.publish(
+        moved(install, "installing", "installed", {
+          targetName: "Install on Pixel",
+          branch: "main",
+        }),
+      );
+
+      expect(raised.map(({ notification }) => [notification.kind, notification.line])).toEqual([
+        ["outcomes.test-instance.installed", "Install on Pixel on main is Installed."],
+      ]);
     });
 
     it("replaces Running with the failure once it fails, saying why", async () => {

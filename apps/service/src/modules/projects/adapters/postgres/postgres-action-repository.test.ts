@@ -40,7 +40,12 @@ const BUILD: Action = {
   key: "build-web",
   name: "Build web",
   kind: "project-command",
-  settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: 30 },
+  settings: {
+    commandKey: "build",
+    commandsBefore: ["install"],
+    timeLimitMinutes: 30,
+    projectDeviceId: null,
+  },
   leavesTheWorkstation: false,
   setBy: { name: { by: "user", user: { userId: "user-ann", name: "Ann" } } },
 };
@@ -125,7 +130,12 @@ describe("PostgresActionRepository", () => {
         key: "lint",
         name: "Lint",
         kind: "project-command",
-        settings: { commandKey: "lint", commandsBefore: [], timeLimitMinutes: null },
+        settings: {
+          commandKey: "lint",
+          commandsBefore: [],
+          timeLimitMinutes: null,
+          projectDeviceId: null,
+        },
         leavesTheWorkstation: false,
         setBy: {},
       },

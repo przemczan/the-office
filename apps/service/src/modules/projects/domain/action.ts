@@ -42,6 +42,8 @@ export interface ProjectCommandActionSettings {
   readonly commandsBefore: readonly string[];
   /** Its own time limit in minutes; null when the default applies. */
   readonly timeLimitMinutes: number | null;
+  /** The Project device its run holds while it runs, by its id; null for none (spec §2.15). */
+  readonly projectDeviceId: string | null;
 }
 
 export interface TestTargetActionSettings {
@@ -89,6 +91,8 @@ export interface ActionContext {
   readonly commandBeforeKeys: readonly string[];
   /** The Project's test targets' keys. */
   readonly targetKeys: readonly string[];
+  /** The ids of the Project's devices, which a Project command Action may hold while it runs. */
+  readonly deviceIds: readonly string[];
   /** The Project's environment and Secret variables. */
   readonly variables: readonly Pick<ProjectVariable, "name">[];
 }
@@ -122,6 +126,7 @@ export function trimmedAction(action: ActionFields): ActionFields {
           commandKey: action.settings.commandKey.trim(),
           commandsBefore: action.settings.commandsBefore.map((key) => key.trim()),
           timeLimitMinutes: action.settings.timeLimitMinutes,
+          projectDeviceId: action.settings.projectDeviceId?.trim() || null,
         },
       };
     case "test-target":
@@ -176,7 +181,8 @@ export function sameSettings(one: ActionFields, other: ActionFields): boolean {
     return (
       one.settings.commandKey === other.settings.commandKey &&
       sameList(one.settings.commandsBefore, other.settings.commandsBefore) &&
-      one.settings.timeLimitMinutes === other.settings.timeLimitMinutes
+      one.settings.timeLimitMinutes === other.settings.timeLimitMinutes &&
+      one.settings.projectDeviceId === other.settings.projectDeviceId
     );
   }
   if (one.kind === "test-target" && other.kind === "test-target") {
@@ -348,6 +354,10 @@ function projectCommandProblems(
   const { min, max } = ACTION_TIME_LIMIT_MINUTES;
   if (limit !== null && (!Number.isInteger(limit) || limit < min || limit > max)) {
     problems.push(`Its time limit is a whole number of minutes from ${min} to ${max}.`);
+  }
+  const device = settings.projectDeviceId;
+  if (device !== null && !context.deviceIds.includes(device)) {
+    problems.push(`${device} isn't one of «${context.projectName}»'s devices.`);
   }
   problems.push(...reservedVariableProblems(context.variables));
   return problems;

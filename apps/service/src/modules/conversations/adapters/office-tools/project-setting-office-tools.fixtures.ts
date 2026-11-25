@@ -81,7 +81,12 @@ export const BUILD_ACTION: Action = {
   name: "Build the app",
   kind: "project-command",
   leavesTheWorkstation: false,
-  settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: null },
+  settings: {
+    commandKey: "build",
+    commandsBefore: [],
+    timeLimitMinutes: null,
+    projectDeviceId: null,
+  },
   setBy: {},
 };
 

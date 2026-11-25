@@ -13,8 +13,8 @@ import {
 } from "./project-environment.js";
 
 /**
- * The kinds a test target may be; only the first two are built (spec §2.12, "Kinds"). The outlined
- * ones take a Hosted's fields, so they can be named and refused in words.
+ * The kinds a test target may be; all but the last are built (spec §2.12, "Kinds"). Deployed
+ * elsewhere takes a Hosted's fields, so it can be named and refused in words.
  */
 export const TEST_TARGET_KINDS = [
   "hosted",
@@ -45,6 +45,8 @@ export const TEST_TARGET_FIELDS = [
   "commandsBefore",
   "portVariable",
   "memoryMegabytes",
+  "buildTargetKey",
+  "projectDeviceId",
 ] as const;
 export type TestTargetField = (typeof TEST_TARGET_FIELDS)[number];
 
@@ -94,6 +96,10 @@ export interface TestTargetSecret {
 export type TestTargetFields<Secret> = {
   readonly key: string;
   readonly name: string;
+} & (RunTargetFields<Secret> | InstallTargetFields);
+
+/** The fields of the kinds that run an entry point, which Install on a device doesn't. */
+export type RunTargetFields<Secret> = {
   readonly entryPoint: EntryPoint;
   readonly variables: readonly TestTargetVariable[];
   readonly secretVariables: readonly Secret[];
@@ -103,7 +109,6 @@ export type TestTargetFields<Secret> = {
   readonly memoryMegabytes: number | null;
 } & (
   | HostedFields<"hosted">
-  | HostedFields<"install-on-a-device">
   | HostedFields<"deployed-elsewhere">
   | {
       readonly kind: "build-to-install";
@@ -112,7 +117,16 @@ export type TestTargetFields<Secret> = {
     }
 );
 
-/** The fields of a kind that serves a port: Hosted's, which the outlined kinds take too. */
+/** Install on a device (spec §2.12, "Install on a device"): its two settings, nothing else. */
+export interface InstallTargetFields {
+  readonly kind: "install-on-a-device";
+  /** The key of the Build to install target whose files it installs. */
+  readonly buildTargetKey: string;
+  /** The id of the Project device it installs on, an Android phone. */
+  readonly projectDeviceId: string;
+}
+
+/** The fields of a kind that serves a port: Hosted's, which Deployed elsewhere takes too. */
 interface HostedFields<Kind extends TestTargetKind> {
   readonly kind: Kind;
   readonly port: number;
@@ -122,6 +136,11 @@ interface HostedFields<Kind extends TestTargetKind> {
 
 /** A Project's test target as kept (spec §2.12, "Test target"). */
 export type TestTarget = TestTargetFields<TestTargetSecret> & { readonly setBy: TestTargetSetBy };
+
+/** A kept target of a kind that runs an entry point; Install on a device is the other. */
+export type RunTestTarget = Extract<TestTarget, { readonly entryPoint: EntryPoint }>;
+/** A kept Install on a device target. */
+export type InstallTestTarget = Extract<TestTarget, { readonly kind: "install-on-a-device" }>;
 
 /** A Secret variable as the page saves it: without a value, or with an empty one, it keeps its own. */
 export interface EditedTestTargetSecret {
@@ -150,13 +169,25 @@ export function testTargetLabel(key: string): string {
 
 /** The fields `kind` holds besides those every kind has. */
 export function fieldsOfKind(kind: TestTargetKind): readonly TestTargetField[] {
+  if (kind === "install-on-a-device") {
+    return TEST_TARGET_FIELDS.filter((field) => INSTALL_FIELDS.includes(field));
+  }
   const own: readonly TestTargetField[] =
     kind === "build-to-install" ? ["outputPatterns"] : ["port", "portVariable"];
-  return TEST_TARGET_FIELDS.filter((field) => own.includes(field) || !KIND_FIELDS.includes(field));
+  return TEST_TARGET_FIELDS.filter(
+    (field) =>
+      own.includes(field) || !(KIND_FIELDS.includes(field) || INSTALL_ONLY.includes(field)),
+  );
 }
 
-/** The fields only some kinds have. */
+/** The fields only some of the running kinds have. */
 const KIND_FIELDS: readonly TestTargetField[] = ["port", "portVariable", "outputPatterns"];
+
+/** The fields only Install on a device has. */
+const INSTALL_ONLY: readonly TestTargetField[] = ["buildTargetKey", "projectDeviceId"];
+
+/** The fields Install on a device has. */
+const INSTALL_FIELDS: readonly TestTargetField[] = ["name", "kind", ...INSTALL_ONLY];
 
 /**
  * The target with the spaces around its key, name, entry point, names and patterns left out, each
@@ -166,6 +197,15 @@ export function trimmedTestTarget<Secret>(
   target: TestTargetFields<Secret>,
   trimmedSecret: (secret: Secret) => Secret,
 ): TestTargetFields<Secret> {
+  if (target.kind === "install-on-a-device") {
+    return {
+      key: target.key.trim(),
+      name: target.name.trim(),
+      kind: target.kind,
+      buildTargetKey: target.buildTargetKey.trim(),
+      projectDeviceId: target.projectDeviceId.trim(),
+    };
+  }
   const common = {
     key: target.key.trim(),
     name: target.name.trim(),
@@ -205,8 +245,11 @@ export function editedTestTargets(
   return edit.map((edited) => {
     const target = trimmedTestTarget(edited, (secret) => ({ ...secret, name: secret.name.trim() }));
     const before = stored.find((each) => each.key === target.key);
+    if (target.kind === "install-on-a-device") return { ...target, setBy: before?.setBy ?? {} };
     const keptValueOf = (name: string): string | null =>
-      before?.secretVariables.find((secret) => secret.name === name)?.value ?? null;
+      (before && "secretVariables" in before
+        ? before.secretVariables.find((secret) => secret.name === name)?.value
+        : undefined) ?? null;
     return {
       ...target,
       secretVariables: target.secretVariables.map(({ name, value }) => ({
@@ -220,17 +263,21 @@ export function editedTestTargets(
 
 /** The targets without their Secret variables' values. */
 export function shownTestTargets(targets: readonly TestTarget[]): ShownTestTarget[] {
-  return targets.map((target) => ({
-    ...target,
-    secretVariables: target.secretVariables.map(({ name, value }) => ({
-      name,
-      valueSet: value !== null,
-    })),
-  }));
+  return targets.map((target) =>
+    target.kind === "install-on-a-device"
+      ? target
+      : {
+          ...target,
+          secretVariables: target.secretVariables.map(({ name, value }) => ({
+            name,
+            valueSet: value !== null,
+          })),
+        },
+  );
 }
 
 /** The names of the Secret variables still waiting for a value. */
-export function secretsWithoutValue(target: TestTarget): string[] {
+export function secretsWithoutValue(target: RunTestTarget): string[] {
   return target.secretVariables.filter(({ value }) => value === null).map(({ name }) => name);
 }
 
@@ -247,6 +294,9 @@ export function sameField<Secret>(
     case "kind":
       return one.kind === other.kind;
     case "entryPoint":
+      if (!("entryPoint" in one) || !("entryPoint" in other)) {
+        return !("entryPoint" in one) && !("entryPoint" in other);
+      }
       return sameEntryPoint(one.entryPoint, other.entryPoint);
     case "port":
       return ("port" in one ? one.port : undefined) === ("port" in other ? other.port : undefined);
@@ -256,14 +306,23 @@ export function sameField<Secret>(
       }
       return sameList(one.outputPatterns, other.outputPatterns, (a, b) => a === b);
     case "variables":
+      if (!("variables" in one) || !("variables" in other)) {
+        return !("variables" in one) && !("variables" in other);
+      }
       return sameList(
         one.variables,
         other.variables,
         (a, b) => a.name === b.name && a.value === b.value,
       );
     case "secretVariables":
+      if (!("secretVariables" in one) || !("secretVariables" in other)) {
+        return !("secretVariables" in one) && !("secretVariables" in other);
+      }
       return sameList(one.secretVariables, other.secretVariables, secretsMatch);
     case "commandsBefore":
+      if (!("commandsBefore" in one) || !("commandsBefore" in other)) {
+        return !("commandsBefore" in one) && !("commandsBefore" in other);
+      }
       return sameList(one.commandsBefore, other.commandsBefore, (a, b) => a === b);
     case "portVariable":
       return (
@@ -271,7 +330,20 @@ export function sameField<Secret>(
         ("portVariable" in other ? other.portVariable : undefined)
       );
     case "memoryMegabytes":
-      return one.memoryMegabytes === other.memoryMegabytes;
+      return (
+        ("memoryMegabytes" in one ? one.memoryMegabytes : undefined) ===
+        ("memoryMegabytes" in other ? other.memoryMegabytes : undefined)
+      );
+    case "buildTargetKey":
+      return (
+        ("buildTargetKey" in one ? one.buildTargetKey : undefined) ===
+        ("buildTargetKey" in other ? other.buildTargetKey : undefined)
+      );
+    case "projectDeviceId":
+      return (
+        ("projectDeviceId" in one ? one.projectDeviceId : undefined) ===
+        ("projectDeviceId" in other ? other.projectDeviceId : undefined)
+      );
   }
 }
 
@@ -369,6 +441,48 @@ export function testTargetProblems(
   return problems;
 }
 
+/** A Project device as an Install on a device target is checked against: only what it needs. */
+export interface DeviceForTarget {
+  readonly id: string;
+  readonly androidPhone: boolean;
+}
+
+/**
+ * Why the Install on a device targets, saved together with the others, name something the Project
+ * lacks (spec §2.12, "Install on a device"): each names, among the whole list, one of the Project's
+ * Build to install targets, and each of `deviceToCheck`'s keys (those added or whose device
+ * changed) an Android phone among the Project's `devices`.
+ */
+export function installTargetProblems(
+  targets: readonly TestTargetFields<TestTargetSecret>[],
+  projectName: string,
+  devices: readonly DeviceForTarget[],
+  deviceToCheck: readonly string[],
+): string[] {
+  return targets.flatMap((target) => {
+    if (target.kind !== "install-on-a-device") return [];
+    const label = testTargetLabel(target.key);
+    const problems: string[] = [];
+    const builds = targets.filter(({ kind }) => kind === "build-to-install");
+    if (target.buildTargetKey !== "" && !builds.some(({ key }) => key === target.buildTargetKey)) {
+      problems.push(
+        `${label}: ${target.buildTargetKey} isn't one of «${projectName}»'s Build to install targets.`,
+      );
+    }
+    const phone = devices.find(({ id }) => id === target.projectDeviceId);
+    if (
+      target.projectDeviceId !== "" &&
+      deviceToCheck.includes(target.key) &&
+      !phone?.androidPhone
+    ) {
+      problems.push(
+        `${label}: ${target.projectDeviceId} isn't an Android phone among «${projectName}»'s devices.`,
+      );
+    }
+    return problems;
+  });
+}
+
 function oneTargetProblems(
   target: TestTargetFields<TestTargetSecret>,
   commandKeys: readonly string[],
@@ -380,7 +494,13 @@ function oneTargetProblems(
   else if (target.name.length > TEST_TARGET_NAME_LENGTH) {
     problems.push(`Its name may be at most ${TEST_TARGET_NAME_LENGTH} characters.`);
   } else if (/[\r\n\0]/.test(target.name)) problems.push("Its name must be one line.");
-  if (target.kind === "install-on-a-device" || target.kind === "deployed-elsewhere") {
+  if (target.kind === "install-on-a-device") {
+    if (target.buildTargetKey === "")
+      problems.push("Give the Build to install target it installs.");
+    if (target.projectDeviceId === "") problems.push("Give the device it installs on.");
+    return problems;
+  }
+  if (target.kind === "deployed-elsewhere") {
     problems.push(`${TEST_TARGET_KIND_NAMES[target.kind]} isn't built yet.`);
     return problems;
   }
@@ -427,7 +547,7 @@ function commandsBeforeProblems(
 
 /** The port variable is a variable's name the app can read, and nothing else sets it. */
 function portVariableProblems(
-  target: TestTargetFields<TestTargetSecret> & HostedFields<"hosted">,
+  target: RunTargetFields<TestTargetSecret> & HostedFields<"hosted">,
 ): string[] {
   const name = target.portVariable;
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
@@ -474,7 +594,7 @@ function outputPatternProblems(pattern: string): string[] {
 function variablesProblems({
   variables,
   secretVariables,
-}: TestTargetFields<TestTargetSecret>): string[] {
+}: RunTargetFields<TestTargetSecret>): string[] {
   const all: ProjectVariable[] = [
     ...variables.map(({ name, value }) => ({ name, value, secret: false })),
     ...secretVariables.map(({ name, value }) => ({ name, value: value ?? "", secret: true })),

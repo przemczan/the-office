@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { stringify as stringifyYaml } from "yaml";
 import {
@@ -21,8 +21,10 @@ import {
   entryPointScript,
   hostedOverrideOf,
   hostedProjectNameOf,
+  installOverrideOf,
   LABEL,
   officeLabels,
+  TEST_BUILD_FILES_MOUNT,
   TEST_INSTANCE_VARIABLE,
   testInstanceLabels,
   type CommandEntryPoint,
@@ -35,6 +37,7 @@ import {
 import {
   ContainerRuntime,
   ContainerRuntimeFailed,
+  type AttachedProcess,
   type ComposeProject,
   type StreamedOutputMask,
 } from "../ports/container-runtime.js";
@@ -45,7 +48,11 @@ import { HostCores } from "./host-cores.js";
 import { HostedServiceReadiness } from "./hosted-service-readiness.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
-import { refusingOnRuntimeFailure } from "./runtime-steps.js";
+import {
+  attachedIn,
+  refusingOnRuntimeFailure,
+  type RunEnvironmentAttachment,
+} from "./runtime-steps.js";
 import { ServiceOwner } from "./service-owner.js";
 
 /** What a Hosted Test instance is started from (spec §2.12, "Hosted runs in the run environment"). */
@@ -101,6 +108,48 @@ export interface TestBuildEnd {
   readonly endedBy?: "timeout" | "stop";
 }
 
+/**
+ * What an Install on a device Test instance's environment is started from (spec §2.12,
+ * "Installing"): the checkout's `.devcontainer/` on the Project's image, with the build's files.
+ */
+export interface TestInstallStart {
+  /** The Test instance's id, a uuid. */
+  readonly instanceId: string;
+  readonly projectId: string;
+  /** The instance's checkout, an absolute path, whose definition and Install inputs are read; not mounted. */
+  readonly checkout: string;
+  /**
+   * The build's kept files, `<office-data>/test-builds/<build id>/`, an absolute path, mounted
+   * read-only at TEST_BUILD_FILES_MOUNT.
+   */
+  readonly buildFiles: string;
+  /** The Project's install command, Install inputs and variables, for its image. */
+  readonly installCommand: string | undefined;
+  readonly installInputs: readonly string[];
+  readonly installVariables: readonly InstallVariable[];
+  /** An absolute path: everything the start prints is appended there, masked. */
+  readonly logFile: string;
+  readonly mask: StreamedOutputMask;
+  /** Ends a start under way: what it started is removed and it refuses. */
+  readonly signal?: AbortSignal;
+}
+
+/** An Install on a device Test instance's environment, running until removed or stopped. */
+export interface TestInstallEnvironment {
+  /** The `<uid>:<gid>` of the checks' user (the definition's, else the service's own). */
+  readonly checksUser: string;
+  /** Where the build's files are, inside: TEST_BUILD_FILES_MOUNT. */
+  readonly filesMount: string;
+  /**
+   * Starts the program in the definition's service, as the checks' user unless `asRoot`, its
+   * standard error appended to the instance's log unless the attachment names a file; nothing
+   * once it is removed or the instance stopped.
+   */
+  attach(attachment: RunEnvironmentAttachment): Promise<AttachedProcess | undefined>;
+  /** Removes it as `HostedServices.stop` does; never throws. */
+  remove(): Promise<void>;
+}
+
 /** A Hosted Test instance's app, started and answering. */
 export interface HostedService {
   /** The port on 127.0.0.1 the runtime published for the app's container port. */
@@ -133,7 +182,8 @@ const INSTANCE_ID = /^[A-Za-z0-9][A-Za-z0-9-]*$/;
  * Hosted Test instances, each its own compose project (spec §5.5, "A test instance's checkout"):
  * made from the checkout's own definition on the Project's image, the target's port alone
  * published on 127.0.0.1, removed with its volumes when it stops; and Build to install ones, built
- * in a compose project of their own removed once the build ends. The Test instances module's one
+ * in a compose project of their own removed once the build ends; and Install on a device ones'
+ * environments, kept running for the install until removed. The Test instances module's one
  * way into the runtime. It takes no Run environments at once slot and isn't Office-updates' busy
  * work: Test instances at once limits it.
  */
@@ -227,6 +277,44 @@ export class HostedServices {
       await this.stop(start.instanceId).catch((stopError: unknown) => {
         this.logger.warn(`The Test instance ${start.instanceId} wasn't cleaned up.`, stopError);
       });
+    }
+  }
+
+  /**
+   * Starts an Install on a device Test instance's environment: the image, its own compose project
+   * from the checkout's definition with the device helper's folder and the build's files mounted
+   * read-only and no checkout, the definition's service left running for programs attached there.
+   * Refuses with why, in the user's words, after removing what it started; `stop` removes it too.
+   */
+  async install(start: TestInstallStart): Promise<TestInstallEnvironment> {
+    if (!INSTANCE_ID.test(start.instanceId)) {
+      throw new RunEnvironmentRefused([`${start.instanceId} isn't a Test instance's id.`]);
+    }
+    if (!isAbsolute(start.buildFiles)) {
+      throw new RunEnvironmentRefused([`${start.buildFiles} isn't an absolute path.`]);
+    }
+    if (this.running.has(start.instanceId)) {
+      throw new RunEnvironmentRefused([
+        `The Test instance ${start.instanceId} is already running.`,
+      ]);
+    }
+    const stopping = new AbortController();
+    this.running.set(start.instanceId, stopping);
+    const stopped = (): void => stopping.abort();
+    start.signal?.addEventListener("abort", stopped, { once: true });
+    try {
+      if (start.signal?.aborted) stopping.abort();
+      return await this.installing(start, stopping);
+    } catch (error) {
+      await this.stop(start.instanceId).catch((stopError: unknown) => {
+        this.logger.warn(`The Test instance ${start.instanceId} wasn't cleaned up.`, stopError);
+      });
+      if (error instanceof ContainerRuntimeFailed) {
+        throw new RunEnvironmentRefused([error.message], start.logFile);
+      }
+      throw error;
+    } finally {
+      start.signal?.removeEventListener("abort", stopped);
     }
   }
 
@@ -458,6 +546,79 @@ export class HostedServices {
       },
       start.logFile,
     );
+  }
+
+  private async installing(
+    start: TestInstallStart,
+    stopping: AbortController,
+  ): Promise<TestInstallEnvironment> {
+    const definition = await this.definitionIn(start.checkout, start.logFile);
+    refuseWhenStopped(stopping.signal, start.logFile);
+
+    const image = await this.imageOf(start, definition);
+    refuseWhenStopped(stopping.signal, start.logFile);
+
+    // A long-syntax bind mount fails to start when its source is missing.
+    await mkdir(this.folders.deviceHelper, { recursive: true });
+    const { limits } = await this.settings.read();
+    const project = projectOf(
+      { ...start, variables: [] },
+      this.folders.instance,
+      definition,
+      definition.service,
+      await this.overrideFileOf(
+        start.instanceId,
+        installOverrideOf(
+          definition,
+          {
+            testInstanceId: start.instanceId,
+            projectId: start.projectId,
+            deviceHelperFolder: this.folders.deviceHelper,
+            buildFiles: start.buildFiles,
+          },
+          image,
+          this.folders.instance,
+          limits,
+          this.hostCores.count,
+        ),
+      ),
+    );
+
+    await note(start.logFile, `Starting ${project.name}.`);
+    await this.refusing(start.logFile, "The run environment couldn't start.", () =>
+      this.runtime.up(project, start.logFile, start.mask),
+    );
+    refuseWhenStopped(stopping.signal, start.logFile);
+    const checksUser = await this.refusing(
+      start.logFile,
+      "The checks' user couldn't be read in the run environment.",
+      () => this.runtime.userIdsOf(project, definition.service, definition.user),
+    );
+    refuseWhenStopped(stopping.signal, start.logFile);
+
+    // Until its stop begins, which forgets it.
+    const live = (): boolean =>
+      this.running.get(start.instanceId) === stopping && !stopping.signal.aborted;
+    let removal: Promise<void> | undefined;
+    return {
+      checksUser,
+      filesMount: TEST_BUILD_FILES_MOUNT,
+      attach: (attachment) =>
+        live()
+          ? attachedIn(this.runtime, project, definition, attachment, start.logFile)
+          : Promise.resolve(undefined),
+      remove: () => {
+        // Stopped already: its stop, which may still be under way, removes it.
+        removal ??= (
+          this.running.get(start.instanceId) === stopping
+            ? this.stop(start.instanceId)
+            : (this.stops.get(start.instanceId) ?? Promise.resolve())
+        ).catch((error: unknown) => {
+          this.logger.warn(`The Test instance ${start.instanceId} wasn't cleaned up.`, error);
+        });
+        return removal;
+      },
+    };
   }
 
   /**

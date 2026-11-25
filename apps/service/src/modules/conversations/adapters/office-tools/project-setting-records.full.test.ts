@@ -198,7 +198,9 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
     ]);
     const [web] = await app.get(TestTargets, { strict: false }).list(projectId);
     expect(web).toMatchObject({ key: "web", setBy: {} });
-    expect(web?.secretVariables.map(({ name }) => name)).toEqual(["STRIPE_KEY"]);
+    expect(
+      web && "secretVariables" in web ? web.secretVariables.map(({ name }) => name) : [],
+    ).toEqual(["STRIPE_KEY"]);
   });
 
   it("turns Run environment On after the sections before it, with no definition on the base branch", async () => {

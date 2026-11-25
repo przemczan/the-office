@@ -242,6 +242,7 @@ describe("pairing a Project device in a pairing environment", () => {
         kind: "Android phone over wireless debugging",
         name: "Not named yet",
         state: "Not paired",
+        androidPhone: true,
       },
     ]);
   });
@@ -390,7 +391,7 @@ describe("renaming, a new Port and removing", () => {
 
     const held = await refusal(testbed.projectDevices.remove(device.id));
     expect(held.reasons).toEqual(["Arduino Uno is in use by Install on the phone."]);
-    expect(held.holder?.taskId).toBe(TASK_ID);
+    expect(held.holder).toMatchObject({ kind: "task", taskId: TASK_ID });
 
     await testbed.devices.disconnect(record.id, "by-user", ANN);
     await testbed.projectDevices.remove(device.id);
@@ -427,6 +428,7 @@ describe("lending a Project device to a Task", () => {
         kind: "Serial board over USB",
         name: "Arduino Uno",
         state: "In use by Install on the phone",
+        androidPhone: false,
       },
     ]);
 
@@ -516,7 +518,7 @@ describe("lending a Project device to a Task", () => {
 
     const refused = await refusal(testbed.projectDevices.lend(TASK_ID, id, ANN));
     expect(refused.reasons).toEqual(["Pixel 9 is in use by Install on the phone."]);
-    expect(refused.holder?.taskId).toBe(TASK_ID);
+    expect(refused.holder).toMatchObject({ kind: "task", taskId: TASK_ID });
   });
 
   it("refuses lending while the Run environment is Off, Connected devices is off, or it pairs", async () => {

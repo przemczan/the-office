@@ -22,6 +22,7 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { CARETAKER, type RoleCard } from "../../../people/index.js";
 import {
   DEFAULT_PORT_VARIABLE,
+  type ActionFields,
   type ProjectCommandFields,
   type ProposedTestTargetFields,
 } from "../../../projects/index.js";
@@ -872,9 +873,32 @@ function toProposedChange(change: Proposal["change"]): Proposal["change"] {
           })),
         },
       };
+    // A Proposal of Actions drafted before a Project command Action's device has none, read as null.
+    case "actions":
+      return {
+        ...change,
+        changes: {
+          ...change.changes,
+          actions: change.changes.actions.map((action) => ({
+            ...action,
+            from: action.from && withActionDefaults(action.from),
+            to: action.to && withActionDefaults(action.to),
+          })),
+        },
+      };
     default:
       return change;
   }
+}
+
+function withActionDefaults(fields: ActionFields): ActionFields {
+  if (fields.kind !== "project-command") return fields;
+  // The row's JSON may lack it, whatever the type says.
+  const stored: { readonly projectDeviceId?: string | null } = fields.settings;
+  return {
+    ...fields,
+    settings: { ...fields.settings, projectDeviceId: stored.projectDeviceId ?? null },
+  };
 }
 
 /**
@@ -899,6 +923,7 @@ function withChangeProjectSettings<Card extends RoleCardFields>(
 
 function withTargetDefaults(fields: ProposedTestTargetFields): ProposedTestTargetFields {
   // The row's JSON may lack them, whatever the type says.
+  if (fields.kind === "install-on-a-device") return fields;
   const stored: {
     readonly commandsBefore?: readonly string[];
     readonly portVariable?: string;

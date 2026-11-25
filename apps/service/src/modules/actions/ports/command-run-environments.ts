@@ -1,3 +1,7 @@
+import type {
+  ActionRunEnvironmentUse,
+  RunningActionEnvironment,
+} from "../../run-environments/index.js";
 import type { RunMask, RunVariable } from "./action-projects.js";
 
 /** A Project command run in its own compose project. */
@@ -19,6 +23,17 @@ export interface RunInEnvironment {
   readonly mask: RunMask;
   readonly timeoutMs: number;
   readonly signal: AbortSignal;
+  /** Mounts the Office device helper's folder, for an Action that names a device. */
+  readonly withDeviceHelper?: boolean;
+  /**
+   * Told of the compose project once it is up, before the first command, to hold the run's device
+   * there: its variables reach every command, and its `release` runs once before the compose
+   * project is removed, however the run ends. An ActionRunRefused it throws ends the run in its
+   * words, nothing run.
+   */
+  readonly onEnvironment?: (
+    environment: RunningActionEnvironment,
+  ) => Promise<ActionRunEnvironmentUse>;
 }
 
 /** How its commands ended: on the first that didn't end with 0, else on the last. */

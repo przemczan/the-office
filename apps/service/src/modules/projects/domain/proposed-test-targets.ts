@@ -11,6 +11,7 @@ import {
   type TestTarget,
   type TestTargetField,
   type TestTargetFields,
+  type TestTargetSecret,
   type TestTargetSetter,
 } from "./test-target.js";
 
@@ -46,8 +47,9 @@ export interface TestTargetsToPropose {
 
 /** The target as a Proposal carries it: Secret variables by name, without who set what. */
 export function proposedFieldsOf(target: TestTarget): ProposedTestTargetFields {
-  const { setBy: _setBy, secretVariables, ...fields } = target;
-  return { ...fields, secretVariables: secretVariables.map(({ name }) => name) };
+  const { setBy: _setBy, ...fields } = target;
+  if (fields.kind === "install-on-a-device") return fields;
+  return { ...fields, secretVariables: fields.secretVariables.map(({ name }) => name) };
 }
 
 const sameName = (one: string, other: string): boolean => one === other;
@@ -203,12 +205,16 @@ function withProposed(
   to: ProposedTestTargetFields,
   setter: TestTargetSetter | undefined,
 ): TestTarget {
-  const fields = {
-    ...to,
-    secretVariables: to.secretVariables.map((name) => ({
-      name,
-      value: before?.secretVariables.find((secret) => secret.name === name)?.value ?? null,
-    })),
-  };
+  const kept = before && "secretVariables" in before ? before.secretVariables : [];
+  const fields: TestTargetFields<TestTargetSecret> =
+    to.kind === "install-on-a-device"
+      ? to
+      : {
+          ...to,
+          secretVariables: to.secretVariables.map((name) => ({
+            name,
+            value: kept.find((secret) => secret.name === name)?.value ?? null,
+          })),
+        };
   return { ...fields, setBy: setter ? setByAfter(before, fields, setter) : (before?.setBy ?? {}) };
 }

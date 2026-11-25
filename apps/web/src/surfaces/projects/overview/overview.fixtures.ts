@@ -227,6 +227,9 @@ export function anInstance(id: string, fields: Partial<TestInstance> = {}): Test
     files: [],
     filesRemoved: false,
     runAs: null,
+    device: null,
+    buildInstanceId: null,
+    builtFor: null,
     ...fields,
   };
 }

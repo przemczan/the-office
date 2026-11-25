@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Action, ActionRunSourceTip, Project } from "@the-office/contracts";
+import type { Action, ActionRunSourceTip, Project, TestTarget } from "@the-office/contracts";
 import { Button, Dialog, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { actionRunQueries, startActionRun } from "../../../api/action-runs.ts";
 import { projectQueries } from "../../../api/projects.ts";
+import { keepTabOpenWords, useRunRelayStart } from "../../../shell/devices/run-relays.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { shortCommit } from "../../../shell/test-instances/test-instance-words.ts";
 import { useToast } from "../../../shell/toasts.tsx";
@@ -24,7 +25,8 @@ import {
  * base branch chosen; the tip of what it means, read as it is chosen; what it runs; Run. For an
  * Action that leaves the workstation it is a confirm step instead: the base branch fixed, the
  * commit it will run named, and a danger button sending that commit. A refusal stays in the window;
- * after one such Action's, the tip is read again, so a branch that moved since shows its new tip.
+ * after one such Action's, the tip is read again, so a branch that moved since shows its new tip. A
+ * run that holds a device over USB opens it as Run is pressed, and this tab relays it.
  */
 export function RunWindow({
   project,
@@ -41,15 +43,31 @@ export function RunWindow({
     leaves || picked === undefined ? { kind: "branch", branch: project.baseBranch } : picked;
   const source = sourceOf(choice);
   const tip = useQuery(actionRunQueries.sourceTip(project.id, source));
+  const targets = useQuery({
+    ...projectQueries.testTargets(project.id),
+    enabled: action.kind === "test-target",
+  }).data?.targets;
+  const relay = useRunRelayStart(project.id, heldDeviceOf(action, targets));
   const queryClient = useQueryClient();
   const showToast = useToast();
   const starting = useMutation({
-    mutationFn: (commit: string | undefined) =>
-      startActionRun(project.id, action.key, {
-        source,
-        ...(commit === undefined ? {} : { commit }),
-      }),
+    mutationFn: async (commit: string | undefined) => {
+      const opened = await relay.open();
+      // The browser's picker closed with no device picked: nothing starts.
+      if (opened === undefined) return undefined;
+      try {
+        return await startActionRun(project.id, action.key, {
+          source,
+          ...(commit === undefined ? {} : { commit }),
+          ...(opened === null ? {} : { relayTab: opened.relayTab }),
+        });
+      } catch (error) {
+        opened?.release();
+        throw error;
+      }
+    },
     onSuccess: (run) => {
+      if (run === undefined) return;
       void queryClient.invalidateQueries({
         queryKey: actionRunQueries.ofProject(project.id).queryKey,
       });
@@ -69,7 +87,12 @@ export function RunWindow({
       variant="danger"
       iconLeft={<Icon name="play" size={14} />}
       loading={starting.isPending}
-      disabled={starting.isPending || tip.isFetching || commit === undefined}
+      disabled={
+        starting.isPending ||
+        tip.isFetching ||
+        commit === undefined ||
+        relay.unreachable !== undefined
+      }
       onClick={() => starting.mutate(commit)}
     >
       {short === undefined
@@ -81,7 +104,7 @@ export function RunWindow({
       variant="primary"
       iconLeft={<Icon name="play" size={14} />}
       loading={starting.isPending}
-      disabled={starting.isPending}
+      disabled={starting.isPending || relay.unreachable !== undefined}
       onClick={() => starting.mutate(undefined)}
     >
       Run
@@ -123,12 +146,25 @@ export function RunWindow({
             {confirmWords(action.name, project.baseBranch, short, read.subject)}
           </p>
         ) : null}
-        <WhatItRuns project={project} action={action} />
+        <WhatItRuns action={action} targets={targets} />
+        {relay.device !== undefined && (
+          <p className="run-window-note">
+            {relay.unreachable ?? keepTabOpenWords(relay.device.name)}
+          </p>
+        )}
         {leaves && action.kind === "workflow" && <FixedInputs inputs={action.settings.inputs} />}
         {starting.error && <RefusalAlert title={DIDNT_START} error={starting.error} />}
       </div>
     </Dialog>
   );
+}
+
+/** The Project device the run holds: a Project command's own, or its Install on a device target's. */
+function heldDeviceOf(action: Action, targets: readonly TestTarget[] | undefined): string | null {
+  if (action.kind === "project-command") return action.settings.projectDeviceId;
+  if (action.kind !== "test-target") return null;
+  const target = targets?.find(({ key }) => key === action.settings.targetKey);
+  return target?.kind === "install-on-a-device" ? target.projectDeviceId : null;
 }
 
 /** What it will run: the tip's short commit and subject, "Reading <branch>…", or why it can't. */
@@ -173,16 +209,12 @@ function TipLine({
  * "Starts `release.yml` on the code host with its fixed inputs."
  */
 function WhatItRuns({
-  project,
   action,
+  targets,
 }: {
-  readonly project: Project;
   readonly action: Action;
+  readonly targets: readonly TestTarget[] | undefined;
 }): ReactNode {
-  const targets = useQuery({
-    ...projectQueries.testTargets(project.id),
-    enabled: action.kind === "test-target",
-  });
   switch (action.kind) {
     case "project-command": {
       const { commandKey, commandsBefore } = action.settings;
@@ -206,7 +238,7 @@ function WhatItRuns({
     }
     case "test-target": {
       const { targetKey } = action.settings;
-      const name = targets.data?.targets.find(({ key }) => key === targetKey)?.name ?? targetKey;
+      const name = targets?.find(({ key }) => key === targetKey)?.name ?? targetKey;
       return <p className="run-window-runs">Launches {name}; it shows in Test instances.</p>;
     }
     case "workflow":

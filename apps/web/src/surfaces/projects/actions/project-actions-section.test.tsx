@@ -10,7 +10,17 @@ import {
   until,
   type Answers,
 } from "../../../shell/page.fixtures.tsx";
-import { ANDROID, BUILD, GONE_TARGET, INSTALL, RELEASE, WORKFLOWS } from "./actions.fixtures.ts";
+import {
+  ANDROID,
+  BUILD,
+  GONE_TARGET,
+  INSTALL,
+  ON_PIXEL,
+  PIXEL,
+  PROJECT,
+  RELEASE,
+  WORKFLOWS,
+} from "./actions.fixtures.ts";
 import { ProjectActionsSection } from "./project-actions-section.tsx";
 
 vi.mock("../../../shell/ask-devops.tsx", () => ({
@@ -23,17 +33,21 @@ vi.mock("../../../shell/use-user-name.ts", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useSignedInUserId: () => "u1",
 }));
+const openProject = vi.hoisted(() => ({ runEnvironment: "on" as "on" | "off" }));
 vi.mock("../project-page.tsx", async () => {
-  const { PROJECT } = await import("./actions.fixtures.ts");
-  return { useOpenProject: () => PROJECT };
+  const fixtures = await import("./actions.fixtures.ts");
+  return {
+    useOpenProject: () => ({ ...fixtures.PROJECT, runEnvironment: openProject.runEnvironment }),
+  };
 });
 
 const ACTIONS_PATH = "/api/projects/admin-panel/actions";
 
-/** The Actions, the test targets and the workflows; a save answers what it was sent. */
+/** The Actions, the test targets, the devices and the workflows; a save answers what it was sent. */
 function serving(
   actions: readonly Action[],
   put?: Answers[string],
+  devices = [PIXEL],
 ): ReturnType<typeof stubService> {
   return stubService({
     [`GET ${ACTIONS_PATH}`]: () => ({ status: 200, body: { actions } }),
@@ -49,6 +63,7 @@ function serving(
       status: 200,
       body: { targets: [ANDROID] },
     }),
+    "GET /api/projects/admin-panel/devices": () => ({ status: 200, body: { devices } }),
     "GET /api/projects/admin-panel/workflows?ref=main": () => ({ status: 200, body: WORKFLOWS }),
   });
 }
@@ -137,7 +152,10 @@ function sentActions(put: { readonly body: unknown } | undefined): ActionsEdit["
   return put === undefined ? [] : (put.body as ActionsEdit).actions;
 }
 
-afterEach(closePage);
+afterEach(() => {
+  closePage();
+  openProject.runEnvironment = "on";
+});
 
 describe("the Project page's Actions list", () => {
   it("shows a row per Action with its key, what it runs, its mark and who set it", async () => {
@@ -184,6 +202,30 @@ describe("the Project page's Actions list", () => {
         "release.yml doesn't declare a start by hand on main anymore.",
       ),
     );
+  });
+
+  it("warns of a device the Project no longer has", async () => {
+    serving([ON_PIXEL], undefined, []);
+    const page = await opened();
+
+    await until(() =>
+      expect(shownText(rowOf(page, "Smoke test on Pixel"))).toContain(
+        "Its device isn't one of Admin panel's devices anymore.",
+      ),
+    );
+  });
+
+  it("disables Run of an Action holding a device while Run environment isn't On", async () => {
+    openProject.runEnvironment = "off";
+    serving([ON_PIXEL, BUILD]);
+    const page = await opened();
+
+    const row = rowOf(page, "Smoke test on Pixel");
+    expect(shownText(row)).toContain("Needs Run environment On to run.");
+    expect(row.querySelector("a[href$='/run-environment']")).not.toBeNull();
+    expect(buttonNamed(row, "Run Smoke test on Pixel")?.disabled).toBe(true);
+    expect(shownText(rowOf(page, "Build it"))).not.toContain("Needs Run environment On");
+    expect(buttonNamed(rowOf(page, "Build it"), "Run Build it")?.disabled).toBe(false);
   });
 
   it("says what fills it while it has none", async () => {
@@ -253,9 +295,51 @@ describe("the Action editor", () => {
         name: "Build it",
         kind: "project-command",
         leavesTheWorkstation: false,
-        settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: 65 },
+        settings: {
+          commandKey: "build",
+          commandsBefore: ["install"],
+          timeLimitMinutes: 65,
+          projectDeviceId: null,
+        },
       },
     ]);
+  });
+
+  it("names a Project device a Project command's run holds", async () => {
+    const sent = serving([]);
+    const page = await opened();
+
+    press(buttonNamed(page, "Add an Action"));
+    typed(document.body, "Key", "smoke");
+    typed(document.body, "Name", "Smoke");
+    choose(selectNamed("Command"), "build");
+    await until(() => expect(selectNamed("Device")).toBeDefined());
+    expect(document.body.textContent).toContain(
+      "Held by the run while it runs. Needs Run environment On.",
+    );
+    expect([...selectNamed("Device").options].map(({ text }) => text)).toEqual([
+      "None",
+      "Pixel 8 · Android phone over wireless debugging",
+    ]);
+    choose(selectNamed("Device"), PIXEL.id);
+
+    press(buttonNamed(document.body, "Add the Action"));
+    await until(() => expect(document.body.textContent).toContain("Smoke added."));
+    const put = sent.find(({ request }) => request === `PUT ${ACTIONS_PATH}`);
+    expect(sentActions(put)[0]?.settings).toMatchObject({ projectDeviceId: PIXEL.id });
+  });
+
+  it("says the Project has no devices yet, linking to Devices", async () => {
+    serving([], undefined, []);
+    const page = await opened();
+
+    press(buttonNamed(page, "Add an Action"));
+    await until(() =>
+      expect(document.body.textContent).toContain(`${PROJECT.name} has no devices yet.`),
+    );
+    expect(document.body.querySelector("a[href$='/devices']")?.textContent).toBe(
+      "Add one under Devices",
+    );
   });
 
   it("ticks Leaves the workstation as Workflow is chosen, and fixes the workflow's inputs", async () => {

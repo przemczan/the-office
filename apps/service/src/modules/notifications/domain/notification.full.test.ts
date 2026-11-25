@@ -16,6 +16,7 @@ import {
   taskPaused,
   taskPausedByUsageWindow,
   testInstanceBuilt,
+  testInstanceInstalled,
   testInstanceFailed,
   testInstanceRunning,
   TIME,
@@ -192,6 +193,7 @@ describe("the Notifications' content", () => {
         testInstanceRunning(LINKED),
         testInstanceBuilt({ ...LINKED, targetName: "Android app" }, ["app.apk"]),
         testInstanceFailed(UNLINKED, "Exited with code 1."),
+        testInstanceInstalled({ ...UNLINKED, targetName: "Install on Pixel", branch: "main" }),
       ].map(content),
     ).toEqual([
       ["outcomes.test-instance.running", null, "Web app in Notes is Running."],
@@ -201,6 +203,7 @@ describe("the Notifications' content", () => {
         null,
         "Web app on feature/search failed: Exited with code 1.",
       ],
+      ["outcomes.test-instance.installed", null, "Install on Pixel on main is Installed."],
     ]);
     expect(testInstanceRunning(LINKED).pointsTo).toEqual({
       kind: "test-instance",

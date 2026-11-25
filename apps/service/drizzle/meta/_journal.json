@@ -1562,6 +1562,13 @@
       "when": 1795549399928,
       "tag": "0222_action_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 223,
+      "version": "7",
+      "when": 1795590272998,
+      "tag": "0223_project_device_holders",
+      "breakpoints": true
     }
   ]
 }

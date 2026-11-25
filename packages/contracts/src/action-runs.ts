@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ciRunStatusSchema } from "./ci-runs.js";
+import { relayTabSchema } from "./devices.js";
 import { webEventSchema } from "./events.js";
 import { testInstanceBranchSchema, testInstanceStateSchema } from "./test-instances.js";
 import { userRefSchema } from "./users.js";
@@ -80,6 +81,8 @@ export const actionRunSchema = z.object({
   endedBecause: z.string().nullable(),
   /** A Test target run's test instance. */
   testInstanceId: z.uuid().nullable(),
+  /** The Project device the run holds, or held, by its name at the start; null for none. */
+  deviceName: z.string().nullable(),
   /** A Workflow run's CI run, once it showed. */
   ciRun: actionRunCiRunSchema.nullable(),
   /** The Workflow's runs on the code host, linked when its CI run didn't show. */
@@ -105,6 +108,11 @@ export type ProjectActionRuns = z.infer<typeof projectActionRunsSchema>;
  */
 export const actionRunStartSchema = z.object({
   source: actionRunSourceSchema,
+  /**
+   * The tab relaying the run's Project device over USB, the Action's own or its Install on a
+   * device target's (spec §2.13, "A Project device over USB").
+   */
+  relayTab: relayTabSchema.optional(),
   commit: z
     .string()
     .regex(/^[0-9a-f]{7,64}$/, "That isn't a commit.")

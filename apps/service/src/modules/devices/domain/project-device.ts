@@ -64,6 +64,16 @@ export const ONLY_WIRELESS_IS_PAIRED =
   "Only a phone over wireless debugging is paired; a device over USB is remembered by its device key.";
 /** A pairing's `pairingProblem` when an Office restart cut it off. */
 export const PAIRING_CUT_OFF_BY_RESTART = "The pairing was cut off by a restart; pair it again.";
+/** A pairing's `pairingProblem` when the Project's Run environment turned Off under it. */
+export const PAIRING_CUT_OFF_BY_RUN_ENVIRONMENT_OFF =
+  "The pairing was cut off: Run environment turned Off.";
+/** A pairing's `pairingProblem` when the Project's Connected devices were switched off under it. */
+export const PAIRING_CUT_OFF_BY_SWITCH =
+  "The pairing was cut off: Connected devices were switched off.";
+/** A pairing's `pairingProblem` when its environment didn't start within its time limit. */
+export const PAIRING_ENVIRONMENT_DIDNT_START = "The pairing environment didn't start in time.";
+/** Said when a run names a device that isn't, or is no longer, one of its Project's. */
+export const NOT_ONE_OF_THE_PROJECTS = "The device isn't one of this Project's devices.";
 
 /** The state a device starts at rest with: Not paired until a phone pairs, Over USB otherwise. */
 export function firstRestStateOf(kind: ConnectedDeviceKind): ProjectDeviceRestState {
@@ -205,11 +215,15 @@ export function pairingFailed(device: ProjectDevice, problem: string): ProjectDe
   });
 }
 
-/** A pairing an Office restart cut off is Not paired, saying to pair it again; nothing for none. */
-export function pairingCutOff(device: ProjectDevice): ProjectDeviceChange {
-  return device.pairingStep === null
-    ? undefined
-    : pairingFailed(device, PAIRING_CUT_OFF_BY_RESTART);
+/**
+ * A pairing cut off (by an Office restart unless `problem` says otherwise) is Not paired, with why;
+ * nothing for none.
+ */
+export function pairingCutOff(
+  device: ProjectDevice,
+  problem: string = PAIRING_CUT_OFF_BY_RESTART,
+): ProjectDeviceChange {
+  return device.pairingStep === null ? undefined : pairingFailed(device, problem);
 }
 
 /** In use while an open Connected device record names it, else its state at rest. */
@@ -221,18 +235,17 @@ export function projectDeviceStateOf(
 }
 
 /**
- * The state at rest once a lend's record ended: a phone that didn't answer at its address and
+ * The state at rest once a use's record ended: a phone that didn't answer at its address and
  * Port is Didn't answer, one that connected is Paired; a device over USB stays Over USB, and a
  * phone that never got as far as connecting keeps what it was.
  */
 export function restStateAfter(
   device: ProjectDevice,
   ended: ConnectedDevice,
-  everConnected: boolean,
 ): ProjectDeviceRestState {
   if (device.kind !== "android-wireless") return "over-usb";
   if (ended.disconnectedBecause === "device-unplugged") return "didnt-answer";
-  return everConnected ? "paired" : device.state;
+  return ended.everConnected ? "paired" : device.state;
 }
 
 /** Its last use, as the lend's record ended. */
@@ -252,18 +265,25 @@ export function projectDeviceGivenBack(
   device: ProjectDevice,
   ended: ConnectedDevice,
   holder: ProjectDeviceHolder,
-  everConnected: boolean,
 ): ProjectDeviceChange {
   return withChange({
     ...device,
-    state: restStateAfter(device, ended, everConnected),
+    state: restStateAfter(device, ended),
     lastUse: lastUseOf(ended, holder),
   });
 }
 
-/** Why a device can't be lent, paired or removed while something holds it, in the UI's words. */
+/** The holder as the UI names it: a Task by its title, a run by its name. */
+export function holderNameOf(holder: ProjectDeviceHolder): string {
+  return holder.kind === "task" ? holder.title : holder.name;
+}
+
+/**
+ * Why a device can't be lent, held, paired or removed while something holds it, in the UI's
+ * words.
+ */
 export function inUseBy(device: Pick<ProjectDevice, "name">, holder: ProjectDeviceHolder): string {
-  return `${device.name} is in use by ${holder.title}.`;
+  return `${device.name} is in use by ${holderNameOf(holder)}.`;
 }
 
 /** Said when a pairing, a lend or a removal is asked of a device a pairing runs for. */

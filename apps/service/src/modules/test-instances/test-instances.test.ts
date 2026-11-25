@@ -192,7 +192,7 @@ describe("a launch refused or failing", () => {
     const refusal = await refusalOf(launch());
 
     expect(refusal.message).toBe(
-      "2 test instances are building or running: Web app in Checkout, Web app in Checkout. " +
+      "2 test instances are building, installing or running: Web app in Checkout, Web app in Checkout. " +
         "Stop one to launch another.",
     );
   });
@@ -275,7 +275,7 @@ describe("launching on any branch of a Project", () => {
     const refusal = await refusalOf(launchOn("feature/other"));
 
     expect(refusal.message).toBe(
-      "2 test instances are building or running: Web app on feature/search, Web app in Checkout. " +
+      "2 test instances are building, installing or running: Web app on feature/search, Web app in Checkout. " +
         "Stop one to launch another.",
     );
   });

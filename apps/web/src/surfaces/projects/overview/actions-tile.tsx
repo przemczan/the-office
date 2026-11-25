@@ -69,6 +69,7 @@ export function ActionsTile({ project }: { readonly project: Project }): ReactNo
                     </span>
                     <RunActionButton
                       action={action}
+                      runEnvironment={project.runEnvironment}
                       lastRun={lastRun}
                       onRun={() => setRunning(action)}
                     />

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { connectingDevice, heldDevice } from "../../domain/connected-device.js";
 import {
   pairingCutOff,
   pairingStarted,
@@ -13,17 +14,20 @@ import {
 } from "../../domain/project-device.js";
 import { ProjectDeviceChanged } from "../../domain/project-device-events.js";
 import { ProjectDeviceRefused } from "../../domain/project-device-refused.js";
+import { PostgresConnectedDeviceRepository } from "./postgres-connected-device-repository.js";
 import { PostgresProjectDeviceRepository } from "./postgres-project-device-repository.js";
 
 let app: INestApplication;
 let repository: PostgresProjectDeviceRepository;
+let records: PostgresConnectedDeviceRepository;
 
 beforeAll(async () => {
   ({ app } = await startTestApplication({
     database: true,
-    providers: [PostgresProjectDeviceRepository],
+    providers: [PostgresProjectDeviceRepository, PostgresConnectedDeviceRepository],
   }));
   repository = app.get(PostgresProjectDeviceRepository);
+  records = app.get(PostgresConnectedDeviceRepository);
 });
 
 afterAll(async () => {
@@ -131,5 +135,74 @@ describe("PostgresProjectDeviceRepository", () => {
     expect(await repository.remove(phone.id)).toBe(true);
     expect(await repository.remove(phone.id)).toBe(false);
     expect(await repository.find(phone.id)).toBeUndefined();
+  });
+
+  it("holds the device's row, so of two holds checking for a holder at once exactly one is kept", async () => {
+    const board = aBoard(
+      `project-${randomUUID()}`,
+      `usb:${randomUUID()}`,
+      new Date("2004-02-04T10:00:00Z"),
+    );
+    await repository.insert(board);
+    const attempt = (actionRunId: string): Promise<string> =>
+      repository.withDeviceLocked(board.id, async (locked) => {
+        if (locked === undefined) return "missing";
+        if ((await locked.holding()) !== undefined) return "held";
+        // Long enough for the other to reach its own check, were the row not held.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const { device } = heldDevice({
+          id: randomUUID(),
+          runHolder: { kind: "action-run", actionRunId, name: "Install on my phone" },
+          projectId: board.projectId,
+          projectDeviceId: board.id,
+          kind: board.kind,
+          name: board.name,
+          // A key of its own, so the row's lock keeps the second out, not the device key's index.
+          deviceKey: `usb:${randomUUID()}`,
+          relayTab: randomUUID(),
+          connectedBy: ANN,
+          connectedAt: new Date("2004-02-04T10:01:00Z"),
+        });
+        const { heldBy } = await locked.insertRecord(device);
+        return heldBy === undefined ? "kept" : "held";
+      });
+
+    const outcomes = await Promise.all([attempt(randomUUID()), attempt(randomUUID())]);
+
+    expect(outcomes.toSorted()).toEqual(["held", "kept"]);
+    expect(
+      await repository.withDeviceLocked(randomUUID(), (locked) => Promise.resolve(locked)),
+    ).toBe(undefined);
+  });
+
+  it("answers the record holding the device key in the lock, and goes on in the same unit of work", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const key = `usb:${randomUUID()}`;
+    const board = aBoard(projectId, key, new Date("2004-02-05T10:00:00Z"));
+    await repository.insert(board);
+    const record = {
+      taskId: randomUUID(),
+      projectId,
+      kind: "serial-usb",
+      name: "Arduino Uno",
+      deviceKey: key,
+      connectedBy: ANN,
+      connectedAt: new Date("2004-02-05T10:01:00Z"),
+    } as const;
+    const own = connectingDevice({ ...record, id: randomUUID() }).device;
+    await records.insert(own);
+
+    const renamed = await repository.withDeviceLocked(board.id, async (locked) => {
+      const lent = connectingDevice({
+        ...record,
+        id: randomUUID(),
+        projectDeviceId: board.id,
+      }).device;
+      expect(await locked?.insertRecord(lent)).toEqual({ heldBy: own });
+      return locked?.update((device) => projectDeviceRenamed(device, "Uno on the desk"));
+    });
+
+    expect(renamed?.kind).toBe("changed");
+    expect((await repository.find(board.id))?.name).toBe("Uno on the desk");
   });
 });

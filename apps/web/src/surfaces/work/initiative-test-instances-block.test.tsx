@@ -76,6 +76,7 @@ const OFFICE: InitiativeTestTarget = {
   name: "Office",
   kind: "hosted",
   entryPoint: { kind: "package-script", manifest: "package.json", script: "start", arguments: [] },
+  installs: null,
   instances: [],
 };
 
@@ -98,6 +99,9 @@ const BUILDING: TestInstance = {
   files: [],
   filesRemoved: false,
   runAs: null,
+  device: null,
+  buildInstanceId: null,
+  builtFor: null,
 };
 
 const RUNNING: TestInstance = {
@@ -112,6 +116,7 @@ const APP: InitiativeTestTarget = {
   name: "Android app",
   kind: "build-to-install",
   entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
+  installs: null,
   instances: [],
 };
 

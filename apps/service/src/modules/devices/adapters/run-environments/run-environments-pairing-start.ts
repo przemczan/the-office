@@ -22,6 +22,7 @@ export class RunEnvironmentsPairingStart extends PairingEnvironmentStart {
         deviceId: start.projectDeviceId,
         definitionFolder: start.definitionFolder,
         logFile: start.logFile,
+        ...(start.signal === undefined ? {} : { signal: start.signal }),
       });
       return {
         // A removed environment refuses to attach: adb's step finds it not running.

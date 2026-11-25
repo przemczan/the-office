@@ -55,7 +55,12 @@ function anAction(key: string, name: string): Action {
     name,
     kind: "project-command",
     leavesTheWorkstation: false,
-    settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: null },
+    settings: {
+      commandKey: "build",
+      commandsBefore: [],
+      timeLimitMinutes: null,
+      projectDeviceId: null,
+    },
     setBy: {},
   };
 }
@@ -90,6 +95,7 @@ function aRunOf(actionKey: string, fields: Partial<ActionRun> = {}): ActionRun {
     testInstanceId: null,
     ciRun: null,
     workflowRunsUrl: null,
+    deviceName: null,
     ...fields,
   };
 }

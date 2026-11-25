@@ -5,9 +5,11 @@ import {
   type EditedAction,
   type ManualWorkflowList,
   type Project,
+  type ProjectDevice,
   type TestTarget,
 } from "@the-office/contracts";
 import { ACTION_FIELDS } from "../../../shell/action-words.ts";
+import { notAProjectDeviceWords } from "../../../shell/devices/project-device-words.ts";
 import {
   notACommandWords,
   runnableCommandsOf,
@@ -24,6 +26,8 @@ export interface ActionDraft {
   readonly commandsBefore: readonly string[];
   /** Its own time limit in minutes; null for the default. */
   readonly timeLimitMinutes: number | null;
+  /** The Project device its run holds, by its id; null for none. */
+  readonly projectDeviceId: string | null;
   readonly targetKey: string;
   /** The Workflow's file, by the id the workflows list gives it. */
   readonly file: string;
@@ -40,6 +44,7 @@ export const NEW_ACTION_DRAFT: ActionDraft = {
   commandKey: "",
   commandsBefore: [],
   timeLimitMinutes: null,
+  projectDeviceId: null,
   targetKey: "",
   file: "",
   inputs: {},
@@ -61,6 +66,7 @@ export function actionDraftOf(action: Action): ActionDraft {
         commandKey: action.settings.commandKey,
         commandsBefore: action.settings.commandsBefore,
         timeLimitMinutes: action.settings.timeLimitMinutes,
+        projectDeviceId: action.settings.projectDeviceId,
       };
     case "test-target":
       return { ...draft, targetKey: action.settings.targetKey };
@@ -120,6 +126,7 @@ export function editedActionOf(
             commandKey: draft.commandKey,
             commandsBefore: [...draft.commandsBefore],
             timeLimitMinutes: draft.timeLimitMinutes,
+            projectDeviceId: draft.projectDeviceId,
           },
         },
       };
@@ -180,28 +187,51 @@ export function actionSetByWords(
   return `Set by ${names.length === 0 ? last : `${names.join(", ")} and ${last}`}`;
 }
 
+/** Under a Project command Action naming a device while Run environment isn't On; Run is disabled. */
+export const NEEDS_RUN_ENVIRONMENT_TO_RUN = "Needs Run environment On to run.";
+
+/** Whether the Action's run holds a Project device, which needs Run environment On. */
+export function needsRunEnvironmentToRun(
+  action: Action,
+  runEnvironment: Project["runEnvironment"],
+): boolean {
+  return (
+    action.kind === "project-command" &&
+    action.settings.projectDeviceId !== null &&
+    runEnvironment !== "on"
+  );
+}
+
 /** What the Project has now, which an Action's settings name; a list still being read is undefined. */
 export interface ActionContext {
   readonly project: Pick<Project, "name" | "baseBranch" | "installCommand" | "commands">;
   readonly targets: readonly TestTarget[] | undefined;
+  readonly devices: readonly ProjectDevice[] | undefined;
   /** The workflows on the base branch that can be started by hand, as read. */
   readonly workflows: ManualWorkflowList | undefined;
 }
 
 /**
  * The warnings on an Action whose settings name something the Project no longer has: a command, a
- * test target, or a Workflow its base branch doesn't let start by hand. Nothing is said about a
- * list not read, or read with a problem.
+ * device, a test target, or a Workflow its base branch doesn't let start by hand. Nothing is said
+ * about a list not read, or read with a problem.
  */
 export function actionWarnings(
   action: Action,
-  { project, targets, workflows }: ActionContext,
+  { project, targets, devices, workflows }: ActionContext,
 ): string[] {
   switch (action.kind) {
     case "project-command": {
-      const { commandKey, commandsBefore } = action.settings;
+      const { commandKey, commandsBefore, projectDeviceId } = action.settings;
       const keys = [...new Set([commandKey, ...commandsBefore])];
-      return unknownCommandKeys(keys, runnableCommandsOf(project)).map(notACommandWords);
+      const deviceGone =
+        projectDeviceId !== null &&
+        devices !== undefined &&
+        !devices.some(({ id }) => id === projectDeviceId);
+      return [
+        ...unknownCommandKeys(keys, runnableCommandsOf(project)).map(notACommandWords),
+        ...(deviceGone ? [notAProjectDeviceWords(undefined, project.name)] : []),
+      ];
     }
     case "test-target": {
       const { targetKey } = action.settings;

@@ -288,7 +288,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
   runtime: ScriptedContainerRuntime,
   environments: Environments,
   repository: ConnectedDeviceRepository = new ConnectedDevicesForTests(),
-  projectDeviceRepository: ProjectDeviceRepository = new ProjectDevicesForTests(),
+  projectDeviceRepository: ProjectDeviceRepository = new ProjectDevicesForTests(repository),
 ): Promise<DevicesTestbed<Environments>> {
   const adb = new ScriptedAdb();
   runtime.onAttach = (process) => {
@@ -331,6 +331,8 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     wireless,
     environmentStart,
     deviceFeature,
+    adbInRunEnvironment,
+    projectDeviceRepository,
   );
   devices.onModuleInit();
   const pairingDefinitions = new PairingDefinitionsForTests(join(environments.folder, "pairings"));
@@ -339,7 +341,6 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     projectDeviceRepository,
     repository,
     devices,
-    tasks,
     settings,
     deviceFeature,
     helperFiles,

@@ -110,21 +110,28 @@ describe("a lend's end", () => {
     const device = changed(pairingSucceeded(phone(), "Pixel 9"));
     const record = lentRecord(device);
 
-    expect(restStateAfter(device, ended(record, "by-user"), true)).toBe("paired");
-    expect(restStateAfter(device, ended(record, "device-unplugged"), false)).toBe("didnt-answer");
-    expect(restStateAfter(board(), ended(lentRecord(board()), "device-unplugged"), true)).toBe(
+    const connected = { ...record, everConnected: true };
+
+    expect(restStateAfter(device, ended(connected, "by-user"))).toBe("paired");
+    expect(restStateAfter(device, ended(record, "by-user"))).toBe("paired");
+    expect(restStateAfter(device, ended(record, "device-unplugged"))).toBe("didnt-answer");
+    expect(restStateAfter(board(), ended(lentRecord(board()), "device-unplugged"))).toBe(
       "over-usb",
     );
     const notPaired = changed(pairingFailed(phone(), "No."));
-    expect(restStateAfter(notPaired, ended(lentRecord(notPaired), "by-user"), false)).toBe(
-      "not-paired",
-    );
+    expect(restStateAfter(notPaired, ended(lentRecord(notPaired), "by-user"))).toBe("not-paired");
+    expect(
+      restStateAfter(
+        notPaired,
+        ended({ ...lentRecord(notPaired), everConnected: true }, "by-user"),
+      ),
+    ).toBe("paired");
   });
 
   it("keeps its last use: the Task, when and why it ended", () => {
     const device = changed(pairingSucceeded(phone(), "Pixel 9"));
     const given = changed(
-      projectDeviceGivenBack(device, ended(lentRecord(device), "device-unplugged"), HOLDER, true),
+      projectDeviceGivenBack(device, ended(lentRecord(device), "device-unplugged"), HOLDER),
     );
 
     expect(given).toMatchObject({
@@ -226,6 +233,15 @@ describe("pairing a Project device", () => {
 
   it("says who holds it, and that a key is the Project's already, in the UI's words", () => {
     expect(inUseBy({ name: "Pixel 9" }, HOLDER)).toBe("Pixel 9 is in use by Install on the phone.");
+    expect(
+      inUseBy({ name: "Pixel 9" }, { kind: "action-run", actionRunId: "run-1", name: "Release" }),
+    ).toBe("Pixel 9 is in use by Release.");
+    expect(
+      inUseBy(
+        { name: "Pixel 9" },
+        { kind: "test-instance", testInstanceId: "instance-1", name: "Install on my phone" },
+      ),
+    ).toBe("Pixel 9 is in use by Install on my phone.");
     expect(alreadyAmongTheProjects("The phone at 192.168.1.20")).toBe(
       "The phone at 192.168.1.20 is already among this Project's devices.",
     );

@@ -29,6 +29,7 @@ import {
 } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { proposalQueries } from "../../api/conversations.ts";
+import { deviceQueries } from "../../api/devices.ts";
 import { useOfficeEvent } from "../../api/event-stream-provider.tsx";
 import { askTestTargetsChat, projectQueries, saveTestTargets } from "../../api/projects.ts";
 import { runEnvironmentOfficeLimitsQuery } from "../../api/run-environments.ts";
@@ -37,6 +38,10 @@ import { useOpenWithDraft } from "../../shell/chat/ask-in-chat.tsx";
 import { useChat } from "../../shell/chat/use-chat.tsx";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { ProposalCard } from "../../shell/conversation/proposal-card.tsx";
+import {
+  notAProjectDeviceWords,
+  projectDeviceChoiceWords,
+} from "../../shell/devices/project-device-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import {
   BUILT_TEST_TARGET_KINDS,
@@ -57,6 +62,7 @@ import { SetUpTaskLine } from "./set-up-task-line.tsx";
 import {
   editedTestTargetOf,
   NEW_TEST_TARGET_DRAFT,
+  notABuildTargetWords,
   notACommandWords,
   needsRunEnvironment,
   secretsNeedingValues,
@@ -206,6 +212,7 @@ export function TestTargetsBlock({ project }: { readonly project: Project }): Re
                   <TestTargetRow
                     key={target.key}
                     project={project}
+                    targets={targets}
                     target={target}
                     disabled={removing.isPending}
                     onChange={() => setEditing({ key: target.key })}
@@ -410,12 +417,14 @@ function useSavedTestTargets(projectId: string): (targets: readonly TestTarget[]
 
 function TestTargetRow({
   project,
+  targets,
   target,
   disabled,
   onChange,
   onRemove,
 }: {
   readonly project: Project;
+  readonly targets: readonly TestTarget[];
   readonly target: TestTarget;
   readonly disabled: boolean;
   readonly onChange: () => void;
@@ -424,13 +433,22 @@ function TestTargetRow({
   const signedInUserId = useSignedInUserId();
   const setBy = targetSetByWords(target, signedInUserId);
   const missing = secretsNeedingValues(target);
-  const unknown = unknownCommandKeys(target.commandsBefore, runnableCommandsOf(project));
+  const unknown =
+    target.kind === "install-on-a-device"
+      ? []
+      : unknownCommandKeys(target.commandsBefore, runnableCommandsOf(project));
   const details = targetDetailsWords(target);
   const needsOn = needsRunEnvironment(target, project.runEnvironment);
+  const installs = useInstallsWords(project, targets, target);
+  const gone = installs?.gone ?? [];
   return (
     <div className="command-row test-target-row" role="group" aria-label={target.name}>
       <span className="command-key">{target.name}</span>
-      <code className="command-line">{entryPointWords(target.entryPoint)}</code>
+      <code className="command-line">
+        {target.kind === "install-on-a-device"
+          ? installs?.line
+          : entryPointWords(target.entryPoint)}
+      </code>
       <span className="command-meta">
         <Badge mono size="sm">
           {target.key}
@@ -453,7 +471,7 @@ function TestTargetRow({
         onClick={onRemove}
       />
       {details.length > 0 && <span className="test-target-details">{details.join(" · ")}</span>}
-      {(missing.length > 0 || unknown.length > 0 || needsOn) && (
+      {(missing.length > 0 || unknown.length > 0 || gone.length > 0 || needsOn) && (
         <div className="test-target-warnings">
           {missing.map((name) => (
             <span key={name} className="test-target-warning">
@@ -465,6 +483,12 @@ function TestTargetRow({
             <span key={`command-${key}`} className="test-target-warning">
               <Icon name="triangle-alert" size={13} />
               {notACommandWords(key)}
+            </span>
+          ))}
+          {gone.map((words) => (
+            <span key={words} className="test-target-warning">
+              <Icon name="triangle-alert" size={13} />
+              {words}
             </span>
           ))}
           {needsOn && (
@@ -479,6 +503,94 @@ function TestTargetRow({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * An Install on a device row's line, "Installs <target> on <device>", by the names the Project has
+ * now, and the warnings for a target or device it no longer has; undefined for any other kind.
+ */
+function useInstallsWords(
+  project: Project,
+  targets: readonly TestTarget[],
+  target: TestTarget,
+): { readonly line: string; readonly gone: readonly string[] } | undefined {
+  const installs = target.kind === "install-on-a-device" ? target : undefined;
+  const devices = useQuery({
+    ...deviceQueries.ofProject(project.id),
+    enabled: installs !== undefined,
+  }).data?.devices;
+  if (installs === undefined) return undefined;
+  const build = targets.find(
+    ({ key, kind }) => key === installs.buildTargetKey && kind === "build-to-install",
+  );
+  const device = devices?.find(({ id }) => id === installs.projectDeviceId);
+  return {
+    line: `Installs ${build?.name ?? installs.buildTargetKey} on ${device?.name ?? "its device"}`,
+    gone: [
+      ...(build === undefined ? [notABuildTargetWords(installs.buildTargetKey, project.name)] : []),
+      ...(devices !== undefined && device === undefined
+        ? [notAProjectDeviceWords(undefined, project.name)]
+        : []),
+    ],
+  };
+}
+
+/**
+ * The two settings of an Install on a device, in place of the entry point and what goes with it:
+ * the Build to install target whose files it installs, and the Project's Android phone.
+ */
+function InstallFields({
+  project,
+  targets,
+  draft,
+  change,
+}: {
+  readonly project: Project;
+  readonly targets: readonly TestTarget[];
+  readonly draft: TestTargetDraft;
+  readonly change: (fields: Partial<TestTargetDraft>) => void;
+}): ReactNode {
+  const builds = targets.filter(({ kind }) => kind === "build-to-install");
+  const phones = (useQuery(deviceQueries.ofProject(project.id)).data?.devices ?? []).filter(
+    ({ kind }) => kind !== "serial-usb",
+  );
+  return (
+    <>
+      {builds.length === 0 ? (
+        <p className="project-block-note">Add a Build to install target first.</p>
+      ) : (
+        <Select
+          label="Build to install target"
+          hint="Its files are what is installed: reused when it has Built the same commit, built first otherwise."
+          placeholder="Choose a Build to install target"
+          options={builds.map(({ key, name }) => ({ value: key, label: `${name} · ${key}` }))}
+          value={draft.buildTargetKey}
+          onChange={(buildTargetKey) => change({ buildTargetKey })}
+          size="sm"
+        />
+      )}
+      {phones.length === 0 ? (
+        <p className="project-block-note">
+          {project.name} has no Android phone among its devices.{" "}
+          <Link to="/projects/$projectId/devices" params={{ projectId: project.id }}>
+            Add one under Devices
+          </Link>
+        </p>
+      ) : (
+        <Select
+          label="Device"
+          placeholder="Choose a phone"
+          options={phones.map((phone) => ({
+            value: phone.id,
+            label: projectDeviceChoiceWords(phone),
+          }))}
+          value={draft.projectDeviceId}
+          onChange={(projectDeviceId) => change({ projectDeviceId })}
+          size="sm"
+        />
+      )}
+    </>
   );
 }
 
@@ -585,6 +697,61 @@ function TestTargetEditor({
           />
         </div>
       </Marked>
+      {draft.kind === "install-on-a-device" ? (
+        <div className="command-editor-fields test-target-editor-fields">
+          <InstallFields project={project} targets={targets} draft={draft} change={change} />
+        </div>
+      ) : (
+        <TargetRunFields
+          project={project}
+          draft={draft}
+          change={change}
+          setDraft={setDraft}
+          setBy={setBy}
+          saving={saving.isPending}
+          cancelOnEscape={cancelOnEscape}
+        />
+      )}
+      {problems.length > 0 && (
+        <ul className="environment-reasons" role="alert">
+          {problems.map((problem) => (
+            <li key={problem}>{problem}</li>
+          ))}
+        </ul>
+      )}
+      {saving.error && <RefusalAlert title="The test target wasn't saved" error={saving.error} />}
+      <div className="command-editor-actions">
+        <Button type="submit" variant="primary" size="sm" loading={saving.isPending}>
+          Save
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** A Hosted or Build to install target's entry point and what runs with it. */
+function TargetRunFields({
+  project,
+  draft,
+  change,
+  setDraft,
+  setBy,
+  saving,
+  cancelOnEscape,
+}: {
+  readonly project: Project;
+  readonly draft: TestTargetDraft;
+  readonly change: (fields: Partial<TestTargetDraft>) => void;
+  readonly setDraft: (draft: TestTargetDraft) => void;
+  readonly setBy: (field: TestTargetField) => TestTargetSetter | undefined;
+  readonly saving: boolean;
+  readonly cancelOnEscape: (event: { readonly key: string }) => void;
+}): ReactNode {
+  return (
+    <>
       <Marked setter={setBy("entryPoint")}>
         <EntryPointFields draft={draft} change={change} onKeyDown={cancelOnEscape} />
       </Marked>
@@ -652,7 +819,7 @@ function TestTargetEditor({
           secrets={draft.secrets}
           change={(secrets) => change({ secrets })}
           add={() => setDraft(withNewTargetSecret(draft))}
-          disabled={saving.isPending}
+          disabled={saving}
         />
       </Marked>
       <p className="project-block-note test-target-editor-note">
@@ -680,23 +847,7 @@ function TestTargetEditor({
         Tool settings go in the variables or the entry point&apos;s arguments, such as{" "}
         <code>-Dorg.gradle.jvmargs=-Xmx2g</code> for a Gradle task.
       </p>
-      {problems.length > 0 && (
-        <ul className="environment-reasons" role="alert">
-          {problems.map((problem) => (
-            <li key={problem}>{problem}</li>
-          ))}
-        </ul>
-      )}
-      {saving.error && <RefusalAlert title="The test target wasn't saved" error={saving.error} />}
-      <div className="command-editor-actions">
-        <Button type="submit" variant="primary" size="sm" loading={saving.isPending}>
-          Save
-        </Button>
-        <Button type="button" variant="secondary" size="sm" onClick={onDone}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+    </>
   );
 }
 

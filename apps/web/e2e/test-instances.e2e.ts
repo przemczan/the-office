@@ -5,10 +5,13 @@ import {
   ideaSchema,
   initiativeBranchOf,
   initiativeTestInstancesSchema,
+  projectDeviceListSchema,
+  projectDeviceSchema,
   projectSchema,
   type EditedTestTarget,
   type NewProject,
   type Project,
+  type ProjectDevice,
   type TestInstanceSettings,
 } from "@the-office/contracts";
 import { NOT_SIGNED_IN } from "./e2e-user.ts";
@@ -408,6 +411,152 @@ test("the Initiative page builds a Build to install test instance, downloads its
     await screenshotScenario(page, "build-to-install-qr", { inView: qrWindow });
   } finally {
     if (initiativeId !== undefined) await stopEvery(page, initiativeId);
+    await repository.remove();
+  }
+});
+
+/** A branch an Install on a device installs from: a valid `.devcontainer/` and the build. */
+const INSTALL_BRANCH_FILES = {
+  ".devcontainer/devcontainer.json":
+    '{ "dockerComposeFile": "compose.yaml", "service": "app", "overrideCommand": true }',
+  ".devcontainer/compose.yaml": "services:\n  app:\n    image: node:22\n",
+  ...BUILD_BRANCH_FILES,
+};
+
+/** The Project's paired phones, read until the phone the test added is Paired. */
+async function pairedPhone(page: Page, project: Project): Promise<ProjectDevice> {
+  const added = await page.request.post(`/api/projects/${project.id}/devices`, {
+    data: {
+      kind: "android-wireless",
+      address: "192.168.1.20",
+      port: 37000,
+      pairingPort: 37001,
+      pairingCode: "123456",
+    },
+  });
+  expect(added.status(), await added.text()).toBe(201);
+  const { id } = projectDeviceSchema.parse(await added.json());
+  let paired: ProjectDevice | undefined;
+  await expect
+    .poll(
+      async () => {
+        const read = await page.request.get(`/api/projects/${project.id}/devices`);
+        paired = projectDeviceListSchema
+          .parse(await read.json())
+          .devices.find((device) => device.id === id);
+        return paired?.state;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe("paired");
+  return paired as ProjectDevice;
+}
+
+// The e2e service's scripted runtime answers adb as a Pixel 9 that pairs, connects and installs
+// ("Success", `ScriptedAdb` in apps/service/src/e2e.ts); the build ran on the workstation while the
+// Run environment was Off, so the install reuses its Built files.
+test("an Install on a device Action run from the Project's Overview installs the Built files on its paired phone", async ({
+  page,
+}) => {
+  // A real build, a pairing and an install, one after the other.
+  test.setTimeout(60_000);
+  const repository = await createTemporaryRepository();
+  try {
+    await commitFiles(repository, INSTALL_BRANCH_FILES);
+    const project = await buildProject(page, repository);
+
+    // The build first, on the workstation: Built on main's tip.
+    await page.goto(`/projects/${project.id}/test-targets`);
+    const onMain = page.getByRole("list", { name: "Test targets on main" });
+    const buildRow = onMain.getByRole("listitem", { name: BUILD_TARGET.name });
+    await buildRow.getByRole("button", { name: "Launch", exact: true }).click();
+    await expect(buildRow).toContainText("Built", { timeout: 60_000 });
+
+    // Then the Run environment On, Connected devices on and a phone paired.
+    const on = await page.request.put(`/api/projects/${project.id}/run-environment`, {
+      data: { runEnvironment: "on" },
+    });
+    expect(on.status(), await on.text()).toBe(200);
+    const switched = await page.request.put(`/api/projects/${project.id}/features`, {
+      data: { features: { "connected-devices": true } },
+    });
+    expect(switched.status(), await switched.text()).toBe(200);
+    const phone = await pairedPhone(page, project);
+
+    const installTarget: EditedTestTarget = {
+      key: "phone",
+      name: "Shop on the phone",
+      kind: "install-on-a-device",
+      buildTargetKey: BUILD_TARGET.key,
+      projectDeviceId: phone.id,
+    };
+    const targets = await page.request.put(`/api/projects/${project.id}/test-targets`, {
+      data: { targets: [BUILD_TARGET, installTarget] },
+    });
+    expect(targets.status(), await targets.text()).toBe(200);
+    const actions = await page.request.put(`/api/projects/${project.id}/actions`, {
+      data: {
+        actions: [
+          {
+            key: "install-phone",
+            name: "Install on my phone",
+            leavesTheWorkstation: false,
+            kind: "test-target",
+            settings: { targetKey: installTarget.key },
+          },
+        ],
+      },
+    });
+    expect(actions.status(), await actions.text()).toBe(200);
+
+    await page.goto(`/projects/${project.id}`);
+    const actionRow = page
+      .getByRole("list", { name: `${project.name}'s Actions` })
+      .getByRole("listitem")
+      .filter({ hasText: "Install on my phone" });
+    await expect(actionRow).toContainText("Not run yet");
+    await actionRow.getByRole("button", { name: "Run Install on my phone" }).click();
+    const runWindow = page.getByRole("dialog", { name: "Run Install on my phone" });
+    await expect(runWindow.locator(".run-window-tip code")).toHaveText(/^[0-9a-f]{7}$/);
+    await runWindow.getByRole("button", { name: "Run", exact: true }).click();
+    await expect(runWindow).toBeHidden();
+    await expect(page.getByText("Install on my phone started on main.")).toBeVisible();
+    // A Test target run's row shows its instance's state: Installed is its success.
+    await expect(actionRow).toContainText("Installed", { timeout: 60_000 });
+
+    // Its test instance: Installed on the phone, from the files the build left.
+    await page.goto(`/projects/${project.id}/test-targets`);
+    const installRow = onMain.getByRole("listitem", { name: installTarget.name });
+    await expect(installRow).toContainText("Installed");
+    await expect(installRow).toContainText(`on ${phone.name}`);
+    await expect(installRow).toContainText("Run as Install on my phone");
+    await screenshotScenario(page, "install-on-a-device-installed", { inView: installRow });
+    await installRow.getByRole("button", { name: "Log", exact: true }).click();
+    const logWindow = page.getByRole("dialog", { name: `${installTarget.name} · Installed` });
+    const log = logWindow.getByRole("log", { name: `${installTarget.name}'s log` });
+    await expect(log).toContainText("Reusing the files Built from");
+    await expect(log).toContainText("Success");
+    await logWindow.getByRole("button", { name: "Close", exact: true }).click();
+
+    // The phone let go of: Paired again, its last use the run that ended.
+    await page.goto(`/projects/${project.id}/devices`);
+    const device = page
+      .getByRole("list", { name: `${project.name}'s devices` })
+      .getByRole("listitem", { name: phone.name });
+    await expect(device).toContainText("Paired");
+    await expect(device).toContainText("Last used by");
+    await expect(device).toContainText("run ended");
+    await screenshotScenario(page, "install-on-a-device-phone-let-go", { inView: device });
+
+    // A Project command Action can name the phone too, held by its run.
+    await page.goto(`/projects/${project.id}/actions`);
+    await page.getByRole("button", { name: "Add an Action" }).first().click();
+    const editor = page.getByRole("dialog", { name: "Add an Action" });
+    await expect(editor.getByLabel("Device")).toContainText(phone.name);
+    await expect(editor).toContainText("Held by the run while it runs. Needs Run environment On.");
+    await screenshotScenario(page, "action-editor-device", { inView: editor.getByLabel("Device") });
+    await editor.getByRole("button", { name: "Close", exact: true }).click();
+  } finally {
     await repository.remove();
   }
 });

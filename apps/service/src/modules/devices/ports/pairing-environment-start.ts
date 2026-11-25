@@ -16,6 +16,8 @@ export interface PairingEnvironmentToStart {
   readonly definitionFolder: string;
   /** Where its start's output goes. */
   readonly logFile: string;
+  /** Stops the start, as when its time limit runs out or the pairing is cut off. */
+  readonly signal?: AbortSignal;
 }
 
 /** Starts and sweeps the pairing environments a Project device pairs in (spec §5.5). */

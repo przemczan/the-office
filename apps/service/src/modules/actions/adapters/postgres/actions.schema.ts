@@ -53,6 +53,8 @@ export const actionRuns = pgTable(
     endedBecause: text("ended_because"),
     stoppedBy: text("stopped_by").$type<ActionRunStopReason["kind"]>(),
     testInstanceId: uuid("test_instance_id"),
+    /** The Project device a Project command run holds, by its name at the start. */
+    deviceName: text("device_name"),
     workflowFile: text("workflow_file"),
     askedAt: timestamp("asked_at", { withTimezone: true }),
     ciRun: jsonb("ci_run").$type<ActionRunCiRun>(),

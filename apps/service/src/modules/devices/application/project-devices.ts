@@ -5,9 +5,15 @@ import { join } from "node:path";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import { ProjectDeviceLines, type ProjectDeviceLine } from "../../projects/index.js";
+import {
+  ProjectDeviceLines,
+  ProjectFeaturesChanged,
+  ProjectRunEnvironmentChanged,
+  type ProjectDeviceLine,
+} from "../../projects/index.js";
 import { DEVICE_HELPER_NOT_BUILT, DeviceHelperFiles } from "../../run-environments/index.js";
 import {
+  ANDROID_KINDS,
   KIND_WORDS,
   type ConnectedDevice,
   type ConnectedDeviceKind,
@@ -17,8 +23,13 @@ import { ConnectedDeviceChanged } from "../domain/connected-device-events.js";
 import {
   alreadyAmongTheProjects,
   beingPaired,
+  holderNameOf,
   inUseBy,
   NEEDS_RUN_ENVIRONMENT_ON,
+  NOT_ONE_OF_THE_PROJECTS,
+  PAIRING_CUT_OFF_BY_RUN_ENVIRONMENT_OFF,
+  PAIRING_CUT_OFF_BY_SWITCH,
+  PAIRING_ENVIRONMENT_DIDNT_START,
   pairingCutOff,
   pairingFailed,
   pairingStarted,
@@ -46,7 +57,6 @@ import {
   type WirelessAddress,
 } from "../domain/wireless-address.js";
 import { ConnectedDeviceRepository } from "../ports/connected-device-repository.js";
-import { DeviceTasks } from "../ports/device-tasks.js";
 import {
   PairingEnvironmentStart,
   type RunningPairingEnvironment,
@@ -57,6 +67,7 @@ import { ProjectDeviceFeature } from "../ports/project-features.js";
 import { ProjectRunEnvironmentSettings } from "../ports/project-run-environment-settings.js";
 import type { AdbPlace } from "./adb-in-run-environment.js";
 import { ConnectedDevices, type WirelessPhoneToPair } from "./connected-devices.js";
+import type { DeviceHold, DeviceHoldRequest, HeldDeviceOf } from "./device-holds.js";
 import { hostHelperArchitecture } from "./device-helper-architecture.js";
 import { WirelessDevices, type PhoneToPair, type WirelessEnd } from "./wireless-devices.js";
 
@@ -93,6 +104,20 @@ const ENVIRONMENT_STOPPED = "The pairing environment stopped while pairing; pair
 /** A phone's name in the Project's record while its name is still its address. */
 const NAMED_BY_ITS_ADDRESS = "Not named yet";
 
+/**
+ * How long a pairing environment has to start, its image built included (spec §2.13, "The pairing
+ * environment's start"); by then the pairing ends Not paired, its start cut off.
+ */
+export const PAIRING_ENVIRONMENT_START_TIMEOUT_MS = 15 * 60_000;
+
+/** A pairing running now: cut off through its signal, its environment removed once. */
+interface RunningPairing {
+  readonly projectId: string;
+  readonly controller: AbortController;
+  /** Removes its environment once it started; at most once, however the pairing ends. */
+  removeEnvironment?: () => Promise<void>;
+}
+
 const STATE_WORDS: Readonly<Record<Exclude<ProjectDeviceState, "in-use">, string>> = {
   paired: "Paired",
   "didnt-answer": "Didn't answer",
@@ -109,16 +134,15 @@ const STATE_WORDS: Readonly<Record<Exclude<ProjectDeviceState, "in-use">, string
 @Injectable()
 export class ProjectDevices implements OnModuleInit {
   private readonly logger = new Logger(ProjectDevices.name);
-  /** The lent records that reached Connected, so their device is Paired once given back. */
-  private readonly everConnected = new Set<string>();
   /** The pairings running now, for `settled`. */
   private readonly pairings = new Set<Promise<void>>();
+  /** The pairing running now for each Project device, by its id. */
+  private readonly running = new Map<string, RunningPairing>();
 
   constructor(
     private readonly repository: ProjectDeviceRepository,
     private readonly connectedDevices: ConnectedDeviceRepository,
     private readonly devices: ConnectedDevices,
-    private readonly tasks: DeviceTasks,
     private readonly runEnvironmentSettings: ProjectRunEnvironmentSettings,
     private readonly deviceFeature: ProjectDeviceFeature,
     private readonly helperFiles: DeviceHelperFiles,
@@ -132,8 +156,22 @@ export class ProjectDevices implements OnModuleInit {
 
   onModuleInit(): void {
     this.lines.register((projectId) => this.linesOf(projectId));
-    // Every lent record's change, its end included, goes through the one place records change.
+    // Every lent or held record's change, its end included, goes through the one place records change.
     this.events.subscribe(ConnectedDeviceChanged, (event) => this.lentDeviceChanged(event));
+    // A pairing needs the Run environment On and Connected devices switched on throughout.
+    this.events.subscribe(ProjectRunEnvironmentChanged, ({ projectId, runEnvironment }) => {
+      if (runEnvironment === "on") return;
+      return this.pairingsCutOff(projectId, PAIRING_CUT_OFF_BY_RUN_ENVIRONMENT_OFF);
+    });
+    // Connected devices reads off whenever Run environment isn't On, so both events may come.
+    this.events.subscribe(ProjectFeaturesChanged, async ({ projectId, features }) => {
+      if (features["connected-devices"]) return;
+      const runEnvironmentOn = await this.runEnvironmentSettings.isOn(projectId).catch(() => true);
+      return this.pairingsCutOff(
+        projectId,
+        runEnvironmentOn ? PAIRING_CUT_OFF_BY_SWITCH : PAIRING_CUT_OFF_BY_RUN_ENVIRONMENT_OFF,
+      );
+    });
   }
 
   /** The Project's devices in the order added, each In use while an open record names it. */
@@ -213,14 +251,24 @@ export class ProjectDevices implements OnModuleInit {
     return this.read(id);
   }
 
-  /** Forgets it; refused while it is in use, naming the holder, or while it pairs. */
+  /**
+   * Forgets it; refused while it is in use, naming the holder, or while it pairs, checked holding
+   * its row.
+   */
   async remove(id: string): Promise<void> {
-    const device = await this.find(id);
-    if (device.pairingStep !== null) throw new ProjectDeviceRefused([beingPaired(device)]);
-    await this.refuseWhileHeld(device);
-    if (await this.repository.remove(id)) {
-      await this.events.publish(new ProjectDeviceChanged(device.projectId, id));
-    }
+    const removed = await this.repository.withDeviceLocked(id, async (locked) => {
+      if (locked === undefined) return { kind: "missing" } as const;
+      const { device } = locked;
+      if (device.pairingStep !== null) return { kind: "pairing", device } as const;
+      const holding = await locked.holding();
+      if (holding !== undefined) return { kind: "held", device, holding } as const;
+      await locked.remove();
+      return { kind: "removed", device } as const;
+    });
+    if (removed.kind === "missing") throw new ProjectDeviceNotFound(id);
+    if (removed.kind === "pairing") throw new ProjectDeviceRefused([beingPaired(removed.device)]);
+    if (removed.kind === "held") await this.refuseHeld(removed.device, removed.holding);
+    await this.events.publish(new ProjectDeviceChanged(removed.device.projectId, id));
   }
 
   /**
@@ -231,10 +279,15 @@ export class ProjectDevices implements OnModuleInit {
     const kept = await this.find(id);
     const problems = await this.projectProblemsOf(kept.projectId);
     const address = await this.phoneAddressOf(given.address, problems);
-    await this.refuseWhileHeld(kept);
     const place = placeOf(address, given.port);
-    const updated = await this.repository.update(id, (device) => pairingStarted(device, place));
+    const updated = await this.repository.withDeviceLocked(id, async (locked) => {
+      if (locked === undefined) return { kind: "missing" } as const;
+      const holding = await locked.holding();
+      if (holding !== undefined) return { kind: "held", device: locked.device, holding } as const;
+      return locked.update((device) => pairingStarted(device, place));
+    });
     if (updated.kind === "missing") throw new ProjectDeviceNotFound(id);
+    if (updated.kind === "held") await this.refuseHeld(updated.device, updated.holding);
     if (updated.kind === "device-key-taken") {
       throw new ProjectDeviceRefused([alreadyAmongTheProjects(phoneAt(place.address))]);
     }
@@ -266,6 +319,41 @@ export class ProjectDevices implements OnModuleInit {
   }
 
   /**
+   * Holds the device for an Action run or a test instance while it runs (spec §2.13, "In use"), in
+   * the run's own environment: refused (ProjectDeviceRefused) unless the Project's Run environment
+   * is On, Connected devices switched on, the device one of the Project's, the helper built and
+   * the device at rest, not pairing nor held, naming the holder (409); then held, with the adb
+   * serial and the variables for the run's commands, or not held, with why in 2.13's words.
+   */
+  async hold(request: DeviceHoldRequest): Promise<DeviceHold> {
+    const device = await this.checkedFree(request.projectId, request.projectDeviceId);
+    return this.devices.hold(request, {
+      projectDeviceId: device.id,
+      kind: device.kind,
+      name: device.name,
+      deviceKey: device.deviceKey,
+      wirelessEndpoint: wirelessEndpointOf(device),
+    });
+  }
+
+  /**
+   * The run lets go of its hold, as run ended, once it ends whatever way: `adb disconnect` first
+   * while its environment runs; nothing for a hold already Disconnected.
+   */
+  letGo(holdId: string): Promise<void> {
+    return this.devices.letGo(holdId);
+  }
+
+  /**
+   * Checks as `hold` does, holding nothing, for a run's start: answers the device's id, name and
+   * kind, or refuses (ProjectDeviceRefused), naming the holder while one holds it.
+   */
+  async checkFree(projectId: string, projectDeviceId: string): Promise<HeldDeviceOf> {
+    const device = await this.checkedFree(projectId, projectDeviceId);
+    return { id: device.id, name: device.name, kind: device.kind };
+  }
+
+  /**
    * After an Office restart: removes every pairing environment the last run left, and each
    * pairing it cut off is Not paired, saying to pair it again.
    */
@@ -293,19 +381,20 @@ export class ProjectDevices implements OnModuleInit {
       kind: KIND_WORDS[device.kind],
       name: device.name === device.address ? NAMED_BY_ITS_ADDRESS : device.name,
       state: stateWordsOf(device, state, holder),
+      androidPhone: ANDROID_KINDS.has(device.kind),
     }));
   }
 
   /**
-   * A lent record changed: Connected is remembered, so the device is Paired once given back;
-   * Disconnected gives it back, at rest again with its last use. Either way the Project's devices
-   * changed, as In use came or went. Never throws, as the bus waits for it inside the change.
+   * A lent or held record changed: Disconnected gives the device back, at rest again with its
+   * last use, Paired once its record was ever Connected (kept on the record). Either way the
+   * Project's devices changed, as In use came or went. Never throws, as the bus waits for it
+   * inside the change.
    */
   private async lentDeviceChanged(event: ConnectedDeviceChanged): Promise<void> {
     const { projectDeviceId, deviceId } = event;
     if (projectDeviceId === null) return;
     try {
-      if (event.state === "connected") this.everConnected.add(deviceId);
       if (event.state === "disconnected") {
         await this.givenBack(projectDeviceId, deviceId);
         return;
@@ -322,27 +411,38 @@ export class ProjectDevices implements OnModuleInit {
   private async givenBack(projectDeviceId: string, deviceId: string): Promise<void> {
     const ended = await this.connectedDevices.find(deviceId);
     if (ended === undefined || ended.state !== "disconnected") return;
-    const everConnected = this.everConnected.delete(deviceId);
-    const holder = await this.holderOf(ended);
+    const holder = await this.devices.holderOf(ended);
     const updated = await this.repository.update(projectDeviceId, (device) =>
-      projectDeviceGivenBack(device, ended, holder, everConnected),
+      projectDeviceGivenBack(device, ended, holder),
     );
     if (updated.kind === "changed") await this.events.publish(updated.change.event);
   }
 
   /**
    * Pairs in a pairing environment, detached from the request: the base branch's definition
-   * written out, the environment started, then adb's check, the Project's key, `adb pair` with the
-   * code on its standard input, `adb connect`, the model and `adb disconnect`, bounded as a Task's
-   * pairing. The environment and the definition are removed however it ends.
+   * written out, the environment started within `PAIRING_ENVIRONMENT_START_TIMEOUT_MS`, then adb's
+   * check, the Project's key, `adb pair` with the code on its standard input, `adb connect`, the
+   * model and `adb disconnect`, bounded as a Task's pairing. Cut off by the Run environment turned
+   * Off or Connected devices switched off. The environment and the definition are removed however
+   * it ends.
    */
   private followPairing(device: ProjectDevice, target: PhoneToPair, pairingCode: string): void {
-    const pairing = this.pairIn(device, target, pairingCode).catch(async (error: unknown) => {
-      this.logger.error(`The Project device ${device.id} wasn't paired.`, error);
-      await this.pairingEnded(device.id, { kind: "failed", problem: wordsOf(error) }).catch(
-        () => undefined,
-      );
-    });
+    const running: RunningPairing = {
+      projectId: device.projectId,
+      controller: new AbortController(),
+    };
+    this.running.set(device.id, running);
+    const pairing = this.pairIn(device, target, pairingCode, running)
+      .catch(async (error: unknown) => {
+        this.logger.error(`The Project device ${device.id} wasn't paired.`, error);
+        await this.pairingEnded(device.id, running, {
+          kind: "failed",
+          problem: wordsOf(error),
+        }).catch(() => undefined);
+      })
+      .finally(() => {
+        if (this.running.get(device.id) === running) this.running.delete(device.id);
+      });
     this.pairings.add(pairing);
     void pairing.finally(() => this.pairings.delete(pairing));
   }
@@ -351,54 +451,125 @@ export class ProjectDevices implements OnModuleInit {
     device: ProjectDevice,
     target: PhoneToPair,
     pairingCode: string,
+    running: RunningPairing,
   ): Promise<void> {
     const logFolder = await mkdtemp(join(tmpdir(), "office-pairing-log-"));
     let definition: PairingDefinition | undefined;
-    let environment: RunningPairingEnvironment | undefined;
     try {
       const exported = await this.definitions.exportDefinition(device.projectId);
       if ("problems" in exported) {
-        await this.pairingEnded(device.id, {
+        await this.pairingEnded(device.id, running, {
           kind: "failed",
           problem: exported.problems.join(" "),
         });
         return;
       }
       definition = exported;
-      const started = await this.pairingEnvironments.start({
-        projectId: device.projectId,
-        projectDeviceId: device.id,
-        definitionFolder: definition.folder,
-        logFile: join(logFolder, "pairing.log"),
-      });
+      const started = await this.startWithinLimit(device, definition, logFolder, running);
+      if (started === undefined) return;
       if ("problems" in started) {
-        await this.pairingEnded(device.id, { kind: "failed", problem: started.problems.join(" ") });
+        await this.pairingEnded(device.id, running, {
+          kind: "failed",
+          problem: started.problems.join(" "),
+        });
         return;
       }
-      environment = started;
       const place: AdbPlace = {
         projectId: device.projectId,
         label: `the pairing environment of the Project device ${device.id}`,
         attach: (attachment) => started.attach(attachment),
       };
-      await this.stepTo(device.id, "pairing");
+      await this.stepTo(device.id, running, "pairing");
       const end = await this.wireless.pairIn(place, target, pairingCode, () =>
-        this.stepTo(device.id, "reading-model"),
+        this.stepTo(device.id, running, "reading-model"),
       );
       if (end.kind === "connected") await this.wireless.disconnectIn(place, end.endpoint);
-      await this.pairingEnded(device.id, end);
+      await this.pairingEnded(device.id, running, end);
     } finally {
-      await environment?.remove();
+      await running.removeEnvironment?.();
       await definition?.remove();
       await rm(logFolder, { recursive: true, force: true }).catch(() => undefined);
     }
   }
 
-  private async stepTo(id: string, step: ProjectDevicePairingStep): Promise<void> {
+  /**
+   * Starts the pairing environment, cut off after `PAIRING_ENVIRONMENT_START_TIMEOUT_MS`: the
+   * device is then Not paired, saying so, and the start is stopped through its signal. Undefined
+   * once the pairing was cut off, its environment removed.
+   */
+  private async startWithinLimit(
+    device: ProjectDevice,
+    definition: PairingDefinition,
+    logFolder: string,
+    running: RunningPairing,
+  ): Promise<RunningPairingEnvironment | { readonly problems: readonly string[] } | undefined> {
+    const limit = this.schedule.once(
+      "project-device-pairing-start",
+      new Date(this.schedule.now().getTime() + PAIRING_ENVIRONMENT_START_TIMEOUT_MS),
+      () => this.cutOff(device.id, running, PAIRING_ENVIRONMENT_DIDNT_START),
+    );
+    let started: RunningPairingEnvironment | { readonly problems: readonly string[] };
+    try {
+      started = await this.pairingEnvironments.start({
+        projectId: device.projectId,
+        projectDeviceId: device.id,
+        definitionFolder: definition.folder,
+        logFile: join(logFolder, "pairing.log"),
+        signal: running.controller.signal,
+      });
+    } finally {
+      limit.cancel();
+    }
+    if ("problems" in started) return running.controller.signal.aborted ? undefined : started;
+    running.removeEnvironment = once(() => started.remove());
+    if (!running.controller.signal.aborted) return started;
+    await running.removeEnvironment();
+    return undefined;
+  }
+
+  /**
+   * Every pairing of the Project running now is cut off, Not paired with why; never throws, as the
+   * bus waits for it.
+   */
+  private async pairingsCutOff(projectId: string, problem: string): Promise<void> {
+    for (const [id, running] of this.running) {
+      if (running.projectId !== projectId) continue;
+      await this.cutOff(id, running, problem).catch((error: unknown) => {
+        this.logger.error(`The pairing of the Project device ${id} wasn't cut off.`, error);
+      });
+    }
+  }
+
+  /**
+   * Cuts the pairing off: its start or adb's steps stopped, the device Not paired with why at
+   * once, its environment removed in the background; nothing for a pairing that already ended.
+   */
+  private async cutOff(id: string, running: RunningPairing, problem: string): Promise<void> {
+    if (this.running.get(id) !== running) return;
+    this.running.delete(id);
+    running.controller.abort();
+    void running.removeEnvironment?.().catch((error: unknown) => {
+      this.logger.warn(
+        `The pairing environment of the Project device ${id} wasn't removed.`,
+        error,
+      );
+    });
+    await this.update(id, (device) => pairingCutOff(device, problem));
+  }
+
+  /** The pairing got to the step, unless it was cut off meanwhile. */
+  private async stepTo(
+    id: string,
+    running: RunningPairing,
+    step: ProjectDevicePairingStep,
+  ): Promise<void> {
+    if (this.running.get(id) !== running) return;
     await this.update(id, (device) => pairingStepped(device, step));
   }
 
-  private async pairingEnded(id: string, end: WirelessEnd): Promise<void> {
+  /** The pairing ended, unless it was cut off meanwhile, which said why already. */
+  private async pairingEnded(id: string, running: RunningPairing, end: WirelessEnd): Promise<void> {
+    if (this.running.get(id) !== running) return;
     await this.update(id, (device) => {
       switch (end.kind) {
         case "connected":
@@ -437,10 +608,32 @@ export class ProjectDevices implements OnModuleInit {
     return reading.address;
   }
 
-  private async refuseWhileHeld(device: ProjectDevice): Promise<void> {
+  /**
+   * The device as a run names it, refused unless it is one of the Project's, the Project takes
+   * devices now, the helper is built, and it is at rest: not pairing, nor held, naming the holder.
+   */
+  private async checkedFree(projectId: string, id: string): Promise<ProjectDevice> {
+    const device = await this.repository.find(id);
+    if (device === undefined || device.projectId !== projectId) {
+      throw new ProjectDeviceRefused([NOT_ONE_OF_THE_PROJECTS]);
+    }
+    const problems = await this.projectProblemsOf(projectId);
+    if (
+      problems.length === 0 &&
+      (await this.helperFiles.executableFor(hostHelperArchitecture())) === undefined
+    ) {
+      problems.push(DEVICE_HELPER_NOT_BUILT);
+    }
+    if (problems.length > 0) throw new ProjectDeviceRefused(problems);
+    if (device.pairingStep !== null) throw new ProjectDeviceRefused([beingPaired(device)]);
     const holding = await this.connectedDevices.openOfProjectDevice(device.id);
-    if (holding === undefined) return;
-    const holder = await this.holderOf(holding);
+    if (holding !== undefined) await this.refuseHeld(device, holding);
+    return device;
+  }
+
+  /** Refuses, naming the holder of the record holding the device. */
+  private async refuseHeld(device: ProjectDevice, holding: ConnectedDevice): Promise<never> {
+    const holder = await this.devices.holderOf(holding);
     throw new ProjectDeviceRefused([inUseBy(device, holder)], holder);
   }
 
@@ -479,19 +672,7 @@ export class ProjectDevices implements OnModuleInit {
   ): Promise<SeenProjectDevice> {
     const state = projectDeviceStateOf(device, holding);
     if (state !== "in-use" || holding === undefined) return { device, state, inUseBy: null };
-    return { device, state, inUseBy: await this.holderOf(holding, titles) };
-  }
-
-  private async holderOf(
-    record: ConnectedDevice,
-    titles = new Map<string, Promise<string>>(),
-  ): Promise<ProjectDeviceHolder> {
-    let title = titles.get(record.taskId);
-    if (title === undefined) {
-      title = this.tasks.find(record.taskId).then((task) => task?.title ?? record.taskId);
-      titles.set(record.taskId, title);
-    }
-    return { kind: "task", taskId: record.taskId, title: await title };
+    return { device, state, inUseBy: await this.devices.holderOf(holding, titles) };
   }
 }
 
@@ -521,11 +702,17 @@ function stateWordsOf(
   state: ProjectDeviceState,
   holder: ProjectDeviceHolder | null,
 ): string {
-  if (state === "in-use") return `In use by ${holder?.title ?? "a Task"}`;
+  if (state === "in-use") return `In use by ${holder === null ? "a Task" : holderNameOf(holder)}`;
   const words = STATE_WORDS[state];
   return device.pairingStep === null ? words : `${words}, being paired now`;
 }
 
 function wordsOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** The work run the first time it is asked, the same promise answered after. */
+function once(work: () => Promise<void>): () => Promise<void> {
+  let done: Promise<void> | undefined;
+  return () => (done ??= work());
 }

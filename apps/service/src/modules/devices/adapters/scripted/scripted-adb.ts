@@ -6,8 +6,9 @@ type ScriptedAttachedProcess = ScriptedContainerRuntime["attached"][number];
  * adb in the scripted run environment, for tests and the end-to-end service (`src/e2e.ts`, which
  * hooks it into its scripted runtime's `onAttach`, so it is built, not a fixture): whether it is
  * there, what the helper's `adb-key` mode answers, what `adb pair` and `getprop` answer, which
- * serials `adb connect` reaches, and every adb step the service ran, in order ("command -v adb",
- * "adb-key", "adb kill-server", "adb connect 127.0.0.1:41234", "adb pair 192.168.1.20:37000").
+ * serials `adb connect` reaches, what `adb install` answers, and every adb step the service ran, in
+ * order ("command -v adb", "adb-key", "adb kill-server", "adb connect 127.0.0.1:41234", "adb pair
+ * 192.168.1.20:37000").
  */
 export class ScriptedAdb {
   present = true;
@@ -19,6 +20,8 @@ export class ScriptedAdb {
   readonly pairingInputs: Buffer[] = [];
   /** The model `getprop ro.product.model` answers. */
   model = "Pixel 9";
+  /** What `adb install -r` and `install-multiple -r` print and exit with; "Success" and 0 unless set. */
+  installAnswer: { readonly output: string; readonly exitCode: number } | undefined;
   /** The serials `adb connect` can't reach, as a phone that left the network. */
   readonly unreachable = new Set<string>();
   /** Whether `command -v adb` is cut off with no exit code, as when its run environment stops. */
@@ -60,6 +63,15 @@ export class ScriptedAdb {
     this.steps.push(`adb ${adbArguments.join(" ")}`);
     if (adbArguments[0] === "pair") {
       this.pair(process, adbArguments[1] ?? "");
+      return true;
+    }
+    if (adbArguments.includes("install") || adbArguments.includes("install-multiple")) {
+      const answer = this.installAnswer ?? {
+        output: "Performing Streamed Install\nSuccess\n",
+        exitCode: 0,
+      };
+      process.print(answer.output);
+      process.end(answer.exitCode);
       return true;
     }
     if (adbArguments[0] === "connect" && this.unreachable.has(adbArguments[1] ?? "")) {

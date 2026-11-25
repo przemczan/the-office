@@ -1,9 +1,11 @@
-/** What holds a Project device, or last held it: a Task it is lent to. */
-export interface ProjectDeviceHolder {
-  readonly kind: "task";
-  readonly taskId: string;
-  readonly title: string;
-}
+import type { RunHolder } from "./connected-device.js";
+
+/**
+ * What holds a Project device, or last held it: a Task it is lent to, with its title, or an Action
+ * run or a test instance, with its name.
+ */
+export type ProjectDeviceHolder =
+  { readonly kind: "task"; readonly taskId: string; readonly title: string } | RunHolder;
 
 /**
  * A change to a Project device, or a lend, that breaks the rules of spec §2.13, with every reason

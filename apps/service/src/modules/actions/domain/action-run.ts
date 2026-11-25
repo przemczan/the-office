@@ -5,7 +5,8 @@ export type ActionRunKind = "project-command" | "test-target" | "workflow";
 export type CommandRunState = "running" | "succeeded" | "failed" | "stopped";
 
 /** A Test target run's states: its test instance's (spec §2.12, "Test instance states"). */
-export type TestTargetRunState = "building" | "running" | "built" | "stopped" | "failed";
+export type TestTargetRunState =
+  "building" | "running" | "built" | "installing" | "installed" | "stopped" | "failed";
 
 /** A Workflow run's states: Starting, then its CI run's status. */
 export type WorkflowRunState =
@@ -88,6 +89,8 @@ export interface ActionRun {
   readonly stoppedBy: ActionRunStopReason["kind"] | undefined;
   /** A Test target run's test instance. */
   readonly testInstanceId: string | undefined;
+  /** The Project device a Project command run holds, by its name at the start. */
+  readonly deviceName: string | undefined;
   /** A Workflow run's file, which its CI run is found by. */
   readonly workflowFile: string | undefined;
   /** When The Office asked the code host to start a Workflow run; undefined until it asked. */
@@ -113,7 +116,10 @@ export function isRunning(run: Pick<ActionRun, "outcome">): boolean {
   return run.outcome === undefined;
 }
 
-/** A Test target run's outcome by its instance's state (spec §2.15, "States"). */
+/**
+ * A Test target run's outcome by its instance's state (spec §2.15, "States"): Built or Installed
+ * succeeded, Installing still running.
+ */
 export function testTargetOutcomeOf(
   state: TestTargetRunState,
   stoppedByUser: boolean,
@@ -121,8 +127,10 @@ export function testTargetOutcomeOf(
   switch (state) {
     case "building":
     case "running":
+    case "installing":
       return undefined;
     case "built":
+    case "installed":
       return "succeeded";
     case "stopped":
       return "stopped";
@@ -163,6 +171,7 @@ export interface NewActionRun {
   readonly startedBy: ActionRunUser;
   readonly at: Date;
   readonly testInstanceId?: string;
+  readonly deviceName?: string;
   readonly workflowFile?: string;
 }
 
@@ -187,6 +196,7 @@ export function startedRun(given: NewActionRun): ActionRun {
     endedBecause: undefined,
     stoppedBy: undefined,
     testInstanceId: given.testInstanceId,
+    deviceName: given.deviceName,
     workflowFile: given.workflowFile,
     askedAt: undefined,
     ciRun: undefined,

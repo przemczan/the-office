@@ -41,6 +41,13 @@ export class TestInstanceStateChanged extends DomainEvent {
     readonly stoppedBy: StopReason["kind"] | undefined,
     /** A Built instance's files by name; empty otherwise. */
     readonly files: readonly string[],
+    /** An Install on a device instance's device, by its name at the launch; undefined otherwise. */
+    readonly deviceName: string | undefined = undefined,
+    /**
+     * A build an Install on a device instance launched: that target's name. Such a build raises
+     * no Outcome of its own; the install's tells (spec §2.7, "Test instance Outcomes").
+     */
+    readonly builtFor: string | undefined = undefined,
   ) {
     super();
   }

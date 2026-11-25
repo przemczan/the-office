@@ -120,7 +120,9 @@ async function until(condition: () => boolean): Promise<void> {
 
 function withTarget(change: Partial<typeof BUILD_TARGET>): void {
   testbed.project.targets = testbed.project.targets.map((target) =>
-    target.key === BUILD_TARGET.key ? { ...target, ...change } : target,
+    target.key === BUILD_TARGET.key && target.kind !== "install-on-a-device"
+      ? { ...target, ...change }
+      : target,
   );
 }
 
@@ -178,18 +180,18 @@ describe("building a Build to install test instance", () => {
   });
 
   it("refuses a kind that isn't launched yet, naming it", async () => {
-    testbed.project.targets.push({ ...BUILD_TARGET, key: "phone", kind: "install-on-a-device" });
+    testbed.project.targets.push({ ...BUILD_TARGET, key: "staging", kind: "deployed-elsewhere" });
 
     const refusal = await refusalOf(
       testbed.instances.launchOnInitiative(
         testbed.initiativeId,
-        { projectId: "shop", targetKey: "phone" },
+        { projectId: "shop", targetKey: "staging" },
         ANN,
       ),
     );
 
     expect(refusal.reasons).toEqual([
-      "Android app can't be launched; only Hosted and Build to install test targets launch for now.",
+      "Android app can't be launched; only Hosted, Build to install and Install on a device test targets launch for now.",
     ]);
   });
 
@@ -479,7 +481,7 @@ describe("a build stopping", () => {
     const refusal = await refusalOf(launchBuild());
 
     expect(refusal.message).toBe(
-      "2 test instances are building or running: Android app in Checkout, Android app in Checkout. " +
+      "2 test instances are building, installing or running: Android app in Checkout, Android app in Checkout. " +
         "Stop one to launch another.",
     );
   });

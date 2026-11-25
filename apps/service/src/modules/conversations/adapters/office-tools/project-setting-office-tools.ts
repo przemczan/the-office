@@ -56,6 +56,12 @@ const commandsInput = z
   .optional()
   .describe("The Project's commands to add, change and remove; the others stay.");
 
+const KIND_WORDS = {
+  hosted: "Hosted",
+  "build-to-install": "Build to install",
+  "install-on-a-device": "Install on a device",
+} as const;
+
 const testTargetsInput = z
   .object({
     targets: z
@@ -546,10 +552,10 @@ function sectionsOf(given: Input): Sections {
 /** The targets given, each Secret variable by name; each lacking its kind's field adds a problem. */
 function editedTargets(given: TestTargetsInput, problems: string[]): EditedTestTarget[] {
   try {
-    return proposedTargets(given.targets).map((target): EditedTestTarget => ({
-      ...target,
-      secretVariables: target.secretVariables.map((name) => ({ name })),
-    }));
+    return proposedTargets(given.targets).map((target): EditedTestTarget => {
+      if (target.kind === "install-on-a-device") return target;
+      return { ...target, secretVariables: target.secretVariables.map((name) => ({ name })) };
+    });
   } catch (error) {
     if (!(error instanceof ProposalRefused)) throw error;
     problems.push(error.message);
@@ -613,7 +619,7 @@ function approvalLines(
             target.secretVariables.length > 0
               ? `, Secret variables by name: ${target.secretVariables.join(", ")}`
               : "";
-          return `${verb} ${key} (${target.kind === "hosted" ? "Hosted" : "Build to install"}${secrets})`;
+          return `${verb} ${key} (${KIND_WORDS[target.kind]}${secrets})`;
         }),
         ...removeTargets.map((key) => `removes ${key.trim()}`),
       ].join("; ")}`,
@@ -667,6 +673,7 @@ function editedList<Item extends { readonly key: string }>(
 
 /** A target as the page sends it back: its Secret variables by name, each keeping its value. */
 function asEdited({ setBy: _setBy, ...target }: TestTarget): EditedTestTarget {
+  if (target.kind === "install-on-a-device") return target;
   return { ...target, secretVariables: target.secretVariables.map(({ name }) => ({ name })) };
 }
 

@@ -11,7 +11,7 @@ import {
   handBackScript,
   hostedProjectNameOf,
 } from "../domain/run-environment.js";
-import type { ActionRunStart } from "./action-run-environments.js";
+import type { ActionRunStart, RunningActionEnvironment } from "./action-run-environments.js";
 import {
   runEnvironmentsTestbed,
   writeFiles,
@@ -208,6 +208,128 @@ describe("ActionRunEnvironments.run", () => {
     );
     expect(back).toMatchObject({ user: "0:0" });
     expect(back?.script).toBe(handBackScript(start.checkout, { userId: 1001, groupId: 1001 }));
+  });
+});
+
+/** A hook that answers ANDROID_SERIAL and records each step as it comes. */
+function holding(
+  seen: string[],
+  told: RunningActionEnvironment[] = [],
+): ActionRunStart["onEnvironment"] {
+  return (environment) => {
+    told.push(environment);
+    seen.push(`held as ${environment.checksUser}`);
+    return Promise.resolve({
+      variables: [{ name: "ANDROID_SERIAL", value: "R58M123" }],
+      release: () => {
+        seen.push(`released while ${runtime.projects.has(projectName) ? "up" : "down"}`);
+        return Promise.resolve();
+      },
+    });
+  };
+}
+
+describe("ActionRunEnvironments.run's onEnvironment", () => {
+  it("is told of the running environment before the commands, whose every one gets its variables", async () => {
+    const seen: string[] = [];
+    const told: RunningActionEnvironment[] = [];
+    runtime.userIds = "1000:1000";
+    runtime.onExec = (execution) => {
+      // The checkout's hand-over runs as root first.
+      if (execution.user !== "0:0") seen.push("command");
+      return Promise.resolve({ exitCode: 0 });
+    };
+
+    await testbed.actionRunEnvironments.run(
+      await aRun({ withDeviceHelper: true, onEnvironment: holding(seen, told) }),
+    );
+
+    expect(seen).toEqual(["held as 1000:1000", "command", "command", "released while up"]);
+    for (const execution of runtime.executions.slice(-2)) {
+      expect(execution.variables).toMatchObject({ OFFICE_VARIABLE_2: "R58M123" });
+      expect(execution.script).toContain('export ANDROID_SERIAL="$OFFICE_VARIABLE_2"');
+      expect(execution.script).not.toContain("R58M123");
+    }
+    expect(told[0]?.signal.aborted).toBe(true);
+    expect(runtime.projects.has(projectName)).toBe(false);
+  });
+
+  it("attaches a program in the definition's service while the run runs, and nothing after", async () => {
+    const told: RunningActionEnvironment[] = [];
+    let attached: unknown;
+    runtime.onExec = async () => {
+      attached = await told[0]?.attach({ arguments: ["/office-device-helper/helper", "adb"] });
+      return { exitCode: 0 };
+    };
+
+    await testbed.actionRunEnvironments.run(
+      await aRun({
+        commands: [{ name: "Install", commandLine: "npm ci" }],
+        onEnvironment: holding([], told),
+      }),
+    );
+
+    expect(attached).toBe(runtime.attached[0]);
+    expect(runtime.attached[0]?.attachment).toMatchObject({
+      service: "app",
+      arguments: ["/office-device-helper/helper", "adb"],
+    });
+    expect(await told[0]?.attach({ arguments: ["true"] })).toBeUndefined();
+  });
+
+  it("releases before the removal when a command fails", async () => {
+    const seen: string[] = [];
+    runtime.onExec = () => Promise.resolve({ exitCode: 1 });
+
+    const ended = await testbed.actionRunEnvironments.run(
+      await aRun({ onEnvironment: holding(seen) }),
+    );
+
+    expect(ended).toEqual({ name: "Install", exitCode: 1 });
+    expect(seen).toEqual(["held as 0:0", "released while up"]);
+  });
+
+  it("releases before the removal when the run is stopped", async () => {
+    const seen: string[] = [];
+    const told: RunningActionEnvironment[] = [];
+    runtime.onExec = (execution) =>
+      new Promise((resolve) => {
+        execution.signal?.addEventListener("abort", () =>
+          resolve({ exitCode: undefined, endedBy: "stop" }),
+        );
+        void testbed.actionRunEnvironments.stop(RUN_ID);
+      });
+
+    const ended = await testbed.actionRunEnvironments.run(
+      await aRun({ onEnvironment: holding(seen, told) }),
+    );
+
+    expect(ended).toEqual({ name: "Install", exitCode: undefined, endedBy: "stop" });
+    expect(seen).toEqual(["held as 0:0", "released while up"]);
+    expect(told[0]?.signal.aborted).toBe(true);
+    expect(runtime.projects.has(projectName)).toBe(false);
+  });
+
+  it("ends the run refused in the hook's words, running no command and releasing nothing", async () => {
+    const start = await aRun({
+      onEnvironment: () =>
+        Promise.reject(new RunEnvironmentRefused(["Pixel 8 is in use by the Task Fix login."])),
+    });
+
+    const refusal = await testbed.actionRunEnvironments.run(start).catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(RunEnvironmentRefused);
+    expect((refusal as RunEnvironmentRefused).reasons).toEqual([
+      "Pixel 8 is in use by the Task Fix login.",
+    ]);
+    expect(runtime.executions.filter(({ user }) => user !== "0:0")).toEqual([]);
+    expect(runtime.projects.has(projectName)).toBe(false);
+  });
+
+  it("reads the checks' user only for a run with a hook", async () => {
+    await testbed.actionRunEnvironments.run(await aRun());
+
+    expect(runtime.steps.filter((step) => step.startsWith("ids "))).toHaveLength(1);
   });
 });
 

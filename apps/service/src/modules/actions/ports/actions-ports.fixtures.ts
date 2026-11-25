@@ -4,6 +4,13 @@ import { isRunning, type ActionRun, type ActionRunUser } from "../domain/action-
 import { ActionRunNotFound, ActionRunRefused } from "../domain/action-run-refused.js";
 import { DEFAULT_ACTION_SETTINGS, type ActionSettings } from "../domain/action-settings.js";
 import {
+  ActionDevices,
+  type ActionDevice,
+  type ActionDeviceHold,
+  type ActionDeviceHoldDisconnected,
+  type ActionDeviceHoldRequest,
+} from "./action-devices.js";
+import {
   ActionProjects,
   type CommandRunSettings,
   type RunAction,
@@ -314,7 +321,11 @@ export class ActionSourcesForTests extends ActionSources {
 export class ActionTestInstancesForTests extends ActionTestInstances {
   readonly instances = new Map<
     string,
-    RunTestInstance & { readonly runAs: unknown; readonly by: ActionRunUser }
+    RunTestInstance & {
+      readonly runAs: unknown;
+      readonly by: ActionRunUser;
+      readonly relayTab: string | undefined;
+    }
   >();
   readonly logs = new Map<string, string>();
   refusal: string | undefined;
@@ -327,6 +338,7 @@ export class ActionTestInstancesForTests extends ActionTestInstances {
     _targetKey: string,
     by: ActionRunUser,
     runAs: { readonly actionKey: string; readonly actionName: string },
+    relayTab: string | undefined,
   ): Promise<RunTestInstance> {
     if (this.refusal !== undefined) return Promise.reject(new ActionRunRefused([this.refusal]));
     this.made += 1;
@@ -338,6 +350,7 @@ export class ActionTestInstancesForTests extends ActionTestInstances {
       failedReason: undefined,
       runAs,
       by,
+      relayTab,
     };
     this.instances.set(id, instance);
     return Promise.resolve(instance);
@@ -352,7 +365,7 @@ export class ActionTestInstancesForTests extends ActionTestInstances {
   stop(id: string): Promise<RunTestInstance> {
     const instance = this.instances.get(id);
     if (instance === undefined) return Promise.reject(new ActionRunNotFound(`No instance ${id}.`));
-    if (instance.state !== "building" && instance.state !== "running")
+    if (!["building", "running", "installing"].includes(instance.state))
       return Promise.resolve(instance);
     // A Build to install instance stopped while Building is Failed, "Stopped by you."
     this.move(id, { state: "failed", failedReason: "Stopped by you.", stoppedByUser: true });
@@ -463,5 +476,112 @@ export class ActionRunSignalsForTests extends ActionRunSignals {
 
   onActionsRemoved(listener: (projectId: string, keys: readonly string[]) => void): void {
     this.actionsRemoved = listener;
+  }
+}
+
+/** A hold the Devices stand-in made, with how it ended. */
+export interface HoldForTests {
+  readonly holdId: string;
+  readonly projectDeviceId: string;
+  readonly actionRunId: string;
+  readonly holderName: string;
+  readonly relayTab: string | undefined;
+  /** "run-ended" once the run let go of it, else why it ended from outside; undefined while open. */
+  ended: string | undefined;
+}
+
+/**
+ * Devices in memory: the Project's devices by id, each held by one run at a time; a hold answers
+ * at once, held with `ANDROID_SERIAL`, or not held with `holdProblem`.
+ */
+export class ActionDevicesForTests extends ActionDevices {
+  readonly devices = new Map<string, ActionDevice & { readonly projectId: string }>();
+  /** Who holds each device from elsewhere, as Devices names them: a Task's title, a test instance. */
+  readonly heldElsewhere = new Map<string, string>();
+  readonly holds: HoldForTests[] = [];
+  /** Why the next holds aren't made, as Devices words it; undefined to hold them. */
+  holdProblem: string | undefined;
+  private listener: ((hold: ActionDeviceHoldDisconnected) => void) | undefined;
+
+  deviceOf(projectId: string, projectDeviceId: string): Promise<ActionDevice | undefined> {
+    const device = this.devices.get(projectDeviceId);
+    return Promise.resolve(
+      device?.projectId === projectId ? { id: device.id, name: device.name } : undefined,
+    );
+  }
+
+  checkFree(projectId: string, projectDeviceId: string): Promise<void> {
+    const device = this.devices.get(projectDeviceId);
+    if (device?.projectId !== projectId) {
+      return Promise.reject(
+        new ActionRunRefused(["The device isn't one of this Project's devices."]),
+      );
+    }
+    const holder = this.holderOf(projectDeviceId);
+    if (holder !== undefined) {
+      return Promise.reject(new ActionRunRefused([`${device.name} is in use by ${holder}.`]));
+    }
+    return Promise.resolve();
+  }
+
+  async hold(request: ActionDeviceHoldRequest): Promise<ActionDeviceHold> {
+    await this.checkFree(request.projectId, request.projectDeviceId);
+    const hold: HoldForTests = {
+      holdId: `hold-${this.holds.length + 1}`,
+      projectDeviceId: request.projectDeviceId,
+      actionRunId: request.actionRunId,
+      holderName: request.holderName,
+      relayTab: request.relayTab,
+      ended: undefined,
+    };
+    this.holds.push(hold);
+    if (this.holdProblem !== undefined) {
+      this.ended(hold, "device-unplugged");
+      return { held: false, problem: this.holdProblem };
+    }
+    return {
+      held: true,
+      holdId: hold.holdId,
+      variables: [
+        { name: "OFFICE_CONNECTED_DEVICES", value: `[{"id":"${hold.holdId}"}]` },
+        { name: "ANDROID_SERIAL", value: "127.0.0.1:41234" },
+      ],
+    };
+  }
+
+  letGo(holdId: string): Promise<void> {
+    const hold = this.holds.find((each) => each.holdId === holdId);
+    if (hold !== undefined && hold.ended === undefined) this.ended(hold, "run-ended");
+    return Promise.resolve();
+  }
+
+  /** Ends the hold as Devices does from outside, such as Run environment turned Off. */
+  endFromOutside(holdId: string, because: string): void {
+    const hold = this.holds.find((each) => each.holdId === holdId);
+    if (hold === undefined || hold.ended !== undefined) throw new Error(`No open hold ${holdId}.`);
+    this.ended(hold, because);
+  }
+
+  onHoldDisconnected(listener: (hold: ActionDeviceHoldDisconnected) => void): void {
+    this.listener = listener;
+  }
+
+  endedFromOutside(holdId: string): Promise<string | undefined> {
+    const ended = this.holds.find((each) => each.holdId === holdId)?.ended;
+    return Promise.resolve(ended === "run-ended" ? undefined : ended);
+  }
+
+  private holderOf(projectDeviceId: string): string | undefined {
+    return (
+      this.heldElsewhere.get(projectDeviceId) ??
+      this.holds.find(
+        (each) => each.projectDeviceId === projectDeviceId && each.ended === undefined,
+      )?.holderName
+    );
+  }
+
+  private ended(hold: HoldForTests, because: string): void {
+    hold.ended = because;
+    this.listener?.({ actionRunId: hold.actionRunId, holdId: hold.holdId });
   }
 }

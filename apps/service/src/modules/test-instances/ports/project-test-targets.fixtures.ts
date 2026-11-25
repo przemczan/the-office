@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { OutputMask } from "../../projects/index.js";
 import {
   ProjectTestTargets,
+  type InstallLaunch,
   type InstallSettings,
   type CommandBefore,
   type ListedTarget,
@@ -13,11 +14,23 @@ import {
 import type { TargetEntryPoint } from "../domain/entry-point.js";
 import { TestInstanceRefused } from "../domain/test-instance-refused.js";
 
-/** A Hosted or Build to install test target as a test writes it, with its Secret variables' values. */
-export interface TargetForTests {
+/** A test target as a test writes it. */
+export type TargetForTests = RunTargetForTests | InstallTargetForTests;
+
+/** An Install on a device target as a test writes it: its build target's key and its device's id. */
+export interface InstallTargetForTests {
   readonly key: string;
   readonly name: string;
-  readonly kind: "hosted" | "build-to-install" | "install-on-a-device";
+  readonly kind: "install-on-a-device";
+  readonly buildTargetKey: string;
+  readonly projectDeviceId: string;
+}
+
+/** A Hosted or Build to install test target as a test writes it, with its Secret variables' values. */
+export interface RunTargetForTests {
+  readonly key: string;
+  readonly name: string;
+  readonly kind: "hosted" | "build-to-install" | "deployed-elsewhere";
   readonly entryPoint: TargetEntryPoint;
   /** A Hosted target's port. */
   readonly port?: number;
@@ -72,13 +85,31 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
   }
 
   targetsOf(projectId: string): Promise<readonly ListedTarget[]> {
+    const { targets } = this.project(projectId);
     return Promise.resolve(
-      this.project(projectId).targets.map(({ key, name, kind, entryPoint }) => ({
-        key,
-        name,
-        kind,
-        entryPoint,
-      })),
+      targets.map((target) =>
+        target.kind === "install-on-a-device"
+          ? {
+              key: target.key,
+              name: target.name,
+              kind: target.kind,
+              entryPoint: undefined,
+              installs: {
+                buildTargetKey: target.buildTargetKey,
+                buildTargetName: targets.find(
+                  ({ key, kind }) => key === target.buildTargetKey && kind === "build-to-install",
+                )?.name,
+                projectDeviceId: target.projectDeviceId,
+              },
+            }
+          : {
+              key: target.key,
+              name: target.name,
+              kind: target.kind,
+              entryPoint: target.entryPoint,
+              installs: undefined,
+            },
+      ),
     );
   }
 
@@ -93,7 +124,7 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
   }
 
   /** Refused as Projects' refusal comes out of the adapter while Test targets are off. */
-  launchOf(projectId: string, key: string): Promise<TargetLaunch> {
+  launchOf(projectId: string, key: string): Promise<TargetLaunch | InstallLaunch> {
     const project = this.project(projectId);
     if (project.testTargetsOn === false) {
       return Promise.reject(
@@ -102,10 +133,30 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
     }
     const target = project.targets.find((each) => each.key === key);
     if (!target) return Promise.reject(new Error(`No test target ${key}.`));
+    if (target.kind !== "install-on-a-device")
+      return Promise.resolve(this.runLaunchOf(project, target));
+    const build = project.targets.find(
+      (each): each is RunTargetForTests =>
+        each.key === target.buildTargetKey && each.kind === "build-to-install",
+    );
+    const buildLaunch = build && this.runLaunchOf(project, build);
+    return Promise.resolve({
+      key: target.key,
+      name: target.name,
+      kind: target.kind,
+      runEnvironmentOn: project.runEnvironmentOn,
+      buildTargetKey: target.buildTargetKey,
+      projectDeviceId: target.projectDeviceId,
+      build: buildLaunch,
+      mask: buildLaunch?.mask ?? OutputMask.NONE,
+    });
+  }
+
+  private runLaunchOf(project: ProjectForTests, target: RunTargetForTests): TargetLaunch {
     const secrets = target.secretVariables.flatMap(({ name, value }) =>
       value === null ? [] : [{ name, value }],
     );
-    return Promise.resolve({
+    return {
       key: target.key,
       name: target.name,
       kind: target.kind,
@@ -125,7 +176,7 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
       portVariable: target.kind === "hosted" ? (target.portVariable ?? "PORT") : undefined,
       memoryMegabytes: target.memoryMegabytes,
       mask: OutputMask.ofSecrets(secrets),
-    });
+    };
   }
 
   entryPointProblemsAt(projectId: string): Promise<string[]> {

@@ -46,6 +46,16 @@ function toResponse(targets: readonly TestTarget[]): TestTargetList {
 }
 
 function toTargetResponse(target: ShownTestTarget): TestTargetResponse {
+  if (target.kind === "install-on-a-device") {
+    return {
+      key: target.key,
+      name: target.name,
+      kind: target.kind,
+      buildTargetKey: target.buildTargetKey,
+      projectDeviceId: target.projectDeviceId,
+      setBy: { ...target.setBy },
+    };
+  }
   const common = {
     key: target.key,
     name: target.name,

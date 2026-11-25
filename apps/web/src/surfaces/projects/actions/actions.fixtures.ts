@@ -3,6 +3,7 @@ import type {
   ActionRun,
   ManualWorkflowList,
   Project,
+  ProjectDevice,
   TestTarget,
 } from "@the-office/contracts";
 
@@ -67,7 +68,12 @@ export const BUILD: Extract<Action, { kind: "project-command" }> = {
   name: "Build it",
   kind: "project-command",
   leavesTheWorkstation: false,
-  settings: { commandKey: "build", commandsBefore: ["install", "gone"], timeLimitMinutes: null },
+  settings: {
+    commandKey: "build",
+    commandsBefore: ["install", "gone"],
+    timeLimitMinutes: null,
+    projectDeviceId: null,
+  },
   setBy: { name: { by: "user", user: { userId: "u1", name: "Ada" } } },
 };
 
@@ -110,6 +116,32 @@ export const ANDROID: TestTarget = {
   secretVariables: [],
   commandsBefore: [],
   memoryMegabytes: null,
+  setBy: {},
+};
+
+export const PIXEL: ProjectDevice = {
+  id: "5b0c6d1e-2f3a-4b4c-8d5e-6f7a8b9c0d1e",
+  projectId: PROJECT.id,
+  kind: "android-wireless",
+  deviceKey: "adb-pixel",
+  name: "Pixel 8",
+  address: "192.168.1.20",
+  port: 41234,
+  state: "paired",
+  inUseBy: null,
+  pairingStep: null,
+  pairingProblem: null,
+  addedBy: { userId: "u1", name: "Ada" },
+  addedAt: "2026-11-24T09:00:00.000Z",
+  lastUse: null,
+};
+
+/** A Project command Action whose run holds Pixel 8. */
+export const ON_PIXEL: Extract<Action, { kind: "project-command" }> = {
+  ...BUILD,
+  key: "smoke-on-pixel",
+  name: "Smoke test on Pixel",
+  settings: { ...BUILD.settings, commandsBefore: [], projectDeviceId: PIXEL.id },
   setBy: {},
 };
 
@@ -156,6 +188,7 @@ export function aRun(id: string, fields: Partial<ActionRun> = {}): ActionRun {
     testInstanceId: null,
     ciRun: null,
     workflowRunsUrl: null,
+    deviceName: null,
     ...fields,
   };
 }

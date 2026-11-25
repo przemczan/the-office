@@ -16,7 +16,11 @@ export const TEST_TARGET_KIND_LABELS: Readonly<Record<TestTargetKind, string>> =
 };
 
 /** The kinds built now; the others are outlined only and refused when written. */
-export const BUILT_TEST_TARGET_KINDS: readonly TestTargetKind[] = ["hosted", "build-to-install"];
+export const BUILT_TEST_TARGET_KINDS: readonly TestTargetKind[] = [
+  "hosted",
+  "build-to-install",
+  "install-on-a-device",
+];
 
 export const ENTRY_POINT_KIND_LABELS: Readonly<Record<EntryPointKind, string>> = {
   "repository-file": "File in the repository",
@@ -36,6 +40,8 @@ export const TEST_TARGET_FIELD_LABELS: Readonly<Record<TestTargetField, string>>
   commandsBefore: "Commands before the entry point",
   portVariable: "Port variable",
   memoryMegabytes: "Memory per service",
+  buildTargetKey: "Build to install target",
+  projectDeviceId: "Device",
 };
 
 /**
@@ -61,6 +67,7 @@ function withArguments(head: string, args: readonly string[]): string {
 
 /** The fields a target of this kind has. */
 export function testTargetFieldsOf(kind: TestTargetKind): readonly TestTargetField[] {
+  if (kind === "install-on-a-device") return ["name", "kind", "buildTargetKey", "projectDeviceId"];
   if (kind === "build-to-install") {
     return [
       "name",
@@ -86,7 +93,10 @@ export function testTargetFieldsOf(kind: TestTargetKind): readonly TestTargetFie
   ];
 }
 
-/** One field of a target as a Proposal's card shows it; Secret variables by name alone. */
+/**
+ * One field of a target as a Proposal's card shows it; Secret variables by name alone, and an
+ * Install on a device's target and device as proposed, by key and id.
+ */
 export function testTargetFieldWords(
   target: ProposedTestTargetFields,
   field: TestTargetField,
@@ -96,6 +106,13 @@ export function testTargetFieldWords(
       return target.name;
     case "kind":
       return TEST_TARGET_KIND_LABELS[target.kind];
+    case "buildTargetKey":
+      return target.kind === "install-on-a-device" ? target.buildTargetKey : "None";
+    case "projectDeviceId":
+      return target.kind === "install-on-a-device" ? target.projectDeviceId : "None";
+  }
+  if (target.kind === "install-on-a-device") return "None";
+  switch (field) {
     case "entryPoint":
       return entryPointWords(target.entryPoint);
     case "port":

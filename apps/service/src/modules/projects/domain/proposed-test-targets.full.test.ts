@@ -100,6 +100,65 @@ describe("proposedTestTargets", () => {
   });
 });
 
+describe("a Proposal of an Install on a device target", () => {
+  const PHONE: ProposedTestTargetFields = {
+    key: "phone",
+    name: "Install on the phone",
+    kind: "install-on-a-device",
+    buildTargetKey: "android",
+    projectDeviceId: "device-1",
+  };
+
+  it("adds it whole, then changes its device by key, naming the field the user set", () => {
+    const added = proposedTestTargets([WEB], { targets: [ANDROID, PHONE] });
+
+    expect(added.targets.map(({ key, from, to }) => [key, from, to])).toEqual([
+      ["android", null, ANDROID],
+      ["phone", null, PHONE],
+    ]);
+    const [applied] = appliedTargets([WEB], { targets: [added.targets[1]!] }, PROPOSAL).slice(-1);
+    expect(applied).toEqual({
+      ...PHONE,
+      setBy: {
+        name: PROPOSAL,
+        kind: PROPOSAL,
+        buildTargetKey: PROPOSAL,
+        projectDeviceId: PROPOSAL,
+      },
+    });
+
+    const current = appliedTargets([], added, ANN);
+    const moved = proposedTestTargets(current, {
+      targets: [{ ...PHONE, projectDeviceId: "device-2" }],
+      changeUserSet: ["phone.projectDeviceId"],
+    });
+    expect(moved.targets).toEqual([
+      {
+        key: "phone",
+        from: PHONE,
+        to: { ...PHONE, projectDeviceId: "device-2" },
+        userSet: ["projectDeviceId"],
+      },
+    ]);
+  });
+
+  it("is refused with its changed device unless it is named, and applies by the page's rules", () => {
+    const current = appliedTargets([], proposedTestTargets([], { targets: [ANDROID, PHONE] }), ANN);
+    const given = { targets: [{ ...PHONE, projectDeviceId: "device-2" }] };
+
+    expect(refusalOf(() => proposedTestTargets(current, given))).toEqual([
+      "The user set phone.projectDeviceId, which this changes: name each in changeUserSet to change it on purpose, or leave it as it is.",
+    ]);
+    expect(
+      proposedTestTargetsProblems(
+        [],
+        { targets: [{ key: "phone", from: null, to: PHONE, userSet: [] }] },
+        COMMAND_KEYS,
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("proposedTestTargetsProblems", () => {
   it("names each target changed since it was drafted, before any other rule", () => {
     const proposed = proposedTestTargets([WEB], {

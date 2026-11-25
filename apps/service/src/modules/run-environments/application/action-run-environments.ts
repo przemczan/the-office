@@ -21,6 +21,7 @@ import {
 import {
   ContainerRuntime,
   ContainerRuntimeFailed,
+  type AttachedProcess,
   type ComposeProject,
   type StreamedOutputMask,
 } from "../ports/container-runtime.js";
@@ -30,7 +31,11 @@ import { readDefinitionIn } from "./definition-files.js";
 import { HostCores } from "./host-cores.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
-import { refusingOnRuntimeFailure } from "./runtime-steps.js";
+import {
+  attachedIn,
+  refusingOnRuntimeFailure,
+  type RunEnvironmentAttachment,
+} from "./runtime-steps.js";
 import { ServiceOwner } from "./service-owner.js";
 
 /** What an Action's Project command run is run from (spec §2.15, "Where a run runs"). */
@@ -60,6 +65,43 @@ export interface ActionRunStart {
   readonly timeoutMs: number;
   /** Ends the run: what it started is removed, and it answers as stopped. */
   readonly signal?: AbortSignal;
+  /**
+   * Told of the run's environment once it is up and the checkout is the checks' user's, before the
+   * commands, as to hold a Project device there (spec §2.13, "One environment at a time"). What it
+   * answers is used until the commands end; a `RunEnvironmentRefused` it throws refuses the run in
+   * its words, nothing run.
+   */
+  readonly onEnvironment?: (
+    environment: RunningActionEnvironment,
+  ) => Promise<ActionRunEnvironmentUse>;
+}
+
+/** An Action run's compose project while it runs, as `ActionRunStart.onEnvironment` is told of it. */
+export interface RunningActionEnvironment {
+  /** The `<uid>:<gid>` of the user its commands run as (the definition's, else the service's own). */
+  readonly checksUser: string;
+  /** Aborted as the run is stopped, or once its commands have ended, before the release. */
+  readonly signal: AbortSignal;
+  /**
+   * Starts the program in the definition's service, as the checks' user unless `asRoot`, its
+   * standard error appended to the run's log unless the attachment names a file; nothing once the
+   * run is stopped or its environment removed.
+   */
+  attach(attachment: RunEnvironmentAttachment): Promise<AttachedProcess | undefined>;
+}
+
+/** What `ActionRunStart.onEnvironment` answers: its variables, and how its use ends. */
+export interface ActionRunEnvironmentUse {
+  /**
+   * Given to every command after the Project's environment, as its variables are: each by its
+   * carrier, never in a command line. One the Project sets too takes this value.
+   */
+  readonly variables: readonly { readonly name: string; readonly value: string }[];
+  /**
+   * Run once after the commands end, however they end, the run's stop included, and before the
+   * environment is removed; a failure is only logged.
+   */
+  release(): Promise<void>;
 }
 
 /** How the commands ended: on the first that didn't end with 0, else on the last. */
@@ -99,6 +141,8 @@ export class ActionRunEnvironments {
   private readonly running = new Map<string, AbortController>();
   /** Each run's last removal, which the next one waits for. */
   private readonly removals = new Map<string, Promise<void>>();
+  /** Each run's `onEnvironment` use not yet released, which its removal releases first. */
+  private readonly releases = new Map<string, () => Promise<void>>();
   private readonly handOver: CheckoutHandOver;
 
   constructor(
@@ -114,8 +158,9 @@ export class ActionRunEnvironments {
 
   /**
    * Builds the Project's image, brings the run's compose project up, gives the checkout to the
-   * checks' user, then runs the commands one after another, each named in the log first; then
-   * removes the compose project with its volumes, however the run ended. Refuses with why, in the
+   * checks' user, tells `onEnvironment` of it, then runs the commands one after another, each named
+   * in the log first; then releases what `onEnvironment` answered and removes the compose project
+   * with its volumes, however the run ended. Refuses with why, in the
    * user's words (an invalid `.devcontainer/` with its problems), when it couldn't run.
    */
   async run(start: ActionRunStart): Promise<ActionRunEnd> {
@@ -132,9 +177,12 @@ export class ActionRunEnvironments {
     this.running.set(start.runId, stopping);
     const stopped = (): void => stopping.abort();
     start.signal?.addEventListener("abort", stopped, { once: true });
+    // Until its removal begins, which forgets it, or it is stopped.
+    const live = (): boolean =>
+      this.running.get(start.runId) === stopping && !stopping.signal.aborted;
     try {
       if (start.signal?.aborted) stopping.abort();
-      return await this.ran(start, stopping.signal);
+      return await this.ran(start, stopping.signal, live);
     } catch (error) {
       if (error instanceof ContainerRuntimeFailed) {
         throw new RunEnvironmentRefused([error.message], start.logFile);
@@ -188,7 +236,11 @@ export class ActionRunEnvironments {
     }
   }
 
-  private async ran(start: ActionRunStart, stopping: AbortSignal): Promise<ActionRunEnd> {
+  private async ran(
+    start: ActionRunStart,
+    stopping: AbortSignal,
+    live: () => boolean,
+  ): Promise<ActionRunEnd> {
     const definition = await this.definitionIn(start.checkout, start.logFile);
     refuseWhenStopped(stopping, start.logFile);
 
@@ -246,6 +298,13 @@ export class ActionRunEnvironments {
       definition,
       stopping,
     );
+    const environment: CommandEnvironment = {
+      ...start.environment,
+      set: [
+        ...start.environment.set,
+        ...(await this.usedVariables(start, project, definition, stopping, live)),
+      ],
+    };
 
     // The commands share the run's time.
     const deadline = Date.now() + start.timeoutMs;
@@ -257,8 +316,8 @@ export class ActionRunEnvironments {
         {
           service: definition.service,
           ...(definition.user === undefined ? {} : { user: definition.user }),
-          script: commandBeforeScript(start.checkout, commandLine, start.environment),
-          variables: commandVariables(start.environment),
+          script: commandBeforeScript(start.checkout, commandLine, environment),
+          variables: commandVariables(environment),
           mask: start.mask,
           timeoutMs: Math.max(1, deadline - Date.now()),
           signal: stopping,
@@ -271,6 +330,44 @@ export class ActionRunEnvironments {
       if (stoppedNow !== undefined || exitCode !== 0) return ended;
     }
     return ended as ActionRunEnd;
+  }
+
+  /**
+   * Tells `onEnvironment` of the running environment and keeps its use's release for the removal;
+   * answers its variables, none without a hook. Refuses in the hook's words when it refuses.
+   */
+  private async usedVariables(
+    start: ActionRunStart,
+    project: ComposeProject,
+    definition: RunEnvironmentDefinition,
+    stopping: AbortSignal,
+    live: () => boolean,
+  ): Promise<CommandEnvironment["set"]> {
+    if (start.onEnvironment === undefined) return [];
+    const checksUser = await refusingOnRuntimeFailure(
+      start.logFile,
+      "The checks' user couldn't be read in the run environment.",
+      () => this.runtime.userIdsOf(project, definition.service, definition.user),
+    );
+    refuseWhenStopped(stopping, start.logFile);
+    let use: ActionRunEnvironmentUse;
+    try {
+      use = await start.onEnvironment({
+        checksUser,
+        signal: stopping,
+        attach: (attachment) =>
+          live()
+            ? attachedIn(this.runtime, project, definition, attachment, start.logFile)
+            : Promise.resolve(undefined),
+      });
+    } catch (error) {
+      if (!(error instanceof RunEnvironmentRefused)) throw error;
+      throw new RunEnvironmentRefused(error.reasons, error.outputFile ?? start.logFile);
+    }
+    // Kept even when stopped meanwhile: the removal releases it, however the run ends.
+    this.releases.set(start.runId, use.release.bind(use));
+    refuseWhenStopped(stopping, start.logFile);
+    return use.variables;
   }
 
   private async definitionIn(checkout: string, logFile: string): Promise<RunEnvironmentDefinition> {
@@ -299,6 +396,19 @@ export class ActionRunEnvironments {
 
   private async removeNow(runId: string): Promise<void> {
     const projectName = actionRunProjectNameOf(this.folders.instance, runId);
+    // Its use ends first, while the environment still runs.
+    const release = this.releases.get(runId);
+    this.releases.delete(runId);
+    if (release !== undefined) {
+      try {
+        await release();
+      } catch (error) {
+        this.logger.warn(
+          `The Action run ${runId}'s use of its environment didn't end cleanly.`,
+          error,
+        );
+      }
+    }
     await this.handOver.back(this.handBackFileOf(runId), `the Action run ${runId}`);
     try {
       await this.runtime.down(projectName, { builtImages: true });

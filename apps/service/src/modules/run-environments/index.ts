@@ -23,11 +23,15 @@ export {
   type HostedServiceStart,
   type TestBuildEnd,
   type TestBuildStart,
+  type TestInstallEnvironment,
+  type TestInstallStart,
 } from "./application/hosted-services.js";
 export {
   ActionRunEnvironments,
   type ActionRunEnd,
+  type ActionRunEnvironmentUse,
   type ActionRunStart,
+  type RunningActionEnvironment,
 } from "./application/action-run-environments.js";
 export {
   PairingEnvironments,
@@ -52,7 +56,7 @@ export {
   RunEnvironmentStopped,
 } from "./domain/run-environment-events.js";
 export { RunEnvironmentRefused } from "./domain/run-environment-refused.js";
-export { DEVICE_HELPER_MOUNT } from "./domain/run-environment.js";
+export { DEVICE_HELPER_MOUNT, TEST_BUILD_FILES_MOUNT } from "./domain/run-environment.js";
 export type {
   CommandEntryPoint,
   CommandEnvironment,
