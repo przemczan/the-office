@@ -2,9 +2,16 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { request as httpRequest } from "node:http";
-import type { INestApplication } from "@nestjs/common";
+import { RequestMethod, type INestApplication } from "@nestjs/common";
+import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
+import { DiscoveryModule, DiscoveryService, MetadataScanner } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
-import { EVENTS_PATH, OFFICE_ACTIONS } from "@the-office/contracts";
+import {
+  EVENTS_PATH,
+  OFFICE_ACTIONS,
+  WRITE_ROUTE_REGISTER,
+  type WriteRouteMethod,
+} from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../test/test-application.js";
@@ -62,6 +69,7 @@ beforeAll(async () => {
         },
         { directory: folder, source: "built" },
       ),
+      DiscoveryModule,
     ],
   }).compile();
   // An application, so closing it finds the HTTP server the event stream lets go of.
@@ -115,6 +123,78 @@ it("binds the Office identity's GitHub user token to the one GitHub module's acc
   const needs = await app.get(OfficeIdentity, { strict: false }).needsOf("https://github.com/a/b");
 
   expect(needs).toEqual({ kind: "github-https", missing: [] });
+});
+
+const WRITE_METHODS: ReadonlyMap<RequestMethod, WriteRouteMethod> = new Map([
+  [RequestMethod.POST, "POST"],
+  [RequestMethod.PUT, "PUT"],
+  [RequestMethod.PATCH, "PATCH"],
+  [RequestMethod.DELETE, "DELETE"],
+]);
+
+function declaredPaths(target: object): string[] {
+  const declared: unknown = Reflect.getMetadata(PATH_METADATA, target);
+  if (Array.isArray(declared)) return declared.map(String);
+  return typeof declared === "string" ? [declared] : ["/"];
+}
+
+function joinedPath(controllerPath: string, handlerPath: string): string {
+  const joined = `/${controllerPath}/${handlerPath}`.replaceAll(/\/+/g, "/");
+  return joined.length > 1 ? joined.replace(/\/$/, "") : joined;
+}
+
+/**
+ * Every write route the controllers declare, as the register writes it, with the handler that
+ * declares it: read from Nest's own route metadata, inherited handlers (Office actions') included.
+ */
+function writeRoutesOf(compiled: INestApplication): { route: string; where: string }[] {
+  const scanner = compiled.get(MetadataScanner);
+  return compiled
+    .get(DiscoveryService)
+    .getControllers()
+    .flatMap(({ instance, metatype }) => {
+      if (metatype === null || metatype === undefined) return [];
+      const prototype = Object.getPrototypeOf(instance) as object;
+      return declaredPaths(metatype).flatMap((controllerPath) =>
+        scanner.getAllMethodNames(prototype).flatMap((name) => {
+          const handler = (prototype as Record<string, unknown>)[name];
+          if (typeof handler !== "function") return [];
+          const method = WRITE_METHODS.get(Reflect.getMetadata(METHOD_METADATA, handler));
+          if (method === undefined) return [];
+          return declaredPaths(handler).map((handlerPath) => ({
+            route: `${method} ${joinedPath(controllerPath, handlerPath)}`,
+            where: `${metatype.name}.${name}`,
+          }));
+        }),
+      );
+    });
+}
+
+it("classifies every write route as an Office action, the user's alone, no action or a known gap", () => {
+  const discovered = writeRoutesOf(app);
+  const officeActions = new Set<string>(
+    OFFICE_ACTIONS.map(({ route }) => `${route.method} ${route.path}`),
+  );
+  const registered = new Set<string>(
+    [
+      ...WRITE_ROUTE_REGISTER.usersAlone,
+      ...WRITE_ROUTE_REGISTER.noAction,
+      ...WRITE_ROUTE_REGISTER.knownGaps,
+    ].map(({ route }) => route),
+  );
+  const found = new Set(discovered.map(({ route }) => route));
+
+  expect(discovered.length).toBeGreaterThan(200);
+  expect(
+    discovered
+      .filter(({ route }) => !officeActions.has(route) && !registered.has(route))
+      .map(({ route, where }) => `${route} (${where})`),
+    "Make each an Office action, or add it to WRITE_ROUTE_REGISTER (packages/contracts/src/write-routes.ts) with its reason",
+  ).toEqual([]);
+  expect(
+    [...registered].filter((route) => !found.has(route)),
+    "No controller declares these any more: remove them from WRITE_ROUTE_REGISTER",
+  ).toEqual([]);
 });
 
 /** Express's own list of what it routes: each route's path and methods. */
