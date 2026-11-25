@@ -11,6 +11,8 @@ export interface SplitButtonProps {
   readonly items: MenuItem[];
   /** What the arrow is called, as it shows no words, such as "More ways to move up". */
   readonly menuLabel: string;
+  /** The action's tooltip. */
+  readonly title?: string;
   readonly iconLeft?: ReactNode;
   readonly variant?: ButtonProps["variant"];
   readonly size?: ButtonProps["size"];
@@ -18,6 +20,8 @@ export interface SplitButtonProps {
   readonly menuWidth?: number;
   /** Given to both halves, such as a colour for the action. */
   readonly className?: string;
+  /** Where the menu opens: below the control, or above it, as in a window's bottom bar. */
+  readonly menuPlacement?: "below" | "above";
 }
 
 const ARROW_PADDING = { sm: "0 6px", md: "0 8px", lg: "0 10px" } as const;
@@ -31,20 +35,23 @@ export function SplitButton({
   onClick,
   items,
   menuLabel,
+  title,
   iconLeft,
   variant = "secondary",
   size = "md",
   loading = false,
   menuWidth = 180,
   className,
+  menuPlacement = "below",
 }: SplitButtonProps): ReactNode {
   const [open, setOpen] = useState(false);
   return (
-    <div role="group" className="split-button">
+    <div role="group" className="split-button" data-menu-placement={menuPlacement}>
       <Button
         variant={variant}
         size={size}
         className={className}
+        title={title}
         iconLeft={iconLeft}
         loading={loading}
         onClick={onClick}

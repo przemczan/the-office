@@ -7,6 +7,7 @@ import { TestInstanceSettingsController } from "./adapters/http/test-instance-se
 import { TestInstancesController } from "./adapters/http/test-instances.controller.js";
 import { PostgresTestInstanceRepository } from "./adapters/postgres/postgres-test-instance-repository.js";
 import { PostgresTestInstanceSettings } from "./adapters/postgres/postgres-test-instance-settings.js";
+import { NodeWorkstationAddresses } from "./adapters/network/node-workstation-addresses.js";
 import { NodeHttpProxyListeners } from "./adapters/proxy/node-http-proxy-listeners.js";
 import { ProjectsTestTargets } from "./adapters/projects/projects-test-targets.js";
 import { TestInstanceWebEvents } from "./adapters/websocket/test-instance-web-events.js";
@@ -25,6 +26,7 @@ import { ProjectTestTargets } from "./ports/project-test-targets.js";
 import { ProxyListeners } from "./ports/proxy-listeners.js";
 import { TestInstanceRepository } from "./ports/test-instance-repository.js";
 import { TestInstanceSettingsStore } from "./ports/test-instance-settings-store.js";
+import { WorkstationAddresses } from "./ports/workstation-addresses.js";
 
 export interface TestInstancesModuleOptions {
   /**
@@ -63,6 +65,7 @@ export class TestInstancesModule {
         { provide: Initiatives, useClass: WorkInitiatives },
         { provide: ProjectTestTargets, useClass: ProjectsTestTargets },
         { provide: InstallDevices, useClass: DevicesInstallDevices },
+        { provide: WorkstationAddresses, useClass: NodeWorkstationAddresses },
         InstanceFiles,
         RunningTestInstances,
         TestBuildLinks,

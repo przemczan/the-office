@@ -15,6 +15,11 @@ export class OfficeAddresses {
   /** The public address as an origin, such as `https://office.example.com`. */
   constructor(readonly publicAddress: string | undefined) {}
 
+  /** The public address's hostname, such as `office.example.com`; undefined when it has none. */
+  get publicHostname(): string | undefined {
+    return this.publicAddress === undefined ? undefined : new URL(this.publicAddress).hostname;
+  }
+
   /** Why the request is refused before any sign-in is looked at, or undefined when it may proceed. */
   refusal(request: IncomingMessage): string | undefined {
     return localRequestRefusal(addressingOf(request), this.publicAddress);

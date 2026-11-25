@@ -8,3 +8,9 @@
 .split-button > :last-child {
   margin-inline-start: -1px;
 }
+
+/* The design system's Menu opens below its trigger, with its place set inline. */
+.split-button[data-menu-placement="above"] [role="menu"] {
+  top: auto !important;
+  bottom: calc(100% + 4px);
+}

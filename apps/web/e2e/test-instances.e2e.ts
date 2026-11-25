@@ -226,6 +226,11 @@ test("the Initiative page launches a Hosted test instance, opens it, shows its l
     const project = await hostedProject(page, repository);
     initiativeId = await activeInitiative(page, project, repository, "Try the shop on its branch");
     await saveSettings(page, { ...DEFAULT_TEST_INSTANCE_SETTINGS, ...E2E_PROXY_PORTS });
+    // The e2e Office listens on loopback, so its Proxy ports are reached at localhost alone and
+    // Open would be a plain button; a second address shows Open's list of addresses.
+    await page.route("**/api/test-instances/addresses", (route) =>
+      route.fulfill({ json: { hostnames: ["localhost", "127.0.0.1"] } }),
+    );
 
     await page.goto(`/work/initiatives/${initiativeId}`);
     const block = page.locator('section[aria-label="Test instances"]');
@@ -254,6 +259,23 @@ test("the Initiative page launches a Hosted test instance, opens it, shows its l
     await expect(tab.getByRole("heading", { name: APP_LINE })).toBeVisible();
     await tab.close();
 
+    // Its arrow lists every address, each opening the instance there.
+    await row.getByRole("button", { name: "Open at another address" }).click();
+    const addresses = page.getByRole("menu");
+    await expect(addresses.getByRole("button")).toHaveText([
+      `localhost:${port}`,
+      `127.0.0.1:${port}`,
+    ]);
+    await screenshotScenario(page, "test-instance-open-addresses", { inView: addresses });
+    const [atLocalhost] = await Promise.all([
+      context.waitForEvent("page"),
+      addresses.getByRole("button", { name: `localhost:${port}` }).click(),
+    ]);
+    await atLocalhost.waitForURL(`http://localhost:${port}/`);
+    await expect(atLocalhost.getByRole("heading", { name: APP_LINE })).toBeVisible();
+    await atLocalhost.close();
+    await page.unroute("**/api/test-instances/addresses");
+
     await row.getByRole("button", { name: "Log", exact: true }).click();
     const logWindow = page.getByRole("dialog", { name: `${TARGET.name} · Running` });
     const log = logWindow.getByRole("log", { name: `${TARGET.name}'s log` });
@@ -263,6 +285,14 @@ test("the Initiative page launches a Hosted test instance, opens it, shows its l
     // Follow, the window's one switch (the design system's Switch names none).
     await expect(logWindow.getByRole("switch")).toBeChecked();
     await screenshotScenario(page, "test-instance-log", { inView: logWindow });
+    // In the window's bottom bar, Open's list opens above it, inside the window.
+    const otherAddresses = logWindow.getByRole("button", { name: "Open at another address" });
+    await otherAddresses.click();
+    const arrowBox = await otherAddresses.boundingBox();
+    const menuBox = await logWindow.getByRole("menu").boundingBox();
+    expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(arrowBox!.y);
+    await screenshotScenario(page, "test-instance-log-open-addresses", { inView: logWindow });
+    await page.keyboard.press("Escape");
     await logWindow.getByRole("button", { name: "Close", exact: true }).click();
     await expect(logWindow).toHaveCount(0);
 

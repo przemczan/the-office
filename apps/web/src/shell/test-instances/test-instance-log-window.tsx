@@ -16,6 +16,7 @@ import {
   TEST_INSTANCE_STATE_TONES,
   TEST_INSTANCE_STATE_WORDS,
 } from "./test-instance-words.ts";
+import { OpenTestInstanceButton } from "./open-test-instance-button.tsx";
 import { useTestInstanceLog } from "./use-test-instance-log.ts";
 import "./test-instances.css";
 
@@ -45,7 +46,8 @@ export function TestInstanceLogWindow({
   /** The branch it runs, when it is known. */
   readonly branch: string | undefined;
   readonly stopping: boolean;
-  readonly onOpen: () => void;
+  /** Opens it at one of its addresses, by its hostname; the page's own when none. */
+  readonly onOpen: (hostname?: string) => void;
   readonly onStop: () => void;
   readonly onClose: () => void;
 }): ReactNode {
@@ -73,13 +75,7 @@ export function TestInstanceLogWindow({
       actions={
         <>
           {instance.state === "running" && (
-            <Button
-              variant="primary"
-              iconLeft={<Icon name="external-link" size={14} />}
-              onClick={onOpen}
-            >
-              Open
-            </Button>
+            <OpenTestInstanceButton instance={instance} onOpen={onOpen} menuPlacement="above" />
           )}
           {streaming && (
             <Button

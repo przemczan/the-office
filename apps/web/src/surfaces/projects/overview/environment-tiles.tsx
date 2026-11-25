@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Project, ProjectTestInstances, TestInstance } from "@the-office/contracts";
-import { Badge, Button } from "@the-office/ui";
+import { Badge } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { projectQueries } from "../../../api/projects.ts";
 import { testInstanceQueries } from "../../../api/test-instances.ts";
 import { checkedWords } from "../../../shell/code-host-words.ts";
+import { OpenTestInstanceButton } from "../../../shell/test-instances/open-test-instance-button.tsx";
 import { TestInstanceStateBadge } from "../../../shell/test-instances/test-target-launch-row.tsx";
 import {
   useTestInstanceActions,
@@ -78,9 +79,12 @@ function TestInstanceRow({
         <span className="project-overview-name">{instance.targetName}</span>
         <TestInstanceStateBadge instance={instance} />
         {instance.kind === "hosted" && instance.state === "running" && (
-          <Button size="sm" variant="secondary" onClick={() => actions.open(instance)}>
-            Open
-          </Button>
+          <OpenTestInstanceButton
+            instance={instance}
+            size="sm"
+            variant="secondary"
+            onOpen={(hostname) => actions.open(instance, hostname)}
+          />
         )}
       </span>
       <span className="project-overview-age">

@@ -180,6 +180,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
   - none yet: its entry point and **Launch** (play icon);
   - **Building** (info, spinner) with **Stop** and **Log**;
   - **Running** (success) with "localhost:<port>" (or "<LAN IP>:<port>") as plain text, not a link, **Open** (a new tab, through the hand-off link), **Stop** and **Log**;
+  - **Open** opens it at the address the page was opened at; when the port is reached at more than one address ([2.12](../2.12-test-instances.md#reaching-a-hosted-instance)), it is a split button whose arrow, "Open at another address", lists each as "<address>:<port>" under "Open at", opening it there;
   - **Built** (success) with each file's name and size, **Download**, a **QR code** button and **Log**;
   - for an Install on a device target ([2.12](../2.12-test-instances.md#install-on-a-device)): **Installing** (info, spinner) on "<device>" with **Stop** and **Log**, and **Installed** (success) "on <device>" with **Log**; while it builds it shows Building, and its build shows on the Build to install target's row, "Built for <target>";
   - **Stopped** (neutral) or **Failed** (danger, with why) with **Log**;
@@ -191,7 +192,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
   - under its head: the state, the Project, the branch at its commit, who launched it and when, and the address while Running;
   - the masked log in monospace, The Office's own lines (its steps: checkout, run environment, entry point) set apart from the output, and why it failed in danger;
   - while Building, Installing or Running it streams, reading on from where it is; **Follow** (on at first) keeps the newest line in view, and scrolling up turns it off;
-  - its bar: **Open** while Running, **Stop** (danger) while Building, Installing or Running, **Close**.
+  - its bar: **Open** while Running, with its list of addresses as in the row, **Stop** (danger) while Building, Installing or Running, **Close**.
 - **QR code** opens a window "Install <file> on a phone": the QR code, "Works for this file only, for 1 hour." and the link with **Copy link**.
   - At `localhost`: "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there." in place of the code.
 - Earlier instances of a target fold under its row, "<n> earlier", each with its state, commit, time and **Log**.

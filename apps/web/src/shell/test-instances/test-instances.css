@@ -8,10 +8,10 @@
   min-width: 0;
 }
 
+/* Nothing clips it, so Open's menu of addresses can reach past its edge; its head is rounded instead. */
 .test-instances-project {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  overflow: hidden;
 }
 
 .test-instances-project-head {
@@ -21,6 +21,7 @@
   gap: 6px 10px;
   padding: 9px 12px;
   border-bottom: 1px solid var(--border-subtle);
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
   background: var(--surface-sunken);
 }
 

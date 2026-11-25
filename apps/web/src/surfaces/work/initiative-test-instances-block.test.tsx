@@ -358,6 +358,39 @@ describe("the Initiative page's Test instances", () => {
     expect(buttonOf(row, "Log")).toBeDefined();
   });
 
+  it("lists every address a Running instance is reached at under Open, and opens it at the one chosen", async () => {
+    const handOff = "http://192.168.1.20:4400/__office/hand-off?t=token";
+    const { page, fetched } = await rendered(listed([RUNNING]), (url) =>
+      url.endsWith("/addresses")
+        ? Response.json({ hostnames: ["localhost", "192.168.1.20"] })
+        : Response.json({ url: handOff }),
+    );
+    const tab = { opener: {}, location: { href: "" }, close: vi.fn<() => void>() };
+    vi.stubGlobal(
+      "open",
+      vi.fn(() => tab),
+    );
+    await settled();
+    const arrow = rowOf(page, "Office").querySelector<HTMLButtonElement>(
+      'button[aria-label="Open at another address"]',
+    );
+
+    act(() => arrow?.click());
+    const items = [...document.querySelectorAll<HTMLElement>('[role="menu"] button')];
+    expect(items.map((item) => item.textContent.trim())).toEqual([
+      "localhost:4400",
+      "192.168.1.20:4400",
+    ]);
+    act(() => items[1]?.click());
+    await settled();
+
+    const opened = fetched.mock.calls.find(([url]) => String(url).endsWith("/open"));
+    expect(opened?.[0]).toBe(`/api/test-instances/${RUNNING.id}/open`);
+    expect(JSON.parse(String(opened?.[1]?.body))).toEqual({ hostname: "192.168.1.20" });
+    expect(tab.opener).toBeNull();
+    expect(tab.location.href).toBe(handOff);
+  });
+
   it("stops an instance without asking, saying so in a toast", async () => {
     const stopped: TestInstance = {
       ...RUNNING,
@@ -372,7 +405,7 @@ describe("the Initiative page's Test instances", () => {
     act(() => buttonOf(rowOf(page, "Office"), "Stop")?.click());
     await settled();
 
-    const [url] = fetched.mock.calls[0] ?? [];
+    const [url] = fetched.mock.calls.find(([called]) => String(called).endsWith("/stop")) ?? [];
     expect(url).toBe(`/api/test-instances/${RUNNING.id}/stop`);
     expect(page.querySelector(".toasts")?.textContent).toContain("Office stopped.");
     expect(rowOf(page, "Office").textContent).toContain("Stopped");

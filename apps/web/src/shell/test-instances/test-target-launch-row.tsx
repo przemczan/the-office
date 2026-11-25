@@ -28,6 +28,7 @@ import {
   TEST_INSTANCE_STATE_WORDS,
 } from "./test-instance-words.ts";
 import type { TestInstanceActions } from "./use-test-instance-actions.ts";
+import { OpenTestInstanceButton } from "./open-test-instance-button.tsx";
 import "./test-instances.css";
 
 /**
@@ -143,15 +144,12 @@ export function TestTargetLaunchRow({
         </div>
         <div className="test-instances-actions">
           {newest?.state === "running" && (
-            <Button
+            <OpenTestInstanceButton
+              instance={newest}
               size="sm"
-              variant="primary"
-              iconLeft={<Icon name="external-link" size={14} />}
               title={`Open ${target.name} in a new tab`}
-              onClick={() => actions.open(newest)}
-            >
-              Open
-            </Button>
+              onOpen={(hostname) => actions.open(newest, hostname)}
+            />
           )}
           {newest !== undefined && isActive(newest.state) && (
             <Button

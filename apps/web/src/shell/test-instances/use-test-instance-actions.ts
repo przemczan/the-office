@@ -36,7 +36,8 @@ export interface TestInstanceActions {
   readonly linkingFile: string | undefined;
   readonly launch: (launching: TestInstanceLaunching) => void;
   readonly stop: (instance: TestInstance) => void;
-  readonly open: (instance: TestInstance) => void;
+  /** Opens it in a new tab at one of its addresses, by its hostname; the page's own when none. */
+  readonly open: (instance: TestInstance, hostname?: string) => void;
   readonly showQrCode: (instance: TestInstance, fileName: string) => void;
   readonly showLog: (instance: TestInstance) => void;
 }
@@ -99,10 +100,10 @@ export function useTestInstanceActions({
     showQrCode: (instance, fileName) => linking.mutate({ instance, fileName }),
     launch: (launch) => launching.mutate(launch),
     stop: (instance) => stopping.mutate(instance),
-    open: (instance) => {
+    open: (instance, hostname) => {
       // Opened on the click itself, so no popup blocker stops it; pointed at the link once answered.
       const tab = window.open("", "_blank");
-      void openInTab(instance, tab).catch((error: unknown) => {
+      void openInTab(instance, hostname, tab).catch((error: unknown) => {
         tab?.close();
         refused(
           `test-instance-open-${instance.id}`,
@@ -115,8 +116,12 @@ export function useTestInstanceActions({
 }
 
 /** Asks for the instance's hand-off link and points the tab opened for it there. */
-async function openInTab(instance: TestInstance, tab: Window | null): Promise<void> {
-  const { url } = await openTestInstance(instance.id);
+async function openInTab(
+  instance: TestInstance,
+  hostname: string | undefined,
+  tab: Window | null,
+): Promise<void> {
+  const { url } = await openTestInstance(instance.id, hostname);
   if (tab === null) {
     window.open(url, "_blank", "noopener");
     return;

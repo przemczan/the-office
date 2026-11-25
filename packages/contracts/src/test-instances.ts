@@ -205,6 +205,20 @@ export const testInstanceLaunchSchema = z.object({
 });
 export type TestInstanceLaunch = z.infer<typeof testInstanceLaunchSchema>;
 
+/**
+ * GET /test-instances/addresses: the hostnames a Running Hosted instance's Proxy port is reached
+ * at, the one the page was opened at first, then those the proxy listens on (spec §2.12).
+ */
+export const testInstanceAddressesSchema = z.object({ hostnames: z.array(z.string()).min(1) });
+export type TestInstanceAddresses = z.infer<typeof testInstanceAddressesSchema>;
+
+/**
+ * POST /test-instances/:id/open: which of the addresses to open the instance at, by its hostname;
+ * left out, the one the page was opened at.
+ */
+export const testInstanceOpenSchema = z.object({ hostname: z.string().min(1).optional() });
+export type TestInstanceOpen = z.infer<typeof testInstanceOpenSchema>;
+
 /** POST /test-instances/:id/open: the single-use hand-off link to the instance's own address. */
 export const testInstanceOpeningSchema = z.object({ url: z.string() });
 export type TestInstanceOpening = z.infer<typeof testInstanceOpeningSchema>;

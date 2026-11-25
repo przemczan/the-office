@@ -10,6 +10,7 @@ import {
 } from "node:http";
 import type { Duplex } from "node:stream";
 import { Injectable, Logger } from "@nestjs/common";
+import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
 import type { RunningTestInstance } from "../../application/running-test-instances.js";
 import { RunningTestInstances } from "../../application/running-test-instances.js";
 import { TestInstanceHandOffs } from "../../application/test-instance-hand-offs.js";
@@ -28,6 +29,7 @@ import {
   appDidNotAnswerPage,
   notRunningPage,
   openFromTheOfficePage,
+  signedInPage,
   usedLinkPage,
   type OfficeLink,
   type ProxyPage,
@@ -71,7 +73,7 @@ type Gate =
  * The test-instance proxy on `node:http` (spec §5.1, "The test instance proxy"; §2.10, "Signing in
  * to a test instance"). At each Proxy port, on `OFFICE_HOST`: a Host other than the port's own
  * addresses gets a plain 421; a port no Running instance holds gets the 503 page; the hand-off
- * link is exchanged for the instance's cookie and a 303 to `/`, or gets the 403 page; a request
+ * link is exchanged for the instance's cookie and a page going on to `/`, or gets the 403 page; a request
  * without that cookie gets the 401 page. Every other request and WebSocket upgrade goes to the
  * app at `127.0.0.1:<hostPort>`, addressed to `localhost:<the target's port>`, with only the app's
  * own cookies, and counts as the instance's activity; an app that doesn't answer gets the 502 page.
@@ -88,6 +90,7 @@ export class NodeHttpProxyListeners extends ProxyListeners {
     private readonly handOffs: TestInstanceHandOffs,
     private readonly officeHost: OfficeHost,
     private readonly officePort: OfficePort,
+    private readonly officeAddresses: OfficeAddresses,
   ) {
     super();
   }
@@ -161,6 +164,7 @@ export class NodeHttpProxyListeners extends ProxyListeners {
   private gate(port: number, request: IncomingMessage): Gate {
     const addressed = addressedToProxy(request.headers.host, {
       officeHost: this.officeHost.host,
+      publicHostname: this.officeAddresses.publicHostname,
       localAddress: request.socket.localAddress ?? "",
       port,
     });
@@ -202,14 +206,11 @@ export class NodeHttpProxyListeners extends ProxyListeners {
       return;
     }
     if (gate.kind === "signed-in") {
-      // A 303, so the token leaves the address bar and the history.
-      response.writeHead(303, {
-        location: "/",
+      // Its page goes on to `/` and leaves the history, so the token leaves the address bar too.
+      sendPage(response, signedInPage(this.linkOf(request, port)), {
         "set-cookie": gate.setCookie,
-        "cache-control": "no-store",
         "referrer-policy": "no-referrer",
       });
-      response.end();
       return;
     }
     const { instance, appPort } = gate;
@@ -388,8 +389,13 @@ function browserHeaders(
   return headers;
 }
 
-function sendPage(response: ServerResponse, page: ProxyPage): void {
+function sendPage(
+  response: ServerResponse,
+  page: ProxyPage,
+  headers: OutgoingHttpHeaders = {},
+): void {
   response.writeHead(page.status, {
+    ...headers,
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store",
     "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",

@@ -136,6 +136,10 @@ export function launchRefusedTitle(targetName: string): string {
   return `${targetName} can't launch`;
 }
 
+/** Open's arrow, which lists every address a Running instance is reached at. */
+export const OTHER_ADDRESSES = "Open at another address";
+export const OPEN_AT_HEADING = "Open at";
+
 export function openRefusedTitle(targetName: string): string {
   return `${targetName} can't open`;
 }

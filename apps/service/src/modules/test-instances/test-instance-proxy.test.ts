@@ -4,6 +4,7 @@ import { createServer as createNetServer } from "node:net";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
+import { OfficeAddresses } from "../../platform/http/office-addresses.js";
 import {
   runEnvironmentsTestbed,
   ScriptedContainerRuntime,
@@ -119,6 +120,7 @@ beforeEach(async () => {
     handOffs,
     new OfficeHost("127.0.0.1"),
     new OfficePort(TESTBED_OFFICE_PORT),
+    new OfficeAddresses(undefined),
   );
   proxy = new TestInstanceProxy(listeners, testbed.running, testbed.events);
   await proxy.start();
@@ -173,7 +175,7 @@ function call(
 async function signIn(instance: TestInstance): Promise<string> {
   const { token } = await handOffs.open(instance.id);
   const answer = await call(portOf(instance), `/__office/hand-off?t=${token}`);
-  expect(answer.status).toBe(303);
+  expect(answer.status).toBe(200);
   const cookie = answer.headers["set-cookie"]?.[0] ?? "";
   return cookie.split(";")[0] ?? "";
 }
@@ -358,8 +360,10 @@ describe("the hand-off link (DoD 8)", () => {
     const first = await call(portOf(instance), `/__office/hand-off?t=${token}`);
     const second = await call(portOf(instance), `/__office/hand-off?t=${token}`);
 
-    expect(first.status).toBe(303);
-    expect(first.headers.location).toBe("/");
+    expect(first.status).toBe(200);
+    expect(first.headers.location).toBeUndefined();
+    expect(first.headers["referrer-policy"]).toBe("no-referrer");
+    expect(first.body).toContain('<meta http-equiv="refresh" content="0; url=/">');
     expect(second.status).toBe(403);
     expect(second.body).toContain("This link has been used or has expired");
   });

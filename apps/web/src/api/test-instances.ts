@@ -5,6 +5,7 @@ import {
   testBuildFileLinkSchema,
   initiativeTestInstancesSchema,
   projectTestInstancesSchema,
+  testInstanceAddressesSchema,
   testInstanceLogSchema,
   testInstanceOpeningSchema,
   testInstanceSchema,
@@ -50,6 +51,17 @@ export const testInstanceQueries = {
       queryKey: [...TEST_INSTANCES, "project", projectId],
       queryFn: ({ signal }) =>
         getFromApi(`/projects/${projectId}/test-instances`, projectTestInstancesSchema, signal),
+    }),
+  /**
+   * The hostnames a Running Hosted instance's Proxy port is reached at, this page's own first;
+   * read once a Running instance is shown, and again after a minute, as a network comes and goes.
+   */
+  addresses: () =>
+    queryOptions({
+      queryKey: [...TEST_INSTANCES, "addresses"],
+      queryFn: ({ signal }) =>
+        getFromApi("/test-instances/addresses", testInstanceAddressesSchema, signal),
+      staleTime: 60_000,
     }),
   /** Settings › Office limits: Test instances at once, Idle time and Proxy ports. */
   settings: () =>
@@ -98,9 +110,20 @@ export function stopTestInstance(instanceId: string): Promise<TestInstance> {
   return sendToApi("POST", `/test-instances/${instanceId}/stop`, {}, testInstanceSchema);
 }
 
-/** The single-use hand-off link to a Running instance's own address. */
-export function openTestInstance(instanceId: string): Promise<TestInstanceOpening> {
-  return sendToApi("POST", `/test-instances/${instanceId}/open`, {}, testInstanceOpeningSchema);
+/**
+ * The single-use hand-off link to a Running instance at one of its addresses, by its hostname;
+ * this page's own when none is given.
+ */
+export function openTestInstance(
+  instanceId: string,
+  hostname?: string,
+): Promise<TestInstanceOpening> {
+  return sendToApi(
+    "POST",
+    `/test-instances/${instanceId}/open`,
+    hostname === undefined ? {} : { hostname },
+    testInstanceOpeningSchema,
+  );
 }
 
 /** Where a Built instance's file downloads from, behind sign-in: a Download link's href. */

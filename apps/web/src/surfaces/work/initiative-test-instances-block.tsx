@@ -150,7 +150,7 @@ function TestInstancesFold({
           projectName={projectOf(shownInstance.projectId)?.name ?? shownInstance.projectId}
           branch={branch}
           stopping={actions.stoppingId === shownInstance.id}
-          onOpen={() => actions.open(shownInstance)}
+          onOpen={(hostname) => actions.open(shownInstance, hostname)}
           onStop={() => actions.stop(shownInstance)}
           onClose={() => setLogShown(undefined)}
         />

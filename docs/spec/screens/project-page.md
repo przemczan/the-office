@@ -148,7 +148,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Card **Test instances** (flask-conical icon) with the link **Test targets** at its end, to `/projects/$projectId/test-targets`.
 - The Project's Building and Running instances on every branch, the newest launched first.
 - One row each: the target's name, its state badge, the branch, and the Initiative it is linked to, linking to its page.
-- A Running Hosted instance has **Open**, as on [Test instances](#test-instances).
+- A Running Hosted instance has **Open**, with its list of addresses, as on [Test instances](#test-instances).
 - Empty: "None running."
 - Gone while the `test-targets` feature switch is off.
 - It follows `test-instance.changed`.

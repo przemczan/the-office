@@ -11,6 +11,22 @@ export interface OfficeLink {
   readonly port: number;
 }
 
+/**
+ * 200: the hand-off link exchanged for the instance's cookie. The page itself goes on to `/`, by
+ * a refresh that replaces it in the history, rather than a redirect: a redirect would still be
+ * the navigation The Office's page started, which is cross-site when Open chose another address
+ * than the page's (a LAN IP from `localhost`), so the browser would hold back the `SameSite=Strict`
+ * cookie just set; the page's own navigation is same-site and carries it.
+ */
+export function signedInPage(link: OfficeLink): ProxyPage {
+  return page(200, link, {
+    title: "Opening the test instance",
+    words: 'This browser is signed in to it. If it doesn’t open, <a href="/">open it here</a>.',
+    action: "Open The Office",
+    head: '<meta http-equiv="refresh" content="0; url=/">',
+  });
+}
+
 /** 401: no cookie of this instance (none, another instance's, or one of a stopped instance). */
 export function openFromTheOfficePage(link: OfficeLink): ProxyPage {
   return page(401, link, {
@@ -81,21 +97,21 @@ footer { padding-top: 10px; border-top: 1px solid var(--border-subtle); color: v
 function page(
   status: number,
   link: OfficeLink,
-  words: { title: string; words: string; action: string },
+  words: { title: string; words: string; action: string; head?: string },
 ): ProxyPage {
   const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
+<meta name="robots" content="noindex">${words.head === undefined ? "" : `\n${words.head}`}
 <title>${words.title} · The Office</title>
 <style>${STYLE}</style>
 </head>
 <body>
 <main>
 <div class="brand"><span class="mark">O</span>The Office · Test instance</div>
-<div class="status">${status}</div>
+${status >= 400 ? `<div class="status">${status}</div>` : ""}
 <h1>${words.title}</h1>
 <p>${words.words}</p>
 <a class="button" href="${escaped(link.officeUrl)}">${words.action}</a>
