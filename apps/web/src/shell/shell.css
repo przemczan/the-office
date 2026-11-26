@@ -973,8 +973,9 @@ button.shell-strip-alarm:hover {
   }
 }
 
-/* A phone's top bar keeps each action's mark alone. */
-@media (max-width: 600px) {
+/* A narrow window's top bar keeps each action's mark alone: with the words, the Project filter's
+   label and the user's name, it is wider than the window. */
+@media (max-width: 900px) {
   .shell-top-words {
     display: none;
   }

@@ -103,12 +103,6 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["marta-decision-answer"],"usage":{"input":3,"output":40,"cacheRead":30000,"cacheCreation":60},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
 {"step":"end"}
-{"step":"start","brief":{"id":"brief-parked-set-up-at-start","text":"Set up the run environment Yes at Start asked for, parked until the Task is dropped"}}
-{"step":"event","event":{"kind":"text","text":"I am reading the repository's manifests.","withinToolCall":null}}
-{"step":"interrupt"}
-{"step":"event","event":{"kind":"turn-ended","outcome":"interrupted","consumedMessageIds":["brief-parked-set-up-at-start"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
-{"step":"read-context-usage","usage":{"tokens":30000,"window":1000000}}
-{"step":"end"}
 {"step":"start","brief":{"id":"brief-parked-set-up-from-the-page","text":"Set up the run environment from the Project page, parked until the Task is dropped"}}
 {"step":"event","event":{"kind":"text","text":"I am reading the repository's manifests.","withinToolCall":null}}
 {"step":"interrupt"}

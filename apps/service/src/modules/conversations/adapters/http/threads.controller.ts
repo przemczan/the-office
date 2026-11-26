@@ -222,8 +222,10 @@ export class ThreadsController {
    */
   @Get("threads/:id/messages")
   async messages(@Param("id", ParseUUIDPipe) id: string): Promise<MessageResponse[]> {
-    const [messages, decisions, proposals] = await Promise.all([
-      this.threads.messages(id),
+    // A card's message and its Decision or Proposal commit together, so they're read after the
+    // messages: read alongside, a card committed in between came without its record.
+    const messages = await this.threads.messages(id);
+    const [decisions, proposals] = await Promise.all([
       this.decisions.listInThread(id),
       this.proposals.listInThread(id),
     ]);

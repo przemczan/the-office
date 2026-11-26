@@ -51,7 +51,7 @@ import {
 } from "@the-office/contracts";
 import { addAnswering } from "./add-a-project.ts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
-import { E2E_STORAGE_STATE } from "./e2e-user.ts";
+import { E2E_STORAGE_STATE, E2E_USER } from "./e2e-user.ts";
 import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
@@ -4965,6 +4965,16 @@ test(
   },
 );
 
+/** The Stage with its route to Publish leading to Lint instead. */
+function toLint(stage: Stage): Stage {
+  return {
+    ...stage,
+    routes: (stage.routes ?? []).map((route) =>
+      route.to === "publish" ? { to: "lint", condition: route.condition } : route,
+    ),
+  };
+}
+
 test(
   "the user asks Nina from a Project's Commands and a library Pipeline, and applies her Proposals; a stale one is refused",
   { tag: "@full" },
@@ -5005,11 +5015,14 @@ test(
         optional: false,
         command: "lint",
       };
-      const proposedStages = asStageList([
-        ...pipeline.stages.slice(0, -1),
-        lint,
+      // Lint goes between Tests and Publish, with the routes kept: the conflict chain stays off it.
+      const proposedStages = [
+        ...pipeline.stages
+          .slice(0, -1)
+          .map((stage) => (stage.key === "tests" ? toLint(stage) : stage)),
+        { ...lint, routes: [{ to: "publish", condition: null }] },
         ...pipeline.stages.slice(-1),
-      ]);
+      ];
       await seedProposal(
         threadId,
         {
@@ -5518,7 +5531,8 @@ test(
         name: `Proposal: Add ${newName} to ${project.name}'s Pipelines`,
       });
       await expect(added).toContainText(`Copied from${base.name}`);
-      await expect(added).toContainText(`Stages${base.stages.map(({ name }) => name).join(" → ")}`);
+      // As the library's list shows them: the conflict chain's Stages are left out.
+      await expect(added).toContainText("StagesImplement → Tests → Publish");
       await page.screenshot({
         path: path.join(SCREENSHOTS, "light-1600-devops-project-pipeline-proposals.png"),
       });
@@ -6212,7 +6226,14 @@ test(
       await expect(graph.getByRole("link", { name: /Usage table schema/ })).toContainText(
         "outside this Initiative",
       );
+      // The fold's summary shows while it is folded.
+      const tasksFoldHead = page
+        .getByRole("region", { name: "Tasks", exact: true })
+        .locator(".record-fold-head");
+      await tasksFoldHead.click();
       await expect(page.getByText("2 across 2 Projects")).toBeVisible();
+      await tasksFoldHead.click();
+      await expect(graph).toBeVisible();
 
       // Its Tasks have no card on the board until Confirm, which brings them there live.
       const board = await page.context().newPage();
@@ -6282,8 +6303,7 @@ test(
       await expect(graph.getByRole("link")).toHaveCount(4);
 
       // Bob retitles the Task and writes its Description, each by a Proposal of its own.
-      const added = taskSchema
-        .array()
+      const added = taskListSchema
         .parse(await (await page.request.get("/api/tasks")).json())
         .find(({ title }) => title === "Usage export in the API");
       if (!added) throw new Error("The Proposal's Task isn't on the board.");
@@ -7093,7 +7113,14 @@ test(
           to_state: "backlog",
           changed_by: { kind: "person", roleKey: "planner" },
         },
-        { from_state: "backlog", to_state: "ready", changed_by: { kind: "user" } },
+        {
+          from_state: "backlog",
+          to_state: "ready",
+          changed_by: {
+            kind: "user",
+            user: { name: E2E_USER.name, userId: expect.any(String) },
+          },
+        },
       ]);
       const threads = threadListSchema.parse(
         await (await page.request.get(`/api/tasks/${task.id}/threads`)).json(),
@@ -7823,11 +7850,11 @@ test(
       await expect(
         nina.getByText("Jan asks you to: Add an End to end test command to Called up."),
       ).toBeVisible();
-      await expect(
-        nina.getByText(
-          "Your answer to Jan: I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
-        ),
-      ).toBeVisible();
+      // The answer reads question by question, as a form's does.
+      await expect(nina.getByText(/^Your answer to Jan:/)).toBeVisible();
+      await expect(nina).toContainText(
+        "Answer, in their own words: I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+      );
       const proposal = nina.getByRole("region", { name: "Proposal: Change Called up's commands" });
       await expect(proposal.getByRole("listitem")).toHaveText([
         "End to end (test-e2e)None: addedTest · npm run e2e",

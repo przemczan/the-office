@@ -51,7 +51,8 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 - Left: the page's title as `h1`, then its crumb: a parent link, " › ", then the crumb text.
 - The title and crumb come from the page; a route without its own uses its static title.
 - Right, in order: Project filter, search, **Create**, fire alarm control, user menu, Chat button.
-- Under 600px wide a button keeps its mark alone (the words "Create", "Sound the alarm", "All clear…", the user's name and "Chat" are hidden); under 720px the bar's padding shrinks and the Project filter shows no label.
+- At 900px wide and under the search is hidden and a button keeps its mark alone (the words "Create", "Sound the alarm", "All clear…", the user's name and "Chat" are hidden); under 720px the bar's padding shrinks and the Project filter shows no label.
+- The bar never makes the window scroll sideways.
 
 ## Project filter
 
@@ -225,7 +226,7 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 - Service out of reach: "Reconnecting to The Office…" in the slot; the figures keep their last values.
 - Signed out: any `/api` 401 sends the page to `/sign-in?returnTo=<path and query>`; the WebSocket's close code 4401 stops the stream for good.
 - First-run setup open: every page but `/setup` and `/settings/engines` goes to `/setup` ([sign-in.md](sign-in.md)).
-- Narrow window: see Layout and the widths above; under 600px the top bar shows marks alone.
+- Narrow window: see Layout and the widths above; at 900px and under the top bar shows marks alone ([Top bar](#top-bar)).
 - Reduced motion: no pops, pulses or blinking.
 
 ## Domain facts

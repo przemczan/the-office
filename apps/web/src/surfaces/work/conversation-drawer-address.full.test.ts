@@ -27,7 +27,16 @@ describe("drawerMoveOn", () => {
       decisionIsOpen: true,
     };
     expect(drawerMoveOn(NOTHING, atDecision)).toBe("close");
-    expect(drawerMoveOn(undefined, atDecision)).toBe("close");
+  });
+
+  it("leaves the drawer as it is on a page opened at an open Decision, which it starts closed", () => {
+    const atDecision = {
+      threadId: "thread-1",
+      decisionId: "decision-1",
+      decisionIsOpen: true,
+    };
+    // The reader may have opened it while the page loaded.
+    expect(drawerMoveOn(undefined, atDecision)).toBe("stay");
   });
 
   it("opens for an answered Decision, which lands in its Thread", () => {
