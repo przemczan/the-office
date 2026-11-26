@@ -1,3 +1,4 @@
+import { isMarked } from "../flow-layout.ts";
 import type { DrawnRoute, DrawnRoutes, RouteDrawer, RouteScene } from "./route-drawer.ts";
 import {
   endKey,
@@ -256,7 +257,7 @@ function laidPaths(frame: RouteFrame, ends: readonly RouteEnds[]): readonly (rea
     };
   }
   for (const [line, own] of laid.entries())
-    if (own && frame.lines[line]!.line.limit !== null) giveMarkRoom(frame, grid, own);
+    if (own && isMarked(frame.lines[line]!.line)) giveMarkRoom(frame, grid, own);
   settleTracks(columns);
   settleTracks(rows);
   return laid.map((own, line) => (own ? pointsOf(grid, own) : elbow(ends[line]!)));

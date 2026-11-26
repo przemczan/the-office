@@ -1,3 +1,4 @@
+import { isMarked } from "../flow-layout.ts";
 import type { RouteDrawer } from "./route-drawer.ts";
 import { OUTWARD, OWN_LOOP, type RouteEnds } from "./route-ends.ts";
 import { drawnRoutes, type RouteFrame, routeFrame } from "./route-frame.ts";
@@ -53,7 +54,7 @@ function laidLines(frame: RouteFrame, ends: readonly RouteEnds[]): readonly Laid
       from,
       to,
       own: ownBoxes(line),
-      out: line.line.limit === null ? CORNER_OUT : MARKED_CORNER_OUT,
+      out: isMarked(line.line) ? MARKED_CORNER_OUT : CORNER_OUT,
       drawn,
     });
     if (!corners) continue;

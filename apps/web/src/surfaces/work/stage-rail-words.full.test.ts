@@ -4,11 +4,6 @@ import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   currentStageIndex,
   railScrollLeft,
-  loopBackEnds,
-  loopBackPath,
-  loopBacks,
-  loopBackMarkWords,
-  loopBackWords,
   railCaption,
   railRunsWords,
   railStateWords,
@@ -17,8 +12,8 @@ import {
   stageWorkerWords,
   stoppedAtCurrentStage,
   workingRoleKey,
-  type LoopBack,
 } from "./stage-rail-words.ts";
+import { pipelineProgress } from "./pipeline-progress.ts";
 import { stageNamesOf, STAGE_STATE_WORDS } from "./stage-words.ts";
 
 const implement: Stage = {
@@ -167,18 +162,22 @@ describe("railCaption", () => {
 
   it("says the Task hasn't started until a Stage ran, a Task dropped before that too", () => {
     for (const state of ["backlog", "ready", "dropped"] as const) {
-      expect(railCaption([aTaskStage(implement)], state)).toBe("Not started");
+      expect(railCaption(pipelineProgress([aTaskStage(implement)], state), state)).toBe(
+        "Not started",
+      );
     }
   });
 
   it("says what Planning waits on before the Task can start", () => {
-    expect(railCaption([aTaskStage(implement)], "planning")).toBe(
+    expect(railCaption(pipelineProgress([aTaskStage(implement)], "planning"), "planning")).toBe(
       "Starts once you confirm the Plan, the Definition of Done and the Pipeline",
     );
   });
 
   it("names the Stage holding the walk and its state", () => {
-    expect(railCaption(waiting, "in-progress")).toBe("At Tests: waiting on you");
+    expect(railCaption(pipelineProgress(waiting, "in-progress"), "in-progress")).toBe(
+      "At Tests: waiting on you",
+    );
   });
 
   it("counts skipped Stages as finished between two Stages", () => {
@@ -187,11 +186,13 @@ describe("railCaption", () => {
       aTaskStage(tests, { state: "skipped", runs: [aRun()] }),
       aTaskStage(review),
     ];
-    expect(railCaption(stages, "in-progress")).toBe("2 of 3 Stages finished");
+    expect(railCaption(pipelineProgress(stages, "in-progress"), "in-progress")).toBe(
+      "2 of 3 Stages finished",
+    );
   });
 
   it("says all finished on a done Task", () => {
-    expect(railCaption(waiting, "done")).toBe("All 2 Stages finished");
+    expect(railCaption(pipelineProgress(waiting, "done"), "done")).toBe("All 2 Stages finished");
   });
 
   it("leaves Stages the walk's path no longer reaches out of its counts", () => {
@@ -200,14 +201,16 @@ describe("railCaption", () => {
       aTaskStage(tests, { state: "not-taken" }),
       aTaskStage(review),
     ];
-    expect(railCaption(stages, "in-progress")).toBe("1 of 2 Stages finished");
+    expect(railCaption(pipelineProgress(stages, "in-progress"), "in-progress")).toBe(
+      "1 of 2 Stages finished",
+    );
 
     const done = [
       aTaskStage(implement, { state: "done", runs: [aRun()] }),
       aTaskStage(tests, { state: "not-taken" }),
       aTaskStage(review, { state: "done", runs: [aRun()] }),
     ];
-    expect(railCaption(done, "done")).toBe("All 2 Stages finished");
+    expect(railCaption(pipelineProgress(done, "done"), "done")).toBe("All 2 Stages finished");
   });
 });
 
@@ -273,7 +276,9 @@ describe("railStateWords", () => {
 
     expect(railStateWords(waiting, names)).toBe("Waiting for a run environment");
     expect(stageWaitsForRunEnvironment(waiting)).toBe(true);
-    expect(railCaption([waiting], "in-progress")).toBe("At Tests: waiting for a run environment");
+    expect(railCaption(pipelineProgress([waiting], "in-progress"), "in-progress")).toBe(
+      "At Tests: waiting for a run environment",
+    );
     expect(railStateWords(started, names)).toBe("Running");
     expect(stageWaitsForRunEnvironment(started)).toBe(false);
   });
@@ -304,267 +309,5 @@ describe("railRunsWords", () => {
   it("counts a running Stage's time until now", () => {
     const running = aTaskStage(tests, { state: "running", runs: [aRun({ endedAt: null })] });
     expect(railRunsWords(running, true, now)).toBe("1 run · 30m so far");
-  });
-});
-
-/** The route back the walk left a run by: to `to`, its `times`th time of at most `limit`. */
-function back(to: string, times = 1, limit: number | null = 3): StageRun["route"] {
-  return { to, times, limit };
-}
-
-describe("loopBacks", () => {
-  const lint: Stage = { ...tests, key: "lint", name: "Lint" };
-  it("finds none on a walk that never went back", () => {
-    const stages = [
-      aTaskStage(implement, {
-        runs: [aRun({ number: 1, route: { to: "tests", times: 1, limit: null } })],
-      }),
-      aTaskStage(tests, { runs: [aRun({ number: 2 })] }),
-    ];
-    expect(loopBacks(stages)).toEqual([]);
-  });
-
-  it("counts each trip along a route from a Stage back to an earlier one", () => {
-    const stages = [
-      aTaskStage(implement, {
-        runs: [aRun({ number: 1 }), aRun({ number: 3 }), aRun({ number: 5 })],
-      }),
-      aTaskStage(tests, {
-        runs: [
-          aRun({ number: 2, route: back("implement", 1) }),
-          aRun({ number: 4, route: back("implement", 2) }),
-        ],
-      }),
-    ];
-    expect(loopBacks(stages)).toEqual([
-      { from: "tests", to: "implement", fromIndex: 1, toIndex: 0, count: 2, limit: 3, level: 0 },
-    ]);
-    expect(loopBackWords(loopBacks(stages)[0]!, names)).toBe(
-      "Tests went back to Implement 2 times, of at most 3",
-    );
-    expect(loopBackMarkWords(loopBacks(stages)[0]!)).toBe("2 of at most 3");
-  });
-
-  it("draws a route back an Agent chose, which no failure carried", () => {
-    const stages = [
-      aTaskStage(implement, { runs: [aRun({ number: 1 }), aRun({ number: 4 })] }),
-      aTaskStage(tests, { runs: [aRun({ number: 2 })] }),
-      aTaskStage(
-        { ...implement, key: "review", name: "Review" },
-        {
-          runs: [
-            aRun({
-              number: 3,
-              route: back("implement", 1, null),
-              choice: { to: "implement", toName: "Implement", reason: "The tests are thin." },
-            }),
-          ],
-        },
-      ),
-    ];
-    expect(loopBacks(stages)).toEqual([
-      {
-        from: "review",
-        to: "implement",
-        fromIndex: 2,
-        toIndex: 0,
-        count: 1,
-        limit: null,
-        level: 0,
-      },
-    ]);
-  });
-
-  it("names no limit for a route back with No limit", () => {
-    const unlimitedLoop: LoopBack = {
-      from: "tests",
-      to: "implement",
-      fromIndex: 1,
-      toIndex: 0,
-      count: 1,
-      limit: null,
-      level: 0,
-    };
-    expect(loopBackWords(unlimitedLoop, names)).toBe("Tests went back to Implement 1 time");
-    expect(loopBackMarkWords(unlimitedLoop)).toBe("1 time");
-    expect(loopBackMarkWords({ count: 2, limit: null })).toBe("2 times");
-  });
-
-  it("doesn't count a run resumed after the trip, which no route left", () => {
-    const stages = [
-      aTaskStage(implement, {
-        runs: [aRun({ number: 1 }), aRun({ number: 3 }), aRun({ number: 4 })],
-      }),
-      aTaskStage(tests, { runs: [aRun({ number: 2, route: back("implement") })] }),
-    ];
-    expect(loopBacks(stages).map(({ count }) => count)).toEqual([1]);
-  });
-
-  it("counts no trip whose run the route's Stage didn't follow", () => {
-    const stages = [
-      aTaskStage(implement, { runs: [aRun({ number: 1 })] }),
-      aTaskStage(tests, {
-        runs: [aRun({ number: 2, route: back("implement") }), aRun({ number: 3 })],
-      }),
-    ];
-    expect(loopBacks(stages)).toEqual([]);
-  });
-
-  it("takes the limit of the latest trip, as the user may have allowed more", () => {
-    const stages = [
-      aTaskStage(implement, { runs: [aRun({ number: 2 }), aRun({ number: 4 })] }),
-      aTaskStage(tests, {
-        runs: [
-          aRun({ number: 1, route: back("implement", 1, 1) }),
-          aRun({ number: 3, route: back("implement", 2, 2) }),
-        ],
-      }),
-    ];
-    expect(loopBacks(stages).map(({ limit }) => limit)).toEqual([2]);
-  });
-
-  it("puts a shorter loop under a longer one", () => {
-    const stages = [
-      aTaskStage(implement, { runs: [aRun({ number: 5 })] }),
-      aTaskStage(tests, { runs: [aRun({ number: 1 }), aRun({ number: 3 })] }),
-      aTaskStage(review, { runs: [aRun({ number: 2, route: back("tests") })] }),
-      aTaskStage(lint, { runs: [aRun({ number: 4, route: back("implement") })] }),
-    ];
-    expect(loopBacks(stages).map(({ from, to, level }) => [from, to, level])).toEqual([
-      ["review", "tests", 0],
-      ["lint", "implement", 1],
-    ]);
-  });
-
-  it("gives each arc the lowest height free of the arcs it overlaps", () => {
-    // The work of Task 2a6dd41c: each failing Stage went back, the last twice, to 4 and then to 2.
-    const eight = ["a", "b", "c", "d", "e", "f", "g", "h"].map((key) =>
-      aTaskStage({ ...implement, key, name: key }),
-    );
-    const trips: readonly (readonly [from: number, to: number])[] = [
-      [1, 0],
-      [3, 2],
-      [5, 4],
-      [7, 4],
-      [7, 2],
-    ];
-    const stages = eight.map((taskStage, index) => ({
-      ...taskStage,
-      runs: trips.flatMap(([from, to], trip) => [
-        ...(index === from
-          ? [aRun({ number: trip * 2 + 1, route: back(eight[to]!.stage.key) })]
-          : []),
-        ...(index === to ? [aRun({ number: trip * 2 + 2 })] : []),
-      ]),
-    }));
-
-    expect(
-      loopBacks(stages).map(({ fromIndex, toIndex, level }) => [fromIndex, toIndex, level]),
-    ).toEqual([
-      [1, 0, 0],
-      [3, 2, 0],
-      [5, 4, 0],
-      [7, 4, 1],
-      [7, 2, 2],
-    ]);
-  });
-
-  it("keeps an arc leaving a Stage at the height of one landing there, as they don't overlap", () => {
-    const stages = [
-      aTaskStage(implement, { runs: [aRun({ number: 5 })] }),
-      aTaskStage(tests, {
-        runs: [aRun({ number: 3 }), aRun({ number: 4, route: back("implement") })],
-      }),
-      aTaskStage(review, { runs: [aRun({ number: 2, route: back("tests") })] }),
-    ];
-
-    expect(loopBacks(stages).map(({ level }) => level)).toEqual([0, 0]);
-  });
-
-  it("draws nothing for a Stage run again in place, a route on, or a Stage no longer on the rail", () => {
-    const stages = [
-      aTaskStage(implement, { runs: [aRun({ number: 1, route: back("tests") })] }),
-      aTaskStage(tests, {
-        runs: [
-          aRun({ number: 2, route: back("tests", 1, 1) }),
-          aRun({ number: 3, route: back("gone") }),
-        ],
-      }),
-    ];
-    expect(loopBacks(stages)).toEqual([]);
-  });
-
-  it("draws no arc for a Gate's send-back", () => {
-    const stages = [
-      aTaskStage(implement, {
-        runs: [
-          aRun({ number: 1 }),
-          aRun({ number: 3, sentBack: { gateKey: "review", feedback: "Bigger." } }),
-        ],
-      }),
-      aTaskStage(review, { runs: [aRun({ number: 2 })] }),
-    ];
-    expect(loopBacks(stages)).toEqual([]);
-  });
-});
-
-describe("loopBackPath", () => {
-  it("goes up at the failing Stage, across at its level and down on the earlier Stage", () => {
-    // Four Stages: their centres at 12.5%, 37.5%, 62.5% and 87.5% of the rail.
-    const path = loopBackPath({ fromIndex: 3, toIndex: 1, level: 0 }, 4, 42);
-
-    expect(path).toEqual({
-      leaves: { share: 12.5, offset: 4 },
-      landsOn: { share: 37.5, offset: 6 },
-      top: 18,
-      height: 22,
-    });
-  });
-
-  it("draws a longer loop higher, landing on the same spot as the shorter", () => {
-    const shorter = loopBackPath({ fromIndex: 2, toIndex: 1, level: 0 }, 4, 58);
-    const longer = loopBackPath({ fromIndex: 3, toIndex: 1, level: 1 }, 4, 58);
-
-    expect(longer.top).toBeLessThan(shorter.top);
-    expect(longer.top + longer.height).toBe(shorter.top + shorter.height);
-    expect(longer.landsOn).toEqual(shorter.landsOn);
-  });
-});
-
-function loop(fromIndex: number, toIndex: number, level: number): LoopBack {
-  return {
-    from: `stage-${fromIndex}`,
-    to: `stage-${toIndex}`,
-    fromIndex,
-    toIndex,
-    count: 1,
-    limit: 3,
-    level,
-  };
-}
-
-describe("loopBackEnds", () => {
-  it("gives each loop its own ends while they share no spot", () => {
-    const ends = loopBackEnds([loop(1, 0, 0), loop(3, 2, 0)], 4, 42);
-
-    expect(ends.map(({ key }) => key)).toEqual(["leaves-1", "lands-0", "leaves-3", "lands-2"]);
-  });
-
-  it("draws one line for the loops landing on a Stage, as high as the highest", () => {
-    const [low, high] = [loop(2, 1, 0), loop(3, 1, 1)];
-    const { top, height } = loopBackPath(high, 4, 58);
-
-    expect(loopBackEnds([high, low], 4, 58).filter(({ kind }) => kind === "lands")).toEqual([
-      { key: "lands-1", kind: "lands", place: { share: 37.5, offset: 6 }, top, height },
-    ]);
-  });
-
-  it("draws one line for the loops leaving a Stage, as high as the highest", () => {
-    const [low, high] = [loop(3, 2, 0), loop(3, 0, 1)];
-    const { top, height } = loopBackPath(high, 4, 58);
-
-    expect(loopBackEnds([low, high], 4, 58).filter(({ kind }) => kind === "leaves")).toEqual([
-      { key: "leaves-3", kind: "leaves", place: { share: 12.5, offset: 4 }, top, height },
-    ]);
   });
 });

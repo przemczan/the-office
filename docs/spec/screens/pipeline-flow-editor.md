@@ -97,6 +97,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - Right angles is the default: it alone keeps lines apart in a shared corridor, it draws the test Pipelines with no crossing, its lines leave from their own rows so a row and its line read as one, its marks sit on level stretches, and it is closest to what Auto-align lays out.
 - Switching redraws the lines only: no Stage moves, nothing is saved, and what is picked stays.
 - The Proposal card's small drawing of route changes follows the choice and has no switch of its own.
+- The Task page's Pipeline diagram draws with the same choice ([task-page.md](task-page.md#pipeline-diagram)).
 
 ### In every mode
 

@@ -8,7 +8,6 @@ import {
   pipelinesStartOpen,
   shortNameFormProblem,
   shortNameFromTitle,
-  stackedLoopBackWords,
   trackLayout,
   trackStageWords,
   type ProjectPublishing,
@@ -49,12 +48,6 @@ const ON_NONE: ProjectPublishing = {
   publishingTask: undefined,
 };
 
-const STAGE_NAMES: Readonly<Record<string, string>> = { review: "Check", integrate: "Integrate" };
-
-function nameOf(key: string): string {
-  return STAGE_NAMES[key] ?? key;
-}
-
 function published(project: ProjectPublishing): ProjectPublishing {
   return { ...project, publishingTask: { state: "done", stages: [] } };
 }
@@ -79,15 +72,6 @@ describe("a Project's track", () => {
     expect(trackStageWords(aTaskStage(INTEGRATE, "pending"), "verify")).toBe("verify");
     expect(trackStageWords(aTaskStage(PUBLISH, "pending"), "publish")).toBe("publish");
     expect(trackStageWords(aTaskStage(PUBLISH, "not-taken"), "publish")).toBe("Not taken");
-  });
-
-  it("says a loop-back in words when stacked, with its limit or No limit", () => {
-    expect(
-      stackedLoopBackWords({ from: "review", to: "integrate", count: 1, limit: 2 }, nameOf),
-    ).toBe("Check went back to Integrate, 1 of at most 2");
-    expect(
-      stackedLoopBackWords({ from: "review", to: "integrate", count: 2, limit: null }, nameOf),
-    ).toBe("Check went back to Integrate, 2 times");
   });
 
   it("counts a Pipeline's Stages and Gates", () => {

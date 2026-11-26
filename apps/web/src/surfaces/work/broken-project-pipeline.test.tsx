@@ -125,6 +125,7 @@ function rail(task: Task, options?: { readonly editedForTask?: boolean }): HTMLE
       shown={undefined}
       onSelect={() => undefined}
       onCloseHistory={() => undefined}
+      onOpenDiagram={() => undefined}
     />,
     options,
   );

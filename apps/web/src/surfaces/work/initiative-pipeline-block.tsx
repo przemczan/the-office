@@ -12,7 +12,7 @@ import {
   type TaskSummary,
 } from "@the-office/contracts";
 import { Alert, Button, Icon, TextButton } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { branchQueries } from "../../api/branch-deletions.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../api/pipelines.ts";
@@ -47,6 +47,7 @@ import {
   publishingTasksOf,
   publishingWaitWords,
 } from "./initiative-words.ts";
+import { pipelineProgress } from "./pipeline-progress.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
 import { StageHistoryWindow } from "./stage-history-window.tsx";
@@ -434,7 +435,7 @@ function ProjectBlock({
         <InitiativePipelineTrack
           label={label}
           stages={stagesOnRail(null, pipeline?.stages)}
-          placeholder
+          publishingTaskState={null}
           roles={roles}
           commands={project?.commands}
           selectedKey={undefined}
@@ -512,6 +513,11 @@ function PublishingTrack({
 }): ReactNode {
   const history = useStageHistory(task.id, undefined, undefined);
   const stages = stagesOnRail(taskStages.stages, pipeline?.stages);
+  // The ← → keys in Stage history follow the track's order, as on the Task page's rail.
+  const inTrackOrder = useMemo(
+    () => pipelineProgress(stages, task.state).stages.map(({ taskStage }) => taskStage),
+    [stages, task.state],
+  );
   const names = stageNamesOf(stages.map(({ stage }) => stage));
   const selected = stages.find(({ stage }) => stage.key === history.shown?.stageKey);
   const stageElementId = (stageKey: string): string => `publishing-${task.id}-${stageKey}`;
@@ -520,7 +526,7 @@ function PublishingTrack({
       <InitiativePipelineTrack
         label={label}
         stages={stages}
-        placeholder={false}
+        publishingTaskState={task.state}
         roles={roles}
         commands={project?.commands}
         selectedKey={selected?.stage.key}
@@ -530,7 +536,7 @@ function PublishingTrack({
       {selected && (
         <StageHistoryWindow
           taskId={task.id}
-          stages={stages}
+          stages={inTrackOrder}
           taskStage={selected}
           askedRunId={undefined}
           noRunsWords={

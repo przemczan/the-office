@@ -1,44 +1,34 @@
-import type { ProjectCommand, Role, TaskStage } from "@the-office/contracts";
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import type { ProjectCommand, Role, TaskStage, TaskState } from "@the-office/contracts";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { whoWorks } from "../../shell/pipelines/pipeline-words.ts";
+import { trackLayout, trackStageWords, type TrackLayout } from "./initiative-pipeline-words.ts";
 import {
-  stackedLoopBackWords,
-  trackLayout,
-  trackStageWords,
-  type TrackLayout,
-} from "./initiative-pipeline-words.ts";
+  pipelineProgress,
+  type PipelineProgress,
+  type ProgressStage,
+} from "./pipeline-progress.ts";
+import { NowTag, RoundChip } from "./pipeline-rail.tsx";
 import { StageMark } from "./stage-mark.tsx";
-import {
-  currentStageIndex,
-  loopBackEnds,
-  loopBackPath,
-  loopBacks,
-  loopBackMarkWords,
-  loopBackWords,
-  stageWaitsForRunEnvironment,
-  stageWorkerWords,
-  type LoopBack,
-  type RailPlace,
-} from "./stage-rail-words.ts";
-import { stageNamesOf, type StageNames } from "./stage-words.ts";
+import { roundWords, stageWaitsForRunEnvironment, stageWorkerWords } from "./stage-rail-words.ts";
+
+/** The room over the marks for the current Stage's "Now" tag, as on the Task page's rail. */
+const NOW_ROOM_PX = 26;
 
 /** From a mark's top to the top of the 2px line through its centre. */
 const LINE_FROM_MARK_TOP_PX = 11;
 
-/** The room over the marks once there are loop-backs, as on the Task page's rail. */
-const ARC_ROOM_PX = 26;
-const ARC_ROOM_PER_LEVEL_PX = 16;
-
 /**
- * One Project's track on the Pipelines card: its Stages across, with the Task page's marks on a
- * line green as far as its Publishing Task got, or stacked a Stage a row when its own width can't
- * give each Stage 96px. Before any Publishing Task it is a dashed placeholder with hollow marks and
- * nothing to select; afterwards a Stage selects its history.
+ * One Project's track on the Pipelines card, as the Task page's rail orders it: the Stages its
+ * Publishing Task reached in the order they first ran, then the rest in Pipeline order, the current
+ * one tagged "Now" and a Stage the work came back to once, with its round. Across, on a line green
+ * as far as it got, or stacked a Stage a row when its own width can't give each Stage 96px. Before
+ * any Publishing Task it is a dashed placeholder with hollow marks and nothing to select; afterwards
+ * a Stage selects its history.
  */
 export function InitiativePipelineTrack({
   label,
   stages,
-  placeholder,
+  publishingTaskState,
   roles,
   commands,
   selectedKey,
@@ -48,8 +38,8 @@ export function InitiativePipelineTrack({
   /** What the track is, for assistive technology: "<Pipeline> in <Project>". */
   readonly label: string;
   readonly stages: readonly TaskStage[];
-  /** No Publishing Task walks these Stages yet. */
-  readonly placeholder: boolean;
+  /** The Publishing Task's state; null while no Publishing Task walks these Stages yet. */
+  readonly publishingTaskState: TaskState | null;
   readonly roles: readonly Role[] | undefined;
   /** The Project's commands, naming a Script Stage's. */
   readonly commands: readonly Pick<ProjectCommand, "key" | "name">[] | undefined;
@@ -59,7 +49,12 @@ export function InitiativePipelineTrack({
   readonly onSelect: (stageKey: string) => void;
 }): ReactNode {
   const [measured, layout] = useTrackLayout(stages.length);
-  const names = stageNamesOf(stages.map(({ stage }) => stage));
+  const placeholder = publishingTaskState === null;
+  // Before any Publishing Task nothing has run: Pipeline order, as for a Task not started yet.
+  const progress = useMemo(
+    () => pipelineProgress(stages, publishingTaskState ?? "backlog"),
+    [stages, publishingTaskState],
+  );
   const who = (taskStage: TaskStage): string => {
     const { stage } = taskStage;
     // Until the Roles are read, an Agent Stage's person isn't known yet.
@@ -71,9 +66,9 @@ export function InitiativePipelineTrack({
     return whoWorks(stage, roles ?? [], commands);
   };
   const shared: TrackParts = {
-    stages,
+    progress,
+    reach: reachOf(progress),
     placeholder,
-    names,
     who,
     selectedKey,
     stageElementId,
@@ -93,13 +88,25 @@ export function InitiativePipelineTrack({
 }
 
 interface TrackParts {
-  readonly stages: readonly TaskStage[];
+  readonly progress: PipelineProgress;
+  readonly reach: Reach;
   readonly placeholder: boolean;
-  readonly names: StageNames;
   readonly who: (taskStage: TaskStage) => string;
   readonly selectedKey: string | undefined;
   readonly stageElementId: (stageKey: string) => string;
   readonly onSelect: (stageKey: string) => void;
+}
+
+/** How many Stages the line is green through, and whether the last of them runs, fading it to blue. */
+interface Reach {
+  readonly count: number;
+  readonly live: boolean;
+}
+
+function reachOf({ stages, currentKey }: PipelineProgress): Reach {
+  const count = stages.filter(({ reached }) => reached).length;
+  const last = stages[count - 1]?.taskStage;
+  return { count, live: last?.stage.key === currentKey && last?.state === "running" };
 }
 
 /**
@@ -121,22 +128,11 @@ function useTrackLayout(stageCount: number): [RefObject<HTMLDivElement | null>, 
   return [element, layout];
 }
 
-/** How far the line is green, and whether the Stage it reached runs, fading it to blue. */
-function reachOf(stages: readonly TaskStage[], placeholder: boolean): [number, boolean] {
-  if (placeholder) return [-1, false];
-  const current = currentStageIndex(stages);
-  return [current, stages[current]?.state === "running"];
-}
-
 function AcrossTrack(parts: TrackParts): ReactNode {
-  const { stages, placeholder, names, onSelect } = parts;
-  const count = stages.length;
-  const [current, live] = reachOf(stages, placeholder);
-  const reached = Math.max(current, 0);
+  const { progress, reach } = parts;
+  const count = progress.stages.length;
   const firstMark = 50 / count;
-  const loops = placeholder ? [] : loopBacks(stages);
-  const levels = Math.max(0, ...loops.map(({ level }) => level + 1));
-  const markTop = levels > 0 ? ARC_ROOM_PX + levels * ARC_ROOM_PER_LEVEL_PX : 0;
+  const markTop = progress.currentKey === null ? 0 : NOW_ROOM_PX;
   const lineTop = markTop + LINE_FROM_MARK_TOP_PX;
   return (
     <div className="initiative-track-across" style={{ paddingTop: markTop }}>
@@ -144,10 +140,14 @@ function AcrossTrack(parts: TrackParts): ReactNode {
         className="initiative-track-line"
         style={{ top: lineTop, left: `${firstMark}%`, right: `${firstMark}%` }}
       />
-      {reached > 0 && (
+      {reach.count > 1 && (
         <span
-          className={`initiative-track-reached${live ? " initiative-track-reached-live" : ""}`}
-          style={{ top: lineTop, left: `${firstMark}%`, width: `${(reached * 100) / count}%` }}
+          className={`initiative-track-reached${reach.live ? " initiative-track-reached-live" : ""}`}
+          style={{
+            top: lineTop,
+            left: `${firstMark}%`,
+            width: `${((reach.count - 1) * 100) / count}%`,
+          }}
         />
       )}
       <ol
@@ -155,86 +155,67 @@ function AcrossTrack(parts: TrackParts): ReactNode {
         aria-label="Stages"
         style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
       >
-        {stages.map((taskStage, index) => (
-          <li key={taskStage.stage.key} className={stageClass(taskStage, parts)}>
-            <StageBody taskStage={taskStage} isCurrent={index === current} parts={parts}>
-              <StageMark taskStage={taskStage} />
-              <span className="initiative-track-name">{taskStage.stage.name}</span>
-              <StageWords taskStage={taskStage} parts={parts} />
-            </StageBody>
-          </li>
-        ))}
-      </ol>
-      {loops.map((loop) => (
-        <LoopBackArc
-          key={`${loop.from}>${loop.to}`}
-          loop={loop}
-          stageCount={count}
-          markTop={markTop}
-          names={names}
-          onSelect={() => onSelect(loop.from)}
-        />
-      ))}
-      {loopBackEnds(loops, count, markTop).map(({ key, kind, place, top, height }) => (
-        <span
-          key={key}
-          className={`pipeline-rail-arc-end pipeline-rail-arc-${kind}`}
-          style={{
-            top,
-            height,
-            ...(kind === "lands" ? { left: cssOf(place) } : { right: cssOf(place) }),
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** A Stage a row down a line through the marks, green as far as it got; loop-backs in words under it. */
-function StackedTrack(parts: TrackParts): ReactNode {
-  const { stages, placeholder, names, onSelect } = parts;
-  const [current, live] = reachOf(stages, placeholder);
-  const loops = placeholder ? [] : loopBacks(stages);
-  return (
-    <>
-      <ol className="initiative-track-rows" aria-label="Stages">
-        {stages.map((taskStage, index) => {
-          const reach = [
-            index === 0 && "initiative-track-first",
-            index === stages.length - 1 && "initiative-track-last",
-            index > 0 && index <= current && "initiative-track-reached-above",
-            index > 0 && index === current && live && "initiative-track-reached-live",
-            index < current && "initiative-track-reached-below",
-          ].filter((name) => typeof name === "string");
+        {progress.stages.map((progressStage) => {
+          const { taskStage } = progressStage;
+          const isCurrent = taskStage.stage.key === progress.currentKey;
           return (
-            <li
-              key={taskStage.stage.key}
-              className={[stageClass(taskStage, parts), "initiative-track-row", ...reach].join(" ")}
-            >
-              <StageBody taskStage={taskStage} isCurrent={index === current} parts={parts}>
+            <li key={taskStage.stage.key} className={stageClass(taskStage, parts)}>
+              <StageBody taskStage={taskStage} isCurrent={isCurrent} parts={parts}>
+                {isCurrent && <NowTag state={taskStage.state} />}
                 <StageMark taskStage={taskStage} />
-                <span className="initiative-track-row-text">
-                  <span className="initiative-track-name">{taskStage.stage.name}</span>
-                  <StageWords taskStage={taskStage} parts={parts} />
-                </span>
+                <span className="initiative-track-name">{taskStage.stage.name}</span>
+                <StageWords taskStage={taskStage} parts={parts} />
+                <RoundChip progressStage={progressStage} />
               </StageBody>
             </li>
           );
         })}
       </ol>
-      {loops.map((loop) => (
-        <button
-          key={`${loop.from}>${loop.to}`}
-          type="button"
-          className="initiative-track-loop-words"
-          aria-haspopup="dialog"
-          onClick={() => onSelect(loop.from)}
-        >
-          {stackedLoopBackWords(loop, names)}
-        </button>
-      ))}
-    </>
+    </div>
   );
+}
+
+/** A Stage a row down a line through the marks, green as far as it got; its round in its name. */
+function StackedTrack(parts: TrackParts): ReactNode {
+  const { progress, reach } = parts;
+  const last = progress.stages.length - 1;
+  return (
+    <ol className="initiative-track-rows" aria-label="Stages">
+      {progress.stages.map((progressStage, index) => {
+        const { taskStage } = progressStage;
+        const isCurrent = taskStage.stage.key === progress.currentKey;
+        const reached = [
+          index === 0 && "initiative-track-first",
+          index === last && "initiative-track-last",
+          index > 0 && index < reach.count && "initiative-track-reached-above",
+          index > 0 && index === reach.count - 1 && reach.live && "initiative-track-reached-live",
+          index < reach.count - 1 && "initiative-track-reached-below",
+        ].filter((name) => typeof name === "string");
+        return (
+          <li
+            key={taskStage.stage.key}
+            className={[stageClass(taskStage, parts), "initiative-track-row", ...reached].join(" ")}
+          >
+            <StageBody taskStage={taskStage} isCurrent={isCurrent} parts={parts}>
+              <StageMark taskStage={taskStage} />
+              <span className="initiative-track-row-text">
+                <span className="initiative-track-name">{stackedNameWords(progressStage)}</span>
+                {isCurrent && <NowTag state={taskStage.state} />}
+                <StageWords taskStage={taskStage} parts={parts} />
+              </span>
+            </StageBody>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** A stacked row's name with its round: "Implement · Round 3 of at most 4". */
+function stackedNameWords(progressStage: ProgressStage): string {
+  const { name } = progressStage.taskStage.stage;
+  const round = roundWords(progressStage, true);
+  return round === "" ? name : `${name} · ${round}`;
 }
 
 function stageClass({ stage, state }: TaskStage, { selectedKey }: TrackParts): string {
@@ -283,39 +264,4 @@ function StageWords({
       {trackStageWords(taskStage, who(taskStage))}
     </span>
   );
-}
-
-/** A loop-back's line across, square over the marks, with "1 of at most 2", which opens the Stage it leaves. */
-function LoopBackArc({
-  loop,
-  stageCount,
-  markTop,
-  names,
-  onSelect,
-}: {
-  readonly loop: LoopBack;
-  readonly stageCount: number;
-  readonly markTop: number;
-  readonly names: StageNames;
-  readonly onSelect: () => void;
-}): ReactNode {
-  const { top, landsOn, leaves } = loopBackPath(loop, stageCount, markTop);
-  const words = loopBackWords(loop, names);
-  return (
-    <div className="pipeline-rail-arc" style={{ top, left: cssOf(landsOn), right: cssOf(leaves) }}>
-      <button
-        type="button"
-        className="pipeline-rail-arc-mark"
-        aria-label={words}
-        title={words}
-        onClick={onSelect}
-      >
-        {loopBackMarkWords(loop)}
-      </button>
-    </div>
-  );
-}
-
-function cssOf({ share, offset }: RailPlace): string {
-  return `calc(${share}% + ${offset}px)`;
 }

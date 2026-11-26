@@ -1,5 +1,5 @@
 import type { Stage, StageProblem } from "@the-office/contracts";
-import { Badge, Icon } from "@the-office/ui";
+import { Badge, type BadgeProps, Icon } from "@the-office/ui";
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { STAGE_KIND_ICONS } from "../stage-edits.ts";
 import type { FlowGridCell } from "./flow-layout.ts";
@@ -43,6 +43,22 @@ export interface FlowStageCardProps {
   readonly onHandlePointer: (event: PointerEvent<HTMLButtonElement>, key: string) => void;
 }
 
+type BadgeTone = NonNullable<BadgeProps["tone"]>;
+
+/** A Stage's state, as its Badge's colour (the rail's marks use the same ones). */
+const MARK_BADGE_TONES: Readonly<Record<FlowStageMark["tone"], BadgeTone>> = {
+  locked: "neutral",
+  pending: "neutral",
+  "not-taken": "neutral",
+  skipped: "neutral",
+  running: "info",
+  "waiting-on-you": "warning",
+  paused: "warning",
+  stopped: "warning",
+  done: "success",
+  failed: "danger",
+};
+
 /**
  * A mark's Badge, which styles itself inline on one line: a long label wraps inside a narrow card
  * instead of running out of it.
@@ -82,8 +98,13 @@ export function FlowStageCard(props: FlowStageCardProps): ReactNode {
         <span className="flow-canvas-stage-tag">
           {props.lockedNote !== undefined && <FlowLock note={props.lockedNote} />}
           {mark && (
-            <Badge tone="neutral" size="sm" style={WRAPPING_BADGE}>
+            <Badge tone={MARK_BADGE_TONES[mark.tone]} size="sm" style={WRAPPING_BADGE}>
               {mark.label}
+            </Badge>
+          )}
+          {mark?.round !== undefined && (
+            <Badge tone="neutral" size="sm" style={WRAPPING_BADGE}>
+              {mark.round}
             </Badge>
           )}
         </span>
@@ -110,6 +131,7 @@ function cardClass(props: FlowStageCardProps): string {
   return [
     "flow-canvas-stage",
     props.mark && `flow-canvas-stage--${props.mark.tone}`,
+    props.mark?.current && "flow-canvas-stage--current",
     picked && "flow-canvas-stage--picked",
     props.ownProblems.length > 0 && "flow-canvas-stage--problem",
     props.draggable && "flow-canvas-stage--draggable",

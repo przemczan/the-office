@@ -8,13 +8,8 @@ import {
   type TaskState,
 } from "@the-office/contracts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import {
-  currentStageIndex,
-  loopBackMarkWords,
-  stageWaitsForRunEnvironment,
-  type LoopBack,
-} from "./stage-rail-words.ts";
-import { STAGE_STATE_WORDS, WAITING_FOR_RUN_ENVIRONMENT, type StageNames } from "./stage-words.ts";
+import { currentStageIndex, stageWaitsForRunEnvironment } from "./stage-rail-words.ts";
+import { STAGE_STATE_WORDS, WAITING_FOR_RUN_ENVIRONMENT } from "./stage-words.ts";
 
 /**
  * The words and layout of the Initiative page's Pipelines card (docs/design/initiative-page.html):
@@ -235,15 +230,4 @@ export function trackStageWords(taskStage: TaskStage, who: string): string {
   return stageWaitsForRunEnvironment(taskStage)
     ? WAITING_FOR_RUN_ENVIRONMENT
     : STAGE_STATE_WORDS[taskStage.state];
-}
-
-/**
- * A loop-back in words, as a stacked track says it: "Check went back to Integrate, 1 of at most 2",
- * or "…, 2 times" for a route with No limit.
- */
-export function stackedLoopBackWords(
-  loop: Pick<LoopBack, "from" | "to" | "count" | "limit">,
-  names: StageNames,
-): string {
-  return `${names(loop.from)} went back to ${names(loop.to)}, ${loopBackMarkWords(loop)}`;
 }

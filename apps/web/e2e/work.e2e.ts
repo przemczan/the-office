@@ -15,6 +15,7 @@ import {
   recordPath,
   roleListSchema,
   roleSchema,
+  taskListSchema,
   taskSchema,
   type Attachment,
   type DecisionFormAnswer,
@@ -28,6 +29,7 @@ import {
   type StageRun,
   type Task,
   type TaskStage,
+  type TaskSummary,
   type TaskStages,
 } from "@the-office/contracts";
 import { taskWorktreePath } from "./office-data.ts";
@@ -3385,15 +3387,20 @@ test("selecting a Stage opens its history window, to move between Stages and run
   const stageButton = (name: string): Locator => rail.getByRole("button", { name, exact: true });
   const historyOf = (name: string): Locator =>
     page.getByRole("dialog", { name: new RegExp(`^Stage history: ${name}`) });
-  // Tests went back once; the Gate's send-back draws nothing.
-  const loop = rail.getByRole("button", { name: / went back to / });
-  await expect(loop).toHaveCount(1);
-  await expect(loop).toHaveAccessibleName("Tests went back to Implement 1 time, of at most 3");
-  await expect(loop).toHaveText("1 of at most 3");
+  // The Stages stand in the order they ran, each once: the work came back to Implement and Tests,
+  // so they carry their rounds instead of arcs, and the Gate's send-back draws nothing.
+  await expect(rail.getByRole("list", { name: "Stages" }).getByRole("listitem")).toHaveCount(3);
+  await expect(rail.locator(".pipeline-rail-round > span[aria-hidden]")).toHaveText([
+    "Round 3 of ≤4",
+    "Round 3 of ≤4",
+    "Round 2",
+  ]);
+  await expect(rail.locator(".pipeline-rail-round").first()).toContainText("Round 3 of at most 4");
+  await expect(rail.locator(".pipeline-rail-now")).toHaveCount(1);
   await expect(stageButton("UI acceptance")).toHaveAttribute("aria-current", "step");
 
   // The window opens on the newest run, the Stage shown marked in the Pipeline in small.
-  await loop.click();
+  await stageButton("Tests").click();
   const testsHistory = historyOf("Tests");
   await expect(stageInSmall(testsHistory, "Tests")).toHaveAttribute("aria-pressed", "true");
   await expect(stageInSmall(testsHistory, "Tests")).toBeFocused();
@@ -3534,6 +3541,25 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await expect(implementHistory).toHaveCount(0);
   await expect(page).not.toHaveURL(/taskThread/);
 
+  // Open diagram shows the whole Pipeline read only, each Stage's state and the route taken back.
+  const openDiagram = rail.getByRole("button", { name: "Open diagram" });
+  await openDiagram.click();
+  const diagram = page.getByRole("dialog", { name: "Pipeline diagram" });
+  await expect(diagram.getByRole("list", { name: "Legend" })).toContainText("Waiting on you");
+  await expect(diagram.getByRole("list", { name: "The walk" }).getByRole("listitem")).toHaveCount(
+    8,
+  );
+  await expect(diagram.locator(".flow-canvas-route-line--taken")).not.toHaveCount(0);
+  // A step of the walk picks its Stage in the side panel.
+  await diagram.getByRole("list", { name: "The walk" }).getByRole("button").nth(1).click();
+  await expect(diagram.getByRole("heading", { name: "Tests", exact: true })).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-pipeline-diagram.png") });
+  await expect(diagram).toContainText("1 of ≤3");
+  await expect(diagram.locator(".flow-canvas-stage-pick")).toHaveCount(3);
+  await diagram.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(diagram).toHaveCount(0);
+  await expect(openDiagram).toBeFocused();
+
   // In a phone's width the panes stack, and nothing but the rows made to scrolls sideways.
   await page.setViewportSize({ width: 420, height: 800 });
   await stageButton("Tests").evaluate((button: HTMLElement) => button.click());
@@ -3547,7 +3573,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await page.keyboard.press("Escape");
   await expect(testsHistory).toHaveCount(0);
 
-  // In a window too narrow for the Stages the loop-back's arc scrolls with them.
+  // In a window too narrow for the Stages the rail scrolls sideways.
   const stagesScroller = rail.locator(".pipeline-rail-scroll");
   await expect
     .poll(() => stagesScroller.evaluate((view) => view.scrollWidth - view.clientWidth))
@@ -3555,11 +3581,11 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await stagesScroller.evaluate((view) => {
     view.scrollLeft = (view.scrollWidth - view.clientWidth) / 2;
   });
-  await rail.screenshot({ path: path.join(SCREENSHOTS, "light-420-rail-arcs-scrolled.png") });
+  await rail.screenshot({ path: path.join(SCREENSHOTS, "light-420-rail-scrolled.png") });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
   await animationsSettled(page);
-  await rail.screenshot({ path: path.join(SCREENSHOTS, "dark-420-rail-arcs-scrolled.png") });
+  await rail.screenshot({ path: path.join(SCREENSHOTS, "dark-420-rail-scrolled.png") });
   await page.emulateMedia({ colorScheme: "light" });
   await page.setViewportSize({ width: 1600, height: 900 });
 });
@@ -3662,7 +3688,7 @@ test("a Gate just before Publish is the Definition of Done check: it lists what 
   const project = await addedProject(page, "Gate check", "GC");
   const task = await createdTask(page, project, "Export the usage");
   await choosePipeline(page, task);
-  await page.request.put(`/api/tasks/${task.id}/definition-of-done`, {
+  const definitionOfDoneSaved = await page.request.put(`/api/tasks/${task.id}/definition-of-done`, {
     data: {
       definitionOfDone: [
         "The usage exports as a file.",
@@ -3671,6 +3697,7 @@ test("a Gate just before Publish is the Definition of Done check: it lists what 
       ],
     },
   });
+  expect(definitionOfDoneSaved.status()).toBe(200);
   const implement = anAgentStage("implement", "Implement");
   const look: Stage = { kind: "gate", key: "look", name: "Review", optional: false };
   const publish: Stage = {
@@ -4188,10 +4215,8 @@ async function markDoneByItsDecision(page: Page, taskId: string): Promise<void> 
     .toBe("done");
 }
 
-async function publishingTasksOf(page: Page, initiativeId: string): Promise<Task[]> {
-  const tasks = ((await (await page.request.get("/api/tasks")).json()) as unknown[]).map((task) =>
-    taskSchema.parse(task),
-  );
+async function publishingTasksOf(page: Page, initiativeId: string): Promise<TaskSummary[]> {
+  const tasks = taskListSchema.parse(await (await page.request.get("/api/tasks")).json());
   return tasks.filter(
     (task) => task.initiativeId === initiativeId && task.madeFor === "publishing",
   );
@@ -4335,7 +4360,9 @@ test(
       ).toBe(200);
       await page.goto(`/tasks/${publishing.id}`);
       const gate = page.getByRole("region", { name: "Gate · Review" });
-      await expect(gate.getByRole("button", { name: "Continue to Publish" })).toBeVisible();
+      // No Agent Stage reported the Definition of Done met, and this Gate is its check before Publish.
+      const continueAnyway = gate.getByRole("button", { name: "Continue and publish anyway" });
+      await expect(continueAnyway).toBeVisible();
       // On the Initiative page, its Project's track waits on you at the Gate.
       await page.goto(`/work/initiatives/${initiative.id}`);
       await expect(
@@ -4349,9 +4376,15 @@ test(
       const changes = page.getByRole("region", { name: "Changes" });
       await expect(changes.getByText("Files changed · 1")).toBeVisible();
       await expect(changes.getByRole("listitem")).toContainText(["usage-export.txt+1−0"]);
-      await gate.getByRole("button", { name: "Continue to Publish" }).click();
-      // The Definition of Done is checked before Publish: nothing reaches main until it is met.
-      await markDoneByItsDecision(page, publishing.id);
+      // Continue at the check calls the Definition of Done met: Publish runs with no Decision.
+      await continueAnyway.click();
+      await expect
+        .poll(
+          async () =>
+            taskSchema.parse(await (await page.request.get(`/api/tasks/${publishing.id}`)).json())
+              .state,
+        )
+        .toBe("done");
 
       expect(fileOnRemote(own, "main", "usage-export.txt")).toBe("exported\n");
       // The Publishing Task carries the Task's one commit into main unchanged.

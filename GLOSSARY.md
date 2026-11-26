@@ -497,6 +497,10 @@ _Avoid_: Loop, On failure, retry, loop-back
 How the flow editor draws its routes, this browser's choice from the head's switch: **Right angles** (the default; level and upright stretches around Stages, lines side by side kept apart), **Curves** (one smooth curve per route) or **Straight lines** (the direct line from Stage to Stage). It changes only the picture, never the Pipeline.
 _Avoid_: Edge style, line style, routing mode, connector
 
+**Round** (of a Stage):
+One arrival of a Task's walk at a Stage, counted on the Pipeline rail; a run resumed after a Decision or a Pause is the same round.
+_Avoid_: Loop, iteration, attempt
+
 **Route limit**:
 How many times the walk may follow one route in a walk, "at most N times" from 1 to 9, or No limit; a route back starts at 3, a route on at No limit, and every loop of routes needs one route with a limit. When the walk would follow a route past it, the holder of Asked first when a Stage runs out of tries, then the user, chooses: follow it once more, go on by another route, or drop the Task.
 _Avoid_: Rounds, retries, loop, max attempts

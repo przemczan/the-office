@@ -1,4 +1,4 @@
-import type { FlowBox } from "../flow-layout.ts";
+import { isMarked, type FlowBox } from "../flow-layout.ts";
 import { bottom, centre, grown, type Pt, right, stretchHitsBox } from "./route-geometry.ts";
 import { MARK_AIR } from "./mark-spots.ts";
 import type { FrameCard, FrameLine, RouteFrame } from "./route-frame.ts";
@@ -96,7 +96,7 @@ export function routeEnds(frame: RouteFrame, order?: EndOrder): readonly RouteEn
       continue;
     }
     const back = from === to;
-    const marked = line.line.limit !== null;
+    const marked = isMarked(line.line);
     const row =
       from === "right" && line.line.port !== undefined ? line.from.rows[line.line.port] : undefined;
     put(line.from, from, {

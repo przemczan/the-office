@@ -151,6 +151,40 @@
   border-left: 3px solid var(--border-strong);
 }
 
+/* A Task's diagram: each Stage's state on its left edge, as on the rail's marks */
+.flow-canvas-stage--done {
+  border-left: 3px solid var(--success);
+}
+
+.flow-canvas-stage--running {
+  border-left: 3px solid var(--info);
+}
+
+.flow-canvas-stage--waiting-on-you,
+.flow-canvas-stage--paused,
+.flow-canvas-stage--stopped {
+  border-left: 3px solid var(--warning);
+}
+
+.flow-canvas-stage--failed {
+  border-left: 3px solid var(--danger);
+}
+
+.flow-canvas-stage--pending {
+  border-left: 3px solid var(--border-strong);
+}
+
+.flow-canvas-stage--skipped,
+.flow-canvas-stage--not-taken {
+  border-left: 3px dashed var(--border);
+  opacity: 0.55;
+}
+
+/* The Stage the walk is at */
+.flow-canvas-stage--current {
+  box-shadow: 0 0 0 2px var(--info);
+}
+
 .flow-canvas-stage--dragging {
   z-index: 30;
   box-shadow: var(--shadow-3);
@@ -472,6 +506,19 @@
   stroke-dasharray: 2 3;
 }
 
+/* The walk's progress: routes taken in heavy ink, those it left dimmed, those ahead plain */
+.flow-canvas-route-line--taken {
+  --flow-line: var(--fg-1);
+}
+
+.flow-canvas-route-line--taken .flow-canvas-line {
+  stroke-width: 2.5;
+}
+
+.flow-canvas-route-line--not-taken {
+  opacity: 0.32;
+}
+
 .flow-canvas-start {
   fill: var(--fg-2);
 }
@@ -553,6 +600,14 @@
 
 .flow-canvas-limit-mark--taken-away {
   opacity: 0.6;
+}
+
+.flow-canvas-limit-mark--taken {
+  --flow-line: var(--fg-1);
+}
+
+.flow-canvas-limit-mark--not-taken {
+  opacity: 0.32;
 }
 
 /* Where a dragged card lands when it would cover another: its outline, clear of every card */

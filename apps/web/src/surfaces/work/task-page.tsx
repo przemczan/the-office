@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
 import { Badge, Skeleton, Tabs, Tooltip } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { BlockLoader, type BlockRead } from "../../shell/block-loader.tsx";
@@ -31,7 +31,8 @@ import { ArchivedBadge } from "./archive-parts.tsx";
 import { AttachmentsBlock } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { MissingRecord } from "./missing-record.tsx";
-import { PipelineRail, RailLoader } from "./pipeline-rail.tsx";
+import { PipelineDiagramWindow } from "./pipeline-diagram-window.tsx";
+import { OPEN_DIAGRAM_BUTTON_ID, PipelineRail, RailLoader } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
 import { RecordActions } from "./record-actions.tsx";
 import { TaskEngineBlock } from "./work-engine-block.tsx";
@@ -112,6 +113,11 @@ function TaskBody({
   readonly recordTab: RecordTab | undefined;
 }): ReactNode {
   const stageHistory = useStageHistory(task.id, taskThread, decisionId);
+  const [diagramOpen, setDiagramOpen] = useState(false);
+  const closeDiagram = (): void => {
+    setDiagramOpen(false);
+    document.getElementById(OPEN_DIAGRAM_BUTTON_ID)?.focus();
+  };
   return (
     <ConversationDrawerProvider onLinkToDecisionCard={stageHistory.hide}>
       <PipelineRail
@@ -120,7 +126,19 @@ function TaskBody({
         shown={stageHistory.shown}
         onSelect={stageHistory.show}
         onCloseHistory={stageHistory.close}
+        onOpenDiagram={() => setDiagramOpen(true)}
       />
+      {diagramOpen && (
+        <PipelineDiagramWindow
+          task={task}
+          pipeline={pipeline}
+          onOpenStageHistory={(stageKey) => {
+            setDiagramOpen(false);
+            stageHistory.show(stageKey);
+          }}
+          onClose={closeDiagram}
+        />
+      )}
       <div className="task-columns">
         <div className="task-record-column">
           <NeedsYouCard task={task} />

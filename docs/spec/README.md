@@ -202,6 +202,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Pipeline**: [2.3.2 A Pipeline is a flow](2.3.2-flows.md#a-pipeline-is-a-flow); screen: [Pipeline flow editor](screens/pipeline-flow-editor.md#pipeline-flow-editor)
 - **Pipeline's order, Move earlier, Move later**: [2.3.2 The Pipeline's order](2.3.2-flows.md#the-pipelines-order); screen: [Pipeline flow editor › Moving a Stage in the order](screens/pipeline-flow-editor.md#moving-a-stage-in-the-order)
 - **Pipeline rail**: screen: [Task page › Pipeline rail](screens/task-page.md#pipeline-rail)
+- **Pipeline diagram**: screen: [Task page › Pipeline diagram](screens/task-page.md#pipeline-diagram)
 - **Plan the Initiative**: [2.1.4 Plan the Initiative](2.1.4-initiatives.md#plan-the-initiative)
 - **Position (a Stage's), End's position, snapping, guides, the narrow view's bands, the move to positions**: [2.3.2 A Stage's position](2.3.2-flows.md#a-stages-position); [2.3.5 The move to positions](2.3.5-library.md#the-move-to-positions); screens: [Pipeline flow editor › Moving a Stage](screens/pipeline-flow-editor.md#moving-a-stage), [Pipeline flow editor › Narrow view](screens/pipeline-flow-editor.md#narrow-view)
 - **Preset, a preset's default vs set**: [2.2 Presets](2.2-people.md#presets); [6 Authority by role](6-permissions-and-safety.md#authority-by-role)

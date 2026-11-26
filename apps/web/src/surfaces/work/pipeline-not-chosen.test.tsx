@@ -189,6 +189,7 @@ function rail(task: Task, project?: Project): HTMLElement {
       shown={undefined}
       onSelect={() => undefined}
       onCloseHistory={() => undefined}
+      onOpenDiagram={() => undefined}
     />,
     project,
   );

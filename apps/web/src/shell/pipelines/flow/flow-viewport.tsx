@@ -40,7 +40,10 @@ import {
 import "./flow-viewport.css";
 
 export interface FlowViewportProps {
-  /** In full screen there is no page to scroll, so a plain scroll moves the view. */
+  /**
+   * In full screen, or filling a window, there is no page to scroll, so a plain scroll moves the
+   * view, and the host gives the frame its height.
+   */
   readonly fullScreen?: boolean;
   /** Without it, there is no full screen button. */
   readonly onFullScreen?: (on: boolean) => void;

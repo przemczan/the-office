@@ -21,12 +21,19 @@ import {
   type FlowOrientation,
   type FlowRoom,
   flowRoom,
+  lineMarkWords,
   listsRoutes,
   narrowBands,
   narrowLayout,
   startPath,
 } from "./flow-layout.ts";
-import { type FlowLocks, type FlowOverlay, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
+import {
+  type FlowLocks,
+  type FlowOverlay,
+  type FlowProgress,
+  type FlowStageMarks,
+  NO_LOCKS,
+} from "./flow-marks.ts";
 import { stepInOrder, withStagePositioned } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import {
@@ -49,7 +56,6 @@ import {
 } from "./flow-routes/route-drawer.ts";
 import { ROUTE_DRAWERS } from "./flow-routes/route-drawers.ts";
 import { FlowStageCard } from "./flow-stage-card.tsx";
-import { limitMark } from "./condition-words.ts";
 import {
   arrowStep,
   type FlowCanvasEdit,
@@ -79,6 +85,8 @@ export interface FlowCanvasProps {
   readonly readOnly?: boolean;
   readonly marks?: FlowStageMarks;
   readonly overlay?: FlowOverlay;
+  /** A Task's walk: its routes are drawn taken or not taken, with the counts. */
+  readonly progress?: FlowProgress;
   /** A Task's started Stages: each with its lock, none drawn from; each can still be moved. */
   readonly locked?: FlowLocks;
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
@@ -137,7 +145,10 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
     : cards;
   const origin = moving?.origin ?? originOf(shownCards);
   const narrow = useMemo(() => narrowLayout(narrowBands(shown)), [shown]);
-  const lines = useMemo(() => flowLines(shown, props.overlay), [shown, props.overlay]);
+  const lines = useMemo(
+    () => flowLines(shown, props.overlay, props.progress),
+    [shown, props.overlay, props.progress],
+  );
   const drawn = useDrawnRoutes(
     props.routeDrawing,
     orientation,
@@ -377,7 +388,7 @@ function pickedLast(
 function portsOf(routes: readonly DrawnRoute[]): ReadonlyMap<string, ReadonlySet<number>> {
   const ports = new Map<string, Set<number>>();
   for (const { line, fromPort } of routes) {
-    if (!fromPort || line.look !== "plain" || line.routeIndex === undefined) continue;
+    if (!fromPort || line.routeIndex === undefined) continue;
     let own = ports.get(line.fromKey);
     if (!own) ports.set(line.fromKey, (own = new Set()));
     own.add(line.routeIndex);
@@ -764,7 +775,7 @@ function LimitMarks({ routes, stages, picked, problems, onPick }: LimitMarksProp
   return (
     <div className="flow-canvas-marks" aria-hidden="true">
       {routes.map(({ line, mark }) => {
-        const words = limitMark(line.limit);
+        const words = lineMarkWords(line);
         if (words === "" || !mark) return null;
         const { fromKey, routeIndex, look } = line;
         const pressable =

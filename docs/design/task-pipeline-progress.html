@@ -1,0 +1,3180 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pipeline progress on the Task page · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/colors.css, light palette) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-quiet: var(--gray-25);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --overlay: rgba(15, 15, 14, 0.42);
+        --code-bg: var(--gray-100);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.35 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono: 400 var(--text-xs) / 1.55 var(--font-mono);
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+        --control-sm: 28px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 18px 48px -12px rgba(16, 16, 15, 0.28), 0 2px 6px rgba(16, 16, 15, 0.06);
+      }
+      /* Dark: the design system's [data-theme="dark"] aliases, scoped to the mock frames */
+      .pal-dark {
+        --bg: var(--gray-950);
+        --surface: var(--gray-900);
+        --surface-raised: var(--gray-800);
+        --surface-sunken: #0a0a09;
+        --surface-quiet: #141413;
+        --surface-hover: #1e1e1c;
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --code-bg: var(--gray-800);
+        --fg-1: #e4e4e0;
+        --fg-2: #a2a29c;
+        --fg-3: #74746e;
+        --border: #2a2a27;
+        --border-subtle: #222220;
+        --border-strong: #3a3a36;
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 20%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: #262624;
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: #f5c451;
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        --shadow-3: 0 18px 48px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        color: var(--fg-1);
+        color-scheme: dark;
+      }
+
+      /* ---------- Page ---------- */
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      html {
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        margin: 0;
+      }
+      body.has-modal {
+        overflow: hidden;
+      }
+      .doc {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 40px 28px 96px;
+      }
+      .doc-head {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 28px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-2);
+      }
+      h1 {
+        margin: 0;
+        font: 600 28px / 1.2 var(--font-sans);
+        letter-spacing: -0.015em;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font: 600 20px / 1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        margin: 22px 0 6px;
+        font: var(--type-section-title);
+      }
+      h4 {
+        margin: 0 0 4px;
+        font: var(--type-card-title);
+      }
+      p {
+        margin: 0 0 10px;
+      }
+      .lead {
+        max-width: 780px;
+        color: var(--fg-2);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .chip.review {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      code,
+      .mono {
+        font: var(--type-mono);
+      }
+      code {
+        padding: 1px 4px;
+        border-radius: var(--radius-sm);
+        background: var(--code-bg);
+      }
+      pre {
+        margin: 8px 0 12px;
+        padding: 12px 14px;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-quiet);
+        font: var(--type-mono);
+        white-space: pre;
+      }
+      pre code {
+        padding: 0;
+        background: none;
+      }
+      .toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        font: var(--type-body-sm);
+      }
+      .toc a {
+        color: var(--fg-2);
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: var(--accent-subtle-fg);
+        text-decoration: underline;
+      }
+      section {
+        margin-top: 44px;
+        scroll-margin-top: 16px;
+      }
+      ul.facts,
+      ol.facts {
+        margin: 6px 0 12px;
+        padding-left: 20px;
+      }
+      .facts li {
+        margin: 3px 0;
+      }
+      .card {
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .decisions {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .decision {
+        display: grid;
+        gap: 6px;
+        align-content: start;
+      }
+      .decision .overline {
+        color: var(--accent-subtle-fg);
+      }
+      .decision p {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .decision a {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      table.spec {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      table.spec th,
+      table.spec td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      table.spec th {
+        font: var(--type-label);
+        color: var(--fg-2);
+        background: var(--surface-quiet);
+      }
+      table.spec td:first-child {
+        width: 24%;
+        font-weight: 500;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        margin: 8px 0 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .table-wrap table.spec {
+        min-width: 640px;
+      }
+      .table-wrap tr:last-child td {
+        border-bottom: 0;
+      }
+      .callout {
+        display: flex;
+        gap: 10px;
+        margin: 10px 0 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-lg);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        font: var(--type-body-sm);
+      }
+      .callout.rec {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .callout.ask {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .callout svg {
+        flex: none;
+        margin-top: 2px;
+      }
+      .callout p {
+        margin: 0;
+      }
+      .callout .facts {
+        margin: 4px 0 0;
+      }
+      .figure-caption {
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      /* The window figure takes the window's own width, past the text column. */
+      #window-stage {
+        width: min(1600px, calc(100vw - 48px));
+        margin-left: calc(50% - min(800px, 50vw - 24px));
+      }
+      .two {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      /* ---------- Controls (packages/ui Button / SegmentedControl / Badge) ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+        font: var(--type-label);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: var(--control-hover);
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+      }
+      .btn.ghost:hover {
+        background: var(--control-hover);
+      }
+      .btn.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--white);
+      }
+      .btn.icon {
+        width: var(--control-sm);
+        padding: 0;
+      }
+      .btn:focus-visible,
+      .seg button:focus-visible {
+        outline: 0;
+        box-shadow: var(--focus-ring);
+      }
+      .btn svg {
+        flex: none;
+      }
+      .seg {
+        display: inline-flex;
+        flex-wrap: wrap;
+        padding: 2px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .seg button {
+        height: 22px;
+        padding: 0 9px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        font-size: 12px;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 20px;
+        padding: 0 7px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: 500 11px / 1 var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .badge.done {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.running {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge.waiting-on-you,
+      .badge.paused,
+      .badge.stopped {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.failed {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .demo-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 18px;
+        margin: 14px 0 10px;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .demo-bar .field {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .demo-note {
+        min-height: 20px;
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      /* ---------- The Task page frame ---------- */
+      .stage {
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--bg);
+        color: var(--fg-1);
+      }
+      .stage.narrow .page {
+        width: 390px;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+      .page-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        margin-bottom: 12px;
+      }
+      .page-head h3 {
+        margin: 0;
+        font: 600 18px / 1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+
+      /* ---------- The Pipeline rail (work.css .pipeline-rail-*) ---------- */
+      .pipeline-rail {
+        padding-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+      }
+      .pipeline-rail-top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        align-items: center;
+        padding: 0 12px 2px 16px;
+      }
+      .pipeline-rail-top .overline {
+        flex: 1;
+        min-width: max-content;
+      }
+      .pipeline-rail-caption {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .pipeline-rail-actions {
+        display: inline-flex;
+        gap: 2px;
+      }
+      .pipeline-rail-foot {
+        margin: 0;
+        padding: 0 16px 14px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .pipeline-rail-removed {
+        margin: 0;
+        padding: 8px 16px 16px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .pipeline-rail.not-chosen {
+        border-style: dashed;
+        border-color: var(--border-strong);
+        background: transparent;
+      }
+      .pipeline-rail-not-chosen-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        padding: 8px 16px 18px;
+        text-align: center;
+      }
+      .pipeline-rail-not-chosen-body p {
+        margin: 0;
+        color: var(--fg-3);
+      }
+      .pipeline-rail-scroll {
+        overflow: auto hidden;
+        padding: 0 8px 10px;
+      }
+      .pipeline-rail-stages {
+        position: relative;
+        padding-top: 26px;
+      }
+      .pipeline-rail-stages ol {
+        position: relative;
+        display: grid;
+        grid-auto-columns: minmax(0, 1fr);
+        grid-auto-flow: column;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .pipeline-rail-line,
+      .pipeline-rail-reached {
+        position: absolute;
+        top: 37px;
+        height: 2px;
+        border-radius: 2px;
+        pointer-events: none;
+      }
+      /* Stages not reached yet: the line goes on dashed. */
+      .pipeline-rail-line {
+        background: repeating-linear-gradient(90deg, var(--border-strong) 0 5px, transparent 5px 9px);
+      }
+      .pipeline-rail-reached {
+        background: var(--success);
+      }
+      .pipeline-rail-reached.live {
+        background: linear-gradient(90deg, var(--success) calc(100% - 60px), var(--info));
+      }
+      .pipeline-rail-stage {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+        min-width: 0;
+        padding: 0 6px 6px;
+        text-align: center;
+      }
+      .pipeline-rail-now {
+        position: absolute;
+        top: -24px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 1px 7px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: 600 10px / 14px var(--font-mono);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--fg-2);
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .pipeline-rail-now.running {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .pipeline-rail-now.waiting-on-you,
+      .pipeline-rail-now.paused,
+      .pipeline-rail-now.stopped {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .pipeline-rail-now.failed {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .stage-mark {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--fg-3);
+        pointer-events: none;
+      }
+      .stage-mark.kind-gate {
+        width: 21px;
+        height: 21px;
+        margin: 1.5px 0;
+        border-radius: 5px;
+        transform: rotate(45deg);
+      }
+      .stage-mark.kind-gate svg {
+        transform: rotate(-45deg);
+      }
+      .stage-mark.done {
+        border-color: var(--success);
+        background: var(--success);
+        color: var(--white);
+      }
+      .stage-mark.failed {
+        border-color: var(--danger);
+        background: var(--danger);
+        color: var(--white);
+      }
+      .stage-mark.waiting-on-you {
+        border-color: var(--warning);
+        background: var(--warning);
+        color: var(--gray-950);
+      }
+      .stage-mark.paused,
+      .stage-mark.stopped {
+        border-color: var(--warning);
+        color: var(--warning-fg);
+      }
+      .stage-mark.running {
+        border-color: var(--info);
+        color: var(--info);
+      }
+      .stage-mark.running::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border: 2px solid var(--info);
+        border-radius: inherit;
+        animation: pulse-ring 1.6s ease-out infinite;
+      }
+      .stage-mark.skipped {
+        border-style: dashed;
+      }
+      .stage-mark.not-taken {
+        border-style: dashed;
+        border-color: var(--border-strong);
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+      }
+      @keyframes pulse-ring {
+        from {
+          opacity: 0.7;
+          transform: scale(0.9);
+        }
+        to {
+          opacity: 0;
+          transform: scale(1.35);
+        }
+      }
+      .pipeline-rail-body {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        align-items: center;
+        width: 100%;
+        margin-top: 6px;
+        padding: 6px 6px 7px;
+        border-radius: var(--radius-lg);
+        transition: background 120ms;
+      }
+      .pipeline-rail-stage:hover .pipeline-rail-body {
+        background: var(--surface-hover);
+      }
+      .pipeline-rail-stage:has(.pipeline-rail-button:focus-visible) .pipeline-rail-body {
+        box-shadow: var(--focus-ring);
+      }
+      .pipeline-rail-button {
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: none;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      .pipeline-rail-button::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+      .pipeline-rail-name {
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .pipeline-rail-worker {
+        max-width: 100%;
+        overflow: hidden;
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pipeline-rail-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: 500 11px / 1.4 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .pipeline-rail-stage.running .pipeline-rail-state {
+        color: var(--info-fg);
+      }
+      .pipeline-rail-stage.failed .pipeline-rail-state {
+        color: var(--danger-fg);
+      }
+      .pipeline-rail-stage.waiting-on-you .pipeline-rail-state,
+      .pipeline-rail-stage.paused .pipeline-rail-state,
+      .pipeline-rail-stage.stopped .pipeline-rail-state {
+        color: var(--warning-fg);
+      }
+      .pipeline-rail-stage.done .pipeline-rail-state {
+        color: var(--success-fg);
+      }
+      .pipeline-rail-runs {
+        font: 400 11px / 1.4 var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        color: var(--fg-3);
+      }
+      .live-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--info);
+        box-shadow: 0 0 0 3px var(--info-subtle);
+      }
+      /* The round count: once per Stage, never a repeated column. */
+      .round-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 3px;
+        padding: 1px 7px 1px 5px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: 600 11px / 16px var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        color: var(--fg-1);
+        white-space: nowrap;
+      }
+      .round-chip svg {
+        color: var(--fg-2);
+      }
+      .round-chip.is-last {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .round-chip.is-last svg {
+        color: currentColor;
+      }
+      /* Not reached yet: faint, in Pipeline order. */
+      .pipeline-rail-stage.is-ahead .pipeline-rail-name {
+        color: var(--fg-2);
+      }
+      .pipeline-rail-stage.is-ahead .pipeline-rail-worker,
+      .pipeline-rail-stage.is-ahead .pipeline-rail-runs {
+        color: var(--fg-3);
+      }
+      .pipeline-rail-stage.not-taken .pipeline-rail-name {
+        color: var(--fg-3);
+      }
+      .pipeline-rail-stage.not-taken .pipeline-rail-worker {
+        opacity: 0.75;
+      }
+
+      /* ---------- The window (packages/ui Dialog, extra large) ---------- */
+      .modal-root {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr);
+        justify-items: center;
+        align-items: start;
+        padding: max(24px, 7vh) 0;
+        background: var(--overlay);
+      }
+      .modal-root.is-maximized {
+        padding: 16px;
+      }
+      .dialog {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: min(1600px, 94vw);
+        height: min(86vh, 100%);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        color: var(--fg-1);
+      }
+      .modal-root.is-maximized .dialog {
+        max-width: none;
+        height: 100%;
+      }
+      .dialog.inline {
+        height: 720px;
+        max-width: none;
+        box-shadow: var(--shadow-2);
+      }
+      .stage.narrow .dialog.inline {
+        width: 390px;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+      }
+      .dialog-head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 10px 12px 20px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .dialog-head h2 {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        font: var(--type-card-title);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dialog-sub {
+        display: flex;
+        flex: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 18px;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .dialog-sub .caption {
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 14px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .legend li {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+      .legend .stage-mark {
+        width: 14px;
+        height: 14px;
+        border-width: 1.5px;
+      }
+      .legend .stage-mark.running::after {
+        display: none;
+      }
+      .legend .stage-mark svg {
+        width: 8px;
+        height: 8px;
+      }
+      .legend-line {
+        display: inline-block;
+        width: 26px;
+        height: 0;
+        border-top: 1.5px solid var(--fg-3);
+      }
+      .legend-line.taken {
+        border-top: 2.5px solid var(--fg-1);
+      }
+      .legend-line.not-taken {
+        opacity: 0.35;
+      }
+      .legend-sep {
+        width: 1px;
+        height: 16px;
+        background: var(--border-strong);
+      }
+      .drawing-note {
+        margin-left: auto;
+        color: var(--fg-3);
+      }
+      .dialog-body {
+        display: grid;
+        flex: 1;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        min-height: 0;
+      }
+      .stage.narrow .dialog-body {
+        grid-template-columns: 1fr;
+      }
+      .dialog-bar {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      /* ---------- The canvas (FlowViewport + FlowCanvas, read-only) ---------- */
+      .canvas {
+        position: relative;
+        min-height: 0;
+        overflow: auto;
+        background-color: var(--surface-sunken);
+        background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+        background-size: 20px 20px;
+      }
+      .stage.narrow .canvas {
+        height: 300px;
+      }
+      .canvas-inner {
+        padding: 24px 24px 64px;
+      }
+      .canvas svg {
+        display: block;
+        margin: 0 auto;
+      }
+      .canvas.is-fit svg {
+        width: 100%;
+        height: auto;
+      }
+      .canvas-tools {
+        position: sticky;
+        bottom: 12px;
+        left: 12px;
+        display: inline-flex;
+        gap: 2px;
+        margin: -52px 0 12px 12px;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+      }
+      .canvas-tools .zoom {
+        min-width: 50px;
+        font-variant-numeric: tabular-nums;
+      }
+      .narrow-note {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        padding: 6px 8px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-md);
+        background: var(--info-subtle);
+        font: var(--type-caption);
+        color: var(--info-fg);
+      }
+
+      .fl-card {
+        fill: var(--surface);
+        stroke: var(--border-strong);
+      }
+      .fl-stage {
+        cursor: pointer;
+        outline: none;
+      }
+      .fl-stage:hover .fl-card {
+        stroke: var(--fg-3);
+      }
+      .fl-stage:focus-visible .fl-card,
+      .fl-stage.is-picked .fl-card {
+        stroke: var(--accent);
+        stroke-width: 2;
+      }
+      .fl-stage.is-pending .fl-name {
+        fill: var(--fg-2);
+      }
+      .fl-stage.is-not-taken .fl-card,
+      .fl-stage.is-skipped .fl-card {
+        fill: var(--surface-sunken);
+        stroke-dasharray: 5 4;
+      }
+      .fl-stage.is-not-taken .fl-name,
+      .fl-stage.is-not-taken .fl-row-to {
+        fill: var(--fg-3);
+      }
+      .fl-now {
+        fill: none;
+        stroke-width: 2;
+        pointer-events: none;
+      }
+      .fl-now.running {
+        stroke: var(--info);
+      }
+      .fl-now.waiting-on-you,
+      .fl-now.paused,
+      .fl-now.stopped {
+        stroke: var(--warning);
+      }
+      .fl-now.failed {
+        stroke: var(--danger);
+      }
+      .fl-now.done {
+        stroke: var(--fg-3);
+        stroke-dasharray: 4 3;
+      }
+      .fl-edge {
+        stroke-width: 3;
+        stroke-linecap: round;
+      }
+      .fl-edge.done {
+        stroke: var(--success);
+      }
+      .fl-edge.running {
+        stroke: var(--info);
+      }
+      .fl-edge.waiting-on-you,
+      .fl-edge.paused,
+      .fl-edge.stopped {
+        stroke: var(--warning);
+      }
+      .fl-edge.failed {
+        stroke: var(--danger);
+      }
+      .fl-sep {
+        stroke: var(--border-subtle);
+      }
+      .fl-name {
+        fill: var(--fg-1);
+        font: 600 13px var(--font-sans);
+      }
+      .fl-who {
+        fill: var(--fg-3);
+        font: 400 12px var(--font-sans);
+      }
+      .fl-who .state-done {
+        fill: var(--success-fg);
+        font-weight: 500;
+      }
+      .fl-who .state-running {
+        fill: var(--info-fg);
+        font-weight: 500;
+      }
+      .fl-who .state-waiting-on-you,
+      .fl-who .state-paused,
+      .fl-who .state-stopped {
+        fill: var(--warning-fg);
+        font-weight: 500;
+      }
+      .fl-who .state-failed {
+        fill: var(--danger-fg);
+        font-weight: 500;
+      }
+      .fl-icon {
+        fill: var(--surface);
+        stroke: var(--border-strong);
+        stroke-width: 2;
+      }
+      .fl-glyph {
+        fill: none;
+        stroke: var(--fg-2);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .fl-icon.done {
+        fill: var(--success);
+        stroke: var(--success);
+      }
+      .fl-icon.failed {
+        fill: var(--danger);
+        stroke: var(--danger);
+      }
+      .fl-icon.waiting-on-you {
+        fill: var(--warning);
+        stroke: var(--warning);
+      }
+      .fl-icon.paused,
+      .fl-icon.stopped {
+        stroke: var(--warning);
+      }
+      .fl-icon.running {
+        stroke: var(--info);
+      }
+      .fl-icon.skipped,
+      .fl-icon.not-taken {
+        stroke-dasharray: 3 2.5;
+      }
+      .fl-icon.not-taken {
+        fill: var(--surface-sunken);
+      }
+      .fl-glyph.on-fill {
+        stroke: var(--white);
+        stroke-width: 2.25;
+      }
+      .fl-glyph.on-amber {
+        stroke: var(--gray-950);
+        stroke-width: 2.25;
+      }
+      .fl-glyph.paused,
+      .fl-glyph.stopped {
+        stroke: var(--warning-fg);
+        stroke-width: 2.25;
+      }
+      .fl-glyph.running {
+        stroke: var(--info);
+      }
+      .fl-pulse {
+        fill: none;
+        stroke: var(--info);
+        stroke-width: 2;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: pulse-ring 1.6s ease-out infinite;
+      }
+      .fl-row-to {
+        fill: var(--fg-2);
+        font: 500 12px var(--font-sans);
+      }
+      .fl-row-to.is-taken {
+        fill: var(--fg-1);
+        font-weight: 600;
+      }
+      .fl-row-to.is-not-taken {
+        fill: var(--fg-3);
+      }
+      .fl-row-when {
+        fill: var(--fg-3);
+        font-weight: 400;
+      }
+      .fl-chip {
+        fill: var(--surface);
+        stroke: var(--border-strong);
+      }
+      .fl-chip-text,
+      .fl-mark-text {
+        fill: var(--fg-1);
+        font: 600 10px var(--font-mono);
+      }
+      .fl-round rect {
+        fill: var(--surface);
+        stroke: var(--border-strong);
+      }
+      .fl-round text {
+        fill: var(--fg-1);
+        font: 600 10.5px var(--font-sans);
+      }
+      .fl-round path {
+        fill: none;
+        stroke: var(--fg-2);
+        stroke-width: 1.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .fl-round.is-last rect {
+        fill: var(--warning-subtle);
+        stroke: var(--warning-border);
+      }
+      .fl-round.is-last text {
+        fill: var(--warning-fg);
+      }
+      .fl-line {
+        fill: none;
+        stroke: var(--fg-3);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+      .fl-arrow {
+        fill: var(--fg-3);
+      }
+      .fl-route.is-taken .fl-line {
+        stroke: var(--fg-1);
+        stroke-width: 2.5;
+      }
+      .fl-route.is-taken .fl-arrow {
+        fill: var(--fg-1);
+      }
+      .fl-route.is-not-taken {
+        opacity: 0.32;
+      }
+      .fl-route.is-lit .fl-line {
+        stroke: var(--accent);
+      }
+      .fl-route.is-lit .fl-arrow {
+        fill: var(--accent);
+      }
+      .fl-mark rect {
+        fill: var(--surface);
+        stroke: var(--fg-3);
+      }
+      .fl-mark.is-taken rect {
+        stroke: var(--fg-1);
+        stroke-width: 1.5;
+      }
+      .fl-mark.is-not-taken {
+        opacity: 0.4;
+      }
+      .fl-mark.is-lit rect {
+        stroke: var(--accent);
+      }
+      .fl-start {
+        fill: var(--fg-2);
+      }
+      .fl-start-line {
+        fill: none;
+        stroke: var(--fg-2);
+        stroke-width: 1.5;
+      }
+      .fl-start-line.is-taken {
+        stroke: var(--fg-1);
+        stroke-width: 2.5;
+      }
+      .fl-end {
+        fill: var(--surface);
+        stroke: var(--fg-2);
+        stroke-width: 2;
+      }
+      .fl-end.is-reached {
+        stroke: var(--success);
+        fill: var(--success-subtle);
+      }
+      .fl-end-text {
+        fill: var(--fg-1);
+        font: 600 11px var(--font-sans);
+      }
+
+      /* ---------- The side panel: the picked Stage and the walk ---------- */
+      .side {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: auto;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .stage.narrow .side {
+        border-top: 1px solid var(--border);
+        border-left: 0;
+      }
+      .side-block {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .side-block:last-child {
+        border-bottom: 0;
+      }
+      .side-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .side-title b {
+        flex: 1;
+        font: var(--type-card-title);
+      }
+      .side-facts {
+        display: grid;
+        gap: 2px;
+        margin: 8px 0 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .side-empty {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .walk {
+        display: grid;
+        gap: 2px;
+        margin: 8px -8px 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: walk;
+      }
+      .walk button {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr) auto;
+        gap: 2px 8px;
+        width: 100%;
+        padding: 7px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+        text-align: left;
+        cursor: pointer;
+      }
+      .walk button:hover {
+        background: var(--surface-hover);
+      }
+      .walk button:focus-visible {
+        outline: 0;
+        box-shadow: var(--focus-ring);
+      }
+      .walk button.is-picked {
+        background: var(--surface-selected);
+      }
+      .walk .n {
+        grid-row: span 2;
+        padding-top: 1px;
+        font: var(--type-mono);
+        color: var(--fg-3);
+      }
+      .walk .who {
+        font-weight: 600;
+      }
+      .walk .round {
+        color: var(--fg-3);
+        font-weight: 400;
+      }
+      .walk .went {
+        grid-column: 2 / 4;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .walk .went.back {
+        color: var(--fg-1);
+      }
+      .walk-divider {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0 2px;
+        padding: 0 8px;
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .walk-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .walk-earlier {
+        padding: 4px 8px 0;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .stage-mark.running::after,
+        .fl-pulse {
+          animation: none;
+          opacity: 0.5;
+        }
+      }
+      @media (max-width: 720px) {
+        .doc {
+          padding: 24px 14px 64px;
+        }
+        .stage {
+          padding: 8px;
+        }
+        .dialog-body {
+          grid-template-columns: 1fr;
+        }
+        .side {
+          border-top: 1px solid var(--border);
+          border-left: 0;
+        }
+        table.spec td:first-child {
+          width: 30%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="doc">
+      <header class="doc-head">
+        <div class="overline">Design proposal · Pipelines view · the Task page</div>
+        <h1>Pipeline progress on the Task page</h1>
+        <p class="lead">
+          The Pipeline rail shows the Stages in the order the work reached them, the current one marked, and a Stage the
+          work came back to once, with its round count. <b>Open diagram</b> shows the whole Pipeline read-only, drawn as
+          in the editor, with every Stage’s state and the routes the work took.
+        </p>
+        <div class="chips">
+          <span class="chip review">For review before implementation</span>
+          <span class="chip">Screen page: docs/spec/screens/task-page.md</span>
+          <span class="chip">Builds on: pipeline-route-drawing.html</span>
+          <span class="chip">Web app only: no service, contract or database change</span>
+        </div>
+        <ul class="toc" aria-label="Contents">
+          <li><a href="#short">In short</a></li>
+          <li><a href="#review">For the review</a></li>
+          <li><a href="#try">Try it</a></li>
+          <li><a href="#rail">The rail</a></li>
+          <li><a href="#rounds">Rounds</a></li>
+          <li><a href="#cases">Every case</a></li>
+          <li><a href="#window">The diagram window</a></li>
+          <li><a href="#a11y">Accessibility</a></li>
+          <li><a href="#initiative">The Initiative page</a></li>
+          <li><a href="#spec">Spec changes</a></li>
+          <li><a href="#build">Building it</a></li>
+        </ul>
+      </header>
+
+      <!-- ================= In short ================= -->
+      <section id="short">
+        <h2>In short</h2>
+        <p class="lead">Eight decisions. Each one is worked out further down the page.</p>
+        <div class="decisions">
+          <div class="card decision">
+            <div class="overline">Order</div>
+            <h4>The order the work reached them, then the rest</h4>
+            <p>
+              The Stages appear in the order of their first run in this start. The Stages not reached yet follow, faint,
+              in Pipeline order. A Pipeline with branches reads as what happened, not as the drawing’s order.
+            </p>
+            <a href="#rail">The rail →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Loops</div>
+            <h4>One column per Stage, with its round</h4>
+            <p>
+              A Stage the work came back to stays one column with a chip: <b>Round 3 of ≤4</b>, or <b>Round 3</b> when
+              nothing bounds it. The chip turns amber on the last round the limits allow.
+            </p>
+            <a href="#rounds">Rounds →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Arcs</div>
+            <h4>The arcs over the rail go</h4>
+            <p>
+              In run order a route back no longer spans neat columns, and with branches the arcs would cross. The rounds
+              say how often; the diagram says which way, with each route’s count.
+            </p>
+            <a href="#rail">The rail →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Now</div>
+            <h4>A “Now” tag over the current Stage</h4>
+            <p>
+              Coloured as its state: blue running, amber waiting on you, red failed. The tag is there because in run
+              order the current Stage isn’t always the right-most column.
+            </p>
+            <a href="#rail">The rail →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">The window</div>
+            <h4>Open diagram: Extra large, read-only</h4>
+            <p>
+              Beside <b>Edit for this Task</b>. It opens the flow canvas read-only in this browser’s Route drawing, with a
+              legend, the canvas tools and Maximize. Nothing in it can be dragged, connected or edited.
+            </p>
+            <a href="#window">The diagram window →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Progress on the canvas</div>
+            <h4>States on the cards, taken routes in ink</h4>
+            <p>
+              Each card’s mark and edge carry its state, as on the rail. Routes taken are drawn in heavy ink, with
+              their counts. Routes the work left by another way are dimmed. Routes ahead stay as drawn.
+            </p>
+            <a href="#window">The diagram window →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Pressing a Stage</div>
+            <h4>A side panel, then Stage history</h4>
+            <p>
+              Pressing a card picks it. The side panel shows its rounds and runs, with <b>Open Stage history</b>. Under
+              that is <b>The walk</b>: every run of this start, in order, with the route it left by.
+            </p>
+            <a href="#window">The diagram window →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">The Initiative page</div>
+            <h4>Its track shares the order and the rounds</h4>
+            <p>
+              The Pipelines block’s track keeps its size but takes the same order, Now tag and round chips. Its arcs go
+              too, so the two pages tell one story.
+            </p>
+            <a href="#initiative">The Initiative page →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= For the review ================= -->
+      <section id="review">
+        <h2>For the review</h2>
+        <p class="lead">Five choices that are yours to change, and one rule worth a second look.</p>
+        <div class="callout ask">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.25" />
+            <path d="M8 4.75v4M8 11v.25" stroke-linecap="round" />
+          </svg>
+          <div>
+            <p><b>Yours to change</b></p>
+            <ol class="facts">
+              <li>
+                <b>“Round 3”, not “×3”, when nothing bounds the rounds.</b> The rail already says “3 runs”, and a Stage
+                resumed after a Decision has more runs than rounds. “×3” beside “4 runs” would read as a mistake. The
+                same word in both forms reads as one idea. Switch it with <b>Unbounded words</b> in Try it.
+              </li>
+              <li>
+                <b>Extra large, not Large.</b> The UI rules give Extra large to “something to look at closely”. A six to
+                nine Stage diagram needs the width. Large (1180px) also works, with Fit making the cards about 25%
+                smaller.
+              </li>
+              <li>
+                <b>The arcs over the rail go</b> (see <a href="#rail">The rail</a>). Keeping them in run order would
+                need arcs going both ways and crossing each other.
+              </li>
+              <li>
+                <b>No Route drawing switch in the window.</b> It follows the editor’s choice, as the Task asks. A switch
+                there would change every flow in the browser from a read-only view.
+              </li>
+              <li>
+                <b>The Initiative page’s track shares the new parts</b> (see <a href="#initiative">The Initiative page</a>).
+                The other way is to keep its arcs, and then the two pages count loops differently.
+              </li>
+            </ol>
+            <p style="margin-top: 8px">
+              <b>Worth a second look:</b> the bound in “Round n of ≤N” is 1 + the limits of the routes back that span the
+              Stage in Pipeline order. On a branch that the route back’s span covers but the loop never passes, the
+              bound is loose but never wrong. A Send back, Restart from… or one more round of the Definition of Done
+              check can go past it. The chip then drops the bound (see <a href="#rounds">Rounds</a>).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Try it ================= -->
+      <section id="try">
+        <h2>Try it</h2>
+        <p class="lead">
+          The Task page’s rail for one Pipeline, <b>Ship a change</b>, in eleven situations. Press a Stage to see what
+          opens, and press <b>Open diagram</b> to open the window over this page. The Pipeline has a route back with a
+          limit (Tests → Implement), an Agent’s choice (Review), a Gate on one branch only (Check the screens) and a
+          Publish conflict route (Publish → Resolve).
+        </p>
+        <div class="demo-bar" role="group" aria-label="Demo controls">
+          <span class="field"
+            >Situation
+            <span class="seg" data-set="scenario" id="scenario-seg"></span>
+          </span>
+        </div>
+        <div class="demo-bar" role="group" aria-label="View controls">
+          <span class="field"
+            >Route drawing (as chosen in the editor)
+            <span class="seg" data-set="drawing">
+              <button type="button" data-value="right-angles">Right angles</button>
+              <button type="button" data-value="curves">Curves</button>
+              <button type="button" data-value="straight-lines">Straight lines</button>
+            </span>
+          </span>
+          <span class="field"
+            >Palette
+            <span class="seg" data-set="palette">
+              <button type="button" data-value="light">Light</button>
+              <button type="button" data-value="dark">Dark</button>
+            </span>
+          </span>
+          <span class="field"
+            >Width
+            <span class="seg" data-set="width">
+              <button type="button" data-value="wide">Wide</button>
+              <button type="button" data-value="narrow">390px</button>
+            </span>
+          </span>
+          <span class="field"
+            >Unbounded words
+            <span class="seg" data-set="unbounded">
+              <button type="button" data-value="round">Round 3</button>
+              <button type="button" data-value="times">×3</button>
+            </span>
+          </span>
+        </div>
+        <div class="stage" id="rail-stage">
+          <div class="page">
+            <div class="page-head">
+              <h3>Add a CSV export to the Stats page</h3>
+              <span class="badge" id="task-state-badge">In progress</span>
+            </div>
+            <div id="rail-mock"></div>
+          </div>
+        </div>
+        <div class="demo-note" id="rail-note" aria-live="polite"></div>
+      </section>
+
+      <!-- ================= The rail ================= -->
+      <section id="rail">
+        <h2>The rail</h2>
+        <p class="lead">
+          What stays: the section “Pipeline · &lt;name&gt;”, the caption, each Stage’s mark, name, worker, state words,
+          runs and tokens, the buttons that open Stage history, Edit for this Task, the 150px a Stage at least, and the
+          sideways scroll that keeps the current Stage in view.
+        </p>
+        <h3>Order</h3>
+        <ul class="facts">
+          <li>
+            <b>Reached:</b> each Stage with a run in this start, in the order of its first run (runs of an earlier start
+            left out).
+          </li>
+          <li>
+            <b>Jumped over:</b> the Stages a Restart from… jumped over (Skipped) come right after the Stage whose held
+            run it ended, in Pipeline order. That is where the walk passed them.
+          </li>
+          <li>
+            <b>Not reached yet:</b> the rest, in Pipeline order: Pending ones faint, Not taken ones fainter, with a
+            dashed mark (as today).
+          </li>
+          <li>Before the Task has any run, the rail is the Pipeline order, as today.</li>
+        </ul>
+        <h3>The line and the current Stage</h3>
+        <ul class="facts">
+          <li>The line is solid green under the reached Stages and goes on dashed under the ones not reached yet.</li>
+          <li>
+            The current Stage is the Stage of the latest run of this start. It gets a <b>Now</b> tag over its mark,
+            coloured as its state, and <code>aria-current="step"</code>. Once the Task is Done or Dropped no Stage is
+            current.
+          </li>
+          <li>
+            With branches the current Stage may sit left of later columns (Publish runs again after Resolve). The tag
+            and the round chip keep that plain without an arc.
+          </li>
+          <li>The live end of the line (green into blue) shows only when the current Stage is running and is the last column reached.</li>
+        </ul>
+        <h3>Arcs give way to rounds</h3>
+        <ul class="facts">
+          <li>
+            The square arcs over the rail and their “2 of at most 3” marks are removed, along with
+            <code>loopBackPath</code>, <code>loopBackEnds</code> and the <code>.pipeline-rail-arc*</code> styles.
+          </li>
+          <li>
+            Where the work went back is still said: the state words keep “· went back to &lt;Stage&gt;”. Stage history
+            says “Went back to Implement (2 of at most 3)”. The diagram draws the route with its count.
+          </li>
+          <li>
+            Pressing a Stage opens its Stage history, as before. The round chip sits inside the Stage’s button, so it is
+            no control of its own.
+          </li>
+        </ul>
+        <h3>Stage history follows the rail’s order</h3>
+        <ul class="facts">
+          <li>The Pipeline in small at the top of Stage history lists the Stages in the rail’s order, so ← and → move as the rail reads.</li>
+          <li>Nothing else in Stage history changes.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Rounds ================= -->
+      <section id="rounds">
+        <h2>Rounds</h2>
+        <p class="lead">
+          A <b>round</b> of a Stage is one arrival of the walk at it. A run resumed after a Decision, a Pause or a used-up
+          window is the same round. Only a Stage with two rounds or more shows a chip.
+        </p>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead>
+              <tr>
+                <th>Rule</th>
+                <th>What it says</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>A new round</td>
+                <td>
+                  A run starts a new round when the run before it in this start is another Stage’s, or was left by a
+                  route to its own Stage. A run after a Gate’s Send back, a Restart from… or a failed Script Stage’s
+                  send-back is another Stage’s run, so it counts.
+                </td>
+              </tr>
+              <tr>
+                <td>The bound N</td>
+                <td>
+                  1 + the limits of the routes back that span the Stage. A route back spans the Stages from its target to
+                  the Stage it leaves, in Pipeline order. Each limit is the latest <code>route.limit</code> a run
+                  carries, which includes the times an answer allowed past it, else the Pipeline’s limit.
+                </td>
+              </tr>
+              <tr>
+                <td>“Round n of ≤N”</td>
+                <td>When every spanning route back has a limit and n ≤ N. At n = N the chip turns amber: the next time back will ask.</td>
+              </tr>
+              <tr>
+                <td>“Round n”</td>
+                <td>
+                  When a spanning route has No limit, when no route back spans the Stage (the work came back by Send
+                  back or Restart from…), or when n is past N.
+                </td>
+              </tr>
+              <tr>
+                <td>Words for a screen reader</td>
+                <td>“Round 3 of at most 4”, “Round 3”; never the ≤ sign.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="figure-caption">
+          In <b>Back from Tests twice</b>, Tests → Implement has a limit of 3, so Implement and Tests can each have four
+          rounds: “Round 3 of ≤4”. In <b>Restart from… Implement</b> the limit was used up and the user restarted. Implement
+          is in round 5, past the bound, so its chip reads “Round 5”.
+        </p>
+      </section>
+
+      <!-- ================= Every case ================= -->
+      <section id="cases">
+        <h2>Every case</h2>
+        <p class="lead">Each one is a situation in <a href="#try">Try it</a>.</p>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead>
+              <tr>
+                <th>Case</th>
+                <th>The rail</th>
+                <th>The diagram</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Branch not taken</td>
+                <td>Not taken Stages at the end, in Pipeline order, dashed and faint, “Not taken · Not run”.</td>
+                <td>The card dashed on a sunken fill. Its routes, and the routes into it from Stages that ran, are dimmed.</td>
+              </tr>
+              <tr>
+                <td>Restart from… an earlier Stage</td>
+                <td>The Stage gets another round, unbounded by its routes: “Round 5”. The Stage whose run was held keeps its state words.</td>
+                <td>No line is drawn for the restart (it is no route). The walk says “Restarted from Implement by &lt;user&gt;”.</td>
+              </tr>
+              <tr>
+                <td>Restart from… a later Stage</td>
+                <td>The Skipped Stages come right after the Stage whose held run it ended, “Skipped · Not needed”.</td>
+                <td>Skipped cards are dashed with a minus. The routes around them are dimmed.</td>
+              </tr>
+              <tr>
+                <td>Start over</td>
+                <td>
+                  Runs of an earlier start are left out of the order, the rounds and the counts. A line at the rail’s foot
+                  says “Started over by &lt;user&gt; on &lt;date&gt;. The earlier start’s runs stay in each Stage’s
+                  history.”
+                </td>
+                <td>Only this start’s routes are taken. The walk ends with “Earlier start · &lt;n&gt; runs, in each Stage’s history”.</td>
+              </tr>
+              <tr>
+                <td>A Publishing Task that waits</td>
+                <td>As today, “Waits for “&lt;blocker&gt;” before its next Stage.” at the rail’s foot. Now stays on the Stage that ran last.</td>
+                <td>The same line under the window’s caption.</td>
+              </tr>
+              <tr>
+                <td>Before the Task’s own copy</td>
+                <td>The library Pipeline’s Stages, all Pending, in Pipeline order (as today).</td>
+                <td>Drawn from the library Pipeline’s Stages and End position, every card Pending, every route as drawn.</td>
+              </tr>
+              <tr>
+                <td>No Pipeline chosen</td>
+                <td>The dashed “Pipeline · Not chosen yet” rail, as today. No Open diagram.</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>Pipeline removed, before its own copy</td>
+                <td>“Its Pipeline was removed from the library.”, as today. No Open diagram, as there is nothing to draw.</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>Pipeline removed, with its own copy</td>
+                <td>The Task’s own Stages, “Pipeline · removed from the library”.</td>
+                <td>Drawn from the Task’s own Stages, which carry their positions.</td>
+              </tr>
+              <tr>
+                <td>Done or Dropped</td>
+                <td>No Now tag. The line is solid under every Stage reached.</td>
+                <td>End is ringed green when a route to it was taken.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= The diagram window ================= -->
+      <section id="window">
+        <h2>The diagram window</h2>
+        <p class="lead">
+          The same window as Open diagram opens, here on the page so it can be read beside its rules. Press a card or a
+          step of the walk to pick a Stage. The situation, Route drawing, palette and width above apply here too.
+        </p>
+        <div class="stage" id="window-stage">
+          <div id="window-inline"></div>
+        </div>
+        <div class="two">
+          <div>
+            <h3>The window</h3>
+            <ul class="facts">
+              <li>
+                <code>Dialog</code>, <b>Extra large</b>, one height (86%), with <b>Maximize</b> left of the X, as a
+                preview has. Maximize isn’t remembered.
+              </li>
+              <li>Title: “Pipeline diagram: &lt;Pipeline&gt;”, with “· edited for this Task” when it is.</li>
+              <li>
+                Under the head: the rail’s caption words, the publishing wait or Start over line when there is one, then
+                the legend.
+              </li>
+              <li>The bar at the foot: <b>Close</b> on the right, and nothing else.</li>
+              <li>Closing it returns focus to Open diagram.</li>
+            </ul>
+            <h3>The canvas</h3>
+            <ul class="facts">
+              <li>
+                <code>FlowViewport</code> and <code>FlowCanvas</code> with <code>readOnly</code>, drawn with
+                <code>useRouteDrawing()</code>’s choice. It follows a change made in the editor at once, in any tab.
+              </li>
+              <li>It opens fitted. The canvas tools are as in the editor (−, the % menu, +, Fit, Overview), without Full screen, as Maximize does that.</li>
+              <li>No + on cards, no ports, no dragging, no keyboard edits, no route picking. Route rows are words, not buttons.</li>
+              <li>Under 560px the Stages stand in bands, top to bottom, as the editor draws them, and the side panel goes under the canvas.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Progress on the canvas</h3>
+            <ul class="facts">
+              <li>
+                <b>Stage:</b> the mark in the card’s icon spot takes the rail’s Stage mark (kind by shape, state by
+                colour and icon), the left edge the state’s colour, and the second line starts with the state words.
+              </li>
+              <li>The current Stage is ringed in its state’s colour. A Stage with rounds has its round chip over its top edge.</li>
+              <li>
+                <b>Taken</b> (heavy ink, 2.5px): a route the walk followed in this start, with its count when over 1 or
+                when it has a limit: “3×”, “2 of ≤3”. Its route row reads bold.
+              </li>
+              <li>
+                <b>Not taken</b> (dimmed to a third): a route out of a Stage that ran and isn’t current, which the walk
+                didn’t follow, and any route into or out of a Not taken or Skipped Stage.
+              </li>
+              <li><b>Ahead</b> (as the editor draws it): every other route, such as those out of Stages that haven’t run.</li>
+              <li>Hovering or picking a Stage lights its routes in the accent colour.</li>
+            </ul>
+            <h3>Pressing a Stage</h3>
+            <ul class="facts">
+              <li>
+                Picks it: the side panel shows its mark, name, worker, state, rounds, runs and tokens, and each of its runs
+                in this start with the route it left by.
+              </li>
+              <li>
+                <b>Open Stage history</b> closes this window and opens Stage history on that Stage. Closing that returns
+                focus to the Stage on the rail. One window at a time.
+              </li>
+              <li>
+                <b>The walk</b>, under it, lists every run of this start in order: “3 Implement · Round 2”, its outcome,
+                and “Went on to Tests”, “Went back to Implement (1 of at most 3)”, “Went to End”, “Restarted from
+                Implement by &lt;user&gt;”. Pressing a step picks its Stage.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Accessibility ================= -->
+      <section id="a11y">
+        <h2>Accessibility</h2>
+        <div class="two">
+          <div>
+            <h3>The rail</h3>
+            <ul class="facts">
+              <li>The Stages stay one <code>&lt;ol aria-label="Stages"&gt;</code>, in the rail’s order, so a screen reader hears them as they ran.</li>
+              <li>
+                Each Stage’s button is named by the Stage. Its <code>aria-describedby</code> points to the column’s words:
+                state, round (“Round 3 of at most 4”) and runs.
+              </li>
+              <li>The Now tag is <code>aria-hidden</code>: <code>aria-current="step"</code> says it.</li>
+              <li>Open diagram is a ghost button with an icon and its words, <code>aria-haspopup="dialog"</code>, before Edit for this Task in the tab order.</li>
+              <li>No state is told by colour alone: each has its icon and its words.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>The window</h3>
+            <ul class="facts">
+              <li>Tab order: Maximize, X, the canvas (arrow keys pan, + and − zoom, F fits), the Stage cards in the rail’s order, the canvas tools, the side panel, Close.</li>
+              <li>
+                Each card is a button named “Tests, Script Stage: Done, round 3 of at most 4, 3 runs”. The drawing is
+                <code>role="group"</code>, named “Ship a change, drawn with Right angles”.
+              </li>
+              <li>Routes take no focus. The walk says, in words, every route the work took, in order.</li>
+              <li>The legend is a list, visible above the canvas, naming each state with its mark and each kind of line.</li>
+              <li>With reduced motion the running pulse stands still.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= The Initiative page ================= -->
+      <section id="initiative">
+        <h2>The Initiative page</h2>
+        <ul class="facts">
+          <li>
+            The Pipelines block’s track keeps its size (96px a Stage, stacked a Stage a row below that). It takes the
+            same order, Now tag and round chips from the same progress model.
+          </li>
+          <li>
+            Its arcs go, as on the Task page. Stacked, a Stage’s row says its round: “Implement · Round 3 of at most 4”.
+          </li>
+          <li>It has no Open diagram: its Stages open the Publishing Task’s Stage history there, as today.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Spec changes ================= -->
+      <section id="spec">
+        <h2>Spec changes</h2>
+        <p class="lead">In the pages’ fixed form, one fact per bullet. These replace or add to what is there.</p>
+        <h3>docs/spec/screens/task-page.md · Pipeline rail (replaces the Stage-order, arcs and scroll bullets)</h3>
+        <pre><code>- **Open diagram** (ghost button, before Edit for this Task): whenever the rail has Stages; opens the Pipeline diagram.
+- The Stages stand in the order the walk first reached them in this start, then the Stages a Restart from… jumped over right after the Stage it left, then the Stages not reached yet, faint, in Pipeline order; before any run, in Pipeline order.
+- The line is solid under the reached Stages and dashed under the rest.
+- The current Stage, the one of the latest run while the Task isn't Done or Dropped, has a "Now" tag over its mark in its state's colour.
+- A Stage with two rounds or more shows once, with "Round &lt;n&gt; of ≤&lt;N&gt;" (amber at the last), or "Round &lt;n&gt;" when nothing bounds it ([Rounds](#rounds)).
+- When the Stages don't fit (150px a Stage at least) the rail scrolls sideways and keeps the current Stage in view.
+- After a Start over: "Started over by &lt;user&gt; on &lt;date&gt;. The earlier start's runs stay in each Stage's history."</code></pre>
+        <h3>docs/spec/screens/task-page.md · new “Rounds” and “Pipeline diagram” sections</h3>
+        <pre><code>## Rounds
+
+- A round is one arrival of the walk at a Stage; a run resumed after a Decision, a Pause or a used-up window is the same round.
+- N is 1 + the limits of the routes back spanning the Stage in Pipeline order, each its latest limit with the times allowed past it.
+- "Round &lt;n&gt; of ≤&lt;N&gt;" when every spanning route back has a limit and n ≤ N; else "Round &lt;n&gt;".
+- Rules: [2.3.2](../2.3.2-flows.md#a-routes-limit).
+
+## Pipeline diagram
+
+- An extra-large window of one height, "Pipeline diagram: &lt;Pipeline&gt;", opened by Open diagram, with Maximize.
+- Under the head: the rail's caption, the wait or Start over line, and a legend of the Stage states and the lines.
+- The Pipeline's flow, read-only, drawn in this browser's Route drawing ([pipeline-flow-editor.md](pipeline-flow-editor.md#route-drawing)), with the editor's canvas tools, without Full screen.
+- Before the Task has its own copy, the library Pipeline's Stages and End position, all Pending.
+- Each Stage shows its state by its mark, its edge and its words; the current one is ringed; a Stage with rounds shows its round.
+- A route the walk followed in this start is drawn heavy with its count ("3×", "2 of ≤3"); one out of a Stage that ran and isn't current that it didn't follow, or touching a Not taken or Skipped Stage, is dimmed.
+- Pressing a Stage shows it in the side panel: its rounds and runs, and Open Stage history, which closes the window and opens the Stage history.
+- The walk: every run of this start in order, with the route it left by; a step picks its Stage.
+- Closing returns focus to Open diagram.</code></pre>
+        <h3>docs/spec/screens/task-page.md · Stage history</h3>
+        <pre><code>- Under the title: the Pipeline in small, in the rail's order, to move between Stages, then …
+- ← and → move to the previous or next Stage in the rail's order, …</code></pre>
+        <h3>docs/spec/screens/pipeline-flow-editor.md · Route drawing</h3>
+        <pre><code>- The Task page's Pipeline diagram draws with the same choice ([task-page.md](task-page.md#pipeline-diagram)).</code></pre>
+        <h3>docs/spec/screens/initiative-page.md · Pipelines block</h3>
+        <pre><code>- A track of the Pipeline's Stages in the Task page rail's order, with its Now tag and rounds (stacked: "&lt;Stage&gt; · Round &lt;n&gt; of at most &lt;N&gt;"): across, or stacked a Stage a row when each Stage can't get 96px of the track's width.</code></pre>
+        <h3>docs/spec/README.md · topic map, and GLOSSARY.md</h3>
+        <pre><code>| Pipeline diagram | [Task page › Pipeline diagram](screens/task-page.md#pipeline-diagram) |
+
+**Round** (of a Stage):
+One arrival of a Task's walk at a Stage, counted on the Pipeline rail; a run resumed after a Decision or a Pause is the same round.
+_Avoid_: Loop, iteration, attempt</code></pre>
+      </section>
+
+      <!-- ================= Building it ================= -->
+      <section id="build">
+        <h2>Building it</h2>
+        <h3>1 · The progress model, <code>surfaces/work/pipeline-progress.ts</code></h3>
+        <p>
+          A pure function, the one this page’s script runs (<code>progressOf</code> below is its sketch). The rail, the
+          window, the Pipeline in small and the Initiative track all read it.
+        </p>
+        <pre><code>export interface PipelineProgress {
+  /** The rail's order: reached, then jumped over after the Stage it left, then the rest in Pipeline order. */
+  readonly stages: readonly ProgressStage[];
+  /** The Stage of the latest run of this start; null before any run, and once Done or Dropped. */
+  readonly currentKey: string | null;
+  /** The routes the walk followed in this start, by the Stage they leave; `to` null for End. */
+  readonly taken: ReadonlyMap&lt;string, readonly TakenRoute[]&gt;;
+  /** Every run of this start, in order, for the walk. */
+  readonly walk: readonly WalkStep[];
+  /** Whether any run of this start ran: before, every route is drawn as ahead. */
+  readonly started: boolean;
+}
+export interface ProgressStage {
+  readonly taskStage: TaskStage;
+  readonly reached: boolean;
+  readonly rounds: number;
+  /** N of "Round n of ≤N"; null when nothing bounds the rounds or n is past it. */
+  readonly roundBound: number | null;
+}
+export interface TakenRoute { readonly to: string | null; readonly times: number; readonly limit: number | null }</code></pre>
+        <ul class="facts">
+          <li>
+            Runs are read oldest first by <code>number</code>, <code>earlierStart</code> ones skipped. A route counts as
+            taken when its run’s <code>route.to</code> is the next run’s Stage, or End. <code>times</code> is the
+            latest run’s <code>route.times</code>.
+          </li>
+          <li><code>isRouteBack</code> decides which routes span a Stage. <code>loopBacks()</code> and its path helpers are removed.</li>
+          <li><code>currentStageIndex</code> gives way to <code>currentKey</code>. <code>railCaption</code> keeps its words.</li>
+          <li>Unit tests: straight walk, a loop to its limit, a resumed run, a branch (Publish → Resolve → Publish), Restart from… back and on, Start over, Done with branches Not taken, and no runs.</li>
+        </ul>
+        <h3>2 · The canvas, <code>shell/pipelines/flow</code></h3>
+        <ul class="facts">
+          <li>
+            <code>FlowStageMarkTone</code> becomes <code>"locked" | StageState</code>. A progress mark draws the rail’s
+            <code>StageMark</code> in the icon spot, the left edge, the state words and, for the current Stage, the ring.
+            A round label is optional on <code>FlowStageMark</code>.
+          </li>
+          <li>
+            <code>FlowOverlay</code> gains <code>progress?: { taken, started, quiet: ReadonlySet&lt;string&gt; }</code>.
+            <code>flowLines()</code> reads it into <code>FlowLineLook</code> <code>"taken"</code> (with
+            <code>count</code>) and <code>"not-taken"</code>. A route is matched by its from-Stage and <code>to</code>.
+            Two routes from one Stage to the same Stage are both taken (the known limit).
+          </li>
+          <li>
+            <code>flow-canvas.css</code>: <code>.flow-canvas-route-line--taken</code> (<code>--flow-line: var(--fg-1)</code>,
+            2.5px), <code>--not-taken</code> (opacity 0.32). The count rides the limit mark: “2 of ≤3”, or “3×”.
+          </li>
+          <li>Tests beside <code>flow-layout.test.ts</code>: looks from an overlay, counts, End, the same-target pair, and no overlay leaving every look plain.</li>
+        </ul>
+        <h3>3 · The rail and the window</h3>
+        <ul class="facts">
+          <li><code>pipeline-rail.tsx</code>: columns from <code>progress.stages</code>, the Now tag, the round chip, the dashed line past the reached ones, <code>railScrollLeft</code> on the current Stage’s place in that order.</li>
+          <li>
+            <code>pipeline-diagram-window.tsx</code>: <code>Dialog size="extra-large"</code> that keeps one height and
+            has Maximize. <code>FlowViewport</code> + <code>FlowCanvas readOnly</code>, the legend, the side panel. Its
+            open state is held in <code>task-page.tsx</code>.
+          </li>
+          <li><code>pipeline-in-small.tsx</code> and the Stage history’s ← → take the rail’s order.</li>
+          <li>The Initiative track (Pipelines block) takes the order, the Now tag and the chips.</li>
+          <li>e2e: the rail’s columns and rounds in <code>work.e2e.ts</code> (and the rail selectors in <code>people.e2e.ts</code>), plus one test that opens the diagram, checks the Stage states and a taken route back’s “1 of ≤3”.</li>
+        </ul>
+      </section>
+    </main>
+
+    <div id="modal-host"></div>
+
+    <script>
+      (() => {
+        "use strict";
+
+        /* ---------- The Pipeline: Ship a change ---------- */
+        const STAGES = [
+          { key: "implement", name: "Implement", kind: "agent", who: "Developer", rows: [] },
+          {
+            key: "tests",
+            name: "Tests",
+            kind: "script",
+            who: "npm test",
+            rows: [
+              { line: "L2", when: "when it passes" },
+              { line: "L3", when: "when it fails" },
+            ],
+          },
+          {
+            key: "review",
+            name: "Review",
+            kind: "agent",
+            who: "Reviewer",
+            rows: [
+              { line: "L4", when: "the change touches what the user sees" },
+              { line: "L5", when: "Otherwise" },
+            ],
+          },
+          { key: "ui-check", name: "Check the screens", kind: "gate", who: "waits for you", rows: [] },
+          { key: "resolve", name: "Resolve", kind: "agent", who: "Developer", rows: [] },
+          {
+            key: "publish",
+            name: "Publish",
+            kind: "publish",
+            who: "publishes by pull request",
+            rows: [
+              { line: "L7", when: "when it publishes" },
+              { line: "L8", when: "on Conflict" },
+            ],
+          },
+        ];
+        const KIND_WORDS = { agent: "Agent Stage", script: "Script Stage", gate: "Gate", publish: "Publish Stage" };
+        const RAIL_WORKER = {
+          implement: "Developer",
+          tests: "npm test",
+          review: "Reviewer",
+          "ui-check": "You",
+          resolve: "Developer",
+          publish: "The Office",
+        };
+        const LINES = [
+          { id: "L1", from: "implement", to: "tests", limit: null },
+          { id: "L2", from: "tests", to: "review", limit: null },
+          { id: "L3", from: "tests", to: "implement", limit: 3 },
+          { id: "L4", from: "review", to: "ui-check", limit: null },
+          { id: "L5", from: "review", to: "publish", limit: null },
+          { id: "L6", from: "ui-check", to: "publish", limit: null },
+          { id: "L7", from: "publish", to: null, limit: null },
+          { id: "L8", from: "publish", to: "resolve", limit: 3 },
+          { id: "L9", from: "resolve", to: "publish", limit: null },
+        ];
+
+        /* ---------- Where the editor puts them (across), and the Right angles points ---------- */
+        const CARD_WIDTH = 196;
+        const BOXES = {
+          implement: { x: 40, y: 170 },
+          tests: { x: 290, y: 170 },
+          review: { x: 540, y: 170 },
+          "ui-check": { x: 790, y: 30 },
+          resolve: { x: 1040, y: 350 },
+          publish: { x: 1040, y: 170 },
+        };
+        const END = { x: 1300, y: 212, w: 44, h: 44, round: true };
+        const START = { dot: [14, 200], tip: [40, 200] };
+        const FRAME = { w: 1364, h: 440 };
+        /* `o`: the Right angles points; `m`: its mark; `via`: what Curves goes through; `shift`: Straight lines' pair offset. */
+        const GEOMETRY = {
+          L1: { o: [[236, 200], [290, 200]], shift: 8 },
+          L2: { o: [[486, 234], [513, 234], [513, 200], [540, 200]] },
+          L3: { o: [[486, 258], [506, 258], [506, 300], [138, 300], [138, 230]], m: [263, 300], via: [[500, 296], [322, 306]], shift: 8 },
+          L4: { o: [[736, 234], [763, 234], [763, 60], [790, 60]] },
+          L5: { o: [[736, 258], [1013, 258], [1013, 200], [1040, 200]], m: [880, 258] },
+          L6: { o: [[986, 60], [1138, 60], [1138, 170]] },
+          L7: { o: [[1236, 234], [1300, 234]] },
+          L8: { o: [[1236, 258], [1262, 258], [1262, 380], [1236, 380]], m: [1262, 322], shift: 8 },
+          L9: { o: [[1138, 350], [1138, 278]], shift: 8 },
+        };
+        const ARROW_TRIM = 5;
+
+        /* ---------- The situations: the service's Stage states, and the runs oldest first ---------- */
+        const ME = "Przemysław Telążka";
+        const SCENARIOS = [
+          {
+            key: "loops",
+            name: "Back from Tests twice",
+            task: "in-progress",
+            states: { implement: "done", tests: "done", review: "done", "ui-check": "waiting-on-you", resolve: "pending", publish: "pending" },
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 14, tok: 96 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "done", line: "L1", min: 9, tok: 71 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "done", line: "L1", min: 6, tok: 52 },
+              { stage: "tests", out: "done", line: "L2", min: 4 },
+              { stage: "review", out: "done", line: "L4", min: 7, tok: 64 },
+              { stage: "ui-check", out: "waiting-on-you", line: null, min: 0 },
+            ],
+          },
+          {
+            key: "branch",
+            name: "Publish hit a conflict",
+            task: "in-progress",
+            states: { implement: "done", tests: "done", review: "done", "ui-check": "not-taken", resolve: "done", publish: "running" },
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 12, tok: 88 },
+              { stage: "tests", out: "done", line: "L2", min: 4 },
+              { stage: "review", out: "done", line: "L5", min: 6, tok: 58 },
+              { stage: "publish", out: "failed", line: "L8", min: 1, note: "Conflict with main in 3 files" },
+              { stage: "resolve", out: "done", line: "L9", min: 8, tok: 61 },
+              { stage: "publish", out: "running", line: null, min: 1 },
+            ],
+          },
+          {
+            key: "restart-back",
+            name: "Restart from… Implement",
+            task: "in-progress",
+            states: { implement: "running", tests: "failed", review: "pending", "ui-check": "pending", resolve: "pending", publish: "pending" },
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 13, tok: 90 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "done", line: "L1", min: 8, tok: 66 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "done", line: "L1", min: 7, tok: 58 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "done", line: "L1", min: 9, tok: 61 },
+              { stage: "tests", out: "failed", line: null, min: 3, restart: "implement" },
+              { stage: "implement", out: "running", line: null, min: 4, tok: 22 },
+            ],
+          },
+          {
+            key: "restart-on",
+            name: "Restart from… Publish",
+            task: "in-progress",
+            states: { implement: "done", tests: "done", review: "stopped", "ui-check": "skipped", resolve: "skipped", publish: "running" },
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 11, tok: 84 },
+              { stage: "tests", out: "done", line: "L2", min: 4 },
+              { stage: "review", out: "stopped", line: null, min: 5, tok: 40, restart: "publish" },
+              { stage: "publish", out: "running", line: null, min: 1 },
+            ],
+          },
+          {
+            key: "no-limit",
+            name: "A route back with No limit",
+            task: "in-progress",
+            limits: { L3: null },
+            states: { implement: "running", tests: "failed", review: "pending", "ui-check": "pending", resolve: "pending", publish: "pending" },
+            wentBack: { tests: "implement" },
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 12, tok: 80 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "done", line: "L1", min: 6, tok: 49 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "running", line: null, min: 2, tok: 14 },
+            ],
+          },
+          {
+            key: "start-over",
+            name: "Started over",
+            task: "in-progress",
+            states: { implement: "running", tests: "pending", review: "pending", "ui-check": "pending", resolve: "pending", publish: "pending" },
+            startedOver: "24 Nov",
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 15, tok: 101, earlier: true },
+              { stage: "tests", out: "failed", line: "L3", min: 3, earlier: true },
+              { stage: "implement", out: "done", line: "L1", min: 8, tok: 70, earlier: true },
+              { stage: "tests", out: "stopped", line: null, min: 2, earlier: true },
+              { stage: "implement", out: "running", line: null, min: 3, tok: 18 },
+            ],
+          },
+          {
+            key: "wait",
+            name: "A Publishing Task waits",
+            task: "in-progress",
+            states: { implement: "done", tests: "done", review: "done", "ui-check": "pending", resolve: "pending", publish: "pending" },
+            wait: "Add the export button",
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 10, tok: 77 },
+              { stage: "tests", out: "done", line: "L2", min: 4 },
+              { stage: "review", out: "done", line: null, min: 6, tok: 52 },
+            ],
+          },
+          {
+            key: "done",
+            name: "Done",
+            task: "done",
+            states: { implement: "done", tests: "done", review: "done", "ui-check": "not-taken", resolve: "not-taken", publish: "done" },
+            runs: [
+              { stage: "implement", out: "done", line: "L1", min: 12, tok: 86 },
+              { stage: "tests", out: "failed", line: "L3", min: 3 },
+              { stage: "implement", out: "done", line: "L1", min: 7, tok: 55 },
+              { stage: "tests", out: "done", line: "L2", min: 4 },
+              { stage: "review", out: "done", line: "L5", min: 6, tok: 49 },
+              { stage: "publish", out: "done", line: "L7", min: 1, note: "Published: pull request #212 opened" },
+            ],
+          },
+          {
+            key: "not-started",
+            name: "Before its own copy",
+            task: "ready",
+            states: { implement: "pending", tests: "pending", review: "pending", "ui-check": "pending", resolve: "pending", publish: "pending" },
+            runs: [],
+          },
+          { key: "not-chosen", name: "No Pipeline chosen", task: "backlog", special: "not-chosen" },
+          { key: "removed", name: "Pipeline removed", task: "ready", special: "removed" },
+        ];
+
+        const STATE_WORDS = {
+          pending: "Pending",
+          running: "Running",
+          "waiting-on-you": "Waiting on you",
+          paused: "Paused",
+          stopped: "Stopped",
+          done: "Done",
+          skipped: "Skipped",
+          failed: "Failed",
+          "not-taken": "Not taken",
+        };
+        const TASK_WORDS = { "in-progress": "In progress", done: "Done", ready: "Ready", backlog: "Backlog" };
+        const HOLDING = ["running", "waiting-on-you", "failed", "paused", "stopped"];
+
+        const state = {
+          scenario: "loops",
+          drawing: "right-angles",
+          palette: "light",
+          width: "wide",
+          unbounded: "round",
+          picked: null,
+          hovered: null,
+          open: false,
+          maximized: false,
+          zoom: null,
+        };
+
+        /* ---------- Small helpers ---------- */
+        const esc = (text) => String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+        const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+        const mul = (a, k) => [a[0] * k, a[1] * k];
+        const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+        const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+        const unit = (a) => {
+          const length = Math.hypot(a[0], a[1]) || 1;
+          return [a[0] / length, a[1] / length];
+        };
+        const num = (value) => Math.round(value * 10) / 10;
+        const pt = (p) => `${num(p[0])} ${num(p[1])}`;
+        const stageOf = (key) => STAGES.find((stage) => stage.key === key);
+        const nameOf = (key) => (key === null ? "End" : stageOf(key).name);
+        const indexOf = (key) => STAGES.findIndex((stage) => stage.key === key);
+        const lineById = (id) => LINES.find((line) => line.id === id);
+        const scenarioOf = () => SCENARIOS.find((scenario) => scenario.key === state.scenario);
+        const limitOf = (scenario, line) =>
+          scenario.limits && Object.prototype.hasOwnProperty.call(scenario.limits, line.id) ? scenario.limits[line.id] : line.limit;
+        const isBack = (line) => line.to !== null && indexOf(line.to) <= indexOf(line.from);
+        const timesWords = (count) => (count === 1 ? "1 time" : `${count} times`);
+        const durationWords = (minutes) => (minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`);
+
+        /* ---------- The progress model: a sketch of pipeline-progress.ts ---------- */
+        function progressOf(scenario) {
+          const runs = scenario.runs.filter((run) => !run.earlier);
+          const reached = [];
+          const rounds = {};
+          const runsOf = {};
+          const taken = {};
+          const walk = [];
+          STAGES.forEach((stage) => {
+            rounds[stage.key] = 0;
+            runsOf[stage.key] = [];
+          });
+          runs.forEach((run, place) => {
+            const before = runs[place - 1];
+            const selfLoop = before && before.line && lineById(before.line).to === run.stage;
+            if (!before || before.stage !== run.stage || selfLoop) rounds[run.stage] += 1;
+            if (!reached.includes(run.stage)) reached.push(run.stage);
+            const step = { number: place + 1, run, round: rounds[run.stage], went: null };
+            runsOf[run.stage].push(step);
+            walk.push(step);
+            if (run.restart) {
+              const from = indexOf(run.stage);
+              const to = indexOf(run.restart);
+              STAGES.slice(from + 1, Math.max(from + 1, to)).forEach((stage) => {
+                if (scenario.states[stage.key] === "skipped" && !reached.includes(stage.key)) reached.push(stage.key);
+              });
+              step.went = { kind: "restart", to: run.restart };
+            }
+            const next = runs[place + 1];
+            if (run.line) {
+              const line = lineById(run.line);
+              if (line.to === null || (next && next.stage === line.to)) {
+                const times = (taken[line.id] ? taken[line.id].times : 0) + 1;
+                taken[line.id] = { times, limit: limitOf(scenario, line) };
+                step.went = { kind: line.to === null ? "end" : isBack(line) ? "back" : "on", to: line.to, times, limit: limitOf(scenario, line) };
+              }
+            }
+          });
+          const finished = scenario.task === "done" || scenario.task === "dropped";
+          const currentKey = runs.length > 0 && !finished ? runs[runs.length - 1].stage : null;
+          const ahead = STAGES.map((stage) => stage.key).filter((key) => !reached.includes(key));
+          const order = reached.concat(ahead).map((key) => {
+            const count = rounds[key];
+            return {
+              key,
+              stage: stageOf(key),
+              state: scenario.states[key],
+              reached: reached.includes(key),
+              rounds: count,
+              bound: roundBound(scenario, key, count),
+              steps: runsOf[key],
+            };
+          });
+          return { order, currentKey, taken, walk, started: runs.length > 0, earlier: scenario.runs.length - runs.length };
+        }
+
+        /** N of "Round n of ≤N": 1 + the limits of the routes back spanning the Stage; null when unbounded or passed. */
+        function roundBound(scenario, key, count) {
+          const at = indexOf(key);
+          const spanning = LINES.filter((line) => isBack(line) && indexOf(line.to) <= at && at <= indexOf(line.from));
+          if (spanning.length === 0) return null;
+          const limits = spanning.map((line) => limitOf(scenario, line));
+          if (limits.some((limit) => limit === null)) return null;
+          const bound = 1 + limits.reduce((sum, limit) => sum + limit, 0);
+          return count <= bound ? bound : null;
+        }
+
+        /** How a route is drawn: taken, not taken, or ahead (as the editor draws it). */
+        function lookOf(scenario, progress, line) {
+          if (!progress.started) return "plain";
+          if (progress.taken[line.id]) return "taken";
+          const quiet = (key) => key !== null && ["not-taken", "skipped"].includes(scenario.states[key]);
+          if (quiet(line.from) || quiet(line.to)) return "not-taken";
+          const ran = progress.order.find((entry) => entry.key === line.from).steps.length > 0;
+          return ran && line.from !== progress.currentKey ? "not-taken" : "plain";
+        }
+
+        function roundWords(entry, forScreenReader) {
+          if (entry.rounds < 2) return "";
+          if (entry.bound !== null) return forScreenReader ? `Round ${entry.rounds} of at most ${entry.bound}` : `Round ${entry.rounds} of ≤${entry.bound}`;
+          if (state.unbounded === "times" && !forScreenReader) return `×${entry.rounds}`;
+          return `Round ${entry.rounds}`;
+        }
+
+        function captionOf(scenario, progress) {
+          const counted = progress.order.filter((entry) => entry.state !== "not-taken");
+          if (scenario.task === "done") return `All ${counted.length} Stages finished`;
+          if (!progress.currentKey) return "Not started";
+          const current = progress.order.find((entry) => entry.key === progress.currentKey);
+          if (HOLDING.includes(current.state)) return `At ${current.stage.name}: ${STATE_WORDS[current.state].toLowerCase()}`;
+          const finished = counted.filter((entry) => entry.state === "done" || entry.state === "skipped").length;
+          return `${finished} of ${counted.length} Stages finished`;
+        }
+
+        function runsWords(entry, started) {
+          if (entry.state === "skipped") return "Not needed";
+          if (entry.state === "not-taken") return "Not run";
+          if (entry.steps.length === 0) return started ? "Not run yet" : "Not started";
+          const minutes = entry.steps.reduce((sum, step) => sum + step.run.min, 0);
+          const tokens = entry.steps.reduce((sum, step) => sum + (step.run.tok || 0), 0);
+          const count = entry.steps.length === 1 ? "1 run" : `${entry.steps.length} runs`;
+          const time = `${durationWords(minutes)}${entry.state === "running" ? " so far" : ""}`;
+          return `${count} · ${time}${tokens > 0 ? ` · ${tokens}k tokens` : ""}`;
+        }
+
+        function stateWordsOf(scenario, entry) {
+          const words = STATE_WORDS[entry.state];
+          const back = scenario.wentBack && scenario.wentBack[entry.key];
+          return back ? `${words} · went back to ${nameOf(back)}` : words;
+        }
+
+        function footLines(scenario, progress) {
+          const lines = [];
+          if (scenario.wait) lines.push(`Waits for “${esc(scenario.wait)}” before its next Stage.`);
+          if (scenario.startedOver) {
+            lines.push(
+              `Started over by ${ME} on ${scenario.startedOver}. The earlier start’s ${progress.earlier} runs stay in each Stage’s history.`,
+            );
+          }
+          return lines;
+        }
+
+        /* ---------- Icons ---------- */
+        const STATE_ICON = {
+          done: '<path d="M2.75 6.25l2.25 2.25 4.25-5"/>',
+          failed: '<path d="M3.25 3.25l5.5 5.5M8.75 3.25l-5.5 5.5"/>',
+          "waiting-on-you": '<path d="M4.5 3v6M7.5 3v6"/>',
+          paused: '<path d="M4.5 3v6M7.5 3v6"/>',
+          stopped: '<rect x="3.5" y="3.5" width="5" height="5" rx="0.5" fill="currentColor" stroke="none"/>',
+          skipped: '<path d="M3.25 6h5.5"/>',
+          "not-taken": '<path d="M3 3.25l3.5 2.75L3 8.75zM8.75 3.25v5.5"/>',
+        };
+        function markHtml(kind, stageState) {
+          const icon = STATE_ICON[stageState];
+          const svg = icon
+            ? `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`
+            : "";
+          return `<span class="stage-mark ${stageState} kind-${kind === "gate" ? "gate" : "round"}" aria-hidden="true">${svg}</span>`;
+        }
+        const ROUND_ICON =
+          '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4.25A4 4 0 1 0 10 7"/><path d="M9.75 1.75v2.75H7"/></svg>';
+        const DIAGRAM_ICON =
+          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="1.5" width="4.5" height="3.5" rx="1"/><rect x="8.5" y="1.5" width="4.5" height="3.5" rx="1"/><rect x="8.5" y="9" width="4.5" height="3.5" rx="1"/><path d="M5.5 3.25h3M10.75 5v4"/></svg>';
+        const CLOSE_ICON =
+          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 3.5l7 7M10.5 3.5l-7 7"/></svg>';
+        const MAXIMIZE_ICON =
+          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 2h3.5v3.5M5.5 12H2V8.5M12 2L8 6M2 12l4-4"/></svg>';
+        const RESTORE_ICON =
+          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5H8.5V2M2 8.5h3.5V12M8.5 5.5L12.5 1.5M5.5 8.5l-4 4"/></svg>';
+
+        /* ---------- The rail ---------- */
+        function railHtml(scenario) {
+          if (scenario.special === "not-chosen") {
+            return (
+              `<section class="pipeline-rail not-chosen" aria-label="Pipeline · Not chosen yet">` +
+              `<div class="pipeline-rail-top"><span class="overline">Pipeline · Not chosen yet</span></div>` +
+              `<div class="pipeline-rail-not-chosen-body"><p>Pipeline not chosen yet. The Planner proposes one while planning.</p>` +
+              `<button type="button" class="btn primary" data-act="note" data-note="Opens “Choose a Pipeline for Add a CSV export to the Stats page”.">Choose a Pipeline</button></div>` +
+              `</section>`
+            );
+          }
+          if (scenario.special === "removed") {
+            return (
+              `<section class="pipeline-rail" aria-label="Pipeline · removed from the library">` +
+              `<div class="pipeline-rail-top"><span class="overline">Pipeline · removed from the library</span>` +
+              `<span class="pipeline-rail-actions"><button type="button" class="btn ghost" data-act="note" data-note="Opens Edit for this Task, as today.">Edit for this Task</button></span></div>` +
+              `<p class="pipeline-rail-removed">Its Pipeline was removed from the library.</p>` +
+              `</section>`
+            );
+          }
+          const progress = progressOf(scenario);
+          const count = progress.order.length;
+          const reachedCount = progress.order.filter((entry) => entry.reached).length;
+          const lastReached = progress.order[reachedCount - 1];
+          const firstMarker = 50 / count;
+          const lineWidth = reachedCount > 1 ? ((reachedCount - 1) * 100) / count : 0;
+          const live = lastReached && lastReached.key === progress.currentKey && lastReached.state === "running";
+          const columns = progress.order
+            .map((entry) => {
+              const isCurrent = entry.key === progress.currentKey;
+              const describedBy = `rail-words-${entry.key}`;
+              const round = roundWords(entry, false);
+              const roundLast = entry.bound !== null && entry.rounds === entry.bound;
+              const runningDot = entry.state === "running" ? '<span class="live-dot" aria-hidden="true"></span>' : "";
+              return (
+                `<li class="pipeline-rail-stage ${entry.state}${entry.reached ? "" : " is-ahead"}">` +
+                (isCurrent ? `<span class="pipeline-rail-now ${entry.state}" aria-hidden="true">Now</span>` : "") +
+                markHtml(entry.stage.kind, entry.state) +
+                `<span class="pipeline-rail-body">` +
+                `<span class="pipeline-rail-name"><button type="button" class="pipeline-rail-button" data-act="rail-stage" data-key="${entry.key}" aria-haspopup="dialog" aria-describedby="${describedBy}"${isCurrent ? ' aria-current="step"' : ""}>${esc(entry.stage.name)}</button></span>` +
+                `<span class="pipeline-rail-worker">${esc(RAIL_WORKER[entry.key])}</span>` +
+                `<span id="${describedBy}" style="display: contents">` +
+                `<span class="pipeline-rail-state">${runningDot}${esc(stateWordsOf(scenario, entry))}</span>` +
+                `<span class="pipeline-rail-runs">${esc(runsWords(entry, progress.started))}</span>` +
+                (round
+                  ? `<span class="round-chip${roundLast ? " is-last" : ""}">${ROUND_ICON}<span aria-hidden="true">${esc(round)}</span><span class="sr-only">${esc(roundWords(entry, true))}</span></span>`
+                  : "") +
+                `</span>` +
+                `</span></li>`
+              );
+            })
+            .join("");
+          const foot = footLines(scenario, progress)
+            .map((line) => `<p class="pipeline-rail-foot">${line}</p>`)
+            .join("");
+          return (
+            `<section class="pipeline-rail" aria-label="Pipeline · Ship a change">` +
+            `<div class="pipeline-rail-top">` +
+            `<span class="overline">Pipeline · Ship a change</span>` +
+            `<span class="pipeline-rail-caption">${esc(captionOf(scenario, progress))} · select a Stage for its history</span>` +
+            `<span class="pipeline-rail-actions">` +
+            `<button type="button" class="btn ghost" data-act="open-diagram" aria-haspopup="dialog">${DIAGRAM_ICON}Open diagram</button>` +
+            (scenario.task === "done"
+              ? ""
+              : `<button type="button" class="btn ghost" data-act="note" data-note="Opens “Stages of Add a CSV export to the Stats page”, as today.">Edit for this Task</button>`) +
+            `</span></div>` +
+            `<div class="pipeline-rail-scroll"><div class="pipeline-rail-stages" style="min-width: max(100%, ${count * 150}px)">` +
+            `<span class="pipeline-rail-line" style="left: ${firstMarker}%; right: ${firstMarker}%"></span>` +
+            (lineWidth > 0
+              ? `<span class="pipeline-rail-reached${live ? " live" : ""}" style="left: ${firstMarker}%; width: ${lineWidth}%"></span>`
+              : "") +
+            `<ol aria-label="Stages">${columns}</ol>` +
+            `</div></div>` +
+            foot +
+            `</section>`
+          );
+        }
+
+        /* ---------- Drawing one route, in each mode ---------- */
+        function exitPoint(box, inside, outside) {
+          const dx = outside[0] - inside[0];
+          const dy = outside[1] - inside[1];
+          let t = 1;
+          if (dx > 0) t = Math.min(t, (box.x + box.w - inside[0]) / dx);
+          if (dx < 0) t = Math.min(t, (box.x - inside[0]) / dx);
+          if (dy > 0) t = Math.min(t, (box.y + box.h - inside[1]) / dy);
+          if (dy < 0) t = Math.min(t, (box.y - inside[1]) / dy);
+          return [inside[0] + dx * t, inside[1] + dy * t];
+        }
+
+        function bezierPoints(piece, steps) {
+          const out = [];
+          for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const u = 1 - t;
+            out.push([
+              u * u * u * piece[0][0] + 3 * u * u * t * piece[1][0] + 3 * u * t * t * piece[2][0] + t * t * t * piece[3][0],
+              u * u * u * piece[0][1] + 3 * u * u * t * piece[1][1] + 3 * u * t * t * piece[2][1] + t * t * t * piece[3][1],
+            ]);
+          }
+          return out;
+        }
+
+        function middleByLength(points) {
+          let total = 0;
+          for (let i = 1; i < points.length; i++) total += dist(points[i - 1], points[i]);
+          let left = total / 2;
+          for (let i = 1; i < points.length; i++) {
+            const length = dist(points[i - 1], points[i]);
+            if (length > 0 && length >= left) return add(points[i - 1], mul(sub(points[i], points[i - 1]), left / length));
+            left -= length;
+          }
+          return points[points.length - 1];
+        }
+
+        function cornered(points, radius) {
+          const last = points[points.length - 1];
+          const dir = unit(sub(last, points[points.length - 2]));
+          const shown = points.slice(0, -1).concat([sub(last, mul(dir, ARROW_TRIM))]);
+          let d = `M${pt(shown[0])}`;
+          for (let i = 1; i < shown.length - 1; i++) {
+            const before = shown[i - 1];
+            const corner = shown[i];
+            const after = shown[i + 1];
+            const reach = Math.min(radius, dist(before, corner) / 2, dist(corner, after) / 2);
+            if (reach <= 0) {
+              d += ` L${pt(corner)}`;
+            } else {
+              const into = add(corner, mul(unit(sub(before, corner)), reach));
+              const out = add(corner, mul(unit(sub(after, corner)), reach));
+              d += ` L${pt(into)} Q${pt(corner)} ${pt(out)}`;
+            }
+          }
+          d += ` L${pt(shown[shown.length - 1])}`;
+          return { d, samples: points, tip: last, dir };
+        }
+
+        function curved(points, via) {
+          const from = points[0];
+          const to = points[points.length - 1];
+          const leave = unit(sub(points[1], from));
+          const enter = unit(sub(to, points[points.length - 2]));
+          let pieces;
+          if (via) {
+            const through = [from].concat(via, [to]);
+            const tangent = through.map((p, i) => {
+              if (i === 0) return leave;
+              if (i === through.length - 1) return enter;
+              return unit(sub(through[i + 1], through[i - 1]));
+            });
+            pieces = through.slice(1).map((next, i) => {
+              const reach = dist(through[i], next) / 3;
+              return [through[i], add(through[i], mul(tangent[i], reach)), sub(next, mul(tangent[i + 1], reach)), next];
+            });
+          } else {
+            const span = dist(from, to);
+            let reach;
+            if (dot(leave, enter) > 0) reach = Math.min(Math.max(Math.abs(dot(sub(to, from), leave)) / 2, 24), span / 2);
+            else reach = Math.min(Math.max(span * 0.3, 40), 160);
+            pieces = [[from, add(from, mul(leave, reach)), sub(to, mul(enter, reach)), to]];
+          }
+          const samples = pieces.flatMap((piece) => bezierPoints(piece, 24));
+          const lastPiece = pieces[pieces.length - 1];
+          const back = mul(enter, ARROW_TRIM);
+          const shown = pieces.slice(0, -1).concat([[lastPiece[0], lastPiece[1], sub(lastPiece[2], back), sub(lastPiece[3], back)]]);
+          const d = `M${pt(shown[0][0])}` + shown.map((piece) => ` C${pt(piece[1])} ${pt(piece[2])} ${pt(piece[3])}`).join("");
+          return { d, samples, tip: to, dir: enter };
+        }
+
+        function boxOf(key) {
+          if (key === null) return END;
+          const at = BOXES[key];
+          const rows = stageOf(key).rows.length;
+          return { x: at.x, y: at.y, w: CARD_WIDTH, h: rows === 0 ? 60 : 52 + 24 * rows + 8 };
+        }
+        const centreOf = (box) => [box.x + box.w / 2, box.y + box.h / 2];
+
+        function straightPoints(line, given) {
+          const fromBox = boxOf(line.from);
+          const toBox = boxOf(line.to);
+          let from = centreOf(fromBox);
+          let to = centreOf(toBox);
+          if (given.shift) {
+            const along = unit(sub(to, from));
+            const rightHand = [-along[1], along[0]];
+            from = add(from, mul(rightHand, given.shift));
+            to = add(to, mul(rightHand, given.shift));
+          }
+          const first = exitPoint(fromBox, from, to);
+          const last = toBox.round ? add(centreOf(toBox), mul(unit(sub(from, centreOf(toBox))), toBox.w / 2)) : exitPoint(toBox, to, from);
+          return [first, last];
+        }
+
+        function drawLine(line) {
+          const given = GEOMETRY[line.id];
+          if (state.drawing === "curves") {
+            const shape = curved(given.o, given.via);
+            return Object.assign(shape, { spot: middleByLength(shape.samples) });
+          }
+          if (state.drawing === "straight-lines") {
+            const shape = cornered(straightPoints(line, given), 0);
+            return Object.assign(shape, { spot: middleByLength(shape.samples) });
+          }
+          const shape = cornered(given.o, 6);
+          return Object.assign(shape, { spot: given.m || middleByLength(given.o) });
+        }
+
+        function arrowMarkup(tip, dir, className) {
+          const back = sub(tip, mul(dir, 8));
+          const across = [-dir[1], dir[0]];
+          const one = add(back, mul(across, 4));
+          const two = sub(back, mul(across, 4));
+          return `<polygon class="${className}" points="${[tip, one, two].map((p) => `${num(p[0])},${num(p[1])}`).join(" ")}"/>`;
+        }
+
+        /* ---------- The diagram ---------- */
+        function iconMarkup(kind, cx, cy, stageState) {
+          const fill = ["done", "failed"].includes(stageState);
+          const amber = stageState === "waiting-on-you";
+          const iconClass = `fl-icon ${stageState}`;
+          let shape;
+          if (kind === "gate") shape = `<rect class="${iconClass}" x="${cx - 8}" y="${cy - 8}" width="16" height="16" rx="3" transform="rotate(45 ${cx} ${cy})"/>`;
+          else if (kind === "publish") shape = `<rect class="${iconClass}" x="${cx - 10}" y="${cy - 10}" width="20" height="20" rx="6"/>`;
+          else shape = `<circle class="${iconClass}" cx="${cx}" cy="${cy}" r="10"/>`;
+          const glyphClass = fill ? "fl-glyph on-fill" : amber ? "fl-glyph on-amber" : `fl-glyph ${stageState}`;
+          let glyph;
+          if (stageState === "done") glyph = `<path class="${glyphClass}" d="M${cx - 4} ${cy}l2.75 2.75 5-5.5"/>`;
+          else if (stageState === "failed") glyph = `<path class="${glyphClass}" d="M${cx - 3.5} ${cy - 3.5}l7 7M${cx + 3.5} ${cy - 3.5}l-7 7"/>`;
+          else if (["waiting-on-you", "paused"].includes(stageState))
+            glyph = `<path class="${glyphClass}" d="M${cx - 2} ${cy - 3.5}V${cy + 3.5}M${cx + 2} ${cy - 3.5}V${cy + 3.5}"/>`;
+          else if (stageState === "stopped") glyph = `<rect x="${cx - 3}" y="${cy - 3}" width="6" height="6" rx="1" fill="var(--warning-fg)"/>`;
+          else if (stageState === "skipped") glyph = `<path class="fl-glyph" d="M${cx - 3.5} ${cy}H${cx + 3.5}"/>`;
+          else if (stageState === "not-taken") glyph = `<path class="fl-glyph" d="M${cx - 3.5} ${cy - 3.5}l4 3.5-4 3.5zM${cx + 3.5} ${cy - 3.5}v7"/>`;
+          else if (kind === "gate") glyph = `<path class="${glyphClass}" d="M${cx - 2} ${cy - 3}V${cy + 3}M${cx + 2} ${cy - 3}V${cy + 3}"/>`;
+          else if (kind === "publish") glyph = `<path class="${glyphClass}" d="M${cx} ${cy + 4}V${cy - 4}M${cx - 3} ${cy - 1}L${cx} ${cy - 4}L${cx + 3} ${cy - 1}"/>`;
+          else if (kind === "script") glyph = `<path class="${glyphClass}" d="M${cx - 4} ${cy - 3}L${cx - 1} ${cy}L${cx - 4} ${cy + 3}M${cx + 1} ${cy + 3}H${cx + 4}"/>`;
+          else
+            glyph =
+              `<circle class="${glyphClass}" cx="${cx}" cy="${cy - 2.5}" r="2.2"/>` +
+              `<path class="${glyphClass}" d="M${cx - 4.5} ${cy + 5}Q${cx} ${cy - 1.5} ${cx + 4.5} ${cy + 5}"/>`;
+          const pulse = stageState === "running" ? `<circle class="fl-pulse" cx="${cx}" cy="${cy}" r="13"/>` : "";
+          return pulse + shape + glyph;
+        }
+
+        function fit(text, room, charWidth) {
+          const most = Math.max(4, Math.floor(room / charWidth));
+          return text.length > most ? `${text.slice(0, most - 1)}…` : text;
+        }
+
+        function cardMarkup(scenario, progress, entry, looks) {
+          const stage = entry.stage;
+          const box = boxOf(stage.key);
+          const hasRows = stage.rows.length > 0;
+          const stageState = entry.state;
+          const isCurrent = entry.key === progress.currentKey;
+          const words = STATE_WORDS[stageState];
+          const whoRoom = box.w - 43 - 12;
+          const who = fit(`${words} · ${stage.who}`, whoRoom, 6.2);
+          const whoState = who.slice(0, Math.min(who.length, words.length));
+          const whoRest = who.slice(whoState.length);
+          const round = roundWords(entry, false);
+          const roundLabel = roundWords(entry, true);
+          const label = `${stage.name}, ${KIND_WORDS[stage.kind]}: ${words}${roundLabel ? `, ${roundLabel.toLowerCase()}` : ""}, ${runsWords(entry, progress.started)}`;
+          const classes = [
+            "fl-stage",
+            `is-${stageState}`,
+            state.picked === entry.key ? "is-picked" : "",
+          ].join(" ");
+          let markup =
+            `<g class="${classes}" data-act="pick" data-key="${entry.key}" tabindex="0" role="button" aria-label="${esc(label)}" aria-pressed="${state.picked === entry.key}">` +
+            (isCurrent ? `<rect class="fl-now ${stageState}" x="${box.x - 4}" y="${box.y - 4}" width="${box.w + 8}" height="${box.h + 8}" rx="11"/>` : "") +
+            `<rect class="fl-card" x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8"/>` +
+            (["done", "running", "waiting-on-you", "failed", "paused", "stopped"].includes(stageState)
+              ? `<path class="fl-edge ${stageState}" d="M${box.x + 1.5} ${box.y + 7}V${box.y + box.h - 7}"/>`
+              : "") +
+            iconMarkup(stage.kind, box.x + 23, box.y + (hasRows ? 26 : 30), stageState) +
+            `<text class="fl-name" x="${box.x + 43}" y="${box.y + (hasRows ? 24 : 28)}">${esc(fit(stage.name, box.w - 55, 7.4))}</text>` +
+            `<text class="fl-who" x="${box.x + 43}" y="${box.y + (hasRows ? 41 : 45)}"><tspan class="state-${stageState}">${esc(whoState)}</tspan>${esc(whoRest)}</text>`;
+          if (hasRows) {
+            markup += `<path class="fl-sep" d="M${box.x} ${box.y + 52}H${box.x + box.w}"/>`;
+            stage.rows.forEach((row, index) => {
+              const line = lineById(row.line);
+              const limit = limitOf(scenario, line);
+              const middle = box.y + 64 + 24 * index;
+              const target = `→ ${nameOf(line.to)}`;
+              const room = box.w - 24 - (limit ? 40 : 8);
+              const most = Math.floor(room / 6.4);
+              const when = most > target.length + 2 ? fit(row.when, (most - target.length - 1) * 6.4, 6.4) : "";
+              const look = looks[line.id];
+              markup +=
+                `<text class="fl-row-to is-${look}" x="${box.x + 12}" y="${middle + 4}">${esc(target)}<tspan class="fl-row-when"> ${esc(when)}</tspan></text>` +
+                (limit
+                  ? `<rect class="fl-chip" x="${box.x + box.w - 38}" y="${middle - 7.5}" width="26" height="15" rx="4"/>` +
+                    `<text class="fl-chip-text" x="${box.x + box.w - 25}" y="${middle + 3.5}" text-anchor="middle">≤${limit}×</text>`
+                  : "");
+            });
+          }
+          if (round) {
+            const width = Math.round(28 + round.length * 6.1);
+            const x = box.x + box.w - width - 10;
+            const y = box.y - 10;
+            const last = entry.bound !== null && entry.rounds === entry.bound;
+            markup +=
+              `<g class="fl-round${last ? " is-last" : ""}" aria-hidden="true">` +
+              `<rect x="${x}" y="${y}" width="${width}" height="20" rx="10"/>` +
+              `<path d="M${x + 15.5} ${y + 8.5}a4.25 4.25 0 1 0 0.6 3.2M${x + 16} ${y + 5.5}v3.25h-3.25"/>` +
+              `<text x="${x + 22}" y="${y + 14}">${esc(round)}</text></g>`;
+          }
+          return markup + `</g>`;
+        }
+
+        function countText(taken) {
+          if (taken.limit !== null) return `${taken.times} of ≤${taken.limit}`;
+          return taken.times > 1 ? `${taken.times}×` : "";
+        }
+
+        function diagramSvg(scenario, progress) {
+          const looks = {};
+          LINES.forEach((line) => {
+            looks[line.id] = lookOf(scenario, progress, line);
+          });
+          const lit = state.picked;
+          const routes = [];
+          const marks = [];
+          LINES.forEach((line) => {
+            const shape = drawLine(line);
+            const look = looks[line.id];
+            const isLit = lit !== null && (line.from === lit || line.to === lit);
+            const taken = progress.taken[line.id];
+            const classes = `fl-route is-${look}${isLit ? " is-lit" : ""}`;
+            const ends = `data-from="${line.from}" data-to="${line.to === null ? "end" : line.to}"`;
+            routes.push(`<g class="${classes}" ${ends}><path class="fl-line" d="${shape.d}"/>${arrowMarkup(shape.tip, shape.dir, "fl-arrow")}</g>`);
+            const limit = limitOf(scenario, line);
+            const text = taken ? countText(taken) : limit ? `≤${limit}×` : "";
+            if (text) {
+              const width = Math.max(30, Math.round(12 + text.length * 6.4));
+              marks.push(
+                `<g class="fl-mark is-${look}${isLit ? " is-lit" : ""}" ${ends} aria-hidden="true">` +
+                  `<rect x="${num(shape.spot[0] - width / 2)}" y="${num(shape.spot[1] - 9)}" width="${width}" height="18" rx="9"/>` +
+                  `<text class="fl-mark-text" x="${num(shape.spot[0])}" y="${num(shape.spot[1] + 3.5)}" text-anchor="middle">${esc(text)}</text></g>`,
+              );
+            }
+          });
+          const startTaken = progress.started;
+          const lineEnd = sub(START.tip, [ARROW_TRIM, 0]);
+          const start =
+            `<circle class="fl-start" cx="${START.dot[0]}" cy="${START.dot[1]}" r="4"/>` +
+            `<path class="fl-start-line${startTaken ? " is-taken" : ""}" d="M${pt(START.dot)} L${pt(lineEnd)}"/>` +
+            arrowMarkup(START.tip, [1, 0], "fl-start");
+          const endReached = Boolean(progress.taken.L7);
+          const centre = centreOf(END);
+          const end =
+            `<circle class="fl-end${endReached ? " is-reached" : ""}" cx="${centre[0]}" cy="${centre[1]}" r="${END.w / 2 - 1}"/>` +
+            `<text class="fl-end-text" x="${centre[0]}" y="${centre[1] + 4}" text-anchor="middle">End</text>`;
+          // Cards in the rail's order, so Tab follows the walk.
+          const cards = progress.order.map((entry) => cardMarkup(scenario, progress, entry, looks)).join("");
+          const drawingName = { "right-angles": "Right angles", curves: "Curves", "straight-lines": "Straight lines" }[state.drawing];
+          const width = state.zoom === null ? FRAME.w : Math.round(FRAME.w * state.zoom);
+          const height = state.zoom === null ? FRAME.h : Math.round(FRAME.h * state.zoom);
+          return (
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FRAME.w} ${FRAME.h}" width="${width}" height="${height}" role="group" aria-label="Ship a change, drawn with ${drawingName}">` +
+            start +
+            routes.join("") +
+            cards +
+            end +
+            marks.join("") +
+            `</svg>`
+          );
+        }
+
+        /* ---------- The side panel ---------- */
+        function wentWords(went) {
+          if (!went) return "";
+          if (went.kind === "restart") return `Restarted from ${nameOf(went.to)} by ${ME}`;
+          if (went.kind === "end") return "Went to End";
+          if (went.kind === "on") return `Went on to ${nameOf(went.to)}`;
+          const count = went.limit === null ? timesWords(went.times) : `${went.times} of at most ${went.limit}`;
+          return `Went back to ${nameOf(went.to)} (${count})`;
+        }
+
+        function stepButton(step) {
+          const run = step.run;
+          const picked = state.picked === run.stage;
+          const outcome = STATE_WORDS[run.out] || run.out;
+          const went = run.note ? `${run.note}${step.went ? ` · ${wentWords(step.went)}` : ""}` : wentWords(step.went);
+          return (
+            `<li><button type="button" data-act="pick" data-key="${run.stage}" class="${picked ? "is-picked" : ""}">` +
+            `<span class="n">${step.number}</span>` +
+            `<span><span class="who">${esc(nameOf(run.stage))}</span>${step.round > 1 ? ` <span class="round">· Round ${step.round}</span>` : ""}</span>` +
+            `<span class="badge ${run.out}">${esc(outcome)}</span>` +
+            (went ? `<span class="went${step.went && step.went.kind === "back" ? " back" : ""}">${esc(went)}</span>` : "") +
+            `</button></li>`
+          );
+        }
+
+        function sideHtml(scenario, progress) {
+          let picked = "";
+          const entry = progress.order.find((candidate) => candidate.key === state.picked);
+          if (entry) {
+            const round = roundWords(entry, false);
+            picked =
+              `<div class="side-block">` +
+              `<div class="side-title">${markHtml(entry.stage.kind, entry.state)}<b>${esc(entry.stage.name)}</b><span class="badge ${entry.state}">${esc(STATE_WORDS[entry.state])}</span></div>` +
+              `<div class="side-facts"><span>${esc(KIND_WORDS[entry.stage.kind])} · ${esc(RAIL_WORKER[entry.key])}</span>` +
+              `<span>${esc(runsWords(entry, progress.started))}${round ? ` · ${esc(round)}` : ""}</span></div>` +
+              (entry.steps.length > 0
+                ? `<ol class="walk">${entry.steps.map(stepButton).join("")}</ol>`
+                : `<p class="side-empty">${progress.started ? "Hasn’t run yet." : "Runs once the Task starts."}</p>`) +
+              `<div style="margin-top: 10px"><button type="button" class="btn" data-act="open-history" data-key="${entry.key}">Open Stage history</button></div>` +
+              `</div>`;
+          } else {
+            picked = `<div class="side-block"><p class="side-empty">Select a Stage to see its rounds and runs.</p></div>`;
+          }
+          const walk = progress.walk.length
+            ? `<ol class="walk">${progress.walk.map(stepButton).join("")}</ol>`
+            : `<p class="side-empty" style="margin-top: 8px">The walk starts when the Task starts.</p>`;
+          const earlier =
+            progress.earlier > 0
+              ? `<div class="walk-divider">Earlier start</div><div class="walk-earlier">${progress.earlier} runs, in each Stage’s history</div>`
+              : "";
+          return (
+            `<aside class="side" aria-label="The picked Stage and the walk">` +
+            picked +
+            `<div class="side-block"><div class="overline">The walk</div>${walk}${earlier}</div>` +
+            `</aside>`
+          );
+        }
+
+        /* ---------- The window ---------- */
+        const LEGEND_STATES = ["done", "running", "waiting-on-you", "failed", "pending", "skipped", "not-taken"];
+
+        function windowHtml(scenario, where) {
+          const progress = progressOf(scenario);
+          const drawingName = { "right-angles": "Right angles", curves: "Curves", "straight-lines": "Straight lines" }[state.drawing];
+          const legend =
+            `<ul class="legend" aria-label="Legend">` +
+            LEGEND_STATES.map((key) => `<li>${markHtml("agent", key)}${esc(STATE_WORDS[key])}</li>`).join("") +
+            `<li class="legend-sep" aria-hidden="true"></li>` +
+            `<li><span class="legend-line taken" aria-hidden="true"></span>Taken</li>` +
+            `<li><span class="legend-line not-taken" aria-hidden="true"></span>Not taken</li>` +
+            `<li><span class="legend-line" aria-hidden="true"></span>Not reached yet</li>` +
+            `</ul>`;
+          const foot = footLines(scenario, progress).map((line) => `<span>${line}</span>`).join("");
+          const zoomWords = state.zoom === null ? "Fit" : `${Math.round(state.zoom * 100)}%`;
+          const narrow = state.width === "narrow";
+          const isModal = where === "modal";
+          return (
+            `<div class="dialog${isModal ? "" : " inline"}${state.palette === "dark" ? " pal-dark" : ""}" role="${isModal ? "dialog" : "group"}"${isModal ? ' aria-modal="true"' : ""} aria-labelledby="${where}-title">` +
+            `<div class="dialog-head"><h2 id="${where}-title">Pipeline diagram: Ship a change</h2>` +
+            (isModal
+              ? `<button type="button" class="btn ghost icon" data-act="maximize" aria-label="${state.maximized ? "Restore" : "Maximize"}" title="${state.maximized ? "Restore" : "Maximize"}">${state.maximized ? RESTORE_ICON : MAXIMIZE_ICON}</button>`
+              : `<button type="button" class="btn ghost icon" aria-label="Maximize" title="Maximize" tabindex="-1">${MAXIMIZE_ICON}</button>`) +
+            `<button type="button" class="btn ghost icon" ${isModal ? 'data-act="close-diagram"' : 'tabindex="-1"'} aria-label="Close" title="Close">${CLOSE_ICON}</button></div>` +
+            `<div class="dialog-sub"><span class="caption">${esc(captionOf(scenario, progress))}</span>${foot}<span class="drawing-note">Drawn with ${drawingName}, as chosen in the Pipeline editor</span></div>` +
+            `<div class="dialog-sub">${legend}</div>` +
+            `<div class="dialog-body">` +
+            `<div class="canvas${state.zoom === null ? " is-fit" : ""}" tabindex="0" aria-label="Flow view: arrow keys move it, + and − zoom, F fits the Pipeline">` +
+            (narrow ? `<div class="narrow-note">Under 560px the canvas stands the Stages in bands, top to bottom, as the editor does.</div>` : "") +
+            `<div class="canvas-inner">${diagramSvg(scenario, progress)}</div>` +
+            `<div class="canvas-tools" role="toolbar" aria-label="Canvas">` +
+            `<button type="button" class="btn ghost icon" data-act="zoom-out" aria-label="Zoom out">−</button>` +
+            `<button type="button" class="btn ghost zoom" data-act="fit" aria-label="Zoom: ${zoomWords}">${zoomWords}</button>` +
+            `<button type="button" class="btn ghost icon" data-act="zoom-in" aria-label="Zoom in">+</button>` +
+            `<button type="button" class="btn ghost" data-act="fit">Fit</button>` +
+            `</div></div>` +
+            sideHtml(scenario, progress) +
+            `</div>` +
+            `<div class="dialog-bar"><button type="button" class="btn" ${isModal ? 'data-act="close-diagram"' : 'tabindex="-1"'}>Close</button></div>` +
+            `</div>`
+          );
+        }
+
+        /* ---------- The page ---------- */
+        const railMock = document.getElementById("rail-mock");
+        const windowInline = document.getElementById("window-inline");
+        const modalHost = document.getElementById("modal-host");
+        const railNote = document.getElementById("rail-note");
+        const scenarioSeg = document.getElementById("scenario-seg");
+        scenarioSeg.innerHTML = SCENARIOS.map((scenario) => `<button type="button" data-value="${scenario.key}">${esc(scenario.name)}</button>`).join("");
+
+        function syncSegs() {
+          document.querySelectorAll(".seg[data-set]").forEach((seg) => {
+            const key = seg.getAttribute("data-set");
+            seg.querySelectorAll("button").forEach((button) => {
+              button.setAttribute("aria-pressed", String(button.getAttribute("data-value") === state[key]));
+            });
+          });
+        }
+
+        function render() {
+          const scenario = scenarioOf();
+          syncSegs();
+          const dark = state.palette === "dark";
+          ["rail-stage", "window-stage"].forEach((id) => {
+            const frame = document.getElementById(id);
+            frame.classList.toggle("pal-dark", dark);
+            frame.classList.toggle("narrow", state.width === "narrow");
+          });
+          document.getElementById("task-state-badge").textContent = TASK_WORDS[scenario.task];
+          railMock.innerHTML = railHtml(scenario);
+          windowInline.innerHTML = scenario.special
+            ? `<p class="side-empty" style="padding: 20px">No Open diagram here: ${scenario.special === "not-chosen" ? "the Task has no Pipeline yet" : "its Pipeline was removed before the Task had its own copy, so there is nothing to draw"}.</p>`
+            : windowHtml(scenario, "inline");
+          if (state.open && !scenario.special) {
+            modalHost.innerHTML = `<div class="modal-root${state.maximized ? " is-maximized" : ""}${dark ? " pal-dark" : ""}" data-act="backdrop">${windowHtml(scenario, "modal")}</div>`;
+            document.body.classList.add("has-modal");
+          } else {
+            modalHost.innerHTML = "";
+            document.body.classList.remove("has-modal");
+          }
+        }
+
+        function focusIn(selector) {
+          const element = document.querySelector(selector);
+          if (element) element.focus();
+        }
+
+        function openDiagram() {
+          state.open = true;
+          state.maximized = false;
+          render();
+          focusIn('#modal-host [data-act="close-diagram"]');
+        }
+
+        function closeDiagram() {
+          state.open = false;
+          render();
+          focusIn('#rail-mock [data-act="open-diagram"]');
+        }
+
+        function pick(key, from) {
+          state.picked = state.picked === key && from === "card" ? null : key;
+          const inModal = state.open;
+          render();
+          const scope = inModal ? "#modal-host" : "#window-inline";
+          focusIn(`${scope} [data-act="pick"][data-key="${key}"]${from === "card" ? ".fl-stage" : ":not(.fl-stage)"}`);
+        }
+
+        document.addEventListener("click", (event) => {
+          const seg = event.target.closest(".seg[data-set] button");
+          if (seg) {
+            const key = seg.closest(".seg").getAttribute("data-set");
+            state[key] = seg.getAttribute("data-value");
+            if (key === "scenario") {
+              state.picked = null;
+              state.open = false;
+              railNote.textContent = "";
+            }
+            render();
+            return;
+          }
+          const target = event.target.closest("[data-act]");
+          if (!target) return;
+          const act = target.getAttribute("data-act");
+          if (act === "backdrop") {
+            if (event.target === target) closeDiagram();
+            return;
+          }
+          if (act === "open-diagram") openDiagram();
+          else if (act === "close-diagram") closeDiagram();
+          else if (act === "maximize") {
+            state.maximized = !state.maximized;
+            render();
+            focusIn('#modal-host [data-act="maximize"]');
+          } else if (act === "pick") pick(target.getAttribute("data-key"), target.classList.contains("fl-stage") ? "card" : "walk");
+          else if (act === "rail-stage") {
+            railNote.textContent = `Pressed ${nameOf(target.getAttribute("data-key"))}: the Stage history window opens on it, as today.`;
+          } else if (act === "open-history") {
+            const key = target.getAttribute("data-key");
+            state.open = false;
+            render();
+            railNote.textContent = `Open Stage history: the diagram closes and the Stage history opens on ${nameOf(key)}. Closing it returns focus to ${nameOf(key)} on the rail.`;
+            focusIn(`#rail-mock [data-act="rail-stage"][data-key="${key}"]`);
+          } else if (act === "zoom-in" || act === "zoom-out") {
+            const steps = [0.25, 0.5, 0.75, 1];
+            const now = state.zoom === null ? 0.6 : state.zoom;
+            const next = act === "zoom-in" ? steps.find((step) => step > now + 0.001) : steps.slice().reverse().find((step) => step < now - 0.001);
+            if (next !== undefined) state.zoom = next;
+            render();
+            focusIn(`${state.open ? "#modal-host" : "#window-inline"} [data-act="${act}"]`);
+          } else if (act === "fit") {
+            state.zoom = null;
+            render();
+          } else if (act === "note") {
+            railNote.textContent = target.getAttribute("data-note");
+          }
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && state.open) {
+            event.preventDefault();
+            closeDiagram();
+            return;
+          }
+          const card = event.target.closest && event.target.closest(".fl-stage");
+          if (card && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            pick(card.getAttribute("data-key"), "card");
+          }
+        });
+
+        /* Hovering a card lights its routes: classes only, so focus and the picked Stage stay put. */
+        function lightRoutes(svg, key) {
+          svg.querySelectorAll("[data-from]").forEach((element) => {
+            const lit = key !== null && (element.getAttribute("data-from") === key || element.getAttribute("data-to") === key);
+            element.classList.toggle("is-lit", lit);
+          });
+        }
+
+        document.addEventListener("mouseover", (event) => {
+          const card = event.target.closest && event.target.closest(".fl-stage");
+          const svg = event.target.closest && event.target.closest(".canvas-inner svg");
+          const key = card ? card.getAttribute("data-key") : null;
+          if (key === state.hovered) return;
+          state.hovered = key;
+          document.querySelectorAll(".canvas-inner svg").forEach((each) => {
+            lightRoutes(each, each === svg ? key || state.picked : state.picked);
+          });
+        });
+
+        render();
+      })();
+    </script>
+  </body>
+</html>

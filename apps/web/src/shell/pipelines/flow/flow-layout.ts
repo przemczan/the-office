@@ -1,6 +1,6 @@
 import type { Route, RouteLimit, Stage, StagePosition } from "@the-office/contracts";
 import { limitOf } from "./flow-model.ts";
-import type { FlowOverlay } from "./flow-marks.ts";
+import type { FlowOverlay, FlowProgress } from "./flow-marks.ts";
 import { CARD_WIDTH } from "./flow-snap.ts";
 
 /**
@@ -47,8 +47,11 @@ export interface FlowMeasure {
   readonly end: FlowBox | undefined;
 }
 
-/** How a line looks: a route as it is, or one a Proposal proposes or takes away. */
-export type FlowLineLook = "plain" | "proposed" | "taken-away";
+/**
+ * How a line looks: a route as it is, or one a Proposal proposes or takes away; with a Task's
+ * progress, one the walk took or one it left (the routes ahead stay plain).
+ */
+export type FlowLineLook = "plain" | "proposed" | "taken-away" | "taken" | "not-taken";
 
 /** One line to draw from a Stage to a Stage or End. */
 export interface FlowLine {
@@ -62,6 +65,19 @@ export interface FlowLine {
   readonly look: FlowLineLook;
   /** Its limit, which its ≤N× mark shows; null for No limit. */
   readonly limit: RouteLimit;
+  /** How many times the walk took it, for a taken line: its mark shows it. */
+  readonly count?: number;
+}
+
+/** Whether the line carries a mark: its limit, or the count of a route taken. */
+export function isMarked({ limit, count }: Pick<FlowLine, "limit" | "count">): boolean {
+  return limit !== null || count !== undefined;
+}
+
+/** A line's mark's words: "≤3×", "3×" for a taken route with No limit, "2 of ≤3" for one with a limit. */
+export function lineMarkWords({ limit, count }: Pick<FlowLine, "limit" | "count">): string {
+  if (count === undefined) return limit === null ? "" : `≤${limit}×`;
+  return limit === null ? `${count}×` : `${count} of ≤${limit}`;
 }
 
 export interface FlowPath {
@@ -157,24 +173,52 @@ export function listsRoutes(stage: Stage, stages: readonly Stage[] = [stage]): b
  * The lines to draw: each Stage's routes, on and back alike in the Pipeline's order, then a
  * Proposal's proposed and taken-away routes, which no press picks.
  */
-export function flowLines(stages: readonly Stage[], overlay?: FlowOverlay): readonly FlowLine[] {
+export function flowLines(
+  stages: readonly Stage[],
+  overlay?: FlowOverlay,
+  progress?: FlowProgress,
+): readonly FlowLine[] {
   const own = stages.flatMap((stage) => {
     const lists = listsRoutes(stage, stages);
-    return (stage.routes ?? []).map((route, index): FlowLine => ({
-      id: `${stage.key}:${index}`,
-      fromKey: stage.key,
-      to: route.to,
-      routeIndex: index,
-      port: lists ? index : undefined,
-      look: "plain",
-      limit: limitOf(stages, stage.key, route),
-    }));
+    return (stage.routes ?? []).map((route, index): FlowLine => {
+      const look = lookOf(progress, stage.key, route.to);
+      const count = look === "taken" ? takenTimes(progress, stage.key, route.to) : undefined;
+      return {
+        id: `${stage.key}:${index}`,
+        fromKey: stage.key,
+        to: route.to,
+        routeIndex: index,
+        port: lists ? index : undefined,
+        look,
+        limit: limitOf(stages, stage.key, route),
+        ...(count === undefined ? {} : { count }),
+      };
+    });
   });
   return [
     ...own,
     ...overlayLines(overlay?.proposed, "proposed"),
     ...overlayLines(overlay?.takenAway, "taken-away"),
   ];
+}
+
+/**
+ * How the walk's progress draws a route: taken; not taken when it touches a Stage the walk won't
+ * reach or leaves a Stage that ran and went another way; plain while it is ahead.
+ */
+function lookOf(progress: FlowProgress | undefined, from: string, to: string | null): FlowLineLook {
+  if (!progress?.started) return "plain";
+  if (takenTimes(progress, from, to) !== undefined) return "taken";
+  if (progress.quiet.has(from) || (to !== null && progress.quiet.has(to))) return "not-taken";
+  return progress.ran.has(from) && from !== progress.current ? "not-taken" : "plain";
+}
+
+function takenTimes(
+  progress: FlowProgress | undefined,
+  from: string,
+  to: string | null,
+): number | undefined {
+  return progress?.taken.get(from)?.find((route) => route.to === to)?.times;
 }
 
 function overlayLines(

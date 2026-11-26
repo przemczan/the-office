@@ -6,8 +6,8 @@ import {
   type Task,
   type TaskStage,
 } from "@the-office/contracts";
-import { Alert, Button } from "@the-office/ui";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Alert, Button, Icon } from "@the-office/ui";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -24,22 +24,15 @@ import { StageHistoryWindow } from "./stage-history-window.tsx";
 import { StageMark } from "./stage-mark.tsx";
 import { focusStage, stageElementId } from "./stage-selection.ts";
 import { StageWorker } from "./stage-worker.tsx";
+import { pipelineProgress, type ProgressStage } from "./pipeline-progress.ts";
 import {
-  currentStageIndex,
-  loopBackEnds,
-  loopBackPath,
-  loopBacks,
-  loopBackMarkWords,
-  loopBackWords,
   railCaption,
   railRunsWords,
   railScrollLeft,
   railStateWords,
+  roundWords,
   stageWaitsForRunEnvironment,
   stagesOnRail,
-  type LoopBack,
-  type LoopBackEnd,
-  type RailPlace,
 } from "./stage-rail-words.ts";
 import type { ShownStage } from "./use-stage-history.ts";
 import {
@@ -55,15 +48,14 @@ import {
 /** How narrow a Stage's column gets; below that the rail scrolls. */
 const STAGE_MIN_WIDTH_PX = 150;
 
-/** Where the markers sit in the rail, with no arcs over them. */
-const MARKER_TOP_PX = 14;
+/** Where the markers sit in the rail: under the room the "Now" tag takes. */
+const MARKER_TOP_PX = 26;
 
 /** From a marker's top to the top of the line through its centre. */
 const LINE_FROM_MARKER_TOP_PX = 11;
 
-/** The room over the markers once there are arcs: what they start from, and what each height adds. */
-const ARC_ROOM_PX = 26;
-const ARC_ROOM_PER_LEVEL_PX = 16;
+/** The id of the Open diagram button, which the diagram window returns focus to as it closes. */
+export const OPEN_DIAGRAM_BUTTON_ID = "open-pipeline-diagram";
 
 /** Where the Task is: every Stage, in order, from its library Pipeline until it has its own copy. */
 export function PipelineRail({
@@ -72,6 +64,7 @@ export function PipelineRail({
   shown,
   onSelect,
   onCloseHistory,
+  onOpenDiagram,
 }: {
   readonly task: Task;
   readonly pipeline: Pipeline | undefined;
@@ -79,6 +72,8 @@ export function PipelineRail({
   readonly shown: ShownStage | undefined;
   readonly onSelect: (stageKey: string) => void;
   readonly onCloseHistory: () => void;
+  /** The page holds whether the diagram window is open. */
+  readonly onOpenDiagram: () => void;
 }): ReactNode {
   const taskStagesRead = useQuery(pipelineQueries.taskStages(task.id));
   const roles = useQuery(roleQueries.list()).data;
@@ -104,12 +99,30 @@ export function PipelineRail({
       Edit for this Task
     </Button>
   );
+  const diagramAction = (
+    <Button
+      id={OPEN_DIAGRAM_BUTTON_ID}
+      size="sm"
+      variant="ghost"
+      iconLeft={<Icon name="workflow" size={12} />}
+      aria-haspopup="dialog"
+      onClick={onOpenDiagram}
+    >
+      Open diagram
+    </Button>
+  );
+  const actions = (
+    <span className="pipeline-rail-actions">
+      {diagramAction}
+      {editAction}
+    </span>
+  );
   return (
     <>
       {stages.length > 0 ? (
         <StageTrack
           label={label}
-          action={editAction}
+          action={actions}
           proposal={proposal}
           stages={stages}
           task={task}
@@ -151,7 +164,7 @@ export function RailLoader({ reads }: { readonly reads: readonly BlockRead[] }):
  * What a started Publishing Task waits for before its next Stage (spec 2.1): a Task added to its
  * Initiative or moved into its Project, neither Done nor Dropped yet.
  */
-function PublishingWait({ task }: { readonly task: Task }): ReactNode {
+export function PublishingWait({ task }: { readonly task: Task }): ReactNode {
   const tasks = useQuery(taskQueries.list()).data;
   const wait = tasks && publishingWaitWords(task, tasks);
   return wait ? <p className="pipeline-rail-wait">{wait}</p> : null;
@@ -236,8 +249,7 @@ function RailTop({
 
 /**
  * The caption, the Stages on their line and the selected Stage's history window. Equal columns put
- * each marker at a known share of the width, so the line, how far it is filled and the loop-backs'
- * arcs need no measuring.
+ * each marker at a known share of the width, so the line and how far it is filled need no measuring.
  */
 function StageTrack({
   label,
@@ -263,25 +275,28 @@ function StageTrack({
 }): ReactNode {
   const now = useClock();
   const names = stageNamesOf(stages.map(({ stage }) => stage));
-  const current = currentStageIndex(stages);
-  const scroller = useCurrentStageInView(current, stages.length);
-  const reached = Math.max(current, 0);
+  const progress = useMemo(() => pipelineProgress(stages, task.state), [stages, task.state]);
+  const current = progress.stages.findIndex(
+    ({ taskStage }) => taskStage.stage.key === progress.currentKey,
+  );
+  const scroller = useCurrentStageInView(current, progress.stages.length);
+  // The ← → keys and the Pipeline in small follow the rail's order, not the Pipeline's.
+  const inRailOrder = useMemo(() => progress.stages.map(({ taskStage }) => taskStage), [progress]);
+  const reachedCount = progress.stages.filter(({ reached }) => reached).length;
   const firstMarker = 50 / stages.length;
-  const loops = loopBacks(stages);
-  const arcHeights = Math.max(0, ...loops.map(({ level }) => level + 1));
-  const markerTop =
-    arcHeights > 0 ? ARC_ROOM_PX + arcHeights * ARC_ROOM_PER_LEVEL_PX : MARKER_TOP_PX;
   // A Stage edited away since it was selected leaves nothing selected.
   const selected = stages.find(({ stage }) => stage.key === shown?.stageKey);
 
-  const lineTop = markerTop + LINE_FROM_MARKER_TOP_PX;
-  const reachedRunning = stages[current]?.state === "running";
+  const lineTop = MARKER_TOP_PX + LINE_FROM_MARKER_TOP_PX;
+  const lastReached = progress.stages[reachedCount - 1]?.taskStage;
+  const reachedRunning =
+    lastReached?.stage.key === progress.currentKey && lastReached?.state === "running";
   return (
     <section className="pipeline-rail-place" aria-label={label}>
       <div className="pipeline-rail">
         <RailTop
           label={label}
-          caption={`${railCaption(stages, task.state)} · select a Stage for its history`}
+          caption={`${railCaption(progress, task.state)} · select a Stage for its history`}
           action={action}
         />
         <div className="pipeline-rail-scroll" ref={scroller}>
@@ -289,7 +304,7 @@ function StageTrack({
             className="pipeline-rail-stages"
             style={{
               minWidth: `max(100%, ${stages.length * STAGE_MIN_WIDTH_PX}px)`,
-              paddingTop: markerTop,
+              paddingTop: MARKER_TOP_PX,
             }}
           >
             <span
@@ -301,37 +316,24 @@ function StageTrack({
               style={{
                 top: lineTop,
                 left: `${firstMarker}%`,
-                width: `${(reached * 100) / stages.length}%`,
+                width: `${(Math.max(reachedCount - 1, 0) * 100) / stages.length}%`,
               }}
             />
             <ol aria-label="Stages">
-              {stages.map((taskStage, index) => (
+              {progress.stages.map((progressStage, index) => (
                 <RailStage
-                  key={taskStage.stage.key}
-                  taskStage={taskStage}
-                  walkStarted={current >= 0}
+                  key={progressStage.taskStage.stage.key}
+                  progressStage={progressStage}
+                  walkStarted={progress.started}
                   isCurrent={index === current}
-                  isSelected={taskStage === selected}
+                  isSelected={progressStage.taskStage === selected}
                   roles={roles}
                   names={names}
                   now={now}
-                  onSelect={() => onSelect(taskStage.stage.key)}
+                  onSelect={() => onSelect(progressStage.taskStage.stage.key)}
                 />
               ))}
             </ol>
-            {loops.map((loop) => (
-              <LoopBackArc
-                key={`${loop.from}>${loop.to}`}
-                loop={loop}
-                stageCount={stages.length}
-                markerTop={markerTop}
-                names={names}
-                onSelect={() => onSelect(loop.from)}
-              />
-            ))}
-            {loopBackEnds(loops, stages.length, markerTop).map((end) => (
-              <LoopBackArcEnd key={end.key} end={end} />
-            ))}
           </div>
         </div>
         {proposal}
@@ -339,7 +341,7 @@ function StageTrack({
       {selected && (
         <StageHistoryWindow
           taskId={task.id}
-          stages={stages}
+          stages={inRailOrder}
           taskStage={selected}
           askedRunId={shown?.askedRunId}
           noRunsWords={
@@ -384,58 +386,8 @@ function useCurrentStageInView(
   return scroller;
 }
 
-/**
- * The line across of a loop-back from the Stage a route back leaves to where the work went back,
- * between two `LoopBackArcEnd`s it may share with other loop-backs; its mark selects the Stage it
- * leaves.
- */
-function LoopBackArc({
-  loop,
-  stageCount,
-  markerTop,
-  names,
-  onSelect,
-}: {
-  readonly loop: LoopBack;
-  readonly stageCount: number;
-  readonly markerTop: number;
-  readonly names: StageNames;
-  readonly onSelect: () => void;
-}): ReactNode {
-  const { top, landsOn, leaves } = loopBackPath(loop, stageCount, markerTop);
-  const words = loopBackWords(loop, names);
-  return (
-    <div className="pipeline-rail-arc" style={{ top, left: cssOf(landsOn), right: cssOf(leaves) }}>
-      <button
-        type="button"
-        className="pipeline-rail-arc-mark"
-        aria-label={words}
-        title={words}
-        onClick={onSelect}
-      >
-        {loopBackMarkWords(loop)}
-      </button>
-    </div>
-  );
-}
-
-function LoopBackArcEnd({ end }: { readonly end: LoopBackEnd }): ReactNode {
-  const { kind, place, top, height } = end;
-  const across = kind === "lands" ? { left: cssOf(place) } : { right: cssOf(place) };
-  return (
-    <span
-      className={`pipeline-rail-arc-end pipeline-rail-arc-${kind}`}
-      style={{ top, height, ...across }}
-    />
-  );
-}
-
-function cssOf({ share, offset }: RailPlace): string {
-  return `calc(${share}% + ${offset}px)`;
-}
-
 function RailStage({
-  taskStage,
+  progressStage,
   walkStarted,
   isCurrent,
   isSelected,
@@ -444,7 +396,7 @@ function RailStage({
   now,
   onSelect,
 }: {
-  readonly taskStage: TaskStage;
+  readonly progressStage: ProgressStage;
   readonly walkStarted: boolean;
   readonly isCurrent: boolean;
   readonly isSelected: boolean;
@@ -453,11 +405,14 @@ function RailStage({
   readonly now: Date;
   readonly onSelect: () => void;
 }): ReactNode {
+  const { taskStage, reached } = progressStage;
   const { stage, state, tokens } = taskStage;
+  const wordsId = `rail-words-${stage.key}`;
   return (
     <li
-      className={`pipeline-rail-stage pipeline-rail-stage-${state} pipeline-rail-stage-kind-${stage.kind}${isSelected ? " pipeline-rail-stage-selected" : ""}`}
+      className={`pipeline-rail-stage pipeline-rail-stage-${state} pipeline-rail-stage-kind-${stage.kind}${isSelected ? " pipeline-rail-stage-selected" : ""}${reached ? "" : " pipeline-rail-stage-ahead"}`}
     >
+      {isCurrent && <NowTag state={state} />}
       <StageMark taskStage={taskStage} />
       <span className="pipeline-rail-body">
         <span className="pipeline-rail-name">
@@ -467,6 +422,7 @@ function RailStage({
             id={stageElementId(stage.key)}
             className="pipeline-rail-button"
             aria-haspopup="dialog"
+            aria-describedby={wordsId}
             aria-current={isCurrent ? "step" : undefined}
             onClick={onSelect}
           >
@@ -476,22 +432,51 @@ function RailStage({
         <span className="pipeline-rail-worker">
           <StageWorker taskStage={taskStage} roles={roles} />
         </span>
-        <span className="pipeline-rail-state">
-          {state === "running" && !stageWaitsForRunEnvironment(taskStage) && (
-            <span className="live-dot" />
-          )}
-          {railStateWords(taskStage, names)}
-        </span>
-        <span className="pipeline-rail-runs">
-          {railRunsWords(taskStage, walkStarted, now)}
-          {stage.kind === "agent" && countedTokens(tokens) > 0 && (
-            <>
-              {" · "}
-              <TokenFigure tokens={tokens} />
-            </>
-          )}
+        <span id={wordsId} className="pipeline-rail-words">
+          <span className="pipeline-rail-state">
+            {state === "running" && !stageWaitsForRunEnvironment(taskStage) && (
+              <span className="live-dot" />
+            )}
+            {railStateWords(taskStage, names)}
+          </span>
+          <span className="pipeline-rail-runs">
+            {railRunsWords(taskStage, walkStarted, now)}
+            {stage.kind === "agent" && countedTokens(tokens) > 0 && (
+              <>
+                {" · "}
+                <TokenFigure tokens={tokens} />
+              </>
+            )}
+          </span>
+          <RoundChip progressStage={progressStage} />
         </span>
       </span>
     </li>
+  );
+}
+
+/**
+ * The current Stage's tag, over its mark in its state's colour. Hidden from assistive technology,
+ * which hears `aria-current="step"` on the Stage's button.
+ */
+export function NowTag({ state }: { readonly state: TaskStage["state"] }): ReactNode {
+  return (
+    <span className={`pipeline-rail-now pipeline-rail-now-${state}`} aria-hidden="true">
+      Now
+    </span>
+  );
+}
+
+/** The round count of a Stage the work came back to: once on the Stage, never a repeated column. */
+export function RoundChip({ progressStage }: { readonly progressStage: ProgressStage }): ReactNode {
+  const words = roundWords(progressStage);
+  if (words === "") return null;
+  const onLastRound = progressStage.roundBound === progressStage.rounds;
+  return (
+    <span className={`pipeline-rail-round${onLastRound ? " pipeline-rail-round-last" : ""}`}>
+      <Icon name="rotate-ccw" size={11} />
+      <span aria-hidden="true">{words}</span>
+      <span className="visually-hidden">{roundWords(progressStage, true)}</span>
+    </span>
   );
 }

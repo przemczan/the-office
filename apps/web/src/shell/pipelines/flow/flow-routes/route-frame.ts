@@ -1,4 +1,4 @@
-import type { FlowBox, FlowLine, FlowPoint } from "../flow-layout.ts";
+import { isMarked, type FlowBox, type FlowLine, type FlowPoint } from "../flow-layout.ts";
 import { type MarkRule, markSpots } from "./mark-spots.ts";
 import type { DrawnRoute, DrawnRoutes, RouteScene } from "./route-drawer.ts";
 import {
@@ -111,7 +111,7 @@ export function drawnRoutes(
 ): DrawnRoutes {
   const lines = routes.map(({ shape }) => shapePoints(shape));
   const marks = markSpots(
-    routes.map(({ line }, index) => ({ points: lines[index]!, marked: line.line.limit !== null })),
+    routes.map(({ line }, index) => ({ points: lines[index]!, marked: isMarked(line.line) })),
     frame,
     rule,
   );

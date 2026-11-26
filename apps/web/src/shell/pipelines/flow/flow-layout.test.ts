@@ -4,6 +4,7 @@ import {
   drawingStart,
   flowLines,
   flowRoom,
+  lineMarkWords,
   listsRoutes,
   narrowBands,
   narrowLayout,
@@ -14,6 +15,7 @@ import {
   startPath,
 } from "./flow-layout.ts";
 import { asFlow, FAILED_CONDITION } from "./flow-model.ts";
+import type { FlowProgress } from "./flow-marks.ts";
 
 /** Where a test's Stage stands, on a grid of its own: columns 140 apart, rows 60 apart. */
 interface At {
@@ -165,6 +167,88 @@ describe("the lines to draw", () => {
       ["proposed:review:0", "proposed", undefined, undefined, 4],
       ["taken-away:tests:0", "taken-away", undefined, undefined, null],
     ]);
+  });
+});
+
+describe("the lines of a walk's progress", () => {
+  const tests = script("tests", { column: 0, row: 0 }, [plain("review")], "implement");
+  const implement = gate("implement", { column: 1, row: 0 }, [plain("tests")]);
+  const review = gate("review", { column: 2, row: 0 }, [plain(null)]);
+  const stages = [implement, tests, review];
+  const lookAndCount = (progress: FlowProgress) =>
+    flowLines(stages, undefined, progress).map(({ id, look, count }) => [id, look, count]);
+  const started = {
+    started: true,
+    taken: new Map([
+      ["implement", [{ to: "tests", times: 2, limit: null }]],
+      ["tests", [{ to: "implement", times: 1, limit: 2 }]],
+    ]),
+    current: "tests",
+    ran: new Set(["implement", "tests"]),
+    quiet: new Set<string>(),
+  } satisfies FlowProgress;
+
+  it("leave every line plain without progress or before the walk started", () => {
+    expect(flowLines(stages).every(({ look }) => look === "plain")).toBe(true);
+    expect(
+      flowLines(stages, undefined, { ...started, started: false }).every(
+        ({ look }) => look === "plain",
+      ),
+    ).toBe(true);
+  });
+
+  it("mark the routes taken with their counts and dim the other routes of a Stage left", () => {
+    expect(lookAndCount({ ...started, current: "review" })).toEqual([
+      ["implement:0", "taken", 2],
+      ["tests:0", "taken", 1],
+      ["tests:1", "not-taken", undefined],
+      ["review:0", "plain", undefined],
+    ]);
+  });
+
+  it("draw a route of the Stage the walk is at plain", () => {
+    expect(lookAndCount(started)[2]).toEqual(["tests:1", "plain", undefined]);
+  });
+
+  it("dim the routes touching a Stage the walk won't reach", () => {
+    expect(lookAndCount({ ...started, quiet: new Set(["review"]) })[2]).toEqual([
+      "tests:1",
+      "not-taken",
+      undefined,
+    ]);
+  });
+
+  it("mark the route to End taken", () => {
+    const ended = {
+      ...started,
+      current: null,
+      taken: new Map([["review", [{ to: null, times: 1, limit: null }]]]),
+      ran: new Set(["review"]),
+    };
+    expect(lookAndCount(ended)[3]).toEqual(["review:0", "taken", 1]);
+  });
+
+  it("mark both routes from a Stage to the same Stage taken, a known limit", () => {
+    const twin = gate("twin", { column: 0, row: 0 }, [plain("next"), plain("next")]);
+    const next = gate("next", { column: 1, row: 0 });
+    const progress = {
+      started: true,
+      taken: new Map([["twin", [{ to: "next", times: 1, limit: null }]]]),
+      current: "next",
+      ran: new Set(["twin"]),
+      quiet: new Set<string>(),
+    } satisfies FlowProgress;
+    expect(flowLines([twin, next], undefined, progress).map(({ look }) => look)).toEqual([
+      "taken",
+      "taken",
+    ]);
+  });
+
+  it("word the mark by count and limit", () => {
+    expect(lineMarkWords({ limit: null, count: 3 })).toBe("3×");
+    expect(lineMarkWords({ limit: 3, count: 2 })).toBe("2 of ≤3");
+    expect(lineMarkWords({ limit: 3 })).toBe("≤3×");
+    expect(lineMarkWords({ limit: null })).toBe("");
   });
 });
 

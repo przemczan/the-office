@@ -1,6 +1,6 @@
 # Task page
 
-Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments, Engine), the record blocks (the Bug section, the GitHub issue, the Devices section with Use a Project device among them, and History), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail, its rounds and the Pipeline diagram, and Stage history, the record's tabs (Overview, Changes, Attachments, Engine), the record blocks (the Bug section, the GitHub issue, the Devices section with Use a Project device among them, and History), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
@@ -145,18 +145,42 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - A section named "Pipeline · <name>" across the page, with the caption "<progress> · select a Stage for its history".
 - Caption words: "Not started"; "At <Stage>: <state>"; "<n> of <m> Stages finished"; "All <n> Stages finished" once Done; in Planning "Starts once you confirm the Plan, the Definition of Done and the Pipeline".
+- **Open diagram** (ghost button, before Edit for this Task): whenever the rail has Stages; opens the [Pipeline diagram](#pipeline-diagram).
 - **Edit for this Task** (ghost button in its header): until the Task ends, never in Shaping.
 - Until the Task has its own copy the rail shows the library Pipeline's Stages.
+- The Stages stand in the order the walk first reached them in this start, then the Stages a Restart from… jumped over right after the Stage it left, then the Stages not reached yet, faint, in Pipeline order; before any run, in Pipeline order.
+- The line is solid under the reached Stages and dashed under the rest.
+- The current Stage, the one of the latest run while the Task isn't Done or Dropped, has a "Now" tag over its mark in its state's colour.
+- A Stage with two rounds or more shows once, with "Round <n> of ≤<N>" (amber at the last), or "Round <n>" when nothing bounds it ([Rounds](#rounds)).
 - Each Stage is a column with: its mark, its name (a button that opens the Stage history), its worker, its state words, its runs and tokens.
 - Mark: the Stage kind by shape, its state by colour and icon (done check, failed x, waiting or paused pause, stopped square, skipped minus, not taken skip-forward); a running Stage's line is live.
 - Worker: the Role's person, "You" at a Gate, the command for a Script Stage, or "<label> · nobody holds it" for a duty nobody holds.
 - State words: Pending, Running, Waiting on you, Paused, Stopped, Done, Skipped, Not taken, Failed, with "· went back to <Stage>" when a route back sent the work back; "Waiting for a run environment" for a Script Stage whose command hasn't started.
 - Runs words: "Not started", "Not run yet", "Not needed" (skipped), "Not run" (not taken), else the count and time ("so far" while running).
-- Routes back the walk followed: an arc over the Stages from the Stage to where the route sent the work back, marked "<n> of at most <limit>" ("<n> times" for a route with No limit); the mark selects the Stage the route leaves; its words say "<Stage> went back to <Stage> <n> times, of at most <limit>".
 - When the Stages don't fit (150px a Stage at least) the rail scrolls sideways and keeps the current Stage in view.
 - A Task whose Pipeline was removed from the library shows "Its Pipeline was removed from the library."
 - A Publishing Task that waits shows "Waits for “<blocker>” before its next Stage." ([initiative-page.md](initiative-page.md#pipelines-block)).
 - Rules: [2.3.1](../2.3.1-stages.md), [2.3.2](../2.3.2-flows.md).
+
+## Rounds
+
+- A round is one arrival of the walk at a Stage; a run resumed after a Decision, a Pause or a used-up window is the same round.
+- N is 1 + the limits of the routes back spanning the Stage in Pipeline order, each its latest limit with the times allowed past it.
+- "Round <n> of ≤<N>" when every spanning route back has a limit and n ≤ N; else "Round <n>".
+- The Initiative page's track shows rounds the same way ([initiative-page.md](initiative-page.md#pipelines-block)).
+- Rules: [2.3.2](../2.3.2-flows.md#a-routes-limit).
+
+## Pipeline diagram
+
+- An extra-large window of one height, "Pipeline diagram: <Pipeline>", opened by Open diagram, with Maximize.
+- Under the head: the rail's caption, the Publishing wait, "Started over by <user>. The earlier start's <n> runs stay in each Stage's history." after a Start over, and a legend of the Stage states and the lines.
+- The Pipeline's flow, read-only, drawn in this browser's Route drawing ([pipeline-flow-editor.md](pipeline-flow-editor.md#route-drawing)), with the editor's canvas tools, without Full screen, filling the window's height; a scroll moves the view.
+- Before the Task has its own copy, the library Pipeline's Stages and End position, all Pending.
+- Each Stage shows its state by its mark, its edge and its words (done, running, waiting on you, failed, pending, not taken); the current one is ringed; a Stage with rounds shows its round.
+- A route the walk followed in this start is drawn heavy with its count ("3×", "2 of ≤3"); one out of a Stage that ran and isn't current that it didn't follow, or touching a Not taken or Skipped Stage, is dimmed.
+- Pressing a Stage shows it in the side panel: its worker, state, rounds, its runs with the route each left by, and Open Stage history, which closes the window and opens the Stage history; pressing a route picks nothing.
+- The walk, under it: every run of this start in order, "<Stage> · Round <n>" with the route it left by in Stage history's words; a step picks its Stage; before any run, "The walk starts when the Task starts."
+- Closing returns focus to Open diagram.
 
 ## Pipeline not chosen
 
@@ -188,9 +212,9 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 ## Stage history
 
-- A large window opened by pressing a Stage on the rail, or a route back's mark.
+- A large window opened by pressing a Stage on the rail, or Open Stage history in the [Pipeline diagram](#pipeline-diagram).
 - Title: "Stage history: <Stage>", the worker, a badge with the state, and the hint "← → Stages".
-- Under the title: the Pipeline in small to move between Stages, then a line saying what the Stage is for and who works it.
+- Under the title: the Pipeline in small, in the rail's order, to move between Stages, then a line saying what the Stage is for and who works it.
 - Left: the runs, newest first, as buttons "Run <n>" with an outcome badge, a "Briefed with what failed" mark when it carried a failure, then time, tokens, the engine ("Stand-in for <engine>" when it ran on a Stand-in Engine) and a gist.
 - Right: the run picked; it stays picked while the window is open.
 - An ended run names the route it followed, with its count: "Went on to Review", "Went back to Implement (2 of at most 3)", or "Went to End".
@@ -199,7 +223,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - A run the user's Restart from… held reads "Restarted from <Stage> by <user>" with its feedback, and the run the restart ran shows the feedback as well; a Script Stage keeps it on its run.
 - A Start over shows "Started over by <user>" (with "Branch reset to <base>, old head kept as <ref>" when it reset) and a divider "Earlier start" before the runs of an earlier start, which are history only ([2.4.5](../2.4.5-stopping-and-restarts.md#start-over)).
 - A Stage with no runs says "Runs once the Task starts." (not started) or "Hasn't run yet."
-- ← and → move to the previous or next Stage, heard on the document, unless a field is typed in or an Attachment viewer is over the window.
+- ← and → move to the previous or next Stage in the rail's order, heard on the document, unless a field is typed in or an Attachment viewer is over the window.
 - Closing returns focus to the Stage on the rail.
 - Open state: kept in the page, not the address, unless `taskThread` names a run id (as a Decision's "in Implement, run 6" does) or a Stage's Thread with no `decision`, which opens at the latest run and clears from the address as it closes.
 - A link leading elsewhere, or the way to a Decision's card, closes it.
