@@ -3,18 +3,27 @@ import { describe, expect, it } from "vitest";
 import { AnthropicApiKey, NotAnAnthropicApiKey } from "./anthropic-api-key.js";
 
 const KEY = "sk-ant-api03-Abc_123-def";
+const USER_KEY = "sk-ant-usr-Abc_123-def";
 
 describe("an Anthropic API key", () => {
   it("takes what the Claude Console makes, trimmed", () => {
     expect(AnthropicApiKey.of(`  ${KEY}\n`).reveal()).toBe(KEY);
+    expect(AnthropicApiKey.of(USER_KEY).reveal()).toBe(USER_KEY);
   });
 
   it("refuses anything else, a pasted token among them, in plain words", () => {
-    for (const text of ["", "sk-ant-api03-", "sk-ant-oat01-abc", "sk-proj-abc", `${KEY} more`]) {
+    for (const text of [
+      "",
+      "sk-ant-api03-",
+      "sk-ant-usr-",
+      "sk-ant-oat01-abc",
+      "sk-proj-abc",
+      `${KEY} more`,
+    ]) {
       expect(() => AnthropicApiKey.of(text)).toThrow(new NotAnAnthropicApiKey().message);
     }
     expect(new NotAnAnthropicApiKey().message).toBe(
-      "That is no Anthropic API key: one starts with sk-ant-api.",
+      "That is no Anthropic API key: one starts with sk-ant-, such as sk-ant-api03- or sk-ant-usr-.",
     );
   });
 

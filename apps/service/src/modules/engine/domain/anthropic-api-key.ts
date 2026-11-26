@@ -1,7 +1,7 @@
 import { inspect } from "node:util";
 
-/** What the Claude Console makes: an Anthropic API key. */
-const ANTHROPIC_API_KEY_SHAPE = /^sk-ant-api\d\d-[\w-]+$/;
+/** What the Claude Console makes: an Anthropic API key (`sk-ant-api03-…`, `sk-ant-usr-…`), never a `claude setup-token` token (`sk-ant-oat…`). */
+const ANTHROPIC_API_KEY_SHAPE = /^sk-ant-(?!oat)[a-z]+\d*-[\w-]+$/;
 
 /** What an Anthropic API key reads as wherever it is printed, logged or serialised. */
 const REDACTED = "[an API key]";
@@ -9,7 +9,9 @@ const REDACTED = "[an API key]";
 /** The text given is no Anthropic API key. */
 export class NotAnAnthropicApiKey extends Error {
   constructor() {
-    super("That is no Anthropic API key: one starts with sk-ant-api.");
+    super(
+      "That is no Anthropic API key: one starts with sk-ant-, such as sk-ant-api03- or sk-ant-usr-.",
+    );
   }
 }
 

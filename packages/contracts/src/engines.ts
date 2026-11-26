@@ -579,7 +579,7 @@ export type CopilotCliPastedToken = z.infer<typeof copilotCliPastedTokenSchema>;
 /**
  * PUT /settings/engines/:engineId/api-key: an API key, which replaces any other sign-in and is never
  * sent back. On a Claude Code engine "Use an API key", an Anthropic API key, kept in the engine's
- * folder and refused unless it starts with sk-ant-api; on a Codex engine "Use an API key instead",
+ * folder and refused unless it starts with sk-ant- (not sk-ant-oat); on a Codex engine "Use an API key instead",
  * an OpenAI API key, kept in the database; on a Gemini CLI engine, which has no Sign in, the Gemini
  * API key from Google AI Studio that signs it in, kept in the database.
  */

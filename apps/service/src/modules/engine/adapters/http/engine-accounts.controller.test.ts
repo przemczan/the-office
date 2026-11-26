@@ -365,7 +365,8 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
       const text = await refused.text();
       expect(text).not.toContain(key);
       expect(JSON.parse(text)).toMatchObject({
-        message: "That is no Anthropic API key: one starts with sk-ant-api.",
+        message:
+          "That is no Anthropic API key: one starts with sk-ant-, such as sk-ant-api03- or sk-ant-usr-.",
       });
     }
     const blank = await send("PUT", "claude-code/api-key", { key: "   " });

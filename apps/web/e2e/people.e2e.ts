@@ -1081,7 +1081,9 @@ test(
     await keyBox.fill("sk-not-anthropic");
     await account.getByRole("button", { name: "Save the API key" }).click();
     await expect(
-      account.getByText("That is no Anthropic API key: one starts with sk-ant-api."),
+      account.getByText(
+        "That is no Anthropic API key: one starts with sk-ant-, such as sk-ant-api03- or sk-ant-usr-.",
+      ),
     ).toBeVisible();
     const key = "sk-ant-api03-e2e-stand-in-key";
     await keyBox.fill(key);

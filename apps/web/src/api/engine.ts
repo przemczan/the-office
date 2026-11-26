@@ -116,7 +116,7 @@ export function pasteEngineToken(engineId: string, token: string): Promise<void>
 
 /**
  * An API key signs the engine in, in place of any other sign-in, and is never sent back: "Use an
- * API key" on a Claude Code engine, an Anthropic one (refused unless shaped `sk-ant-api…`), kept in
+ * API key" on a Claude Code engine, an Anthropic one (refused unless shaped `sk-ant-<kind>-…`, not `sk-ant-oat…`), kept in
  * the engine's folder; "Use an API key instead" on a Codex engine, an OpenAI one, kept in the
  * database.
  */

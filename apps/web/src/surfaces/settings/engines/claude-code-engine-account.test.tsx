@@ -21,16 +21,18 @@ const SIGNED_OUT: EngineAccount = {
   email: null,
   plan: null,
 };
-const REFUSAL = "That is no Anthropic API key: one starts with sk-ant-api.";
+const REFUSAL =
+  "That is no Anthropic API key: one starts with sk-ant-, such as sk-ant-api03- or sk-ant-usr-.";
 
-/** The account of engine `work`, its API key taken when shaped `sk-ant-api…`, refused otherwise. */
+/** The account of engine `work`, its API key taken when shaped `sk-ant-<kind>-…`, refused otherwise. */
 async function openAccount(): Promise<{ readonly page: HTMLElement; readonly sent: Sent[] }> {
   let account = SIGNED_OUT;
   const sent = stubService({
     [ACCOUNT]: () => ({ status: 200, body: account }),
     [API_KEY]: (body) => {
       const { key } = body as { key: string };
-      if (!key.startsWith("sk-ant-api")) return { status: 400, body: { message: REFUSAL } };
+      if (!key.startsWith("sk-ant-") || key.startsWith("sk-ant-oat"))
+        return { status: 400, body: { message: REFUSAL } };
       account = { ...SIGNED_OUT, signedIn: true, apiKey: true };
       return { status: 204 };
     },
