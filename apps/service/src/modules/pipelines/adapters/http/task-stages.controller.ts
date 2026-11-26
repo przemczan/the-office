@@ -8,16 +8,13 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Put,
   UseFilters,
 } from "@nestjs/common";
 import {
   stagesCheckRequestSchema,
-  taskStagesEditSchema,
   type StageRunCommandOutputs,
   type StagesCheck,
   type StagesCheckRequest,
-  type TaskStagesEdit,
   type TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -45,18 +42,6 @@ export class TaskStagesController {
     const outputs = await this.taskStages.commandOutputs(id, runId);
     if (!outputs) throw new NotFoundException(`The Task has no Stage run "${runId}".`);
     return { outputs: [...outputs] };
-  }
-
-  /** Edit for this Task: the Task's Stages replaced, the library Pipeline left as it is. */
-  @Put(":id/stages")
-  @UseFilters(StagesEditRefusalsFilter)
-  async edit(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(taskStagesEditSchema)) { stages, endPosition }: TaskStagesEdit,
-  ): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(
-      await this.taskStages.edit(id, withGivenLimits(stages), endPosition),
-    );
   }
 
   /**

@@ -1090,8 +1090,8 @@ describe("The queue", () => {
     const takenOut = await sendJson(work, "DELETE", `/queue/${a.id}`);
     const firstMovedUp = await sendJson(work, "POST", `/queue/${c.id}/move-up`);
 
-    expect(movedUp.status).toBe(204);
-    expect(takenOut.status).toBe(204);
+    expect(movedUp.status).toBe(200);
+    expect(takenOut.status).toBe(200);
     expect(workRefusalSchema.parse(await firstMovedUp.json()).reasons).toEqual([
       "The Task is already first in the queue.",
     ]);
@@ -1116,7 +1116,7 @@ describe("The queue", () => {
     const firstMovedToTop = await sendJson(work, "POST", `/queue/${c.id}/move-to-top`);
     const notQueuedMovedToTop = await sendJson(work, "POST", `/queue/${notQueued.id}/move-to-top`);
 
-    expect(movedToTop.status).toBe(204);
+    expect(movedToTop.status).toBe(200);
     expect(await ownQueue()).toEqual([c.id, a.id, b.id]);
     expect(webEventsOf(work)).toEqual([{ type: "task.moved-up-in-queue", taskId: c.id }]);
     expect(workRefusalSchema.parse(await firstMovedToTop.json()).reasons).toEqual([
@@ -1348,9 +1348,9 @@ describe("The queue", () => {
       const order = await ownQueue();
       const takenOut = await sendJson(work, "DELETE", `/queue/${task.id}`);
 
-      expect(movedUp.status).toBe(204);
+      expect(movedUp.status).toBe(200);
       expect(order).toEqual([task.id, ahead.id]);
-      expect(takenOut.status).toBe(204);
+      expect(takenOut.status).toBe(200);
       expect(await ownQueue()).toEqual([ahead.id]);
       expect((await readTask(task.id)).state).toBe("ready");
     });

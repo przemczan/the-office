@@ -20,7 +20,9 @@ export type OfficeActionSubjectKind =
   | "pipeline"
   | "stage-template"
   | "office-setting"
-  | "test-instance";
+  | "test-instance"
+  | "saved-view"
+  | "stage-run";
 
 /** The one subject a call of an Office action changes, by its kind and its id. */
 export interface OfficeActionSubject {

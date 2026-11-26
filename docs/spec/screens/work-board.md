@@ -50,6 +50,7 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 - Each view is a chip with a bookmark icon and its name; it is on while the board's filters are exactly its own, so changing any filter turns it off.
 - Pressing a view applies its filters; pressing the view that is on clears the filters.
 - Each chip has a remove button (hover "Remove the view", label "Remove the view <name>"); a refusal shows as a toast.
+- Saving and removing a view are the user's click, or a person's call in Work › Moving work, ruled by their [Authority](../6-permissions-and-safety.md#authority) ([6 Authority by role](../6-permissions-and-safety.md#authority-by-role)).
 - **Save view…** (bookmark-plus icon) shows while a filter is set and no view matches.
 - Its window "Save the view": the field "Name" (placeholder "Firmware bugs", hint "A view saves the filters, not the Project filter: it follows the top bar like everything else."), the button **Save view**, and the alert "The view can't be saved" with the service's reason when it is refused.
 - A view saves the search, priority, Kind, Initiative and Blocked filters, never Group by Initiative or the Project filter.

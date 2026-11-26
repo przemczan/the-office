@@ -261,9 +261,6 @@ export const RESTART_TASK_FROM_ACTION = officeAction({
   subject: ({ taskId }) => ({ kind: "task", id: taskId }),
 });
 
-/** The Office actions Pipelines carries out. */
-export const PIPELINES_OFFICE_ACTIONS = [RESTART_TASK_FROM_ACTION] as const;
-
 /** What a refused Gate action answers: every reason, also joined into Nest's `message`. */
 export const gateRefusalSchema = z.object({
   statusCode: z.literal(422),
@@ -539,6 +536,40 @@ export const taskStagesEditSchema = z.object({
   ...endPositionField,
 });
 export type TaskStagesEdit = z.infer<typeof taskStagesEditSchema>;
+
+/** Office action: Edit for this Task, the Task's own Stages replaced. */
+export const EDIT_TASK_STAGES_ACTION = officeAction({
+  name: "edit_task_stages",
+  description:
+    "Replaces a Task's own Stages, in order, with the end position if any: the library Pipeline is left as it is. The Stages that have started stay as they are, where they are; refused with every problem the Stages have.",
+  input: taskStagesEditSchema.extend({ taskId: z.uuid().describe("The id of the Task.") }),
+  answer: taskStagesSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/stages" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Switch now, the held runs moved to a Stand-in Engine. */
+export const SWITCH_TO_STAND_IN_ACTION = officeAction({
+  name: "switch_to_stand_in",
+  description:
+    "Switches held runs now to a Stand-in Engine, each Task on its own, instead of waiting for the usage window to reset; answers a result for each run.",
+  input: standInSwitchRequestSchema,
+  answer: standInSwitchResponseSchema,
+  route: { method: "POST", path: "/stand-in-choices/switch" },
+  area: "work",
+  group: "movingWork",
+  // The batch is ruled by its first run.
+  subject: ({ runIds }) => ({ kind: "stage-run", id: runIds[0] as string }),
+});
+
+/** The Office actions Pipelines carries out. */
+export const PIPELINES_OFFICE_ACTIONS = [
+  RESTART_TASK_FROM_ACTION,
+  EDIT_TASK_STAGES_ACTION,
+  SWITCH_TO_STAND_IN_ACTION,
+] as const;
 
 /**
  * POST /tasks/:id/stages/check: the Stages as the editor holds them, and `pipelineId`, the Pipeline

@@ -40,7 +40,7 @@ function aName(words: string): string {
 
 async function saveView(body: unknown): Promise<Response> {
   const response = await sendJson(work, "POST", "/saved-views", body);
-  if (response.status === 201) saved.push(savedViewSchema.parse(await response.clone().json()).id);
+  if (response.status === 200) saved.push(savedViewSchema.parse(await response.clone().json()).id);
   return response;
 }
 
@@ -57,7 +57,7 @@ describe("/api/saved-views", () => {
       projectIds: ["firmware"],
     });
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     const view = savedViewSchema.parse(await response.json());
     expect(view.filters).toEqual({ blocked: true });
     expect((await listViews()).find(({ id }) => id === view.id)).toEqual(view);
@@ -69,7 +69,7 @@ describe("/api/saved-views", () => {
       filters: { blocked: true, tags: ["bug"] },
     });
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     const view = savedViewSchema.parse(await response.json());
     expect((await listViews()).find(({ id }) => id === view.id)?.filters).toEqual({
       blocked: true,
@@ -103,7 +103,7 @@ describe("/api/saved-views", () => {
 
     const removed = await sendJson(work, "DELETE", `/saved-views/${view.id}`);
 
-    expect(removed.status).toBe(204);
+    expect(removed.status).toBe(200);
     expect((await listViews()).map(({ id }) => id)).not.toContain(view.id);
     expect(webEventsOf(work)).toEqual([{ type: "saved-view.removed", savedViewId: view.id }]);
   });

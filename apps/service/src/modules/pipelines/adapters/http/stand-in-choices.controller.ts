@@ -1,39 +1,18 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import {
-  standInSwitchRequestSchema,
-  type StandInChoicesResponse,
-  type StandInSwitchRequest,
-  type StandInSwitchResponse,
-} from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
+import { Controller, Get } from "@nestjs/common";
+import { type StandInChoicesResponse } from "@the-office/contracts";
 import { StandInChoices, type WaitingStandInChoice } from "../../application/stand-in-choices.js";
-import { StandInSwitches } from "../../application/stand-in-switches.js";
 
 /**
  * The Stages waiting for the user's choice of a Stand-in Engine (spec 5.4), The Office's own
- * Decision in Needs you, and Switch now on them.
+ * Decision in Needs you. Switch now on them is an Office action (`SWITCH_TO_STAND_IN_ACTION`).
  */
 @Controller("stand-in-choices")
 export class StandInChoicesController {
-  constructor(
-    private readonly choices: StandInChoices,
-    private readonly switches: StandInSwitches,
-  ) {}
+  constructor(private readonly choices: StandInChoices) {}
 
   @Get()
   async list(): Promise<StandInChoicesResponse> {
     return { choices: (await this.choices.waiting()).map(toStandInChoiceResponse) };
-  }
-
-  /** Switches each held run on its own, answering a result for each. */
-  @Post("switch")
-  @HttpCode(HttpStatus.OK)
-  async switch(
-    @Body(new ContractPipe(standInSwitchRequestSchema)) { runIds }: StandInSwitchRequest,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<StandInSwitchResponse> {
-    return { results: await this.switches.switch(runIds, userOf(signedIn)) };
   }
 }
 

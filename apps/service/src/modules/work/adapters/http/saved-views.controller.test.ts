@@ -45,7 +45,7 @@ function aName(words: string): string {
 
 async function saveView(body: unknown): Promise<Response> {
   const response = await sendJson(work, "POST", "/saved-views", body);
-  if (response.status === 201) saved.push(savedViewSchema.parse(await response.clone().json()).id);
+  if (response.status === 200) saved.push(savedViewSchema.parse(await response.clone().json()).id);
   return response;
 }
 
@@ -64,7 +64,7 @@ describe("/api/saved-views", () => {
       filters: { query: " flash ", priority: "high", initiative },
     });
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     const view = savedViewSchema.parse(await response.json());
     expect(view).toMatchObject({
       name,

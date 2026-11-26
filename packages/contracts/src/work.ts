@@ -1120,32 +1120,6 @@ export const REOPEN_TASK_ACTION = officeAction({
   subject: ({ taskId }) => ({ kind: "task", id: taskId }),
 });
 
-/** Work's Office actions, each declared above. */
-export const WORK_OFFICE_ACTIONS = [
-  ADD_DEPENDENCY_ACTION,
-  REMOVE_DEPENDENCY_ACTION,
-  ADD_TO_INITIATIVE_ACTION,
-  TAKE_OUT_OF_INITIATIVE_ACTION,
-  CHANGE_TASK_TITLE_ACTION,
-  CHANGE_TASK_DESCRIPTION_ACTION,
-  CHANGE_TASK_KIND_ACTION,
-  CHANGE_TASK_PRIORITY_ACTION,
-  CHANGE_TASK_PLAN_ACTION,
-  CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
-  DROP_TASK_ACTION,
-  ARCHIVE_TASK_ACTION,
-  RESTORE_TASK_ACTION,
-  START_TASK_OVER_ACTION,
-  REOPEN_TASK_ACTION,
-  EDIT_IDEA_ACTION,
-  DROP_IDEA_ACTION,
-  RESTORE_IDEA_ACTION,
-  WRITE_INITIATIVE_OUTCOME_ACTION,
-  DROP_INITIATIVE_ACTION,
-  ARCHIVE_INITIATIVE_ACTION,
-  RESTORE_INITIATIVE_ACTION,
-] as const;
-
 /** A field of a Task, an Idea or an Initiative whose edits its History keeps. */
 export const editedFieldSchema = z.enum([
   "title",
@@ -1288,12 +1262,11 @@ export type UsageCapsChoice = z.infer<typeof usageCapsChoiceSchema>;
  * body is no answer. `onUsageCaps` starts it anyway past its usage caps, or refuses with whatever
  * still holds it.
  */
-export const startRequestSchema = z
-  .object({
-    onOverlap: overlapChoiceSchema.optional(),
-    onUsageCaps: usageCapsChoiceSchema.optional(),
-  })
-  .default({});
+export const startRequestFieldsSchema = z.object({
+  onOverlap: overlapChoiceSchema.optional(),
+  onUsageCaps: usageCapsChoiceSchema.optional(),
+});
+export const startRequestSchema = startRequestFieldsSchema.default({});
 export type StartRequest = z.infer<typeof startRequestSchema>;
 
 /** A Task in the one Office-wide queue for Start, with the waits that hold it. */
@@ -1908,3 +1881,287 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("fire-alarm.all-clear") }),
 ]);
 export type WorkWebEvent = z.infer<typeof workWebEventSchema>;
+
+/** Office action: Mark Ready, from Backlog or Planning. */
+export const MARK_TASK_READY_ACTION = officeAction({
+  name: "mark_task_ready",
+  description:
+    "Marks a Task Ready, from Backlog or Planning: refused with every reason until its Plan and Definition of Done are confirmed, no Pipeline proposal is open and no Decision is. With confirmPlanAndDefinitionOfDone, the Plan and the Definition of Done are confirmed as they stand, even empty, in the same change; use it only when the user told you to go on without them.",
+  input: markReadyRequestSchema.extend({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/ready" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Confirm the Task's Plan as it reads. */
+export const CONFIRM_TASK_PLAN_ACTION = officeAction({
+  name: "confirm_task_plan",
+  description: "Confirms a Task's Plan as it reads now.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/plan/confirm" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Confirm the Task's Definition of Done as it reads. */
+export const CONFIRM_TASK_DEFINITION_OF_DONE_ACTION = officeAction({
+  name: "confirm_task_definition_of_done",
+  description: "Confirms a Task's Definition of Done as it reads now.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/definition-of-done/confirm" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: the Task's Pipeline: the proposed one confirmed, or another. */
+export const CHOOSE_TASK_PIPELINE_ACTION = officeAction({
+  name: "choose_task_pipeline",
+  description:
+    "Sets a Task's Pipeline by its id: the proposed one to confirm it, or another from the library. Either ends the Pipeline proposal.",
+  input: pipelineChangeSchema.extend({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/pipeline" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: the Task's engine override and each person's model and effort. */
+export const CHOOSE_TASK_ENGINE_ACTION = officeAction({
+  name: "choose_task_engine",
+  description:
+    "Sets a Task's engine override, null for none, and its model and effort for each person (people left out keeps them, null or empty clears them), in any state but Done and Dropped. Refused for an engine not listed, when a Role of its Pipeline couldn't run on it, and for a model or effort the engine type doesn't offer.",
+  input: taskEngineChangeSchema.extend({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/engine" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: the Task's place on the board. */
+export const PLACE_TASK_ACTION = officeAction({
+  name: "place_task",
+  description:
+    "Places a Task on the board between two Tasks of its column, null at either end: it takes the priority that keeps it there.",
+  input: taskPlacementSchema.extend({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/place" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Make a plan, the Planner starting at once. */
+export const MAKE_A_PLAN_ACTION = officeAction({
+  name: "make_a_plan",
+  description:
+    "Make a plan: the Task moves to Planning, in auto mode or not, and the Planner starts at once from its title and Description. The choice becomes the remembered default.",
+  input: makeAPlanSchema.extend({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/make-a-plan" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Plan with…, the planning Thread open for the first message. */
+export const PLAN_WITH_ACTION = officeAction({
+  name: "plan_with",
+  description:
+    "Plan with…: the Task moves to Planning, and its planning Thread opens for the first message.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/planning" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Start the Task, or queue it when only waits hold it. */
+export const START_TASK_ACTION = officeAction({
+  name: "start_task",
+  description:
+    "Starts a Ready Task: In progress, or into the queue when only a blocker or a limit holds it, or when onOverlap queues it behind an Overlap; refused with the reasons when anything else does, or an Overlap not answered. With onUsageCaps start-anyway it starts past its usage caps and never queues.",
+  input: startRequestFieldsSchema.extend({ taskId: taskIdInput }),
+  answer: startAnswerSchema,
+  route: { method: "POST", path: "/tasks/:taskId/start" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Pause the Task. */
+export const PAUSE_TASK_ACTION = officeAction({
+  name: "pause_task",
+  description: "Pauses a Task: it is held, its running Stage once the Agent's current turn ends.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/pause" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Stop the Task, interrupting the Stage running now. */
+export const STOP_TASK_ACTION = officeAction({
+  name: "stop_task",
+  description:
+    "Stops a Task: the Stage running now is interrupted, its uncommitted edits discarded, and the Task held.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/stop" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Resume a Paused Task. */
+export const RESUME_TASK_ACTION = officeAction({
+  name: "resume_task",
+  description: "Resumes a Paused Task: it goes on through the Context policy.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/resume" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Move the Task to another Project. */
+export const MOVE_TASK_ACTION = officeAction({
+  name: "move_task",
+  description:
+    "Moves a Task to another Project: it goes back to Backlog with its Plan and Definition of Done Not confirmed. Refused with every reason it can't move.",
+  input: taskMoveSchema.extend({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/move" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Take the Task out of the queue for Start. */
+export const TAKE_OUT_OF_QUEUE_ACTION = officeAction({
+  name: "take_out_of_queue",
+  description: "Takes a Task out of the queue for Start: it stays Ready.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: z.object({}),
+  route: { method: "DELETE", path: "/queue/:taskId" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Move the Task up one place in the queue. */
+export const MOVE_UP_IN_QUEUE_ACTION = officeAction({
+  name: "move_up_in_queue",
+  description: "Moves a queued Task up one place, past the Task ahead of it.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: z.object({}),
+  route: { method: "POST", path: "/queue/:taskId/move-up" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Move the Task to the top of the queue. */
+export const MOVE_TO_TOP_OF_QUEUE_ACTION = officeAction({
+  name: "move_to_top_of_queue",
+  description: "Moves a queued Task to the first place, ahead of every other queued Task.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: z.object({}),
+  route: { method: "POST", path: "/queue/:taskId/move-to-top" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Resolve conflicts on the pull request the Task opened. */
+export const RESOLVE_CONFLICTS_ACTION = officeAction({
+  name: "resolve_conflicts",
+  description:
+    "Resolve conflicts on the pull request a Task opened: its open Conflict resolution Task, or one made and started now; Ready with Start's reasons when Start refused it.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: conflictResolutionAnswerSchema,
+  route: { method: "POST", path: "/tasks/:taskId/resolve-conflicts" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: save the board's filters as a view. */
+export const SAVE_VIEW_ACTION = officeAction({
+  name: "save_view",
+  description: "Saves the Work board's filters under a name, as a Saved view everyone sees.",
+  input: newSavedViewSchema,
+  answer: savedViewSchema,
+  route: { method: "POST", path: "/saved-views" },
+  area: "work",
+  group: "movingWork",
+  // A new view has no id yet: its name stands for it in the record of the call.
+  subject: ({ name }) => ({ kind: "saved-view", id: name }),
+});
+
+/** Office action: delete a Saved view. */
+export const DELETE_VIEW_ACTION = officeAction({
+  name: "delete_view",
+  description: "Deletes a Saved view of the Work board.",
+  input: z.object({ id: z.uuid().describe("The id of the Saved view.") }),
+  answer: z.object({}),
+  route: { method: "DELETE", path: "/saved-views/:id" },
+  area: "work",
+  group: "movingWork",
+  subject: ({ id }) => ({ kind: "saved-view", id }),
+});
+
+/** Work's Office actions, each declared above. */
+export const WORK_OFFICE_ACTIONS = [
+  ADD_DEPENDENCY_ACTION,
+  REMOVE_DEPENDENCY_ACTION,
+  ADD_TO_INITIATIVE_ACTION,
+  TAKE_OUT_OF_INITIATIVE_ACTION,
+  CHANGE_TASK_TITLE_ACTION,
+  CHANGE_TASK_DESCRIPTION_ACTION,
+  CHANGE_TASK_KIND_ACTION,
+  CHANGE_TASK_PRIORITY_ACTION,
+  CHANGE_TASK_PLAN_ACTION,
+  CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
+  DROP_TASK_ACTION,
+  ARCHIVE_TASK_ACTION,
+  RESTORE_TASK_ACTION,
+  START_TASK_OVER_ACTION,
+  REOPEN_TASK_ACTION,
+  EDIT_IDEA_ACTION,
+  DROP_IDEA_ACTION,
+  RESTORE_IDEA_ACTION,
+  WRITE_INITIATIVE_OUTCOME_ACTION,
+  DROP_INITIATIVE_ACTION,
+  ARCHIVE_INITIATIVE_ACTION,
+  RESTORE_INITIATIVE_ACTION,
+  MARK_TASK_READY_ACTION,
+  CONFIRM_TASK_PLAN_ACTION,
+  CONFIRM_TASK_DEFINITION_OF_DONE_ACTION,
+  CHOOSE_TASK_PIPELINE_ACTION,
+  CHOOSE_TASK_ENGINE_ACTION,
+  PLACE_TASK_ACTION,
+  MAKE_A_PLAN_ACTION,
+  PLAN_WITH_ACTION,
+  START_TASK_ACTION,
+  PAUSE_TASK_ACTION,
+  STOP_TASK_ACTION,
+  RESUME_TASK_ACTION,
+  MOVE_TASK_ACTION,
+  TAKE_OUT_OF_QUEUE_ACTION,
+  MOVE_UP_IN_QUEUE_ACTION,
+  MOVE_TO_TOP_OF_QUEUE_ACTION,
+  RESOLVE_CONFLICTS_ACTION,
+  SAVE_VIEW_ACTION,
+  DELETE_VIEW_ACTION,
+] as const;

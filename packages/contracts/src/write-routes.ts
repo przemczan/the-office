@@ -152,28 +152,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     agent: "partial",
     note: "write_commit_message, Agent Stages and planning Threads only",
   },
-  { route: "PUT /tasks/:id/engine", agent: "gap" },
-  {
-    route: "PUT /tasks/:id/pipeline",
-    agent: "partial",
-    note: "propose_pipeline, planning Thread only",
-  },
-  { route: "PUT /tasks/:id/place", agent: "gap" },
-  { route: "POST /tasks/:id/planning", agent: "gap" },
-  { route: "POST /tasks/:id/make-a-plan", agent: "gap" },
-  { route: "POST /tasks/:id/plan/confirm", agent: "gap" },
-  { route: "POST /tasks/:id/definition-of-done/confirm", agent: "gap" },
-  { route: "POST /tasks/:id/ready", agent: "gap" },
-  { route: "POST /tasks/:id/start", agent: "gap" },
-  { route: "POST /tasks/:id/pause", agent: "gap" },
-  { route: "POST /tasks/:id/stop", agent: "gap" },
-  { route: "POST /tasks/:id/resume", agent: "gap" },
-  { route: "POST /tasks/:id/move", agent: "gap" },
-  { route: "POST /tasks/:id/resolve-conflicts", agent: "gap" },
-  { route: "DELETE /queue/:taskId", agent: "gap" },
-  { route: "POST /queue/:taskId/move-up", agent: "gap" },
-  { route: "POST /queue/:taskId/move-to-top", agent: "gap" },
-  { route: "PUT /tasks/:id/stages", agent: "gap" },
   {
     route: "POST /tasks/:id/gate/continue",
     agent: "gap",
@@ -185,7 +163,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     note: "a Gate: for the permissions design",
   },
   { route: "POST /tasks/:id/gate/drop", agent: "gap", note: "a Gate: for the permissions design" },
-  { route: "POST /stand-in-choices/switch", agent: "gap" },
 
   // Work: Ideas, Initiatives, Attachments, views.
   { route: "POST /ideas", agent: "tool", note: "capture_idea (hand-written)" },
@@ -228,8 +205,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "POST /initiatives/:id/attachments/links", agent: "gap" },
   { route: "POST /initiatives/:id/attachments/files", agent: "gap" },
   { route: "DELETE /attachments/:id", agent: "gap" },
-  { route: "POST /saved-views", agent: "gap" },
-  { route: "DELETE /saved-views/:id", agent: "gap" },
   { route: "POST /projects/:id/issues/import", agent: "gap" },
 
   // Decisions, Proposals, Threads.

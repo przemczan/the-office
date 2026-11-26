@@ -60,7 +60,6 @@ import { WorkOfficeActionsController } from "./adapters/http/work-office-actions
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
-import { ConflictResolutionsController } from "./adapters/http/conflict-resolutions.controller.js";
 import { TestTargetsSetUpsController } from "./adapters/http/test-targets-set-ups.controller.js";
 import { TaskResponses } from "./adapters/http/task-responses.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
@@ -258,7 +257,6 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativesController,
         TasksController,
         BranchDeletionsController,
-        ConflictResolutionsController,
         TestTargetsSetUpsController,
         QueueController,
         AttachmentsController,

@@ -1,5 +1,24 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
+  CHOOSE_TASK_ENGINE_ACTION,
+  CHOOSE_TASK_PIPELINE_ACTION,
+  CONFIRM_TASK_DEFINITION_OF_DONE_ACTION,
+  CONFIRM_TASK_PLAN_ACTION,
+  DELETE_VIEW_ACTION,
+  MAKE_A_PLAN_ACTION,
+  MARK_TASK_READY_ACTION,
+  MOVE_TASK_ACTION,
+  MOVE_TO_TOP_OF_QUEUE_ACTION,
+  MOVE_UP_IN_QUEUE_ACTION,
+  PAUSE_TASK_ACTION,
+  PLACE_TASK_ACTION,
+  PLAN_WITH_ACTION,
+  RESOLVE_CONFLICTS_ACTION,
+  RESUME_TASK_ACTION,
+  SAVE_VIEW_ACTION,
+  START_TASK_ACTION,
+  STOP_TASK_ACTION,
+  TAKE_OUT_OF_QUEUE_ACTION,
   ADD_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
   ARCHIVE_INITIATIVE_ACTION,
@@ -24,13 +43,18 @@ import {
   WORK_OFFICE_ACTIONS,
   WRITE_INITIATIVE_OUTCOME_ACTION,
   type OfficeAction,
+  type QueuedTask as QueuedTaskResponse,
 } from "@the-office/contracts";
 import type { z } from "zod";
 import { officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeMembership } from "../../application/initiative-membership.js";
 import { InitiativeService } from "../../application/initiative-service.js";
+import { ConflictResolutions } from "../../application/conflict-resolutions.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { QueueService } from "../../application/queue-service.js";
+import { SavedViewService } from "../../application/saved-view-service.js";
+import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { TaskWaysBack } from "../../application/task-ways-back.js";
 import type { Author } from "../../domain/author.js";
@@ -45,7 +69,7 @@ import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import { initiativeResponse } from "../http/initiative-response.js";
 import { TaskResponses } from "../http/task-responses.js";
-import { toIdeaResponse } from "../http/work-responses.js";
+import { toIdeaResponse, toQueueResponse, toSavedViewResponse } from "../http/work-responses.js";
 import { answered, personInSession } from "../office-tools/work-tool-answers.js";
 
 /**
@@ -88,6 +112,10 @@ export class WorkOfficeActions implements OnModuleInit {
     private readonly membership: InitiativeMembership,
     private readonly sessionPeople: SessionPeople,
     private readonly responses: TaskResponses,
+    private readonly starting: StartService,
+    private readonly queue: QueueService,
+    private readonly conflictResolutions: ConflictResolutions,
+    private readonly savedViews: SavedViewService,
   ) {
     this.handlers = new Map(
       [
@@ -106,6 +134,25 @@ export class WorkOfficeActions implements OnModuleInit {
         this.restoreTask(),
         this.startTaskOver(),
         this.reopenTask(),
+        this.markTaskReady(),
+        this.confirmTaskPlan(),
+        this.confirmTaskDefinitionOfDone(),
+        this.chooseTaskPipeline(),
+        this.chooseTaskEngine(),
+        this.placeTask(),
+        this.makeAPlan(),
+        this.planWith(),
+        this.startTask(),
+        this.pauseTask(),
+        this.stopTask(),
+        this.resumeTask(),
+        this.moveTask(),
+        this.takeOutOfQueue(),
+        this.moveUpInQueue(),
+        this.moveToTopOfQueue(),
+        this.resolveConflicts(),
+        this.saveView(),
+        this.deleteView(),
         this.editIdea(),
         this.dropIdea(),
         this.restoreIdea(),
@@ -142,6 +189,220 @@ export class WorkOfficeActions implements OnModuleInit {
     const each = this.handlers.get(action.name);
     if (!each) throw new Error(`Work carries out no Office action ${action.name}.`);
     return await each.response(await each.handle(input as never, by));
+  }
+
+  /** As the user's Mark Ready, with their answer to the dialog that names what is missing. */
+  private markTaskReady(): AnyWorkActionHandler {
+    return handler({
+      action: MARK_TASK_READY_ACTION,
+      handle: ({ taskId, confirmPlanAndDefinitionOfDone }, by) =>
+        this.planning.markReady(taskId, by, { confirmPlanAndDefinitionOfDone }),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is Ready now.`,
+    });
+  }
+
+  private confirmTaskPlan(): AnyWorkActionHandler {
+    return handler({
+      action: CONFIRM_TASK_PLAN_ACTION,
+      handle: ({ taskId }) => this.planning.confirmPlan(taskId),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" has the Plan confirmed, ${stateWords(task)}.`,
+    });
+  }
+
+  private confirmTaskDefinitionOfDone(): AnyWorkActionHandler {
+    return handler({
+      action: CONFIRM_TASK_DEFINITION_OF_DONE_ACTION,
+      handle: ({ taskId }) => this.planning.confirmDefinitionOfDone(taskId),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) =>
+        `"${task.title}" has the Definition of Done confirmed, ${stateWords(task)}.`,
+    });
+  }
+
+  private chooseTaskPipeline(): AnyWorkActionHandler {
+    return handler({
+      action: CHOOSE_TASK_PIPELINE_ACTION,
+      handle: ({ taskId, pipelineId }) => this.planning.confirmPipeline(taskId, pipelineId),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" follows the Pipeline as given now.`,
+    });
+  }
+
+  private chooseTaskEngine(): AnyWorkActionHandler {
+    return handler({
+      action: CHOOSE_TASK_ENGINE_ACTION,
+      handle: ({ taskId, engineId, people }) =>
+        this.tasks.setEngine(taskId, engineId, people === undefined ? undefined : (people ?? [])),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" has the engine as given now.`,
+    });
+  }
+
+  private placeTask(): AnyWorkActionHandler {
+    return handler({
+      action: PLACE_TASK_ACTION,
+      handle: ({ taskId, above, below }) =>
+        this.tasks.reorder(taskId, { above: above ?? undefined, below: below ?? undefined }),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is placed on the board as given now.`,
+    });
+  }
+
+  private makeAPlan(): AnyWorkActionHandler {
+    return handler({
+      action: MAKE_A_PLAN_ACTION,
+      handle: ({ taskId, autoMode }, by) => this.planning.makeAPlan(taskId, autoMode, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is in Planning, the Planner at work on it.`,
+    });
+  }
+
+  private planWith(): AnyWorkActionHandler {
+    return handler({
+      action: PLAN_WITH_ACTION,
+      handle: ({ taskId }, by) => this.planning.plan(taskId, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is in Planning, its planning Thread open.`,
+    });
+  }
+
+  /**
+   * As the user's Start: In progress, or in the queue when only waits held it. `onUsageCaps` starts
+   * it past its usage caps, so it is part of what the person's call asks to approve.
+   */
+  private startTask(): AnyWorkActionHandler {
+    return handler({
+      action: START_TASK_ACTION,
+      handle: async ({ taskId, onOverlap, onUsageCaps }, by): Promise<StartedOrQueued> => {
+        const starting = await this.starting.start(
+          taskId,
+          { onOverlap, usageCaps: onUsageCaps ?? "wait" },
+          by,
+        );
+        if (starting.kind === "started") return { task: starting.change.task, queued: null };
+        return { task: await this.tasks.read(taskId), queued: await this.queuedPlace(taskId) };
+      },
+      response: async ({ task, queued }: StartedOrQueued) => ({
+        task: await this.responses.task(task),
+        queued,
+      }),
+      words: async ({ task, queued }: StartedOrQueued) =>
+        queued
+          ? `"${task.title}" is in the queue, in place ${queued.place}: ${queued.reasons.join(" ")}`
+          : `"${task.title}" is started, ${stateWords(task)}.`,
+    });
+  }
+
+  private pauseTask(): AnyWorkActionHandler {
+    return handler({
+      action: PAUSE_TASK_ACTION,
+      handle: ({ taskId }, by) => this.tasks.pause(taskId, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is paused, ${stateWords(task)}.`,
+    });
+  }
+
+  private stopTask(): AnyWorkActionHandler {
+    return handler({
+      action: STOP_TASK_ACTION,
+      handle: ({ taskId }, by) => this.tasks.stop(taskId, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is stopped, ${stateWords(task)}.`,
+    });
+  }
+
+  private resumeTask(): AnyWorkActionHandler {
+    return handler({
+      action: RESUME_TASK_ACTION,
+      handle: ({ taskId }, by) => this.tasks.resume(taskId, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" goes on, ${stateWords(task)}.`,
+    });
+  }
+
+  private moveTask(): AnyWorkActionHandler {
+    return handler({
+      action: MOVE_TASK_ACTION,
+      handle: ({ taskId, projectId }, by) => this.tasks.move(taskId, projectId, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is in the other Project now, ${stateWords(task)}.`,
+    });
+  }
+
+  private takeOutOfQueue(): AnyWorkActionHandler {
+    return handler({
+      action: TAKE_OUT_OF_QUEUE_ACTION,
+      handle: ({ taskId }) => this.queue.takeOut(taskId),
+      response: async () => ({}),
+      words: async () => "The Task is out of the queue, still Ready.",
+    });
+  }
+
+  private moveUpInQueue(): AnyWorkActionHandler {
+    return handler({
+      action: MOVE_UP_IN_QUEUE_ACTION,
+      handle: ({ taskId }) => this.queue.moveUp(taskId),
+      response: async () => ({}),
+      words: async () => "The Task is one place up in the queue.",
+    });
+  }
+
+  private moveToTopOfQueue(): AnyWorkActionHandler {
+    return handler({
+      action: MOVE_TO_TOP_OF_QUEUE_ACTION,
+      handle: ({ taskId }) => this.queue.moveToTop(taskId),
+      response: async () => ({}),
+      words: async () => "The Task is first in the queue.",
+    });
+  }
+
+  private resolveConflicts(): AnyWorkActionHandler {
+    return handler({
+      action: RESOLVE_CONFLICTS_ACTION,
+      handle: async ({ taskId }, by): Promise<ResolvedConflicts> => {
+        const { task, startRefusal } = await this.conflictResolutions.resolve(taskId, by);
+        return {
+          task,
+          queued: await this.queuedPlace(task.id),
+          startRefusal: startRefusal ?? null,
+        };
+      },
+      response: async ({ task, queued, startRefusal }: ResolvedConflicts) => ({
+        task: await this.responses.task(task),
+        queued,
+        startRefusal: startRefusal === null ? null : [...startRefusal],
+      }),
+      words: async ({ task, startRefusal }: ResolvedConflicts) =>
+        startRefusal
+          ? `The Conflict resolution Task "${task.title}" is Ready, as Start refused it: ${startRefusal.join(" ")}`
+          : `The Conflict resolution Task "${task.title}" is ${stateWords(task)}.`,
+    });
+  }
+
+  private saveView(): AnyWorkActionHandler {
+    return handler({
+      action: SAVE_VIEW_ACTION,
+      handle: (given) => this.savedViews.save(given),
+      response: async (view) => toSavedViewResponse(view),
+      words: async (view) => `The view "${view.name}" is saved.`,
+    });
+  }
+
+  private deleteView(): AnyWorkActionHandler {
+    return handler({
+      action: DELETE_VIEW_ACTION,
+      handle: ({ id }) => this.savedViews.remove(id),
+      response: async () => ({}),
+      words: async () => "The view is deleted.",
+    });
+  }
+
+  /** The Task's place in the queue, null when it isn't queued. */
+  private async queuedPlace(taskId: string): Promise<QueuedTaskResponse | null> {
+    const queued = toQueueResponse(await this.queue.list()).find((each) => each.taskId === taskId);
+    return queued ?? null;
   }
 
   private addDependency(): AnyWorkActionHandler {
@@ -403,6 +664,17 @@ export class WorkOfficeActions implements OnModuleInit {
         `The Initiative "${initiative.name}" is back on the board now, ${initiative.state}.`,
     });
   }
+}
+
+/** A Task Start left started or queued, with its place in the queue when it is. */
+interface StartedOrQueued {
+  readonly task: Task;
+  readonly queued: QueuedTaskResponse | null;
+}
+
+/** The Conflict resolution Task, and why Start refused it, if it did. */
+interface ResolvedConflicts extends StartedOrQueued {
+  readonly startRefusal: readonly string[] | null;
 }
 
 /** A Task as it was before an action and as the action left it. */
