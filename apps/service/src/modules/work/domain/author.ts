@@ -12,7 +12,12 @@ export interface UserRef {
  * null on a record from before users existed, until the first user claims it.
  */
 export type Author =
-  | { readonly kind: "user"; readonly user: UserRef | null }
+  | {
+      readonly kind: "user";
+      readonly user: UserRef | null;
+      /** The person, by their Role's key, who proposed what the user applied. */
+      readonly proposedBy?: string;
+    }
   | {
       readonly kind: "person";
       readonly roleKey: string;
@@ -33,13 +38,21 @@ export function byTheUser(user: UserRef): Author {
   return { kind: "user", user };
 }
 
-/** The Author as a record names them: "the user Ann Lee", or "the user" before users existed. */
+/**
+ * The Author as a record names them: "the user Ann Lee", or "the user" before users existed, with
+ * the person who proposed what the user applied.
+ */
 export function authorWords(author: Author): string {
   if (author.kind === "person") {
-    const person = `the person in the Role ${author.roleKey}`;
+    const person = personWords(author.roleKey);
     return author.askedBy ? `${person}, asked by ${author.askedBy.name}` : person;
   }
-  return author.user ? `the user ${author.user.name}` : "the user";
+  const user = author.user ? `the user ${author.user.name}` : "the user";
+  return author.proposedBy ? `${user}, proposed by ${personWords(author.proposedBy)}` : user;
+}
+
+function personWords(roleKey: string): string {
+  return `the person in the Role ${roleKey}`;
 }
 
 /** Who took a Task or an Initiative into the Archive: a user, or The Office's daily run. */

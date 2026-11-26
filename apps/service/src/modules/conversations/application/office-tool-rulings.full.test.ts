@@ -6,6 +6,7 @@ import type { AuthoritySetting, Duties, DutyKey } from "../../people/index.js";
 import { officeToolCallWords } from "../domain/office-tool-ruling.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import { anApproval, heldCallsWith, SESSION, type Setup } from "./held-calls.fixtures.js";
+import { ProposalService } from "./proposal-service.js";
 import { OfficeToolRulings } from "./office-tool-rulings.js";
 import { SessionPlaces } from "./session-places.js";
 import type { WorkRecords } from "./work-records.js";
@@ -26,6 +27,7 @@ function aTaskTool(ran: unknown[], calls: OfficeToolCall[] = [], name = TOOL_NAM
     input: z.object({ taskId: z.string(), title: z.string() }),
     authority: {
       group: "taskRecords",
+      title: "Change a Task's title",
       subject: (input) => ({ kind: "task", id: (input as { taskId: string }).taskId }),
     },
     run: (input, call) => {
@@ -42,14 +44,26 @@ interface Rulings extends Pick<Setup, "hired" | "consultants" | "answered"> {
   readonly ownTasks?: readonly string[];
   readonly duties?: readonly DutyKey[];
   readonly toolName?: string;
+  /** Gives the tool a draft of its change, so a Proposal can be made of it. */
+  readonly withDraft?: boolean;
+  /** Stands in for the Proposals' service. */
+  readonly proposals?: object;
 }
 
-function rulingsWith({ ownTasks = [], duties = [], toolName = TOOL_NAME, ...setup }: Rulings) {
+function rulingsWith({
+  ownTasks = [],
+  duties = [],
+  toolName = TOOL_NAME,
+  withDraft = false,
+  proposals = {},
+  ...setup
+}: Rulings) {
   const held = heldCallsWith({ ...setup, switchKey: "taskRecords" });
   const work = {
     isOwnWork: (_roleKey: string, { id }: { id: string }) => Promise.resolve(ownTasks.includes(id)),
   } as unknown as WorkRecords;
   const dutyHolder = { heldBy: () => Promise.resolve(duties) } as unknown as Duties;
+  const registry = new OfficeToolRegistry();
   const rulings = new OfficeToolRulings(
     held.threads,
     held.roleCards,
@@ -57,14 +71,35 @@ function rulingsWith({ ownTasks = [], duties = [], toolName = TOOL_NAME, ...setu
     held.heldCalls,
     work,
     held.approvalHolds,
+    registry,
+    proposals as unknown as ProposalService,
   );
   const ran: unknown[] = [];
   const calls: OfficeToolCall[] = [];
-  const registry = new OfficeToolRegistry();
-  registry.register(aTaskTool(ran, calls, toolName));
-  const [tool] = registry.named([toolName], rulings);
+  const tool = aTaskTool(ran, calls, toolName);
+  registry.register(
+    withDraft
+      ? {
+          ...tool,
+          draft: (given) =>
+            Promise.resolve({
+              subject: { kind: "task", id: "task-1", title: "A Task" },
+              fields: [
+                {
+                  label: "Title",
+                  before: "A",
+                  after: (given as { title: string }).title,
+                  form: "short",
+                },
+              ],
+              fingerprint: { state: "ready" },
+            }),
+        }
+      : tool,
+  );
+  const [ruled] = registry.named([toolName], rulings);
   const callWith = (input: unknown) =>
-    (tool as OfficeTool).run(input as never, anOfficeToolCall(SESSION));
+    (ruled as OfficeTool).run(input as never, anOfficeToolCall(SESSION));
   return { ...held, callWith, ran, calls };
 }
 
@@ -131,6 +166,16 @@ describe("the ruling of an Office tool call", () => {
     );
   });
 
+  it("holds an Ask me call of a tool with a draft with the fields it changes on the card", async () => {
+    const { callWith, opened } = rulingsWith({ setting: ASK_ME, withDraft: true });
+
+    await callWith(input);
+
+    expect(opened[0]?.questions[0]).toMatchObject({
+      fields: [{ label: "Title", before: "A", after: "New title", form: "short" }],
+    });
+  });
+
   it("holds a Consult call in a Consultation with the person consulted", async () => {
     const { callWith, putTo, ran } = rulingsWith({
       setting: CONSULT_CTO,
@@ -145,7 +190,7 @@ describe("the ruling of an Office tool call", () => {
     expect(ran).toHaveLength(0);
   });
 
-  it("holds a Proposal call as Ask me, with the user", async () => {
+  it("holds a Proposal call of a tool with no draft as Ask me, with the user", async () => {
     const { callWith, putTo, ran } = rulingsWith({ setting: PROPOSAL });
 
     const held = await callWith(input);
@@ -153,6 +198,27 @@ describe("the ruling of an Office tool call", () => {
     expect(held.text).toContain("waits on the user");
     expect(putTo).toEqual([undefined]);
     expect(ran).toHaveLength(0);
+  });
+
+  it("drafts a Proposal for a Proposal call of a tool with a draft, and answers at once", async () => {
+    const drafted: unknown[] = [];
+    const { callWith, opened, ran } = rulingsWith({
+      setting: PROPOSAL,
+      withDraft: true,
+      proposals: { draft: (_session: string, change: unknown) => drafted.push(change) },
+    });
+
+    const answer = await callWith(input);
+
+    expect(answer).toEqual({
+      text: "Drafted a Proposal: Change a Task's title. The user applies it; go on.",
+      isError: false,
+    });
+    expect(drafted).toMatchObject([
+      { kind: "office-action", action: TOOL_NAME, input, outOfDate: false },
+    ]);
+    expect(ran).toHaveLength(0);
+    expect(opened).toHaveLength(0);
   });
 
   it("refuses a call of a tool ruled Never as no such tool", async () => {
@@ -208,7 +274,11 @@ describe("the tools a session is offered", () => {
     registry.register({
       ...aTaskTool([]),
       name: ADD_DEPENDENCY,
-      authority: { group: "initiativeRecords", subject: () => ({ kind: "task", id: "t" }) },
+      authority: {
+        group: "initiativeRecords",
+        title: "Add a dependency",
+        subject: () => ({ kind: "task", id: "t" }),
+      },
     });
     const places = new SessionPlaces(
       {} as never,

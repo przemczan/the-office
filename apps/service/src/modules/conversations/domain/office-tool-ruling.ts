@@ -1,3 +1,4 @@
+import { canonicalJson } from "../../engine/index.js";
 import { dutyActionTools } from "./duty-action-tools.js";
 import type { HeldDuties } from "./session-instructions.js";
 import {
@@ -14,7 +15,9 @@ export type ToolRuling =
   | { readonly kind: "run" }
   | { readonly kind: "never" }
   /** Approval comes first, put as `setting` (Ask me, or Consult a person) says. */
-  | { readonly kind: "hold"; readonly setting: HardSwitchValue };
+  | { readonly kind: "hold"; readonly setting: HardSwitchValue }
+  /** A Proposal is drafted for the user to apply, and the call is answered at once. */
+  | { readonly kind: "propose" };
 
 /**
  * The value that rules a call: a row's one value, or its own or others' value by whose work the
@@ -34,8 +37,7 @@ export function isOffered(setting: AuthoritySetting): boolean {
 }
 
 /**
- * What a value makes of a call. A Proposal is held as Ask me until "Generic Office action
- * Proposal" drafts it instead (spec 5.4.1 › One ruling step). Ask me reads the same in a
+ * What a value makes of a call (spec 5.4.1 › One ruling step). Ask me reads the same in a
  * Consultation, where the approval goes to the user, the one person a Consultation can always ask.
  * `dutyHolder` is whether the person holds a duty that grants the tool, which keeps it offered and
  * allowed where the row says Never, until "People and Memory for Agents" removes the duties' tools.
@@ -46,28 +48,13 @@ export function toolRuling(value: AuthorityValue, dutyHolder: boolean): ToolRuli
       return { kind: "run" };
     case "never":
       return dutyHolder ? { kind: "run" } : { kind: "never" };
-    case "ask-me":
     case "proposal":
+      return { kind: "propose" };
+    case "ask-me":
       return { kind: "hold", setting: ASK_ME };
     case "consult":
       return { kind: "hold", setting: value };
   }
-}
-
-/** JSON with every object's keys sorted and no whitespace, so equal inputs read equal. */
-export function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortedKeys(value));
-}
-
-function sortedKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortedKeys);
-  if (value === null || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>)
-      .filter(([, each]) => each !== undefined)
-      .toSorted(([first], [second]) => (first < second ? -1 : first > second ? 1 : 0))
-      .map(([key, each]) => [key, sortedKeys(each)]),
-  );
 }
 
 /**

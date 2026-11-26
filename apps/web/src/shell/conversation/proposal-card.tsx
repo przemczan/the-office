@@ -79,6 +79,7 @@ import {
   ProposedActionChanges,
   ProposedTestTargetChanges,
 } from "./devops-proposal-changes.tsx";
+import { OfficeActionBody } from "./office-action-proposal.tsx";
 import { officeSetupApplyLabel, ProposedOfficeSetup } from "./office-setup-changes.tsx";
 import { ShowOnFlowButton, showsOnFlow } from "./proposal-on-flow.tsx";
 import { ProposedFlow, ProposedRouteChanges } from "./proposed-route-changes.tsx";
@@ -449,6 +450,27 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             appliedToast={`${change.name} added. It is off until you review it.`}
             openNote="Added to the library once applied, off until you review it"
           />
+        </ProposalFrame>
+      );
+    case "office-action":
+      return (
+        <ProposalFrame proposalId={proposal.id} title={change.title}>
+          <OfficeActionBody change={change} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[]}
+            appliedToast={`${change.title} applied.`}
+            openNote={STALE_NOTE}
+            outOfDate={change.outOfDate}
+          />
+        </ProposalFrame>
+      );
+    case "unknown":
+      return (
+        <ProposalFrame proposalId={proposal.id} title="A change this version can't show">
+          <p className="proposal-note">
+            It was drafted by a newer version of The Office. Update The Office to read it.
+          </p>
         </ProposalFrame>
       );
   }
@@ -1182,6 +1204,7 @@ function AnswerFoot({
   openNote,
   applyLabel = "Apply change",
   declineLabel = "Not now",
+  outOfDate = false,
   onApplied,
 }: {
   readonly proposal: Proposal;
@@ -1192,6 +1215,8 @@ function AnswerFoot({
   readonly openNote: string;
   readonly applyLabel?: string | undefined;
   readonly declineLabel?: string;
+  /** Its subject changed since it was drafted: it can't be applied, only declined. */
+  readonly outOfDate?: boolean;
   /** Told once it is applied, after the toast. */
   readonly onApplied?: () => void;
 }): ReactNode {
@@ -1217,14 +1242,18 @@ function AnswerFoot({
       )}
       {status.kind === "open" && (
         <>
-          <Button
-            size="sm"
-            loading={answering.applying.isPending}
-            disabled={answering.busy}
-            onClick={() => answering.applying.mutate({})}
-          >
-            {applyLabel}
-          </Button>
+          {outOfDate ? (
+            <Badge tone="warning">Out of date</Badge>
+          ) : (
+            <Button
+              size="sm"
+              loading={answering.applying.isPending}
+              disabled={answering.busy}
+              onClick={() => answering.applying.mutate({})}
+            >
+              {applyLabel}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -1234,7 +1263,9 @@ function AnswerFoot({
           >
             {declineLabel}
           </Button>
-          <span className="proposal-note">{openNote}</span>
+          <span className="proposal-note">
+            {outOfDate ? "It changed since it was drafted. Ask for it again." : openNote}
+          </span>
           {answering.error && (
             <RefusalAlert title="The change can't be applied yet" error={answering.error} />
           )}

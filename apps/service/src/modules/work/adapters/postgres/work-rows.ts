@@ -293,7 +293,9 @@ export async function stateChangesOf(
 
 /** A user's Author from before users existed names nobody until the first user claims it. */
 export function authorOf(row: AuthorRow): Author {
-  return row.kind === "user" ? { kind: "user", user: row.user ?? null } : row;
+  if (row.kind !== "user") return row;
+  const proposedBy = "proposedBy" in row ? row.proposedBy : undefined;
+  return { kind: "user", user: row.user ?? null, ...(proposedBy !== undefined && { proposedBy }) };
 }
 
 function causeOf(row: StateChangeCauseRow): StateChangeCause {

@@ -190,6 +190,7 @@
 - `strip-figure.tsx`: StripFigureAction, StripFigure, StripLabel
 - `test-instance-banner.tsx`: TestInstanceBanner
 - `test-target-words.ts`: TEST_TARGET_KIND_LABELS, BUILT_TEST_TARGET_KINDS, ENTRY_POINT_KIND_LABELS, TEST_TARGET_FIELD_LABELS, entryPointWords, testTargetFieldsOf, testTargetFieldWords, commandsBeforeWords, memoryWords
+- `text-diff.ts`: textDiff
 - `theme-menu.tsx`: ThemeMenu
 - `time.ts`: dayOf, dayAndClockOf, clockOf, sameDay, dayLineWords, momentWords, durationWords, shortDurationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
@@ -219,7 +220,7 @@
 - `user-menu.tsx`: UserMenu
 - `user.fixtures.ts`: SIGNED_IN, BY_YOU, BY_ANN, signIn
 - `workflow-inputs.tsx`: CHOOSE_OPTION, WorkflowInputControl, workflowInputValuesOf
-- Tests: ask-devops.test.tsx, code-host-words.full.test.ts, duty-unheld-note.test.tsx, duty-words.full.test.ts, engine-words.full.test.ts, mark-colours.full.test.ts, markdown-copy.test.ts, markdown-text.full.test.tsx, markdown-text.test.tsx, menu-placement.full.test.ts, office-mark.test.tsx, person-avatar.full.test.tsx, project-mark.full.test.tsx, rail-store.full.test.ts, role-card-words.full.test.ts, secret-value.test.ts, section-layout.test.tsx, side-panel-layout.test.ts, side-panels.test.tsx, skill-uses.full.test.ts, stand-in-engine-rows.test.tsx, status-strip.full.test.tsx, time.full.test.ts, token-words.full.test.ts, try-again-words.full.test.ts, unified-diff.full.test.ts, usage-window-words.test.ts, use-page-scroll-reset.test.tsx, user-activity.full.test.ts, user-menu.test.tsx
+- Tests: ask-devops.test.tsx, code-host-words.full.test.ts, duty-unheld-note.test.tsx, duty-words.full.test.ts, engine-words.full.test.ts, mark-colours.full.test.ts, markdown-copy.test.ts, markdown-text.full.test.tsx, markdown-text.test.tsx, menu-placement.full.test.ts, office-mark.test.tsx, person-avatar.full.test.tsx, project-mark.full.test.tsx, rail-store.full.test.ts, role-card-words.full.test.ts, secret-value.test.ts, section-layout.test.tsx, side-panel-layout.test.ts, side-panels.test.tsx, skill-uses.full.test.ts, stand-in-engine-rows.test.tsx, status-strip.full.test.tsx, text-diff.test.ts, time.full.test.ts, token-words.full.test.ts, try-again-words.full.test.ts, unified-diff.full.test.ts, usage-window-words.test.ts, use-page-scroll-reset.test.tsx, user-activity.full.test.ts, user-menu.test.tsx
 
 ### shell/activity/
 
@@ -280,6 +281,7 @@
 - `approval-card.tsx`: ApprovalCard
 - `bug-task-card.tsx`: BUG_TASK_GOES, proposesWords, BugTaskCard, BugTaskWindowOf, BugTaskAnswered
 - `cache-mark.tsx`: useCacheState, CacheMark
+- `changed-fields.tsx`: ChangedFields
 - `composer-images.fixtures.tsx`: THREAD_ID, aThread, stubObjectUrls, aFile, ShownComposer, showComposer, drop, dragOver
 - `composer.tsx`: PrefilledNote, Composer
 - `context-bar.tsx`: ContextBar
@@ -309,6 +311,7 @@
 - `message-images.ts`: PendingMessageImage, UploadMessageImages, MessageImages, useMessageImages, messageImageProblems
 - `message-list.tsx`: LINKED_CARD_SELECTOR, HandoverNoteReader, MessageList
 - `message-visibility.ts`: visibleMessages, onlyDetailsWouldShow, latestToolCall
+- `office-action-proposal.tsx`: OfficeActionChange, SubjectLink, OfficeActionBody
 - `office-setup-changes.tsx`: ProposedOfficeSetupChange, officeSetupApplyLabel, ProposedOfficeSetup
 - `office-status-card.tsx`: OfficeStatusCard
 - `office-status-words.ts`: waitingWords, pausedWords

@@ -1,14 +1,22 @@
 export { EngineSessions, type StandInOptions } from "./application/engine-sessions.js";
 export { EngineRefused } from "./domain/engine-refused.js";
 export type { EngineCapability } from "./ports/agent-engine.js";
-export { OfficeToolRegistry } from "./application/office-tool-registry.js";
+export { OfficeToolRegistry, type DraftedOfficeCall } from "./application/office-tool-registry.js";
+export { canonicalJson } from "./domain/canonical-json.js";
 export { officeActionTool } from "./adapters/office-tools/office-action-tool.js";
+export {
+  officeActionDraft,
+  type OfficeActionSubjectSnapshot,
+} from "./adapters/office-tools/office-action-draft.js";
 export type { OfficeToolRuled, OfficeToolRuling } from "./ports/office-tool-ruling.js";
 export type {
   CommandJudgement,
   OfficeTool,
   OfficeToolCall,
+  OfficeToolApplication,
   OfficeToolAuthority,
+  OfficeToolChangedField,
+  OfficeToolDraft,
   OfficeToolPicture,
   OfficeToolResult,
   OfficeToolSubject,

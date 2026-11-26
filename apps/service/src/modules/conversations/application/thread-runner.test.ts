@@ -4939,7 +4939,7 @@ function actionStandIn(name: string, group: AuthorityGroup = "taskRecords"): voi
     name,
     description: `Stands in for ${name}.`,
     input: z.object({}),
-    authority: { group, subject: () => ({ kind: "task", id: "x" }) },
+    authority: { group, title: "Stand-in", subject: () => ({ kind: "task", id: "x" }) },
     run: () => Promise.resolve({ text: "Nothing.", isError: false }),
   });
 }

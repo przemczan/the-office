@@ -1,6 +1,7 @@
 import { Button } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { MarkdownText } from "../markdown-text.tsx";
+import { ChangedFields } from "./changed-fields.tsx";
 import { useTakeOver } from "./decision-drafts.tsx";
 import {
   AnswerRefused,
@@ -39,6 +40,7 @@ export function ApprovalCard({
       <div className="message-text decision-question">
         <MarkdownText text={question.question} />
       </div>
+      {decision.fields && <ChangedFields fields={decision.fields} />}
       <DecisionDetail decision={decision} />
       <ConsultationNote decision={decision} />
       <p className="decision-recommendation">

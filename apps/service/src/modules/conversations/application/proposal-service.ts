@@ -19,6 +19,7 @@ import {
   declineProposalOnItsOwn,
   type ProposalChange,
 } from "../domain/proposal-changes.js";
+import { ProposalOutOfDate } from "../domain/proposal-out-of-date.js";
 import { ProposalNotFound } from "../domain/proposal-not-found.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
 import type { Home, Thread } from "../domain/thread.js";
@@ -180,15 +181,22 @@ export class ProposalService {
    */
   async apply(id: string, by: UserRef, edited?: EditedHire): Promise<Proposal> {
     const thread = await this.threadOf(id);
-    const applied = await this.change(id, async (stored) => {
-      const change = await this.appliers.apply(
-        changeToApply(stored, edited),
-        stored.draftedBy,
-        by,
-        stored.id,
-      );
-      return applyProposal(stored, thread, change, new Date(), by);
-    });
+    let applied: Proposal;
+    try {
+      applied = await this.change(id, async (stored) => {
+        const change = await this.appliers.apply(
+          changeToApply(stored, edited),
+          stored.draftedBy,
+          by,
+          stored.id,
+        );
+        return applyProposal(stored, thread, change, new Date(), by);
+      });
+    } catch (error) {
+      // Kept apart from the refused apply, which saves nothing: the card then reads Out of date.
+      if (error instanceof ProposalOutOfDate) await this.repository.markProposalOutOfDate(id);
+      throw error;
+    }
     await this.declineSupersededBy(applied);
     return applied;
   }

@@ -44,6 +44,8 @@ export interface OfficeAction<
 > {
   /** The Office tool's name, in snake_case, unique among Office tools. */
   readonly name: string;
+  /** What a Proposal or an approval card calls the action, as the user reads it: "Start a Task". */
+  readonly title: string;
   /** What the Agent reads to decide when to call it, in the UI's own words. */
   readonly description: string;
   /**

@@ -219,4 +219,7 @@ export abstract class ThreadRepository {
     id: string,
     change: (proposal: Proposal) => Promise<ProposalChange<Event>>,
   ): Promise<ProposalChange<Event>>;
+
+  /** Marks an open Office action Proposal Out of date: its subject changed since it was drafted. */
+  abstract markProposalOutOfDate(id: string): Promise<void>;
 }

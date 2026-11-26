@@ -449,6 +449,21 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         description: change.description,
         instructions: change.instructions,
       };
+    case "office-action": {
+      const { action, title, subject, fields, fingerprint, outOfDate } = change;
+      return {
+        kind: "office-action",
+        action,
+        title,
+        subject: { ...subject },
+        fields: fields.map((field) => ({ ...field })),
+        fingerprint,
+        outOfDate,
+      };
+    }
+    // A kind a later release kept, which a rollback reads: the web shows it as one it can't read.
+    default:
+      return { kind: "unknown" };
   }
 }
 
@@ -671,6 +686,12 @@ export function toDecisionResponse({
             causedBy: bugTask.causedBy ?? null,
           },
         }),
+    fields:
+      questions.flatMap((question) =>
+        question.kind === "choice" && question.fields
+          ? [question.fields.map((field) => ({ ...field }))]
+          : [],
+      )[0] ?? null,
     taskId: decision.taskId ?? null,
     roleKey: decision.roleKey ?? null,
     putTo: decision.putTo ?? null,

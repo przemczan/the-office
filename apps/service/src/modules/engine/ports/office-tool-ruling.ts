@@ -3,12 +3,14 @@ import type { OfficeTool, OfficeToolCall, OfficeToolUser } from "./office-tool.j
 /**
  * What the ruling step makes of a call of an Office tool (spec 5.4.1 › One ruling step): it runs
  * now, with the user who allowed it when it was held for approval; it waits on approval or is
- * refused, in the words the Agent reads instead of the tool's answer; or its tool is ruled Never,
- * so the Agent is told no such tool exists.
+ * refused, in the words the Agent reads instead of the tool's answer; it is answered without
+ * running, as a drafted Proposal is; or its tool is ruled Never, so the Agent is told no such tool
+ * exists.
  */
 export type OfficeToolRuled =
   | { readonly kind: "run"; readonly allowedBy?: OfficeToolUser }
   | { readonly kind: "hold"; readonly words: string }
+  | { readonly kind: "answered"; readonly words: string }
   | { readonly kind: "never" };
 
 /**

@@ -61,6 +61,7 @@ import { ContextPolicySettingsService } from "./application/context-policy-setti
 import { BugTaskDecisions } from "./application/bug-task-decisions.js";
 import { DecisionService } from "./application/decision-service.js";
 import { ApprovalHolds } from "./application/approval-holds.js";
+import { OfficeActionProposals } from "./application/office-action-proposals.js";
 import { OfficeToolRulings } from "./application/office-tool-rulings.js";
 import { HeldCalls } from "./application/held-calls.js";
 import { FireAlarmInThreads } from "./application/fire-alarm-in-threads.js";
@@ -221,6 +222,7 @@ export class ConversationsModule implements NestModule {
         SkillInstallProposals,
         SkillUpdateProposals,
         SkillProposals,
+        OfficeActionProposals,
         SizeThresholdProposals,
         OfficeInstructionsProposals,
         DutyProposals,

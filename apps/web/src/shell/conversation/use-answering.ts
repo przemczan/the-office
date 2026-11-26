@@ -30,6 +30,8 @@ export function useAnswering(
     queryClient.invalidateQueries(threadQueries.messages(proposal.threadId));
   const applying = useMutation({
     mutationFn: (application: ProposalApplication) => applyProposal(proposal.id, application),
+    // A refusal may have marked the Proposal Out of date, which the log's message now carries.
+    onError: refreshThread,
     onSuccess: async (applied) => {
       onApplied(applied);
       await Promise.all([

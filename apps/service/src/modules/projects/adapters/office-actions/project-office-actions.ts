@@ -7,6 +7,7 @@ import {
 } from "@the-office/contracts";
 import type { z } from "zod";
 import {
+  officeActionDraft,
   officeActionTool,
   OfficeToolRegistry,
   type OfficeToolResult,
@@ -76,8 +77,23 @@ export class ProjectOfficeActions implements OnModuleInit {
   onModuleInit(): void {
     for (const each of this.handlers.values()) {
       this.registry.register(
-        officeActionTool(each.action, (input) =>
-          answered(async () => each.words(await each.handle(input))),
+        officeActionTool(
+          each.action,
+          (input) => answered(async () => each.words(await each.handle(input))),
+          {
+            draft: async (input) => {
+              const { projectId } = input as { projectId: string };
+              const project = await this.projects.find(projectId);
+              if (project === undefined) throw new ProjectNotFound(projectId);
+              // Nothing of the Project changes: what a run or a start gives is the call's own.
+              return officeActionDraft(each.action, input, {
+                title: project.name,
+                decidedBy: {},
+                values: {},
+              });
+            },
+            applyFor: (input) => answered(async () => each.words(await each.handle(input))),
+          },
         ),
       );
     }

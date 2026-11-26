@@ -46,6 +46,7 @@ import { EventStreamModule } from "../../../platform/websocket/event-stream.modu
 import {
   EngineModule,
   OfficeToolRegistry,
+  type OfficeTool,
   ScriptedEngine,
   ScriptedEngineModule,
   type SessionScript,
@@ -92,6 +93,7 @@ import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
+import { OfficeActionProposals } from "./office-action-proposals.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
 import { ProposalService } from "./proposal-service.js";
 import { RoleProposals } from "./role-proposals.js";
@@ -271,6 +273,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SizeThresholdProposals,
       OfficeInstructionsProposals,
       DutyProposals,
+      OfficeActionProposals,
       ProposalOfficeTools,
       PromptTemplateProposals,
       PromptTemplateOfficeTools,
@@ -1102,5 +1105,119 @@ describe("a Proposal of the set-up of The Office", () => {
     expect(toolResultRead().text).toContain(
       `Reviews goes to a hired Role, and nobody is hired as "${roleKey}".`,
     );
+  });
+});
+
+/** A Task's title, which the stand-in action below changes, with who changed it. */
+class TaskTitleStandIn {
+  title = "Old title";
+  state = "ready";
+  readonly applied: { title: string; user: string; proposedBy: string }[] = [];
+
+  tool(): OfficeTool {
+    return {
+      name: "change_task_title",
+      description: "Changes a Task's title.",
+      input: z.object({ taskId: z.string(), title: z.string() }),
+      authority: {
+        group: "taskRecords",
+        title: "Change a Task's title",
+        subject: (input) => ({ kind: "task", id: (input as { taskId: string }).taskId }),
+      },
+      run: () => Promise.resolve({ text: "Done.", isError: false }),
+      draft: (input) => {
+        const { taskId, title: newTitle } = input as { taskId: string; title: string };
+        return Promise.resolve({
+          subject: { kind: "task", id: taskId, title: this.title },
+          fields: [{ label: "Title", before: this.title, after: newTitle, form: "short" as const }],
+          fingerprint: { state: this.state, title: this.title },
+        });
+      },
+      applyFor: (input, { user, proposedBy }) => {
+        this.title = (input as { title: string }).title;
+        this.applied.push({ title: this.title, user: user.name, proposedBy });
+        return Promise.resolve({ text: "Done.", isError: false });
+      },
+    };
+  }
+}
+
+describe("a Proposal of an Office action", () => {
+  let task: TaskTitleStandIn;
+  let sessionId: string;
+
+  /** The Office Manager's session, and a Proposal of the title change drafted in it. */
+  async function draftsTitle(taskId: string, newTitle: string): Promise<Proposal> {
+    const input = { taskId, title: newTitle };
+    const drafted = await app.get(OfficeToolRegistry).draft("change_task_title", input);
+    if (!drafted) throw new Error("Nothing to draft.");
+    return proposals.draft(sessionId, {
+      kind: "office-action",
+      action: "change_task_title",
+      title: "Change a Task's title",
+      input,
+      ...drafted,
+      outOfDate: false,
+    });
+  }
+
+  beforeEach(async () => {
+    await startWith([{ step: "start", brief: { id: "brief", text: "" } }, ...endsTurn("Hi.")]);
+    const { thread } = await ask(OFFICE_MANAGER, "Hello.");
+    if (!thread.session) throw new Error("No session.");
+    sessionId = thread.session.id;
+    task = new TaskTitleStandIn();
+    app.get(OfficeToolRegistry).register(task.tool());
+  });
+
+  it("keeps the subject, the fields before and after and a fingerprint, and changes nothing", async () => {
+    const proposal = await draftsTitle("task-1", "New title");
+
+    expect(proposal.change).toMatchObject({
+      kind: "office-action",
+      action: "change_task_title",
+      subject: { kind: "task", id: "task-1", title: "Old title" },
+      fields: [{ label: "Title", before: "Old title", after: "New title", form: "short" }],
+      outOfDate: false,
+    });
+    expect(task.applied).toEqual([]);
+  });
+
+  it("runs the action as the user who applies it, saying who proposed it", async () => {
+    const proposal = await draftsTitle("task-1", "New title");
+
+    await proposals.apply(proposal.id, ANN_LEE);
+
+    expect(task.applied).toEqual([
+      { title: "New title", user: ANN_LEE.name, proposedBy: OFFICE_MANAGER },
+    ]);
+    expect((await proposals.read(proposal.id)).status.kind).toBe("applied");
+  });
+
+  it("is refused once a field its handler reads changed, and then reads Out of date", async () => {
+    const proposal = await draftsTitle("task-1", "New title");
+    task.state = "running";
+
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
+      '"Old title" changed since Marta drafted this. Ask them to draft it again.',
+    );
+
+    const read = await proposals.read(proposal.id);
+    expect(read.status).toEqual({ kind: "open" });
+    expect(read.change).toMatchObject({ kind: "office-action", outOfDate: true });
+    expect(task.applied).toEqual([]);
+  });
+
+  it("declines an older open Proposal on the same subject once a newer one is applied", async () => {
+    const older = await draftsTitle("task-1", "First");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const newer = await draftsTitle("task-1", "Second");
+
+    await proposals.apply(newer.id, ANN_LEE);
+
+    expect((await proposals.read(older.id)).status).toMatchObject({
+      kind: "declined",
+      because: { kind: "superseded", proposalId: newer.id },
+    });
   });
 });

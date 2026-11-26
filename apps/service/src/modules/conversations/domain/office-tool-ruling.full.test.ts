@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  canonicalJson,
   isOffered,
   officeToolCallWords,
   offeredTools,
   toolRuling,
   valueOnSubject,
 } from "./office-tool-ruling.js";
+import { canonicalJson } from "../../engine/index.js";
 import type { AuthorityGroup, AuthorityInEffect, AuthoritySetting } from "../../people/index.js";
 
 const ALLOWED = { kind: "allowed" } as const;
@@ -60,9 +60,9 @@ describe("toolRuling", () => {
     expect(toolRuling(CONSULT_CTO, false)).toEqual({ kind: "hold", setting: CONSULT_CTO });
   });
 
-  it("holds an Ask me call, and a Proposal as Ask me", () => {
+  it("holds an Ask me call, and drafts a Proposal call", () => {
     expect(toolRuling(ASK_ME, false)).toEqual({ kind: "hold", setting: ASK_ME });
-    expect(toolRuling(PROPOSAL, false)).toEqual({ kind: "hold", setting: ASK_ME });
+    expect(toolRuling(PROPOSAL, false)).toEqual({ kind: "propose" });
   });
 
   it("leaves a Never call out, unless the person holds a duty that grants the tool", () => {

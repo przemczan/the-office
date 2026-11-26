@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changeToApply } from "./proposal.js";
+import { changeToApply, proposalTargets } from "./proposal.js";
 import { aProposal, aProposedCard } from "./proposal.fixtures.js";
 import { declineProposal } from "./proposal-changes.js";
 import { ProposalRefused } from "./proposal-refused.js";
@@ -36,5 +36,26 @@ describe("applying a Proposal", () => {
     expect(() => changeToApply(applied, undefined)).toThrow("This Proposal is applied already.");
     expect(() => changeToApply(declined, undefined)).toThrow("This Proposal was declined.");
     expect(() => declineProposal(applied, thread, AT, ANN_LEE)).toThrow(ProposalRefused);
+  });
+});
+
+describe("what a Proposal changes", () => {
+  const officeAction = {
+    kind: "office-action",
+    action: "change_task_title",
+    title: "Change a Task's title",
+    input: { taskId: "task-1", title: "New" },
+    subject: { kind: "task", id: "task-1", title: "Old" },
+    fields: [],
+    fingerprint: "abc",
+    outOfDate: false,
+  } as const;
+
+  it("is the subject of an Office action, so two Proposals on it change the same", () => {
+    expect(proposalTargets(officeAction)).toEqual(["office-action:task:task-1"]);
+  });
+
+  it("is nothing for a kind this release doesn't know", () => {
+    expect(proposalTargets({ kind: "from-a-newer-release" } as never)).toEqual([]);
   });
 });

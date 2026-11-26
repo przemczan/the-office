@@ -515,6 +515,13 @@ export class PostgresThreadRepository extends ThreadRepository {
       return changed;
     });
   }
+
+  async markProposalOutOfDate(id: string): Promise<void> {
+    await this.database
+      .update(proposals)
+      .set({ change: sql`${proposals.change} || jsonb_build_object('outOfDate', true)` })
+      .where(and(eq(proposals.id, id), eq(proposals.status, "open")));
+  }
 }
 
 /** The Threads of `rows`, in their order, each with the Decisions it waits on, the first asked first. */

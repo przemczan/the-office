@@ -452,6 +452,19 @@ export const atUsersRequestSchema = z.object({
 export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 
 /**
+ * One field a call of an Office action changes, as a card lists it: its label, its value before and
+ * after (null when it has none, and for a Secret value, which is named only), and how it reads: a
+ * short value on a line, a long text as a diff, or a Secret value by its name.
+ */
+export const changedFieldSchema = z.object({
+  label: z.string(),
+  before: z.string().nullable(),
+  after: z.string().nullable(),
+  form: z.enum(["short", "long", "secret"]),
+});
+export type ChangedField = z.infer<typeof changedFieldSchema>;
+
+/**
  * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
  * Hard switch, a request, asking a person to do something: a form of one open question, or a Bug
  * Task an Agent proposes in a Stage, whose `bugTask` the card's form edits: one choice, "Create the
@@ -491,6 +504,11 @@ export const decisionSchema = z.object({
   bugTask: proposedBugTaskSchema.optional(),
   /** One or more, in the order asked. */
   questions: z.array(decisionQuestionSchema),
+  /**
+   * For an approval of a call of an Office action, each field it changes, before and after; null
+   * for any other Decision, and for an approval kept before it listed them.
+   */
+  fields: z.array(changedFieldSchema).nullable(),
   /**
    * The Task's Attachments it is about, of any kind, by their ids. One removed since no longer shows
    * among the Task's, while the id stays here.
@@ -647,6 +665,14 @@ export const proposedFeatureSwitchSchema = z.object({
   reason: z.string(),
 });
 export type ProposedFeatureSwitch = z.infer<typeof proposedFeatureSwitchSchema>;
+
+/** The record an Office action's Proposal changes: its kind, id and title as the user reads it. */
+export const officeActionSubjectSchema = z.object({
+  kind: z.string(),
+  id: z.string(),
+  title: z.string(),
+});
+export type OfficeActionProposalSubject = z.infer<typeof officeActionSubjectSchema>;
 
 /** What a Proposal changes, by kind; the module that owns each kind applies it. */
 export const proposedChangeSchema = z.discriminatedUnion("kind", [
@@ -872,6 +898,23 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     description: z.string(),
     instructions: z.string(),
   }),
+  /**
+   * A call of an Office action the person's Authority rules Proposal: the action by its tool name and
+   * `title`, its `subject`, and each field it changes. Its input stays in the service. `fingerprint`
+   * is taken of the fields its handler reads and writes when drafted; applying is refused, and the
+   * card reads Out of date (`outOfDate`), once they changed since.
+   */
+  z.object({
+    kind: z.literal("office-action"),
+    action: z.string(),
+    title: z.string(),
+    subject: officeActionSubjectSchema,
+    fields: z.array(changedFieldSchema),
+    fingerprint: z.string(),
+    outOfDate: z.boolean(),
+  }),
+  /** A kind of change a later release kept, which this release can't read; its card only says so. */
+  z.object({ kind: z.literal("unknown") }),
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;
 

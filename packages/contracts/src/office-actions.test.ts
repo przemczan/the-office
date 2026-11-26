@@ -13,6 +13,7 @@ import { officeAction } from "./office-actions.js";
 function anAction(area: AuthorityAreaKey, group: AuthorityGroup) {
   return officeAction({
     name: "change_something",
+    title: "Change something",
     description: "Changes something.",
     input: z.object({ taskId: z.uuid() }),
     answer: z.object({}),

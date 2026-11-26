@@ -248,6 +248,10 @@ function proposedWords(change: ProposedChange): string {
       return `update the skill ${change.name}`;
     case "skill":
       return `add the skill ${change.name}`;
+    case "office-action":
+      return `${change.title}: ${change.subject.title}`;
+    default:
+      return "make a change";
   }
 }
 

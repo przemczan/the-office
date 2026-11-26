@@ -54,6 +54,12 @@ describe("authorName", () => {
     ).toBe("Grace, asked by you");
   });
 
+  it("names the person who proposed what the user applied", () => {
+    expect(authorName({ kind: "user", user: BY_ANN, proposedBy: "cto" }, roles, SIGNED_IN.id)).toBe(
+      "Ann Lee, proposed by Grace",
+    );
+  });
+
   it("keeps You on a record from before users existed", () => {
     expect(authorName({ kind: "user", user: null }, roles, SIGNED_IN.id)).toBe("You");
   });

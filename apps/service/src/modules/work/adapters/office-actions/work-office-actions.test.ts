@@ -578,6 +578,31 @@ describe("a Task's History", () => {
     expect(await work.app.get(TaskService).history(task.id)).toHaveLength(3);
   });
 
+  it("names who proposed a change the user applied from a Proposal", async () => {
+    const task = await aTaskInNoInitiative();
+    const registry = work.app.get(OfficeToolRegistry);
+    const input = { taskId: task.id, title: "Sticky offline banner" };
+
+    const drafted = await registry.draft(CHANGE_TASK_TITLE_ACTION.name, input);
+    await registry.applyFor(CHANGE_TASK_TITLE_ACTION.name, input, {
+      user: { userId: "ann", name: "Ann Lee" },
+      proposedBy: "cto",
+    });
+
+    expect(drafted).toMatchObject({
+      subject: { kind: "task", id: task.id, title: "Offline banner" },
+      fields: [
+        { label: "Title", before: "Offline banner", after: "Sticky offline banner", form: "short" },
+      ],
+    });
+    expect((await registry.draft(CHANGE_TASK_TITLE_ACTION.name, input))?.fingerprint).not.toBe(
+      drafted?.fingerprint,
+    );
+    expect(await editsOf(`/tasks/${task.id}`)).toEqual([
+      { field: "title", by: "the user Ann Lee, proposed by the person in the Role cto" },
+    ]);
+  });
+
   it("is in the Task's record, read_task's", async () => {
     const task = await aTaskInNoInitiative();
     await callTool(CHANGE_TASK_TITLE_ACTION.name, { taskId: task.id, title: "Renamed" });

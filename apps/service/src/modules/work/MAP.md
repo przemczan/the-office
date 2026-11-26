@@ -176,6 +176,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, BranchCle
 ### adapters/office-actions/
 
 - `work-office-actions.ts`: WorkOfficeActions
+- `work-subject-snapshots.ts`: WorkSubjectSnapshots
 - Tests: moving-work-office-actions.test.ts, work-office-actions.test.ts
 
 ### adapters/office-tools/

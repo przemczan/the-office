@@ -1,3 +1,4 @@
+import type { OfficeToolChangedField } from "../../engine/index.js";
 import type { Thread } from "./thread.js";
 import type { UserRef } from "./user.js";
 
@@ -71,6 +72,11 @@ export interface ChoiceQuestion {
   readonly question: string;
   readonly options: readonly string[];
   readonly recommendation: Recommendation;
+  /**
+   * For the approval of a call of an Office action, each field it changes, before and after, as the
+   * card lists them; kept with the question, so no table changes.
+   */
+  readonly fields?: readonly OfficeToolChangedField[];
 }
 
 /**

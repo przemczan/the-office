@@ -86,6 +86,15 @@ describe("toProposalResponse", () => {
     expect(proposedChangeSchema.parse(response.change)).toEqual(change);
   });
 
+  it("answers a kind of change a later release kept as unknown, without failing", () => {
+    const response = toProposalResponse(
+      aProposalChanging({ kind: "from-a-newer-release", detail: 1 } as unknown as ProposedChange),
+    );
+
+    expect(response.change).toEqual({ kind: "unknown" });
+    expect(proposedChangeSchema.parse(response.change)).toEqual({ kind: "unknown" });
+  });
+
   it("answers a Project Pipeline's Proposal drafted before Project Pipelines held their own flow by its name, with no Stages", () => {
     // As the previous release kept it: a base Pipeline and Stage changes, no Stages.
     const old = {

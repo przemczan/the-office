@@ -26,7 +26,12 @@ export {
  * null on a record from before users existed, not yet claimed by the first user.
  */
 export const authorSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("user"), user: userRefSchema.nullable() }),
+  z.object({
+    kind: z.literal("user"),
+    user: userRefSchema.nullable(),
+    /** The person, by their Role's key, who proposed what the user applied from a Proposal. */
+    proposedBy: z.string().optional(),
+  }),
   z.object({
     kind: z.literal("person"),
     roleKey: z.string(),
@@ -784,6 +789,7 @@ const initiativeIdInput = z.uuid().describe("The id of the Initiative.");
 /** Office action: the Task waits for another to be Done before it can start. */
 export const ADD_DEPENDENCY_ACTION = officeAction({
   name: "add_dependency",
+  title: "Make a Task wait for another",
   description:
     "Makes a Task wait for another Task to be Done before it can start: any Task, in any Project or Initiative. Refused once the Task has started, for a Task that is dropped or archived, for the Task itself, and for a wait that would close a cycle. A Task waits directly only for Tasks it doesn't already wait for through another Task: when it already does, nothing is added and the answer says through which Task; otherwise the direct waits the new one covers, on this Task and on the Tasks not started that wait for it, are taken out, and the answer names each one.",
   input: z.object({
@@ -800,6 +806,7 @@ export const ADD_DEPENDENCY_ACTION = officeAction({
 /** Office action: the Task no longer waits for one it waits for. */
 export const REMOVE_DEPENDENCY_ACTION = officeAction({
   name: "remove_dependency",
+  title: "Stop a Task waiting for another",
   description:
     "Lets a Task stop waiting for a Task it waits for, before it starts; its other dependencies stay.",
   input: z.object({
@@ -816,6 +823,7 @@ export const REMOVE_DEPENDENCY_ACTION = officeAction({
 /** Office action: an existing Task joins an Initiative. */
 export const ADD_TO_INITIATIVE_ACTION = officeAction({
   name: "add_to_initiative",
+  title: "Add a Task to an Initiative",
   description:
     "Adds an existing Task to an Initiative, straight away whether it is being shaped or active. A Task is in at most one Initiative and joins before it starts; one The Office made (an Onboard, a run environment set-up or a Publishing Task) never joins; only a Task in Backlog joins an Initiative being shaped, and moves to Shaping with it; a done or dropped Initiative takes none.",
   input: z.object({
@@ -832,6 +840,7 @@ export const ADD_TO_INITIATIVE_ACTION = officeAction({
 /** Office action: the Task leaves its Initiative. */
 export const TAKE_OUT_OF_INITIATIVE_ACTION = officeAction({
   name: "take_out_of_initiative",
+  title: "Take a Task out of an Initiative",
   description:
     "Takes a Task out of its Initiative, straight away whether it is being shaped or active, before the Task starts; never a Publishing Task. A Task in Shaping goes to Backlog, and one planned in the Initiative's planning Thread loses it: from Planning it goes to Backlog, and a Ready one stays Ready. The Initiative's Publishing Task stops waiting for it; its other dependencies stay.",
   input: z.object({
@@ -848,6 +857,7 @@ export const TAKE_OUT_OF_INITIATIVE_ACTION = officeAction({
 /** Office action: the Task's title. */
 export const CHANGE_TASK_TITLE_ACTION = officeAction({
   name: "change_task_title",
+  title: "Change a Task's title",
   description:
     "Changes a Task's title, in any state but Done and Dropped. The change is kept in the Task's History, with who made it.",
   input: z.object({ taskId: taskIdInput, title: z.string().describe("The new title.") }),
@@ -861,6 +871,7 @@ export const CHANGE_TASK_TITLE_ACTION = officeAction({
 /** Office action: the Task's Description. */
 export const CHANGE_TASK_DESCRIPTION_ACTION = officeAction({
   name: "change_task_description",
+  title: "Change a Task's Description",
   description:
     "Replaces a Task's Description, in Markdown, until the Task starts. The change is kept in the Task's History, with who made it.",
   input: z.object({
@@ -877,6 +888,7 @@ export const CHANGE_TASK_DESCRIPTION_ACTION = officeAction({
 /** Office action: the Task's Kind. */
 export const CHANGE_TASK_KIND_ACTION = officeAction({
   name: "change_task_kind",
+  title: "Change a Task's kind",
   description:
     "Changes a Task's Kind (Feature, Bug or Chore), in any state but Done and Dropped; the Task never moves for it. The change is kept in the Task's History, with who made it.",
   input: z.object({ taskId: taskIdInput, kind: taskKindSchema.describe("The new Kind.") }),
@@ -890,6 +902,7 @@ export const CHANGE_TASK_KIND_ACTION = officeAction({
 /** Office action: the Task's priority. */
 export const CHANGE_TASK_PRIORITY_ACTION = officeAction({
   name: "change_task_priority",
+  title: "Change a Task's priority",
   description:
     "Changes a Task's priority (high, normal or low), which orders the board and the queue. The change is kept in the Task's History, with who made it.",
   input: z.object({
@@ -906,6 +919,7 @@ export const CHANGE_TASK_PRIORITY_ACTION = officeAction({
 /** Office action: the Task's Plan, saved as the user's Save does. */
 export const CHANGE_TASK_PLAN_ACTION = officeAction({
   name: "change_task_plan",
+  title: "Change a Task's Plan",
   description:
     "Replaces a Task's Plan, in Markdown, with its files to change, until the Task starts, as the user's Save on the Plan does: a changed Plan is Not confirmed until the user confirms it, and a Ready Task goes back to Planning, or to Backlog when it never had a planning Thread. The change is kept in the Task's History, with who made it.",
   input: z.object({
@@ -931,6 +945,7 @@ export const CHANGE_TASK_PLAN_ACTION = officeAction({
 /** Office action: the Task's Definition of Done, saved as the user's Save does. */
 export const CHANGE_TASK_DEFINITION_OF_DONE_ACTION = officeAction({
   name: "change_task_definition_of_done",
+  title: "Change a Task's Definition of Done",
   description:
     "Replaces a Task's Definition of Done, one statement per item, until the Task starts, as the user's Save does: a changed one is Not confirmed until the user confirms it, and a Ready Task goes back to Planning, or to Backlog when it never had a planning Thread. The change is kept in the Task's History, with who made it.",
   input: z.object({
@@ -949,6 +964,7 @@ export const CHANGE_TASK_DEFINITION_OF_DONE_ACTION = officeAction({
 /** Office action: Drop the Task, with the reason given, if any. */
 export const DROP_TASK_ACTION = officeAction({
   name: "drop_task",
+  title: "Drop a Task",
   description:
     "Drops a Task, with an optional Drop reason: won't fix, can't reproduce, or a duplicate of another Task, named by its id. A Dropped Task leaves the work but stays on the board until it is archived. You may Drop only a Task that hasn't started; one that has is the user's to Drop.",
   input: z.object({
@@ -965,6 +981,7 @@ export const DROP_TASK_ACTION = officeAction({
 /** Office action: a Done or Dropped Task leaves the board for the Archive. */
 export const ARCHIVE_TASK_ACTION = officeAction({
   name: "archive_task",
+  title: "Archive a Task",
   description:
     "Archives a Done or Dropped Task: it leaves the board for the Archive, its state as it was.",
   input: z.object({ taskId: taskIdInput }),
@@ -978,6 +995,7 @@ export const ARCHIVE_TASK_ACTION = officeAction({
 /** Office action: an archived Task returns to the board. */
 export const RESTORE_TASK_ACTION = officeAction({
   name: "restore_task",
+  title: "Restore a Task",
   description: "Restores an archived Task: it returns to the board in the state it had.",
   input: z.object({ taskId: taskIdInput }),
   answer: taskSchema,
@@ -990,6 +1008,7 @@ export const RESTORE_TASK_ACTION = officeAction({
 /** Office action: the Idea's title, notes and Project. */
 export const EDIT_IDEA_ACTION = officeAction({
   name: "edit_idea",
+  title: "Edit an Idea",
   description:
     "Edits an Idea's title, notes and Project, all three given whole, until it is shaped. The change is kept in the Idea's History, with who made it.",
   input: z.object({
@@ -1011,6 +1030,7 @@ export const EDIT_IDEA_ACTION = officeAction({
 /** Office action: Drop the Idea. */
 export const DROP_IDEA_ACTION = officeAction({
   name: "drop_idea",
+  title: "Drop an Idea",
   description: "Drops an Idea that isn't shaped yet; Restore brings it back.",
   input: z.object({ ideaId: ideaIdInput }),
   answer: ideaSchema,
@@ -1023,6 +1043,7 @@ export const DROP_IDEA_ACTION = officeAction({
 /** Office action: a Dropped Idea is new again. */
 export const RESTORE_IDEA_ACTION = officeAction({
   name: "restore_idea",
+  title: "Restore an Idea",
   description: "Restores a Dropped Idea: it is new again.",
   input: z.object({ ideaId: ideaIdInput }),
   answer: ideaSchema,
@@ -1035,6 +1056,7 @@ export const RESTORE_IDEA_ACTION = officeAction({
 /** Office action: the Initiative's outcome. */
 export const WRITE_INITIATIVE_OUTCOME_ACTION = officeAction({
   name: "write_initiative_outcome",
+  title: "Write an Initiative's outcome",
   description:
     "Replaces an Initiative's outcome, what it is for, while it is being shaped. The change is kept in the Initiative's History, with who made it.",
   input: z.object({
@@ -1051,6 +1073,7 @@ export const WRITE_INITIATIVE_OUTCOME_ACTION = officeAction({
 /** Office action: Drop the Initiative; its Tasks stay as they are. */
 export const DROP_INITIATIVE_ACTION = officeAction({
   name: "drop_initiative",
+  title: "Drop an Initiative",
   description:
     "Drops an Initiative being shaped or active; its Tasks and branches stay as they are. You may Drop only an Initiative none of whose Tasks has started; one with a started Task is the user's to Drop.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1064,6 +1087,7 @@ export const DROP_INITIATIVE_ACTION = officeAction({
 /** Office action: a Done or Dropped Initiative leaves the board for the Archive. */
 export const ARCHIVE_INITIATIVE_ACTION = officeAction({
   name: "archive_initiative",
+  title: "Archive an Initiative",
   description:
     "Archives a Done or Dropped Initiative: it leaves the board for the Archive, its state as it was.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1077,6 +1101,7 @@ export const ARCHIVE_INITIATIVE_ACTION = officeAction({
 /** Office action: an archived Initiative returns to the board. */
 export const RESTORE_INITIATIVE_ACTION = officeAction({
   name: "restore_initiative",
+  title: "Restore an Initiative",
   description:
     "Restores an archived Initiative: it returns to the board, in Done or Dropped as it was.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1090,6 +1115,7 @@ export const RESTORE_INITIATIVE_ACTION = officeAction({
 /** Office action: Start over a Task the user paused or stopped. */
 export const START_TASK_OVER_ACTION = officeAction({
   name: "start_task_over",
+  title: "Start a Task over",
   description:
     "Starts a Task Paused by the user over: it goes to Ready, its earlier Stage runs kept as history only; with resetBranch, its branch is reset to the freshly fetched base.",
   input: z.object({
@@ -1106,6 +1132,7 @@ export const START_TASK_OVER_ACTION = officeAction({
 /** Office action: Reopen a Dropped Task to Backlog or Ready. */
 export const REOPEN_TASK_ACTION = officeAction({
   name: "reopen_task",
+  title: "Reopen a Task",
   description:
     "Reopens a Dropped Task to Backlog or Ready, restoring it first when archived; one that had started is started over, with resetBranch resetting its branch to the base.",
   input: z.object({
@@ -1885,6 +1912,7 @@ export type WorkWebEvent = z.infer<typeof workWebEventSchema>;
 /** Office action: Shape the Idea into a Task. */
 export const SHAPE_IDEA_INTO_TASK_ACTION = officeAction({
   name: "shape_idea_into_task",
+  title: "Shape an Idea into a Task",
   description:
     "Shapes an Idea into a Task in Backlog in the Project given, of the Kind given (a Feature by default); the Idea is Shaped afterwards. A Description is for a Bug from an Idea without notes.",
   input: ideaShapingSchema.extend({ ideaId: ideaIdInput }),
@@ -1899,6 +1927,7 @@ export const SHAPE_IDEA_INTO_TASK_ACTION = officeAction({
 /** Office action: Shape the Idea into an Initiative. */
 export const SHAPE_IDEA_INTO_INITIATIVE_ACTION = officeAction({
   name: "shape_idea_into_initiative",
+  title: "Shape an Idea into an Initiative",
   description:
     "Shapes an Idea into an Initiative, being shaped, with no Tasks yet; the Idea is Shaped afterwards.",
   input: z.object({ ideaId: ideaIdInput }),
@@ -1913,6 +1942,7 @@ export const SHAPE_IDEA_INTO_INITIATIVE_ACTION = officeAction({
 /** Office action: Plan the Idea as a Task with the Planner. */
 export const PLAN_IDEA_AS_TASK_ACTION = officeAction({
   name: "plan_idea_as_task",
+  title: "Plan an Idea as a Task",
   description:
     "Plans an Idea as a Task with the Planner: the Idea becomes a Task in Planning in the Project given, with its planning Thread open; the Idea is Shaped afterwards.",
   input: ideaShapingSchema.pick({ projectId: true }).extend({ ideaId: ideaIdInput }),
@@ -1927,6 +1957,7 @@ export const PLAN_IDEA_AS_TASK_ACTION = officeAction({
 /** Office action: Confirm the Initiative. */
 export const CONFIRM_INITIATIVE_ACTION = officeAction({
   name: "confirm_initiative",
+  title: "Confirm an Initiative",
   description:
     "Confirms an Initiative being shaped: it becomes active, or Done at once when its Tasks already are, and its branch is made in each Project that has a Pipeline. Refused with every reason it can't be confirmed.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1940,6 +1971,7 @@ export const CONFIRM_INITIATIVE_ACTION = officeAction({
 /** Office action: Back to Shaping, the undo of Confirm. */
 export const INITIATIVE_BACK_TO_SHAPING_ACTION = officeAction({
   name: "initiative_back_to_shaping",
+  title: "Send an Initiative back to Shaping",
   description:
     "Takes a confirmed Initiative back to Shaping, undoing Confirm; refused with every reason it can't be, such as a Task that has started.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1953,6 +1985,7 @@ export const INITIATIVE_BACK_TO_SHAPING_ACTION = officeAction({
 /** Office action: Start Ready Tasks of the Initiative. */
 export const START_READY_TASKS_ACTION = officeAction({
   name: "start_ready_tasks",
+  title: "Start an Initiative's Ready Tasks",
   description:
     "Starts every Ready Task of an active Initiative as Start does, an Overlap queued behind; answers what started, what was queued and what was refused, each with its reasons.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1966,6 +1999,7 @@ export const START_READY_TASKS_ACTION = officeAction({
 /** Office action: Pause the Initiative. */
 export const PAUSE_INITIATIVE_ACTION = officeAction({
   name: "pause_initiative",
+  title: "Pause an Initiative",
   description:
     "Pauses an active Initiative: its Tasks In progress or Waiting on you are paused, and every Start of its Tasks is held until it is resumed.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1979,6 +2013,7 @@ export const PAUSE_INITIATIVE_ACTION = officeAction({
 /** Office action: Resume the Initiative. */
 export const RESUME_INITIATIVE_ACTION = officeAction({
   name: "resume_initiative",
+  title: "Resume an Initiative",
   description:
     "Resumes a paused Initiative: the Tasks its Pause paused go on and its queued Tasks may start.",
   input: z.object({ initiativeId: initiativeIdInput }),
@@ -1992,6 +2027,7 @@ export const RESUME_INITIATIVE_ACTION = officeAction({
 /** Office action: the Initiative's engine override. */
 export const SET_INITIATIVE_ENGINE_ACTION = officeAction({
   name: "set_initiative_engine",
+  title: "Set an Initiative's engine",
   description:
     "Sets an Initiative's engine override, null for none, while it is shaping or active. Refused for an engine not listed, and when a Role of an open Task's Pipeline couldn't run on it.",
   input: workEngineChangeSchema.extend({ initiativeId: initiativeIdInput }),
@@ -2005,6 +2041,7 @@ export const SET_INITIATIVE_ENGINE_ACTION = officeAction({
 /** Office action: the Initiative's Short name. */
 export const WRITE_INITIATIVE_SHORT_NAME_ACTION = officeAction({
   name: "write_initiative_short_name",
+  title: "Write an Initiative's Short name",
   description:
     "Writes an Initiative's Short name, which its branches are named by, while it is being shaped.",
   input: shortNameChangeSchema.extend({ initiativeId: initiativeIdInput }),
@@ -2018,6 +2055,7 @@ export const WRITE_INITIATIVE_SHORT_NAME_ACTION = officeAction({
 /** Office action: Mark Ready, from Backlog or Planning. */
 export const MARK_TASK_READY_ACTION = officeAction({
   name: "mark_task_ready",
+  title: "Mark a Task Ready",
   description:
     "Marks a Task Ready, from Backlog or Planning: refused with every reason until its Plan and Definition of Done are confirmed, no Pipeline proposal is open and no Decision is. With confirmPlanAndDefinitionOfDone, the Plan and the Definition of Done are confirmed as they stand, even empty, in the same change; use it only when the user told you to go on without them.",
   input: markReadyRequestSchema.extend({ taskId: taskIdInput }),
@@ -2031,6 +2069,7 @@ export const MARK_TASK_READY_ACTION = officeAction({
 /** Office action: Confirm the Task's Plan as it reads. */
 export const CONFIRM_TASK_PLAN_ACTION = officeAction({
   name: "confirm_task_plan",
+  title: "Confirm a Task's Plan",
   description: "Confirms a Task's Plan as it reads now.",
   input: z.object({ taskId: taskIdInput }),
   answer: taskSchema,
@@ -2043,6 +2082,7 @@ export const CONFIRM_TASK_PLAN_ACTION = officeAction({
 /** Office action: Confirm the Task's Definition of Done as it reads. */
 export const CONFIRM_TASK_DEFINITION_OF_DONE_ACTION = officeAction({
   name: "confirm_task_definition_of_done",
+  title: "Confirm a Task's Definition of Done",
   description: "Confirms a Task's Definition of Done as it reads now.",
   input: z.object({ taskId: taskIdInput }),
   answer: taskSchema,
@@ -2055,6 +2095,7 @@ export const CONFIRM_TASK_DEFINITION_OF_DONE_ACTION = officeAction({
 /** Office action: the Task's Pipeline: the proposed one confirmed, or another. */
 export const CHOOSE_TASK_PIPELINE_ACTION = officeAction({
   name: "choose_task_pipeline",
+  title: "Choose a Task's Pipeline",
   description:
     "Sets a Task's Pipeline by its id: the proposed one to confirm it, or another from the library. Either ends the Pipeline proposal.",
   input: pipelineChangeSchema.extend({ taskId: taskIdInput }),
@@ -2068,6 +2109,7 @@ export const CHOOSE_TASK_PIPELINE_ACTION = officeAction({
 /** Office action: the Task's engine override and each person's model and effort. */
 export const CHOOSE_TASK_ENGINE_ACTION = officeAction({
   name: "choose_task_engine",
+  title: "Choose a Task's engine",
   description:
     "Sets a Task's engine override, null for none, and its model and effort for each person (people left out keeps them, null or empty clears them), in any state but Done and Dropped. Refused for an engine not listed, when a Role of its Pipeline couldn't run on it, and for a model or effort the engine type doesn't offer.",
   input: taskEngineChangeSchema.extend({ taskId: taskIdInput }),
@@ -2081,6 +2123,7 @@ export const CHOOSE_TASK_ENGINE_ACTION = officeAction({
 /** Office action: the Task's place on the board. */
 export const PLACE_TASK_ACTION = officeAction({
   name: "place_task",
+  title: "Place a Task on the board",
   description:
     "Places a Task on the board between two Tasks of its column, null at either end: it takes the priority that keeps it there.",
   input: taskPlacementSchema.extend({ taskId: taskIdInput }),
@@ -2094,6 +2137,7 @@ export const PLACE_TASK_ACTION = officeAction({
 /** Office action: Make a plan, the Planner starting at once. */
 export const MAKE_A_PLAN_ACTION = officeAction({
   name: "make_a_plan",
+  title: "Make a Plan",
   description:
     "Make a plan: the Task moves to Planning, in auto mode or not, and the Planner starts at once from its title and Description. The choice becomes the remembered default.",
   input: makeAPlanSchema.extend({ taskId: taskIdInput }),
@@ -2107,6 +2151,7 @@ export const MAKE_A_PLAN_ACTION = officeAction({
 /** Office action: Plan with…, the planning Thread open for the first message. */
 export const PLAN_WITH_ACTION = officeAction({
   name: "plan_with",
+  title: "Plan with the Planner",
   description:
     "Plan with…: the Task moves to Planning, and its planning Thread opens for the first message.",
   input: z.object({ taskId: taskIdInput }),
@@ -2120,6 +2165,7 @@ export const PLAN_WITH_ACTION = officeAction({
 /** Office action: Start the Task, or queue it when only waits hold it. */
 export const START_TASK_ACTION = officeAction({
   name: "start_task",
+  title: "Start a Task",
   description:
     "Starts a Ready Task: In progress, or into the queue when only a blocker or a limit holds it, or when onOverlap queues it behind an Overlap; refused with the reasons when anything else does, or an Overlap not answered. With onUsageCaps start-anyway it starts past its usage caps and never queues.",
   input: startRequestFieldsSchema.extend({ taskId: taskIdInput }),
@@ -2133,6 +2179,7 @@ export const START_TASK_ACTION = officeAction({
 /** Office action: Pause the Task. */
 export const PAUSE_TASK_ACTION = officeAction({
   name: "pause_task",
+  title: "Pause a Task",
   description: "Pauses a Task: it is held, its running Stage once the Agent's current turn ends.",
   input: z.object({ taskId: taskIdInput }),
   answer: taskSchema,
@@ -2145,6 +2192,7 @@ export const PAUSE_TASK_ACTION = officeAction({
 /** Office action: Stop the Task, interrupting the Stage running now. */
 export const STOP_TASK_ACTION = officeAction({
   name: "stop_task",
+  title: "Stop a Task",
   description:
     "Stops a Task: the Stage running now is interrupted, its uncommitted edits discarded, and the Task held.",
   input: z.object({ taskId: taskIdInput }),
@@ -2158,6 +2206,7 @@ export const STOP_TASK_ACTION = officeAction({
 /** Office action: Resume a Paused Task. */
 export const RESUME_TASK_ACTION = officeAction({
   name: "resume_task",
+  title: "Resume a Task",
   description: "Resumes a Paused Task: it goes on through the Context policy.",
   input: z.object({ taskId: taskIdInput }),
   answer: taskSchema,
@@ -2170,6 +2219,7 @@ export const RESUME_TASK_ACTION = officeAction({
 /** Office action: Move the Task to another Project. */
 export const MOVE_TASK_ACTION = officeAction({
   name: "move_task",
+  title: "Move a Task to another Project",
   description:
     "Moves a Task to another Project: it goes back to Backlog with its Plan and Definition of Done Not confirmed. Refused with every reason it can't move.",
   input: taskMoveSchema.extend({ taskId: taskIdInput }),
@@ -2183,6 +2233,7 @@ export const MOVE_TASK_ACTION = officeAction({
 /** Office action: Take the Task out of the queue for Start. */
 export const TAKE_OUT_OF_QUEUE_ACTION = officeAction({
   name: "take_out_of_queue",
+  title: "Take a Task out of the queue",
   description: "Takes a Task out of the queue for Start: it stays Ready.",
   input: z.object({ taskId: taskIdInput }),
   answer: z.object({}),
@@ -2195,6 +2246,7 @@ export const TAKE_OUT_OF_QUEUE_ACTION = officeAction({
 /** Office action: Move the Task up one place in the queue. */
 export const MOVE_UP_IN_QUEUE_ACTION = officeAction({
   name: "move_up_in_queue",
+  title: "Move a Task up in the queue",
   description: "Moves a queued Task up one place, past the Task ahead of it.",
   input: z.object({ taskId: taskIdInput }),
   answer: z.object({}),
@@ -2207,6 +2259,7 @@ export const MOVE_UP_IN_QUEUE_ACTION = officeAction({
 /** Office action: Move the Task to the top of the queue. */
 export const MOVE_TO_TOP_OF_QUEUE_ACTION = officeAction({
   name: "move_to_top_of_queue",
+  title: "Move a Task to the top of the queue",
   description: "Moves a queued Task to the first place, ahead of every other queued Task.",
   input: z.object({ taskId: taskIdInput }),
   answer: z.object({}),
@@ -2219,6 +2272,7 @@ export const MOVE_TO_TOP_OF_QUEUE_ACTION = officeAction({
 /** Office action: Resolve conflicts on the pull request the Task opened. */
 export const RESOLVE_CONFLICTS_ACTION = officeAction({
   name: "resolve_conflicts",
+  title: "Resolve a Task's conflicts",
   description:
     "Resolve conflicts on the pull request a Task opened: its open Conflict resolution Task, or one made and started now; Ready with Start's reasons when Start refused it.",
   input: z.object({ taskId: taskIdInput }),
@@ -2232,6 +2286,7 @@ export const RESOLVE_CONFLICTS_ACTION = officeAction({
 /** Office action: save the board's filters as a view. */
 export const SAVE_VIEW_ACTION = officeAction({
   name: "save_view",
+  title: "Save a view",
   description: "Saves the Work board's filters under a name, as a Saved view everyone sees.",
   input: newSavedViewSchema,
   answer: savedViewSchema,
@@ -2245,6 +2300,7 @@ export const SAVE_VIEW_ACTION = officeAction({
 /** Office action: delete a Saved view. */
 export const DELETE_VIEW_ACTION = officeAction({
   name: "delete_view",
+  title: "Delete a view",
   description: "Deletes a Saved view of the Work board.",
   input: z.object({ id: z.uuid().describe("The id of the Saved view.") }),
   answer: z.object({}),

@@ -56,7 +56,7 @@ import {
   type QueuedTask as QueuedTaskResponse,
 } from "@the-office/contracts";
 import type { z } from "zod";
-import { officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
+import { officeActionDraft, officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeMembership } from "../../application/initiative-membership.js";
 import {
@@ -89,6 +89,7 @@ import {
 } from "../http/initiative-response.js";
 import { TaskResponses } from "../http/task-responses.js";
 import { toIdeaResponse, toQueueResponse, toSavedViewResponse } from "../http/work-responses.js";
+import { WorkSubjectSnapshots } from "./work-subject-snapshots.js";
 import { answered, personInSession } from "../office-tools/work-tool-answers.js";
 
 /**
@@ -137,6 +138,7 @@ export class WorkOfficeActions implements OnModuleInit {
     private readonly savedViews: SavedViewService,
     private readonly readyTasks: InitiativeStart,
     private readonly pausing: InitiativePause,
+    private readonly snapshots: WorkSubjectSnapshots,
   ) {
     this.handlers = new Map(
       [
@@ -202,14 +204,28 @@ export class WorkOfficeActions implements OnModuleInit {
   onModuleInit(): void {
     for (const each of this.handlers.values()) {
       this.registry.register(
-        officeActionTool(each.action, (input, { sessionId, allowedBy }) =>
-          answered(async () => {
-            const result = await each.handle(
-              input,
-              await personInSession(this.sessionPeople, sessionId, allowedBy),
-            );
-            return each.words(result, input);
-          }),
+        officeActionTool(
+          each.action,
+          (input, { sessionId, allowedBy }) =>
+            answered(async () => {
+              const result = await each.handle(
+                input,
+                await personInSession(this.sessionPeople, sessionId, allowedBy),
+              );
+              return each.words(result, input);
+            }),
+          {
+            draft: async (input) =>
+              officeActionDraft(
+                each.action,
+                input,
+                await this.snapshots.of(each.action.subject(input)),
+              ),
+            applyFor: (input, { user, proposedBy }) =>
+              answered(async () =>
+                each.words(await each.handle(input, { kind: "user", user, proposedBy }), input),
+              ),
+          },
         ),
       );
     }

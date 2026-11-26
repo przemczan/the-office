@@ -55,6 +55,8 @@ export interface OfficeToolResult {
 export interface OfficeToolAuthority {
   /** The key of the Authority group that rules the tool, from the catalog the contracts hold. */
   readonly group: string;
+  /** What the action is called as the user reads it, such as "Start a Task". */
+  readonly title: string;
   /** The subject a call with this input changes, so own work is told from others'. */
   subject(input: unknown): OfficeToolSubject;
 }
@@ -63,6 +65,35 @@ export interface OfficeToolAuthority {
 export interface OfficeToolSubject {
   readonly kind: string;
   readonly id: string;
+}
+
+/** One field a call changes, as a card lists it (spec 5.4.1 › Office actions). */
+export interface OfficeToolChangedField {
+  readonly label: string;
+  /** The value now; null when it has none, and always for a Secret value, which is named only. */
+  readonly before: string | null;
+  /** The value the call gives it; null as for `before`. */
+  readonly after: string | null;
+  /** A short value on a line, a long text shown as a diff, or a Secret value, by its name only. */
+  readonly form: "short" | "long" | "secret";
+}
+
+/**
+ * What a call of an Office action changes, read now: the record it acts on as the user reads it,
+ * each field it changes, and the source of its fingerprint, which is every field its handler reads to
+ * decide and writes (a move reads the Task's state too), so a change to any of them since the draft
+ * is a change to the subject.
+ */
+export interface OfficeToolDraft {
+  readonly subject: OfficeToolSubject & { readonly title: string };
+  readonly fields: readonly OfficeToolChangedField[];
+  readonly fingerprint: unknown;
+}
+
+/** The user an Office tool's change is made for, and the person who proposed it, by their Role's key. */
+export interface OfficeToolApplication {
+  readonly user: OfficeToolUser;
+  readonly proposedBy: string;
 }
 
 /**
@@ -82,4 +113,14 @@ export interface OfficeTool<Input extends z.ZodObject = z.ZodObject> {
    */
   readonly authority?: OfficeToolAuthority;
   run(input: z.output<Input>, call: OfficeToolCall): Promise<OfficeToolResult>;
+  /**
+   * For an Office action's tool that can be proposed: what a call with this input changes, as it
+   * stands now. Left out, a call ruled Proposal is held as Ask me.
+   */
+  draft?(input: z.output<Input>): Promise<OfficeToolDraft>;
+  /**
+   * Carries out a call the user applied from a Proposal, as the one handler does for the user's own
+   * click: in `application.user`'s name, with who proposed it kept. Present with `draft`.
+   */
+  applyFor?(input: z.output<Input>, application: OfficeToolApplication): Promise<OfficeToolResult>;
 }

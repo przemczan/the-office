@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -1017,6 +1017,78 @@ test.describe("Waiting for you", { tag: "@full" }, () => {
     } finally {
       await repository.remove();
     }
+  });
+});
+
+/** What the service fingerprints for "Drop an Idea": the Idea's state, as the handler decides by it. */
+function dropFingerprint(ideaId: string): string {
+  const source = {
+    decidedBy: { state: "new" },
+    subject: { id: ideaId, kind: "idea" },
+    writtenNow: {},
+  };
+  return createHash("sha256").update(JSON.stringify(source)).digest("hex");
+}
+
+async function seedDropProposal(
+  page: Page,
+  fingerprint: (ideaId: string) => string,
+): Promise<{ ideaId: string; title: string }> {
+  const title = `Idea to drop ${Date.now()}`;
+  const created = await page.request.post("/api/ideas", {
+    data: { title, notes: "", projectId: null },
+  });
+  expect(created.status()).toBe(201);
+  const { id: ideaId } = (await created.json()) as { id: string };
+  const started = await page.request.post("/api/chats/caretaker/threads");
+  const { id: threadId } = threadSchema.parse(await started.json());
+  await seedChatProposal(threadId, {
+    kind: "office-action",
+    action: "drop_idea",
+    title: "Drop an Idea",
+    input: { ideaId },
+    subject: { kind: "idea", id: ideaId, title },
+    fields: [{ label: "State", before: "New", after: "Dropped", form: "short" }],
+    fingerprint: fingerprint(ideaId),
+    outOfDate: false,
+  });
+  await page.goto(`/now?chat=caretaker&thread=${threadId}`);
+  return { ideaId, title };
+}
+
+test.describe("A Proposal of an Office action", { tag: "@full" }, () => {
+  test("is applied with one click, as the user, from its card", async ({ page }) => {
+    const { ideaId, title } = await seedDropProposal(page, dropFingerprint);
+    const card = page.getByRole("region", { name: "Proposal: Drop an Idea" });
+    await expect(card.getByRole("link", { name: title })).toBeVisible();
+    await expect(card).toContainText("State");
+    await screenshotScenario(page, "office-action-proposal-card");
+
+    await card.getByRole("button", { name: "Apply change" }).click();
+
+    await expect(card).toContainText("Applied");
+    const idea = (await (await page.request.get(`/api/ideas/${ideaId}`)).json()) as {
+      state: string;
+    };
+    expect(idea.state).toBe("dropped");
+  });
+
+  test("reads Out of date once its subject changed, and only Not now is left", async ({ page }) => {
+    const { ideaId } = await seedDropProposal(page, () => "drafted-before-it-changed");
+    const card = page.getByRole("region", { name: "Proposal: Drop an Idea" });
+
+    await card.getByRole("button", { name: "Apply change" }).click();
+
+    await expect(card.getByText("Out of date")).toBeVisible();
+    await expect(card.getByRole("button", { name: "Apply change" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Not now" })).toBeVisible();
+    await screenshotScenario(page, "office-action-proposal-out-of-date");
+    const idea = (await (await page.request.get(`/api/ideas/${ideaId}`)).json()) as {
+      state: string;
+    };
+    expect(idea.state).toBe("new");
+    await card.getByRole("button", { name: "Not now" }).click();
+    await expect(card).toContainText("Not applied");
   });
 });
 

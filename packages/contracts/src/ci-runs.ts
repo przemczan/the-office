@@ -95,6 +95,7 @@ export type CiRunRerun = z.infer<typeof ciRunRerunSchema>;
 /** Office action: a failed or cancelled CI run runs again. */
 export const RERUN_CI_RUN_ACTION = officeAction({
   name: "rerun_ci_run",
+  title: "Rerun a CI run",
   description:
     "Re-runs a Project's failed or cancelled CI run on its code host, with all its jobs or only the failed ones. Refused for a run that is queued, running, succeeded or skipped, and when the code host refuses, such as without permission to write Actions.",
   input: z.object({
@@ -181,6 +182,7 @@ export type WorkflowStart = z.infer<typeof workflowStartSchema>;
 /** Office action: a Workflow that declares a start by hand starts on a branch or tag. */
 export const START_WORKFLOW_ACTION = officeAction({
   name: "start_workflow",
+  title: "Start a Workflow",
   description:
     "Starts a Project's Workflow by hand on a branch or tag of its repository, with the inputs the Workflow's file declares there. Refused when the file there doesn't declare a start by hand, when an input isn't declared, a required one has no value, a choice is outside its options, a yes-no isn't true or false or a number isn't a number, and when the code host refuses, such as without permission to write Actions.",
   input: z.object({

@@ -247,6 +247,7 @@ export type TaskRestart = z.infer<typeof taskRestartSchema>;
 /** Office action: Restart from… a Task the user paused or stopped. */
 export const RESTART_TASK_FROM_ACTION = officeAction({
   name: "restart_task_from",
+  title: "Restart a Task from a Stage",
   description:
     "Restarts a Paused Task from a Stage of its Pipeline, later ones too, with optional feedback: the held run ends, its uncommitted edits are discarded, and the Task goes on In progress from that Stage.",
   input: z.object({
@@ -540,6 +541,7 @@ export type TaskStagesEdit = z.infer<typeof taskStagesEditSchema>;
 /** Office action: Edit for this Task, the Task's own Stages replaced. */
 export const EDIT_TASK_STAGES_ACTION = officeAction({
   name: "edit_task_stages",
+  title: "Edit a Task's Stages",
   description:
     "Replaces a Task's own Stages, in order, with the end position if any: the library Pipeline is left as it is. The Stages that have started stay as they are, where they are; refused with every problem the Stages have.",
   input: taskStagesEditSchema.extend({ taskId: z.uuid().describe("The id of the Task.") }),
@@ -553,6 +555,7 @@ export const EDIT_TASK_STAGES_ACTION = officeAction({
 /** Office action: Switch now, the held runs moved to a Stand-in Engine. */
 export const SWITCH_TO_STAND_IN_ACTION = officeAction({
   name: "switch_to_stand_in",
+  title: "Switch to the stand-in",
   description:
     "Switches held runs now to a Stand-in Engine, each Task on its own, instead of waiting for the usage window to reset; answers a result for each run.",
   input: standInSwitchRequestSchema,

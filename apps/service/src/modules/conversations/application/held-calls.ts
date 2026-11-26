@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import type { ApprovalCall, OfficeToolRuled } from "../../engine/index.js";
+import type { ApprovalCall, OfficeToolChangedField, OfficeToolRuled } from "../../engine/index.js";
 import {
   hardSwitchInEffect,
   HARD_SWITCH_LABELS,
@@ -35,6 +35,8 @@ export interface HeldCallRequest {
   readonly call: string;
   readonly context: string;
   readonly why: string;
+  /** The fields a call of an Office action changes, which the approval's card lists. */
+  readonly fields?: readonly OfficeToolChangedField[];
 }
 
 /** What a held call is put to the approver with, behind whichever setting holds it. */
@@ -140,6 +142,7 @@ export class HeldCalls implements OnModuleInit {
         call: request.call,
         context: request.context,
         why: request.why,
+        ...(request.fields && { fields: request.fields }),
       });
       const waitingOn = consultant
         ? `${consultant.name}, in a Consultation on this Task`

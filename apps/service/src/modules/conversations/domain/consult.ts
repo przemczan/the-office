@@ -1,3 +1,4 @@
+import type { OfficeToolChangedField } from "../../engine/index.js";
 import {
   decisionSummary,
   isApproval,
@@ -53,6 +54,8 @@ export type Consult =
       readonly context: string;
       /** Why the Agent needs the call. */
       readonly why: string;
+      /** The fields a call of an Office action changes, as the card lists them. */
+      readonly fields?: readonly OfficeToolChangedField[];
     }
   | {
       readonly kind: "request";
@@ -215,6 +218,7 @@ export function consultDecision(consult: Consult, party: ConsultedParty): Decisi
             question: approvalQuestion(consult.call),
             options: APPROVAL_OPTIONS,
             recommendation: { option: 0, reason: consult.why },
+            ...(consult.fields && { fields: consult.fields }),
           },
         ],
       };

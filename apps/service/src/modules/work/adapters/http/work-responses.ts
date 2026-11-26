@@ -273,6 +273,7 @@ function toAuthorResponse(author: Author): AuthorResponse {
     return {
       kind: "user",
       user: author.user && { userId: author.user.userId, name: author.user.name },
+      ...(author.proposedBy !== undefined && { proposedBy: author.proposedBy }),
     };
   }
   const { roleKey, askedBy, allowedBy } = author;

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { BugTaskFields } from "../domain/decision.js";
+import { ProposalRefused } from "../domain/proposal-refused.js";
 import type { UserRef } from "../domain/user.js";
 import type {
   OfficeSetting,
@@ -70,6 +71,9 @@ export interface BugTaskApplier {
     createdBy: UserRef | null,
   ): Promise<CreatedBugTask>;
 }
+
+/** A kept Proposal of a kind a later release added, read after a rollback. */
+const UNKNOWN_KIND_REASON = "This release doesn't know this kind of Proposal.";
 
 type Appliers = { [Kind in ProposedChangeKind]?: ProposalApplier<Kind> };
 type SettingAppliers = { [Setting in OfficeSetting]?: SettingProposalApplier<Setting> };
@@ -166,6 +170,10 @@ export class ProposalAppliers {
         return this.applierOf("skill-update").problemsWith(change);
       case "skill":
         return this.applierOf("skill").problemsWith(change);
+      case "office-action":
+        return this.applierOf("office-action").problemsWith(change);
+      default:
+        return Promise.resolve([UNKNOWN_KIND_REASON]);
     }
   }
 
@@ -216,6 +224,10 @@ export class ProposalAppliers {
         return this.applierOf("skill-update").apply(change, proposedBy, appliedBy);
       case "skill":
         return this.applierOf("skill").apply(change, proposedBy, appliedBy);
+      case "office-action":
+        return this.applierOf("office-action").apply(change, proposedBy, appliedBy);
+      default:
+        return Promise.reject(new ProposalRefused([UNKNOWN_KIND_REASON]));
     }
   }
 

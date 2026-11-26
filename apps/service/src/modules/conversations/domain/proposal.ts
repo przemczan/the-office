@@ -15,6 +15,7 @@ import type {
   ProposedCommands,
   ProposedTestTargets,
 } from "../../projects/index.js";
+import type { OfficeToolChangedField } from "../../engine/index.js";
 import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
 import type { UserRef } from "./user.js";
@@ -44,6 +45,7 @@ export interface ProposedChanges {
   readonly "skill-install": ProposedSkillInstall;
   readonly "skill-update": ProposedSkillUpdate;
   readonly skill: ProposedSkill;
+  readonly "office-action": ProposedOfficeAction;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -413,6 +415,24 @@ export interface ProposedSkill {
   readonly instructions: string;
 }
 
+/**
+ * A call of an Office action its person's Authority rules Proposal (spec 5.4.1 › Office actions):
+ * the action by its tool name and `title`, its `input` as the Agent gave it (kept here, never sent
+ * to the web), the record it changes, and each field it changes. Applying runs the action's own
+ * handler as the user does, once `fingerprint`, of the fields the handler reads and writes as they
+ * were at the draft, still matches; when it doesn't, the Proposal is marked `outOfDate`.
+ */
+export interface ProposedOfficeAction {
+  readonly kind: "office-action";
+  readonly action: string;
+  readonly title: string;
+  readonly input: Readonly<Record<string, unknown>>;
+  readonly subject: { readonly kind: string; readonly id: string; readonly title: string };
+  readonly fields: readonly OfficeToolChangedField[];
+  readonly fingerprint: string;
+  readonly outOfDate: boolean;
+}
+
 /** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */
 export type PipelineStage = object;
 
@@ -521,7 +541,8 @@ export function changeToApply(proposal: Proposal, edited: EditedHire | undefined
  * field of a Role's card, an Office setting, a prompt template, one of a Project's commands, test
  * targets or Actions (each carries only what it changes), a Pipeline, a Stage template, a Project
  * Pipeline or an installed skill's version. None for one that adds something new, edits an
- * Initiative or names some duties, which another Proposal never makes stale.
+ * Initiative or names some duties, which another Proposal never makes stale; an Office action's
+ * Proposal is the record it changes, so a newer one declines the older on the same record.
  */
 export function proposalTargets(change: ProposedChange): readonly string[] {
   switch (change.kind) {
@@ -547,6 +568,8 @@ export function proposalTargets(change: ProposedChange): readonly string[] {
       return change.pipelineId === null ? [] : [`project-pipeline:${change.pipelineId}`];
     case "skill-update":
       return [`skill-update:${change.name}`];
+    case "office-action":
+      return [`office-action:${change.subject.kind}:${change.subject.id}`];
     case "hire":
     case "hire-from-preset":
     case "office-setup":
@@ -555,6 +578,9 @@ export function proposalTargets(change: ProposedChange): readonly string[] {
     case "project":
     case "skill-install":
     case "skill":
+      return [];
+    // A kind a later release kept, which a rollback reads: no target, so nothing is superseded.
+    default:
       return [];
   }
 }

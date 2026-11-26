@@ -1,17 +1,30 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import type { OfficeToolRuled, OfficeToolRuling } from "../../engine/index.js";
-import { Duties, isAuthorityGroup, RoleCards } from "../../people/index.js";
+import {
+  OfficeToolRegistry,
+  type OfficeToolRuled,
+  type OfficeToolRuling,
+} from "../../engine/index.js";
+import {
+  ASK_ME,
+  Duties,
+  isAuthorityGroup,
+  RoleCards,
+  type HardSwitchValue,
+} from "../../people/index.js";
 import { dutyActionTools } from "../domain/duty-action-tools.js";
 import { officeToolCallWords, toolRuling, valueOnSubject } from "../domain/office-tool-ruling.js";
+import { ProposalRefused } from "../domain/proposal-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { HeldCalls } from "./held-calls.js";
+import { ProposalService } from "./proposal-service.js";
 import { WorkRecords } from "./work-records.js";
 
 /**
  * The ruling every Office tool call passes in a session (spec 5.4.1 › One ruling step), which the
  * registry asks before it runs a tool: Allowed runs it, Consult a person and Ask me hold it as a
- * held call, Never refuses it as an unknown tool. The setting is the person's Authority as it is at
+ * held call, Proposal drafts it as a Proposal the user applies (the Agent goes on at once), and
+ * Never refuses it as an unknown tool. The setting is the person's Authority as it is at
  * the call, on the call's subject, own work or others'.
  */
 @Injectable()
@@ -23,6 +36,8 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
     private readonly heldCalls: HeldCalls,
     private readonly work: WorkRecords,
     private readonly approvalHolds: ApprovalHolds,
+    private readonly registry: OfficeToolRegistry,
+    private readonly proposals: ProposalService,
   ) {}
 
   onModuleInit(): void {
@@ -53,11 +68,55 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
     const ruling = toolRuling(valueOnSubject(setting, ownWork), dutyHolder);
     if (ruling.kind === "run") return { kind: "run" };
     if (ruling.kind === "never") return { kind: "never" };
-    return this.heldCalls.holdToolCall(sessionId, name, ruling.setting, {
+    if (ruling.kind === "propose") {
+      const proposed = await this.propose(sessionId, authority.title, name, input);
+      // A tool with no draft can't be proposed: it is held as Ask me.
+      return proposed ?? this.holdForApproval(sessionId, name, input, ASK_ME);
+    }
+    return this.holdForApproval(sessionId, name, input, ruling.setting);
+  }
+
+  /** Drafts the call as a Proposal and answers it at once; undefined for a tool that has no draft. */
+  private async propose(
+    sessionId: string,
+    title: string,
+    name: string,
+    input: unknown,
+  ): Promise<OfficeToolRuled | undefined> {
+    const drafted = await this.registry.draft(name, input);
+    if (!drafted) return undefined;
+    try {
+      await this.proposals.draft(sessionId, {
+        kind: "office-action",
+        action: name,
+        title,
+        input: input as Record<string, unknown>,
+        ...drafted,
+        outOfDate: false,
+      });
+    } catch (error) {
+      if (error instanceof ProposalRefused) return { kind: "answered", words: error.message };
+      throw error;
+    }
+    return {
+      kind: "answered",
+      words: `Drafted a Proposal: ${title}. The user applies it; go on.`,
+    };
+  }
+
+  private async holdForApproval(
+    sessionId: string,
+    name: string,
+    input: unknown,
+    setting: HardSwitchValue,
+  ): Promise<OfficeToolRuled> {
+    const fields = (await this.registry.draft(name, input).catch(() => undefined))?.fields;
+    return this.heldCalls.holdToolCall(sessionId, name, setting, {
       sessionId,
       call: officeToolCallWords(name, input),
       context: `Your Role card asks for approval of each call of ${name}.`,
       why: `${name} needs approval for each call.`,
+      ...(fields && { fields }),
     });
   }
 }

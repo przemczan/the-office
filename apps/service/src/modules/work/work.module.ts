@@ -56,6 +56,7 @@ import { CommitMessageOfficeTools } from "./adapters/office-tools/commit-message
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { ShapingOfficeTools } from "./adapters/office-tools/shaping-office-tools.js";
 import { WorkOfficeActions } from "./adapters/office-actions/work-office-actions.js";
+import { WorkSubjectSnapshots } from "./adapters/office-actions/work-subject-snapshots.js";
 import { WorkOfficeActionsController } from "./adapters/http/work-office-actions.controller.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
@@ -367,6 +368,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         CommitMessageOfficeTools,
         ShapingOfficeTools,
         WorkOfficeActions,
+        WorkSubjectSnapshots,
         AttachmentOfficeTools,
         OnboardingOfficeTools,
         TaskThreadRecords,

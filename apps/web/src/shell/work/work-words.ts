@@ -157,15 +157,21 @@ export function descriptionForKind(description: string, from: TaskKind, to: Task
 
 /**
  * "You" for the signed-in user, another user's name, or the person's first name when their Role is
- * known, followed by "asked by" the user who asked them where the record keeps one.
+ * known, followed by "asked by" the user who asked them where the record keeps one; for a user, the
+ * person who proposed what they applied follows as "proposed by".
  */
 export function authorName(
   author: Author,
   roles: readonly Role[] | undefined,
   signedInUserId: string | undefined,
 ): string {
-  if (author.kind === "user") return userName(author.user, signedInUserId);
-  const person = roles?.find((role) => role.key === author.roleKey)?.card.name ?? author.roleKey;
+  const personNamed = (roleKey: string): string =>
+    roles?.find((role) => role.key === roleKey)?.card.name ?? roleKey;
+  if (author.kind === "user") {
+    const user = userName(author.user, signedInUserId);
+    return author.proposedBy ? `${user}, proposed by ${personNamed(author.proposedBy)}` : user;
+  }
+  const person = personNamed(author.roleKey);
   return author.askedBy
     ? `${person}, asked by ${userName(author.askedBy, signedInUserId, "you")}`
     : person;

@@ -918,6 +918,7 @@ describe("a Decision", () => {
       answeredByUser: null,
       answeredBy: null,
       atUsersRequest: null,
+      fields: null,
       answeredByTheOffice: false,
       closedAt: null,
       closedBecause: null,

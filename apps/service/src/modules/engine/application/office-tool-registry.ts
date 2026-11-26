@@ -1,10 +1,24 @@
 import { Injectable } from "@nestjs/common";
 import type { z } from "zod";
-import type { OfficeTool } from "../ports/office-tool.js";
+import { fingerprintOf } from "../domain/canonical-json.js";
+import type {
+  OfficeTool,
+  OfficeToolApplication,
+  OfficeToolChangedField,
+  OfficeToolResult,
+  OfficeToolSubject,
+} from "../ports/office-tool.js";
 import type { OfficeToolRuling } from "../ports/office-tool-ruling.js";
 
 /** What an engine accepts as a tool's name, as Office tools name themselves: snake_case. */
 const TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+
+/** What a call of an Office action changes, with the fingerprint of what its handler reads and writes. */
+export interface DraftedOfficeCall {
+  readonly subject: OfficeToolSubject & { readonly title: string };
+  readonly fields: readonly OfficeToolChangedField[];
+  readonly fingerprint: string;
+}
 
 /**
  * Every Office tool the modules give Agents, run in-process (spec §5.4). A module registers its
@@ -33,6 +47,29 @@ export class OfficeToolRegistry {
   }
 
   /**
+   * What the call changes as it stands now, with its fingerprint; undefined for a tool that can't be
+   * drafted, or that no module registered.
+   */
+  async draft(name: string, input: unknown): Promise<DraftedOfficeCall | undefined> {
+    const tool = this.tools.get(name);
+    if (!tool?.draft) return undefined;
+    const { subject, fields, fingerprint } = await tool.draft(tool.input.parse(input));
+    return { subject, fields, fingerprint: fingerprintOf(fingerprint) };
+  }
+
+  /** Carries out a call the user applied from a Proposal, as that user (`OfficeTool.applyFor`). */
+  async applyFor(
+    name: string,
+    input: unknown,
+    application: OfficeToolApplication,
+  ): Promise<OfficeToolResult> {
+    const tool = this.tools.get(name);
+    if (!tool?.applyFor)
+      throw new Error(`The Office tool ${name} can't be applied from a Proposal.`);
+    return tool.applyFor(tool.input.parse(input), application);
+  }
+
+  /**
    * The tools of these names, in their order, each running only as `ruling` lets its call; throws
    * naming those no module registered.
    */
@@ -58,6 +95,8 @@ function ruled(tool: OfficeTool, ruling: OfficeToolRuling): OfficeTool {
           );
         case "hold":
           return { text: answer.words, isError: true };
+        case "answered":
+          return { text: answer.words, isError: false };
         case "never":
           return { text: `No Office tool is registered as ${tool.name}.`, isError: true };
       }

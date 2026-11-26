@@ -1631,6 +1631,11 @@
   text-decoration: line-through;
 }
 
+.proposal-change-diff {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
 .proposal-change-to {
   font-weight: 600;
 }

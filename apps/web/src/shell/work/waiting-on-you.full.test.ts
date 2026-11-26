@@ -79,6 +79,7 @@ function aDecisionOn(taskId: string): Decision {
     answeredByUser: null,
     answeredBy: null,
     atUsersRequest: null,
+    fields: null,
     answeredByTheOffice: false,
     inStageThread: false,
     closedAt: null,
