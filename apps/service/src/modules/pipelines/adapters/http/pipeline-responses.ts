@@ -34,6 +34,7 @@ export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
     name: pipeline.name,
     description: pipeline.description,
     stages: pipeline.stages.map(toStageResponse),
+    ...(pipeline.endPosition && { endPosition: { ...pipeline.endPosition } }),
   };
 }
 
@@ -128,6 +129,7 @@ export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskSt
   }
   const {
     stages,
+    endPosition,
     editedForTask,
     lockedStages,
     definitionOfDoneMet,
@@ -142,6 +144,7 @@ export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskSt
   const names = new Map(stages.map(({ stage }) => [stage.key, stage.name]));
   return {
     stages: stages.map((stage) => toTaskStageResponse(stage, names)),
+    ...(endPosition && { endPosition: { ...endPosition } }),
     editedForTask,
     lockedStages,
     testResults: testResults.map((result) => ({ ...result, detail: result.detail ?? null })),
@@ -185,7 +188,7 @@ function toStageResponse(stage: Stage): StageResponse {
     name: stage.name,
     optional: stage.optional,
     ...(stage.routes ? { routes: stage.routes.map(toRouteResponse) } : {}),
-    ...(stage.place ? { place: { ...stage.place } } : {}),
+    ...(stage.position ? { position: { ...stage.position } } : {}),
     ...(stage.templateId !== undefined ? { templateId: stage.templateId } : {}),
   };
   switch (stage.kind) {

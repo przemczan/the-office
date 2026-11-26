@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { DutyKey } from "../../people/index.js";
-import { commandKeysOfRoutes, type Route, type StagePlace } from "./route.js";
+import { commandKeysOfRoutes, type Route, type StagePlace, type StagePosition } from "./route.js";
 import type { StageContextLimitsOverride } from "./stage-context-limits.js";
 import type { StagePermissions } from "./stage-permissions.js";
 
@@ -66,7 +66,9 @@ interface StageFields {
    * Stage change gives; a Pipeline's and a Task's Stages carry them, read through `asFlow`.
    */
   readonly routes?: Route[];
-  /** Absent where `routes` is. */
+  /** Absent where `routes` is; layout alone, never part of how the Pipeline runs. */
+  readonly position?: StagePosition;
+  /** Written for the previous release alone (`positions.ts`). */
   readonly place?: StagePlace;
   /**
    * The Stage template it is linked to (spec §2.3.1), kept on an office-wide or Project Pipeline's
@@ -205,12 +207,12 @@ export const NO_STAGE_WORKERS: StageWorkers = { roles: new Set(), duties: new Se
  * Proposal's Stages come back from storage without the fields left undefined.
  */
 export function sameAsKept(
-  one: Stage | readonly Stage[],
-  other: Stage | readonly Stage[],
+  one: Stage | readonly object[],
+  other: Stage | readonly object[],
 ): boolean {
   return isDeepStrictEqual(asKept(one), asKept(other));
 }
 
-function asKept(stages: Stage | readonly Stage[]): unknown {
+function asKept(stages: Stage | readonly object[]): unknown {
   return JSON.parse(JSON.stringify(stages));
 }

@@ -361,6 +361,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         pipelineId: change.pipelineId,
         // Pipelines gave the Stages; Conversations keeps them unread, so they are read here.
         ...pipelineStagesOf(change.from, change.to),
+        ...(change.endPosition && { endPosition: { ...change.endPosition } }),
         routes: routesOf(change.routes),
       };
     case "stage-template":

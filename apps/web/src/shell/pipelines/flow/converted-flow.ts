@@ -1,11 +1,12 @@
 import type { ConditionGroup, Route, Stage } from "@the-office/contracts";
 import { conflictOnlyStages } from "./conflict-chain.ts";
-import { endedResults, inFlowOrder, isFailureRoute, isRouteBack } from "./flow-model.ts";
+import { endedResults, isFailureRoute, isRouteBack } from "./flow-model.ts";
 
 /**
  * Whether a Pipeline still reads as The Office's move to routes back and Publish Stages left it
  * (spec §2.3.5, "The move to routes back and Publish Stages"), and what the moved-flow note says of
- * it: each Stage on row 0, in a column of its own, one route with no condition to the next and from
+ * it: each Stage in one row, level with the first and right of the one before it (as the move's
+ * positions put the old grid's row 0), one route with no condition to the next and from
  * the last to End. Where the Stage after one was optional, the routes are to it while the
  * Definition of Done has some not Reported met, otherwise to the first Stage after it that wasn't
  * optional, or End. A failure route back, as an On failure setting became, and a Publish Stage's
@@ -19,8 +20,9 @@ export function isConvertedFlow(stages: readonly Stage[]): boolean {
   if (order.length === 0) return false;
   return order.every(
     (stage, index) =>
-      stage.place?.row === 0 &&
-      stage.place.column > (order[index - 1]?.place?.column ?? -1) &&
+      stage.position !== undefined &&
+      stage.position.y === order[0]?.position?.y &&
+      stage.position.x > (order[index - 1]?.position?.x ?? Number.NEGATIVE_INFINITY) &&
       sameRoutes(
         (stage.routes ?? []).filter(
           (route) =>
@@ -50,9 +52,8 @@ export function optionalStageSentences(stages: readonly Stage[]): readonly strin
 
 /** The Stages in the Pipeline's order, but the conflict chain the move drew in. */
 function mainLine(stages: readonly Stage[]): readonly Stage[] {
-  const order = inFlowOrder(stages);
-  const chain = conflictOnlyStages(order);
-  return order.filter(({ key }) => !chain.has(key));
+  const chain = conflictOnlyStages(stages);
+  return stages.filter(({ key }) => !chain.has(key));
 }
 
 /** Whether the route is a Publish Stage's Conflict route as the move draws it, taking that result alone. */

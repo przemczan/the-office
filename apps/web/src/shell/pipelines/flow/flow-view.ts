@@ -1,18 +1,28 @@
-import type { Route, Stage, StageProblem } from "@the-office/contracts";
+import type { Route, Stage, StagePosition, StageProblem } from "@the-office/contracts";
 import { atMostWords, limitMark, routeTargetName, routeWhen } from "./condition-words.ts";
 import type { FlowPick } from "./flow-pick.ts";
-import { type FlowDrop, limitOf, type MoveDirection } from "./flow-model.ts";
-import type { FlowOrientation } from "./flow-layout.ts";
+import { type FlowPositions, limitOf } from "./flow-model.ts";
 
 /**
- * What the flow canvas shows of a Stage, and the edits it asks the host for: the canvas never edits
- * Stages itself, so its host applies them with flow-model.
+ * What the flow canvas shows of a Stage, and the edits the canvas and the editor ask the host for:
+ * neither edits Stages itself, so its host applies them with flow-model.
  */
 export type FlowCanvasEdit =
-  | { readonly kind: "move"; readonly key: string; readonly direction: MoveDirection }
-  | { readonly kind: "drop"; readonly key: string; readonly drop: FlowDrop }
+  /**
+   * A Stage (its key) or End (null) moved on the canvas; `beside` names the card it would have
+   * covered, when it was put beside it instead.
+   */
+  | {
+      readonly kind: "move-to";
+      readonly key: string | null;
+      readonly position: StagePosition;
+      readonly beside?: string | null;
+    }
   | { readonly kind: "draw-route"; readonly from: string; readonly to: string | null }
-  | { readonly kind: "remove-route"; readonly key: string; readonly routeIndex: number };
+  | { readonly kind: "remove-route"; readonly key: string; readonly routeIndex: number }
+  /** Auto-align laid every Stage and End out; `before` is where they stood, for its Undo. */
+  | { readonly kind: "auto-align"; readonly laid: FlowPositions; readonly before: FlowPositions }
+  | { readonly kind: "undo-auto-align"; readonly before: FlowPositions };
 
 /** A Stage's own problems: on it as a whole, not on a route. */
 export function stageProblemsOf(
@@ -89,24 +99,20 @@ export function isPickedRoute(
   return picked?.kind === "route" && picked.key === key && picked.routeIndex === routeIndex;
 }
 
-const ACROSS_KEYS: Readonly<Record<string, MoveDirection>> = {
-  ArrowLeft: "earlier",
-  ArrowRight: "later",
-  ArrowUp: "up",
-  ArrowDown: "down",
+/** An arrow key's step: through the Pipeline's order, and with Shift a grid step on the canvas. */
+export interface ArrowStep {
+  readonly by: -1 | 1;
+  readonly dx: -1 | 0 | 1;
+  readonly dy: -1 | 0 | 1;
+}
+
+const ARROW_STEPS: Readonly<Record<string, ArrowStep>> = {
+  ArrowLeft: { by: -1, dx: -1, dy: 0 },
+  ArrowRight: { by: 1, dx: 1, dy: 0 },
+  ArrowUp: { by: -1, dx: 0, dy: -1 },
+  ArrowDown: { by: 1, dx: 0, dy: 1 },
 };
 
-/** Down, the Pipeline's order runs top to bottom and a column's rows side by side. */
-const DOWN_KEYS: Readonly<Record<string, MoveDirection>> = {
-  ArrowUp: "earlier",
-  ArrowDown: "later",
-  ArrowLeft: "up",
-  ArrowRight: "down",
-};
-
-export function arrowDirection(
-  key: string,
-  orientation: FlowOrientation,
-): MoveDirection | undefined {
-  return (orientation === "across" ? ACROSS_KEYS : DOWN_KEYS)[key];
+export function arrowStep(key: string): ArrowStep | undefined {
+  return ARROW_STEPS[key];
 }

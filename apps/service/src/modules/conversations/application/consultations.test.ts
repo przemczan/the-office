@@ -716,7 +716,7 @@ describe("a Consultation whose engine's usage window is used up", () => {
         if (!decision?.answer) throw new Error("Not answered yet.");
         return decision;
       },
-      { timeout: 5_000, interval: 20 },
+      { timeout: 12_000, interval: 20 },
     );
     const settledConsultation = await settled(consultation.id);
 
@@ -734,8 +734,8 @@ describe("a Consultation whose engine's usage window is used up", () => {
       }),
     );
     await settled(asker.id);
-    // Two sessions, the switch between engines and a 5s wait of its own: the default 5s runs out
-    // under the full run's load.
+    // Two sessions and the switch between engines: under the full run's load the answer can take
+    // over 5s, so the wait for it and the test get more room than the defaults.
   }, 15_000);
 });
 

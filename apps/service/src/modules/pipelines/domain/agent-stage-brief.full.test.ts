@@ -10,7 +10,7 @@ import { allowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { GATE_REACHED } from "./gate.js";
 import type { AgentStage, Stage } from "./stage.js";
-import { asFlow, pipelineOrder } from "./flow.js";
+import { asFlow } from "./flow.js";
 import { goingBackOnFailure, keptPublishStage, publishStage } from "./stage.fixtures.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { defaultPromptTexts } from "../../prompt-templates/index.js";
@@ -401,7 +401,7 @@ describe("agentStageWork's Later Stages", () => {
   });
 
   it("says a Stage of the conflict chain runs only after a conflict at Publish", () => {
-    const work = workIn(implement, pipelineOrder(asFlow([implement, lint, keptPublishStage()])));
+    const work = workIn(implement, asFlow([implement, lint, keptPublishStage()]));
 
     expect(work).toContain(
       "- Resolve (Agent Stage, Developer): Resolve the conflicts the merge of the base left in the Task's branch.",

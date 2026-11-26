@@ -24,7 +24,7 @@ import { aCommandRun, recordedRun } from "../../ports/pipelines-ports.fixtures.j
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
 import { TaskStagesRepository } from "../../ports/task-stages-repository.js";
 import { TaskStagesService } from "../../application/task-stages-service.js";
-import { gate } from "../../domain/stage.fixtures.js";
+import { gate, straightLine } from "../../domain/stage.fixtures.js";
 import { tests } from "./task-stages.controller.fixtures.js";
 
 let pipelines: PipelinesApplication | undefined;
@@ -229,7 +229,7 @@ describe("PUT /api/tasks/:id/stages", () => {
     expect(response.status).toBe(200);
     const saved = taskStagesSchema.parse(await response.json());
     expect(saved.editedForTask).toBe(true);
-    expect(saved.stages?.map(({ stage }) => stage)).toEqual(straightLineFlow(stages));
+    expect(saved.stages?.map(({ stage }) => stage)).toEqual(straightLine(stages));
     expect(await stagesOf(taskId)).toEqual(saved);
   });
 

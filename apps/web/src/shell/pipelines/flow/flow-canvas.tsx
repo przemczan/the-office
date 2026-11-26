@@ -1,40 +1,50 @@
-import type { Stage, StageProblem } from "@the-office/contracts";
+import type { Stage, StagePosition, StageProblem } from "@the-office/contracts";
 import {
   type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import "./flow-canvas.css";
+import type { FlowCardSize } from "./flow-auto-align.ts";
 import {
   drawingStart,
-  endCellOf,
-  flowGridSize,
+  type FlowBox,
+  type FlowGridCell,
   flowLines,
+  type FlowMeasure,
   type FlowOrientation,
   flowRoom,
   type FlowRoutePath,
-  gridCellOf,
   listsRoutes,
   loopLanes,
   loopPaths,
-  placeOf,
+  narrowBands,
+  narrowLayout,
   routePaths,
   startPath,
 } from "./flow-layout.ts";
 import { type FlowLocks, type FlowOverlay, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
-import { canDropAt, canMoveStage, inFlowOrder, stepInOrder } from "./flow-model.ts";
+import { stepInOrder, withStagePositioned } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
+import {
+  CARD_WIDTH,
+  derivedEndPosition,
+  END_SIZE,
+  estimatedCardHeight,
+  type FlowCard,
+  type FlowGuide,
+  GRID_STEP,
+  steppedPast,
+} from "./flow-snap.ts";
 import { FlowStageCard } from "./flow-stage-card.tsx";
 import { limitMark } from "./condition-words.ts";
 import {
-  arrowDirection,
+  arrowStep,
   type FlowCanvasEdit,
   isPickedRoute,
   routeHasProblem,
@@ -42,14 +52,16 @@ import {
   stageProblemsOf,
 } from "./flow-view.ts";
 import { type FlowOverviewShape, useFlowViewport } from "./flow-viewport-context.ts";
-import { type FlowDrag, useFlowDrag } from "./use-flow-drag.ts";
+import { type CardDrag, type FlowDrag, useFlowDrag } from "./use-flow-drag.ts";
 import { type FlowView, useFlowMeasure } from "./use-flow-measure.ts";
 
 export type { FlowCanvasEdit } from "./flow-view.ts";
 
 export interface FlowCanvasProps {
-  /** In the flow's order, each with its place and routes. */
+  /** In the Pipeline's order, each with its position and routes. */
   readonly stages: readonly Stage[];
+  /** Where End stands; derived, right of the right-most Stage, without. */
+  readonly endPosition?: StagePosition | undefined;
   readonly picked: FlowPick | undefined;
   /** Without it nothing is picked: a press reads only. */
   readonly onPick?: (pick: FlowPick | undefined) => void;
@@ -60,61 +72,79 @@ export interface FlowCanvasProps {
   readonly readOnly?: boolean;
   readonly marks?: FlowStageMarks;
   readonly overlay?: FlowOverlay;
-  /**
-   * A Task's started Stages: each with its lock, none dragged, moved or drawn from; trying to drag
-   * one says why it stays.
-   */
+  /** A Task's started Stages: each with its lock, none drawn from; each can still be moved. */
   readonly locked?: FlowLocks;
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
+  /** Counts Auto-align's layouts: each new one glides the cards to their places and fits the view. */
+  readonly glide?: number;
+  /** The cards' sizes at 100% as measured across, which Auto-align lays them out by. */
+  readonly onCardSizes?: (sizes: ReadonlyMap<string, FlowCardSize>) => void;
 }
 
 const NO_MARKS: FlowStageMarks = new Map();
 
+/** How long Auto-align's cards glide to their places (--duration-slow). */
+const GLIDE_MS = 280;
+
 /**
- * The flow editor's canvas (docs/design/pipeline-flow.html): the Stages in a grid of places, End
- * after the last column, and the routes, on and back, drawn over it in one SVG from the boxes the
- * grid laid out, each with a limit marked ≤N× on its line. It asks the host for every edit through `onEdit`. A card keeps its size:
- * the FlowViewport around it (docs/design/pipeline-editor.html) moves and zooms it.
+ * The flow editor's canvas (docs/design/pipeline-flow.html, docs/design/pipeline-free-placement.html):
+ * each Stage where it stands, End where it stands or right of the right-most Stage, and the routes,
+ * on and back, drawn under them in one SVG from the boxes the canvas measured, each with a limit
+ * marked ≤N× on its line. The canvas's box grows around every card, so a position left of or
+ * above the others works. Under 560px the Stages stand in bands from their positions, top to
+ * bottom. It asks the host for every edit through `onEdit`. A card keeps its size: the
+ * FlowViewport around it (docs/design/pipeline-editor.html) moves and zooms it.
  */
 export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const { stages, readOnly = false, marks = NO_MARKS, locked = NO_LOCKS } = props;
   const canvas = useRef<HTMLDivElement>(null);
   const viewport = useFlowViewport();
   const orientation = viewport?.orientation ?? "across";
+  const across = orientation === "across";
   const namesOnly = viewport?.namesOnly ?? false;
   const view = useFlowMeasure(canvas, orientation);
-  const lines = useMemo(() => flowLines(stages, props.overlay), [stages, props.overlay]);
-  const loops = useMemo(() => loopLanes(stages), [stages]);
-  const room = flowRoom(stages, lines, loops, orientation);
-  const drawn: readonly FlowRoutePath[] = [
-    ...routePaths(stages, lines, view.measure, orientation),
-    ...loopPaths(loops, view.measure, orientation),
-  ];
-  const size = flowGridSize(stages);
-  const canDrag = (key: string): boolean =>
-    !readOnly && orientation === "across" && !locked.has(key);
+  const cards = cardsOf(stages, props.endPosition, view.measure, across);
+  // Positions are never locked: a Task's started Stage moves as any other.
+  const canDrag = (): boolean => !readOnly && across;
   const canDraw = (key: string): boolean => !readOnly && !locked.has(key);
-  const whyStays = (key: string): string | undefined => {
-    const stage = stages.find((each) => each.key === key);
-    if (!stage || readOnly || orientation !== "across" || !locked.has(key)) return undefined;
-    return `${stage.name} has started, so it stays where it is.`;
-  };
-  const [told, setTold] = useState<FlowToldWhy | undefined>();
-  const forget = useCallback(() => setTold(undefined), []);
   const dragging = useFlowDrag({
     canvas,
     canDrag,
-    canDrop: (drop) => canDropAt(stages, drop, locked),
     canDraw,
+    cards,
+    origin: originOf(cards),
+    zoom: viewport?.zoom ?? 1,
     onEdit: props.onEdit,
     onDragMove: viewport?.followDrag,
-    saysWhyItStays: (key) => whyStays(key) !== undefined,
-    onStays: (key, { clientX, clientY }) => {
-      const words = whyStays(key);
-      if (words) setTold({ words, x: clientX, y: clientY, at: Date.now() });
-    },
   });
+  const moving = movingCard(dragging.drag);
+  const shown = useMemo(
+    () => (moving?.key ? withStagePositioned(stages, moving.key, moving.shown) : stages),
+    [stages, moving],
+  );
+  const shownCards = moving
+    ? cardsOf(shown, endShown(props.endPosition, moving), view.measure, across)
+    : cards;
+  const origin = moving?.origin ?? originOf(shownCards);
+  const narrow = useMemo(() => narrowLayout(narrowBands(shown)), [shown]);
+  const lines = useMemo(() => flowLines(shown, props.overlay), [shown, props.overlay]);
+  const loops = useMemo(
+    () =>
+      loopLanes(
+        shown,
+        across ? (stage) => stage.position?.x ?? 0 : (stage) => narrow.bands.get(stage.key) ?? 0,
+      ),
+    [shown, across, narrow],
+  );
+  const room = flowRoom(lines, loops, view.measure, orientation);
+  const drawn: readonly FlowRoutePath[] = [
+    ...routePaths(lines, view.measure, orientation),
+    ...loopPaths(loops, view.measure, orientation),
+  ];
+  const gliding = useGlide(props.glide, viewport?.fit);
   useOverviewAndPick(view, props.picked, viewport);
+  useKeptInPlace(origin, across, viewport?.shiftBy);
+  useCardSizes(view.measure, across && !namesOnly, props.onCardSizes);
   const focusAfter = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
     const key = focusAfter.current;
@@ -125,34 +155,45 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
     if (!dragging.endsDrag()) props.onPick?.(next);
   };
   const onStageKey = (event: KeyboardEvent<HTMLButtonElement>, key: string): void => {
-    const direction = arrowDirection(event.key, orientation);
-    if (!direction) return;
+    const step = arrowStep(event.key);
+    if (!step) return;
     event.preventDefault();
     if (event.shiftKey) {
-      if (readOnly || !canMoveStage(stages, key, direction, locked)) return;
+      const own = cards.find((card) => card.key === key);
+      if (!canDrag() || !own) return;
+      const others = cards.filter((card) => card.key !== key);
       focusAfter.current = key;
       props.onPick?.({ kind: "stage", key });
-      props.onEdit?.({ kind: "move", key, direction });
+      props.onEdit?.({ kind: "move-to", key, position: steppedPast(own.box, others, step) });
       return;
     }
-    const next = stepInOrder(stages, key, direction === "earlier" || direction === "up" ? -1 : 1);
+    const next = stepInOrder(stages, key, step.by);
     if (next === undefined) return;
     stagePick(canvas.current, next)?.focus();
     props.onPick?.({ kind: "stage", key: next });
   };
+  // While a drag lasts the canvas only grows: shrinking it would have the viewport clamp its view
+  // and slide the canvas, and the dragged card, out from under the pointer.
+  const field = fieldBox(moving ? [...cards, ...shownCards] : shownCards, origin);
   const style = {
-    ...(orientation === "down" && viewport ? { width: viewport.width } : {}),
-    "--flow-columns": size.columns,
-    "--flow-rows": size.rows,
+    ...(!across && viewport ? { width: viewport.width } : {}),
     "--flow-loop-room": `${room.loops}px`,
     "--flow-detour-room": `${room.detours}px`,
+    "--flow-grid-x": `${modulo(-origin.x, GRID_STEP) - GRID_STEP / 2}px`,
+    "--flow-grid-y": `${modulo(-origin.y, GRID_STEP) - GRID_STEP / 2}px`,
   } as CSSProperties;
+  const placeOf = (key: string | null): CSSProperties | FlowGridCell => {
+    if (!across) return key === null ? narrow.end : (narrow.cells.get(key) ?? narrow.end);
+    const box = shownCards.find((card) => card.key === key)?.box;
+    return box ? { left: box.x - origin.x, top: box.y - origin.y } : {};
+  };
+  const endTarget = dragging.drag?.kind === "route" && dragging.drag.target === null;
   return (
     <div
       ref={canvas}
       role="region"
       aria-label="Flow"
-      className={canvasClass(readOnly, namesOnly, dragging.drag)}
+      className={canvasClass(readOnly, namesOnly, dragging.drag, gliding)}
       data-orientation={orientation}
       style={style}
       onKeyDown={(event) => removeRouteByKey(event, props)}
@@ -160,13 +201,20 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
       onPointerUp={dragging.onPointerUp}
       onPointerCancel={dragging.onPointerCancel}
     >
-      <div className="flow-canvas-grid">
-        {inFlowOrder(stages).map((stage) => (
+      <div
+        className="flow-canvas-stages"
+        style={
+          across
+            ? { width: field.width, height: field.height }
+            : ({ "--flow-band-columns": narrow.columns } as CSSProperties)
+        }
+      >
+        {shown.map((stage) => (
           <FlowStageCard
             key={stage.key}
             stage={stage}
-            stages={stages}
-            cell={gridCellOf(placeOf(stages, stage), orientation)}
+            stages={shown}
+            place={placeOf(stage.key)}
             who={props.whoWorks(stage)}
             picked={props.picked}
             ownProblems={stageProblemsOf(props.problems, stage.key)}
@@ -174,30 +222,39 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
             warningWords={warningWords(props.warnings, stage.key)}
             mark={marks.get(stage.key)}
             lockedNote={locked.get(stage.key)}
-            listsRoutes={!namesOnly && listsRoutes(stage, stages)}
+            listsRoutes={!namesOnly && listsRoutes(stage, shown)}
             showsHandle={canDraw(stage.key)}
-            draggable={canDrag(stage.key)}
-            dragging={stageOffset(dragging.drag, stage.key)}
+            draggable={canDrag()}
+            dragging={moving?.key === stage.key}
             target={dragging.drag?.kind === "route" && dragging.drag.target === stage.key}
             onPick={pick}
             onStageKey={onStageKey}
-            onStagePointer={dragging.onStagePointer}
+            onStagePointer={dragging.onCardPointer}
             onHandlePointer={dragging.onHandlePointer}
           />
         ))}
         <div
-          className={`flow-canvas-end${dragging.drag?.kind === "route" && dragging.drag.target === null ? " flow-canvas-end--target" : ""}`}
+          className={[
+            "flow-canvas-end",
+            endTarget && "flow-canvas-end--target",
+            canDrag() && "flow-canvas-end--draggable",
+            moving?.key === null && "flow-canvas-end--dragging",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           role="img"
           aria-label="End"
           data-flow-end=""
-          style={endCellOf(size, orientation)}
+          style={placeOf(null)}
+          onPointerDown={(event) => dragging.onCardPointer(event, null)}
         >
           End
         </div>
+        {moving && <DragMarks drag={moving} cards={shownCards} origin={origin} />}
       </div>
       <FlowLines
         {...props}
-        stages={stages}
+        stages={shown}
         view={view}
         orientation={orientation}
         routes={drawn}
@@ -205,28 +262,207 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
         onPick={pick}
       />
       <LimitMarks routes={drawn} picked={props.picked} problems={props.problems} />
-      {told && <FlowToldWhyToast key={told.at} told={told} onGone={forget} />}
-      {dragging.drag?.kind === "stage" && dragging.drag.at && (
-        <div
-          className={`flow-canvas-drop${dragging.drag.at.drop.newColumn ? " flow-canvas-drop--column" : ""}`}
-          style={{
-            left: dragging.drag.at.ghost.x,
-            top: dragging.drag.at.ghost.y,
-            width: dragging.drag.at.ghost.width,
-            height: dragging.drag.at.ghost.height,
-          }}
-        />
-      )}
     </div>
   );
 }
 
-function canvasClass(readOnly: boolean, namesOnly: boolean, drag: FlowDrag | undefined): string {
+/** The card being dragged, once it has moved. */
+function movingCard(drag: FlowDrag | undefined): CardDrag | undefined {
+  return drag?.kind === "card" && drag.moved ? drag : undefined;
+}
+
+function endShown(end: StagePosition | undefined, moving: CardDrag): StagePosition | undefined {
+  return moving.key === null ? moving.shown : end;
+}
+
+/**
+ * Every card as it stands, in canvas units: each Stage at its position, End at its own or where it
+ * is derived. Across, each is as large as it was measured; down, and before a measure, estimated.
+ */
+function cardsOf(
+  stages: readonly Stage[],
+  end: StagePosition | undefined,
+  measure: FlowMeasure,
+  across: boolean,
+): readonly FlowCard[] {
+  const placed = stages.map((stage) => {
+    // A card not laid out yet (or hidden) measures nothing: its size is estimated meanwhile.
+    const found = across ? measure.stages.get(stage.key) : undefined;
+    const measured = found && found.box.width > 0 ? found : undefined;
+    const box: FlowBox = {
+      ...(stage.position ?? { x: 0, y: 0 }),
+      width: measured?.box.width ?? CARD_WIDTH,
+      height: measured?.box.height ?? estimatedCardHeight(stage),
+    };
+    const rowCentres = measured?.rowCentres.map((centre) => centre - measured.box.y) ?? [];
+    return { stage, box, rowCentres };
+  });
+  const endAt =
+    end ??
+    derivedEndPosition(
+      placed.map(({ stage, box, rowCentres }) => ({ box, routes: stage.routes, rowCentres })),
+    );
+  return [
+    ...placed.map(({ stage, box }) => ({ key: stage.key, box })),
+    { key: null, box: { ...endAt, width: END_SIZE, height: END_SIZE } },
+  ];
+}
+
+/** The top-left of the box around every card. */
+function originOf(cards: readonly FlowCard[]): StagePosition {
+  return {
+    x: Math.min(...cards.map(({ box }) => box.x)),
+    y: Math.min(...cards.map(({ box }) => box.y)),
+  };
+}
+
+/** The size of the box around every card, from `origin`. */
+function fieldBox(
+  cards: readonly FlowCard[],
+  origin: StagePosition,
+): { width: number; height: number } {
+  return {
+    width: Math.max(0, ...cards.map(({ box }) => box.x + box.width - origin.x)),
+    height: Math.max(0, ...cards.map(({ box }) => box.y + box.height - origin.y)),
+  };
+}
+
+const modulo = (value: number, by: number): number => ((value % by) + by) % by;
+
+/**
+ * While a card is dragged: the dashed guides to what it snapped to, each with a dot on each end,
+ * and the dashed outline of where it lands when that isn't where it shows.
+ */
+function DragMarks({
+  drag,
+  cards,
+  origin,
+}: {
+  readonly drag: CardDrag;
+  readonly cards: readonly FlowCard[];
+  readonly origin: StagePosition;
+}): ReactNode {
+  const size = cards.find(({ key }) => key === drag.key)?.box;
+  const landing = drag.landing?.covered ? drag.landing.position : undefined;
+  return (
+    <>
+      {landing && size && (
+        <div
+          className="flow-canvas-landing"
+          style={{
+            left: landing.x - origin.x,
+            top: landing.y - origin.y,
+            width: size.width,
+            height: size.height,
+          }}
+        />
+      )}
+      <svg className="flow-canvas-guides" width={1} height={1} aria-hidden="true" focusable="false">
+        {drag.guides.map((guide) => (
+          <GuideLine key={guide.axis} guide={guide} origin={origin} />
+        ))}
+      </svg>
+    </>
+  );
+}
+
+function GuideLine({
+  guide,
+  origin,
+}: {
+  readonly guide: FlowGuide;
+  readonly origin: StagePosition;
+}): ReactNode {
+  const upright = guide.axis === "x";
+  const [x1, y1, x2, y2] = upright
+    ? [guide.at - origin.x, guide.from - origin.y, guide.at - origin.x, guide.to - origin.y]
+    : [guide.from - origin.x, guide.at - origin.y, guide.to - origin.x, guide.at - origin.y];
+  return (
+    <g>
+      <line className="flow-canvas-guide" x1={x1} y1={y1} x2={x2} y2={y2} />
+      <circle className="flow-canvas-guide-dot" cx={x1} cy={y1} r={2.5} />
+      <circle className="flow-canvas-guide-dot" cx={x2} cy={y2} r={2.5} />
+    </g>
+  );
+}
+
+/**
+ * Whether Auto-align's cards are gliding to their places: from the render that brings them, for
+ * 280ms (none with reduced motion, as the canvas's CSS has no transition then). Each new layout
+ * fits the view to the Pipeline.
+ */
+function useGlide(glide: number | undefined, fit: (() => void) | undefined): boolean {
+  const [settled, setSettled] = useState(glide);
+  const fitting = useRef(fit);
+  useLayoutEffect(() => {
+    fitting.current = fit;
+  });
+  useEffect(() => {
+    if (glide === settled) return undefined;
+    fitting.current?.();
+    const timer = window.setTimeout(() => setSettled(glide), GLIDE_MS);
+    return () => window.clearTimeout(timer);
+  }, [glide, settled]);
+  return glide !== settled;
+}
+
+/**
+ * When the box around the cards starts somewhere else (a card dropped left of or above the
+ * others), the view moves by as much, so every card stays where it was on the screen.
+ */
+function useKeptInPlace(
+  { x, y }: StagePosition,
+  across: boolean,
+  shiftBy: ((dx: number, dy: number) => void) | undefined,
+): void {
+  const last = useRef<StagePosition | undefined>(undefined);
+  useLayoutEffect(() => {
+    const was = last.current;
+    last.current = { x, y };
+    if (!was || !across || !shiftBy) return;
+    if (x !== was.x || y !== was.y) shiftBy(x - was.x, y - was.y);
+  }, [x, y, across, shiftBy]);
+}
+
+/** Tells the editor each card's size at 100% as measured across, for Auto-align. */
+function useCardSizes(
+  measure: FlowMeasure,
+  full: boolean,
+  onSizes: ((sizes: ReadonlyMap<string, FlowCardSize>) => void) | undefined,
+): void {
+  useEffect(() => {
+    if (!full || !onSizes) return;
+    onSizes(
+      new Map(
+        [...measure.stages]
+          // A card not laid out yet measures nothing; Auto-align estimates its size instead.
+          .filter(([, { box }]) => box.width > 0)
+          .map(([key, { box, rowCentres }]): [string, FlowCardSize] => [
+            key,
+            {
+              width: box.width,
+              height: box.height,
+              rowCentres: rowCentres.map((centre) => centre - box.y),
+            },
+          ]),
+      ),
+    );
+  }, [measure, full, onSizes]);
+}
+
+function canvasClass(
+  readOnly: boolean,
+  namesOnly: boolean,
+  drag: FlowDrag | undefined,
+  gliding: boolean,
+): string {
   return [
     "flow-canvas",
     readOnly && "flow-canvas--read-only",
     namesOnly && "flow-canvas--names-only",
     drag?.kind === "route" && "flow-canvas--drawing",
+    movingCard(drag) && "flow-canvas--snapping",
+    gliding && "flow-canvas--gliding",
   ]
     .filter(Boolean)
     .join(" ");
@@ -264,62 +500,11 @@ function overviewShape(view: FlowView, pickedKey: string | undefined): FlowOverv
   };
 }
 
-interface FlowToldWhy {
-  readonly words: string;
-  /** Where the pointer was, on the screen. */
-  readonly x: number;
-  readonly y: number;
-  /** Each try says it again, its timer started afresh (the toast's key). */
-  readonly at: number;
-}
-
-const TOLD_FOR_MS = 3200;
-
-/**
- * Why a Stage stays, by the pointer. On the body, as the canvas is scaled by the viewport and the
- * words must stay readable whatever its zoom.
- */
-function FlowToldWhyToast({
-  told,
-  onGone,
-}: {
-  readonly told: FlowToldWhy;
-  readonly onGone: () => void;
-}): ReactNode {
-  useEffect(() => {
-    const timer = window.setTimeout(onGone, TOLD_FOR_MS);
-    return () => window.clearTimeout(timer);
-  }, [onGone]);
-  return createPortal(
-    <div
-      className="flow-canvas-told"
-      role="status"
-      // Kept inside the window when the pointer is near its right or bottom edge.
-      style={{
-        left: `min(${told.x + 14}px, calc(100vw - 308px))`,
-        top: `min(${told.y + 16}px, calc(100vh - 72px))`,
-      }}
-    >
-      {told.words}
-    </div>,
-    document.body,
-  );
-}
-
 function stagePick(canvas: HTMLElement | null, key: string): HTMLButtonElement | null {
   const card = [...(canvas?.querySelectorAll<HTMLElement>("[data-flow-stage]") ?? [])].find(
     (element) => element.dataset.flowStage === key,
   );
   return card?.querySelector<HTMLButtonElement>(".flow-canvas-stage-pick") ?? null;
-}
-
-function stageOffset(
-  drag: FlowDrag | undefined,
-  key: string,
-): { dx: number; dy: number } | undefined {
-  return drag?.kind === "stage" && drag.key === key && drag.moved
-    ? { dx: drag.dx, dy: drag.dy }
-    : undefined;
 }
 
 function warningWords(warnings: readonly StageProblem[], key: string): string {
@@ -358,7 +543,7 @@ interface FlowLinesProps extends Omit<FlowCanvasProps, "onPick"> {
 /** The routes and where the walk starts, with a hit line under each route to press. */
 function FlowLines(props: FlowLinesProps): ReactNode {
   const { view, orientation, routes } = props;
-  const start = startPath(inFlowOrder(props.stages)[0], view.measure, orientation);
+  const start = startPath(props.stages[0], view.measure, orientation);
   return (
     <svg className="flow-canvas-lines" width={view.width} height={view.height} focusable="false">
       <g aria-hidden="true">

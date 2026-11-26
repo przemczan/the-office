@@ -1,6 +1,6 @@
 # Pipeline flow editor
 
-Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's Project Pipelines and a Task's "Edit for this Task" (head, legend, the canvas, routes back and their limit marks, moving and zooming, full screen, the hint, the Stage panel, the linked-template line, Routes out and the route forms, the route panel, the condition builder, the check's problems and warnings, Stage templates, locks), the Proposal on the flow, the moved-flow note.
+Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's Project Pipelines and a Task's "Edit for this Task" (head, Auto-align and its Undo, legend, the canvas, routes back and their limit marks, moving a Stage and snapping, moving a Stage in the order, the narrow view, moving and zooming, full screen, the hint, the Stage panel, the linked-template line, Routes out and the route forms, the route panel, the condition builder, the check's problems and warnings, Stage templates, locks), the Proposal on the flow, the moved-flow note.
 
 ## Where it is
 
@@ -14,7 +14,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 ## Layout
 
-- The head: title and summary, the host's menu (Add a Stage).
+- The head: title and summary, **Auto-align**, the host's menu (Add a Stage).
 - The legend line.
 - The hint line.
 - The canvas.
@@ -27,6 +27,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - Title **Stages and routes** in every host, with the summary under it.
 - Summary: "N Stages · N routes · N routes back" (singular forms at 1: "1 Stage", "1 route", "1 route back").
   - A route back is one to its own Stage or one before it in the Pipeline's order.
+- **Auto-align**, a secondary button before the host's menu ([Auto-align](#auto-align)).
 - The host's menu **Add a Stage**: **Agent Stage**, **Script Stage**, **Gate**, **Publish Stage**, then **From a template** ([Stage templates](#stage-templates)).
 - The host's menu is hidden on a read-only flow.
 
@@ -38,11 +39,16 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 ## Hint
 
 - A line with an info icon under the legend (`role=status`); it says how to use the editor, and after an edit says what the edit did, until the next pick.
-- How to use it, wide: "Drag a Stage to move it. Drag from its + to any Stage, itself or an earlier one too, or to End, to draw a route; pick a route to set its condition and its limit. Without a mouse: Tab to a Stage, Shift + arrows move it, Enter opens it below. Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline."
-- How to use it, narrow (canvas under 560px wide): "Press a Stage or a route to edit it below. Move and Routes out do everything without dragging; drag from a Stage's + to draw a route."
+- How to use it, wide: "Drag a Stage anywhere: it snaps to the grid and to other Stages; hold Alt (⌥) to place it freely, Shift to keep it in line. Drag from its + to any Stage, itself or an earlier one too, or to End, to draw a route; pick a route to set its condition and its limit. Auto-align lays out the whole Pipeline. Without a mouse: Tab to a Stage, Shift + arrows move it, Enter opens it below. Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline."
+- How to use it, narrow (canvas under 560px wide): "Press a Stage or a route to edit it below. The Pipeline reads top to bottom here, as its Stages stand from left to right on a wider screen. Move and Routes out do everything without dragging; drag from a Stage's + to draw a route."
 - Read-only: "Pick a Stage or a route to read it below. Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline."
 - What an edit says:
-  - Stage added: "<name> was added beside <Stage, or the start>. Drag it where it goes, then draw its routes: drag from a Stage's + to another Stage or to End. Without dragging: Move and Routes out, below."
+  - Stage added: "<name> was added after <Stage> in the Pipeline's order (or: as the last Stage), beside it on the canvas. Drag it where it goes, then draw its routes: drag from a Stage's + to another Stage or to End. Without dragging: Move and Routes out, below."
+  - Dropped clear of a card: "<name> was put beside <Stage>, so it doesn't cover it."
+  - Moved earlier or later: "<name> is now N of M in the Pipeline's order; it stays where it is on the canvas.", then for each route that changed "The route from <Stage> to <target> now leads back." or "… now leads on.", and when the first Stage changed "Walks now start at <name>."
+  - Auto-align done: "Auto-align laid out the N Stages from left to right in the Pipeline's order, with routes back in their own lanes." with **Undo** ([Auto-align](#auto-align)).
+  - Undo: "The Stages are back where they were before Auto-align."
+  - Auto-align failed: "Auto-align couldn't load its layout code, so nothing moved. Check the connection, then press Auto-align again."
   - Stage removed: "<name> was removed. Each route that led into it now leads where its one route out led, so a straight line stays one."
   - Stage put on a route: "<name> was put on the route from <Stage>: that route now leads to it, its condition and limit kept, and one route with no condition leads on from it."
   - Route removed: "The route from <Stage> to <target> was removed."
@@ -52,9 +58,10 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 ## Flow view (the canvas)
 
-- A region named "Flow": the Stages in a grid of places (a column and a row each), **End** after the last column, and the routes drawn over it in one SVG.
-- The Pipeline's order is the places' order: columns left to right, then rows top to bottom. Stages in one column are alternatives side by side.
-- Under 560px wide ("down"), columns become bands from top to bottom and a column's rows sit side by side.
+- A region named "Flow": the Stages where each stands, by its [position](../2.3.2-flows.md#a-stages-position), **End** where it stands or, without a position, 76 right of the right-most Stage, level with the first final Stage, and the routes drawn over them in one SVG.
+- The canvas is the box around all Stages and End with its own margin: a Stage moved past its left or top edge grows it, and the view moves to keep everything in place.
+- Where a Stage stands never changes the Pipeline's order ([Moving a Stage in the order](#moving-a-stage-in-the-order)); a route on may point left where its Stages are placed so.
+- Under 560px wide ("down"), the [narrow view](#narrow-view) draws the Stages in bands from top to bottom.
 - A line marks where the walk starts: a dot and an arrow into the first Stage.
 - **Stage card**:
   - A button named by the Stage, with a kind icon (Agent Stage, Script Stage, Gate, Publish Stage) and its name.
@@ -73,23 +80,61 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - **Routes back** are drawn as ordinary solid routes, curving back above the Stages (beside them, down), with the ≤N× mark on the line.
   - A route on with a limit shows its mark on its line too.
   - A route to its own Stage leaves and enters its top edge (its left edge, down).
-  - Each route back runs in a lane of its own above the Stages; lanes sit a mark's height apart and clear of the cards, and routes back that only meet at a column share one.
+  - Each route back runs in a lane of its own above the Stages between its ends; lanes sit a mark's height apart and clear of the cards, and routes back whose spans only meet at a Stage share one.
   - Routes back that leave or enter the same Stage each take a point of their own, spread across its top edge (its left edge, down).
   - A route back whose either end has another card above it (beside it, down) runs in a lane under the Stages instead (on their other side, down), entering and leaving the bottom edges.
-  - With cards on both sides of an end, it leaves that Stage's side and runs along the gutter between columns, never through a card.
+  - With cards on both sides of an end, it leaves that Stage's side and runs along the gap beside its Stage, never through a card.
   - The mark sits on its route's own run, at the free spot nearest the middle where no other line crosses and clear of the marks on the lanes beside it; with none free, in the middle of the run's widest stretch between crossings.
-- **Dragging** (wide canvas, a Stage that can be moved):
-  - A Stage is dragged to a cell; dropping into a taken cell puts it on the first free row below; dropping between columns makes a new column and the later columns shift right. The drop target shows a ghost.
-  - A drag starts after 5px of movement; a press without it picks the Stage.
-  - Dragging from a Stage's + to any Stage, its own included, or to End draws a route; **End** lights up as a target.
-  - A touch that becomes a scroll cancels and drops nothing.
-  - Dragging a Task's started Stage says why where it was pressed: "<Stage> has started, so it stays where it is."
-- Moving a Stage changes the Pipeline's order, so a route may turn from a route on into a route back, or back; its limit stays as it is, and the check says when a loop is left with none.
 - **Keyboard**:
-  - Arrows (Left/Right/Up/Down across; Up/Down for the order and Left/Right for rows when narrow) pick the previous or next Stage in the Pipeline's order.
-  - Shift + an arrow moves the picked Stage a step (focus stays on it).
+  - Arrows (Left/Right/Up/Down across; Up/Down for the order and Left/Right within a band when narrow) pick the previous or next Stage in the Pipeline's order.
+  - Shift + an arrow moves the focused Stage one grid step, 16, past any card in the way (focus stays on it).
   - Delete or Backspace on a route's line, or with a route picked, removes it.
-- Moving a Stage: alone in its column, earlier and later swap the column with its neighbour; sharing a column, it goes into the neighbouring column (a new first column before the first); up and down swap rows with the Stage on the neighbouring row. A move that would change nothing is disabled.
+
+## Moving a Stage
+
+- On the wide canvas, a Stage that can be moved is dragged anywhere; it moves only its position, never the Pipeline's order.
+- A drag starts after 5px of movement; a press without it picks the Stage.
+- **Snapping**: each axis on its own, to the nearest line of another Stage or End within 8 screen pixels, else to a 16-unit grid.
+  - On x the dragged card's left edge, centre and right edge, against the same lines of every other Stage and End; on y its top, centre and bottom.
+  - The grid's dots show only while a Stage is dragged.
+- **Guides**: a dashed line through the matched edge or centre, from the dragged card to each Stage it lines up with, a dot at each end; one per axis at most, gone on drop.
+- Alt (⌥ on a Mac) while dragging places it freely: no grid, no guides, whole units only.
+- Shift while dragging keeps it on its line, across or down, whichever way it has moved further.
+- **A drop never covers a card**: a Stage that would come within 16 of another card lands on the nearest free grid spot, outlined while dragging, and the hint says so.
+- Dragging from a Stage's + to any Stage, its own included, or to End draws a route; **End** lights up as a target.
+- End is dragged like a Stage, which gives it a position of its own.
+- A touch that becomes a scroll cancels and drops nothing.
+- A started Stage is moved like any: positions are never locked ([Locks](#locks)).
+- There are no drop cells: a drop makes no column and puts no Stage below another.
+
+## Moving a Stage in the order
+
+- **Move <Stage> earlier** and **later** in the [Stage panel](#stage-panel) swap it with the Stage before or after it in the Pipeline's order; it stays where it is on the canvas.
+- Tooltip: "Earlier in the Pipeline's order; it stays where it is on the canvas" (later likewise).
+- Disabled with "<Stage> is already first", "<Stage> is already last", or, on a started Stage, "Started, so it keeps its place in the order".
+- Moving a Stage in the order may turn a route on into a route back, or back, and may change the first Stage; its limit stays as it is, and the check says when a loop is left with none.
+- Dragging, Shift + arrows, Auto-align and Undo never change the order.
+
+## Auto-align
+
+- **Auto-align** in the head lays out the whole Pipeline as a layered diagram from left to right in the Pipeline's order: routes on lead to later layers, routes back run in their own lanes, the first Stage stands first and End last.
+- Tooltip: "Lay out the whole Pipeline from left to right in its order".
+- Not shown on a read-only flow or under 560px; disabled with "Add a Stage first" on a Pipeline with no Stage.
+- On first use it loads its layout code, reading "Laying out…" meanwhile.
+- It moves every Stage, started ones too, and End, and changes no field, route, limit or the order.
+- The cards glide to where they now stand (none with reduced motion), and the view fits the Pipeline.
+- The same Stages, sizes and order always give the same layout.
+- It is one edit in the draft: **Undo** in the hint, or Ctrl/⌘ + Z while focus is in the editor, puts every Stage and End back exactly; the next edit of any kind takes the Undo away.
+- Save saves the Stages as shown.
+
+## Narrow view
+
+- Under 560px wide, the Stages are drawn in bands from top to bottom, made from their positions; nothing is stored.
+- Going through the Stages from left to right, a Stage joins the band before when its card overlaps it by at least half a card, and starts a new band otherwise.
+- Within a band Stages sit side by side, the highest first, at most 2 to a line.
+- End stands last, in a band of its own; the start marker comes down into the first Stage.
+- Routes leave a card's bottom edge and enter the top edge; a line going back up runs in a lane on the left.
+- Dragging a Stage, Shift + arrows and Auto-align are off; Move earlier, Move later, Routes out and drawing from the + work.
 
 ## Moving and zooming
 
@@ -115,7 +160,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 - Under the canvas. Empty: "Pick a Stage or a route to edit it here." and "A Stage's settings and its Routes out; a route's place, its condition and its limit."
 - Head: the Stage's name with its kind and place: "<kind> · N of M in the Pipeline's order".
-- Tools: **Move <Stage> earlier**, **later**, **up** and **down** (chevrons), then a ⋯ menu "More for <Stage>":
+- Tools: **Move <Stage> earlier** and **later** (chevrons; [Moving a Stage in the order](#moving-a-stage-in-the-order)), then a ⋯ menu "More for <Stage>":
   - **Save <Stage> as a template**: adds a Stage template ([Stage templates](#stage-templates)); toast "<name> saved as a Stage template."; refusal "<name> wasn't saved as a Stage template".
   - **Remove <Stage>** (danger): each route that led into it leads where its one route out led (several routes out, or none: the routes into it go and the check says where one is missing).
   - Not shown on a locked Stage.
@@ -175,7 +220,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 - Head: "Route from <Stage> to <target>", "N of M routes out of <Stage>".
 - Tools: **Insert a Stage on this route** (the Add a Stage menu: the Stage kinds, then From a template) and **Remove route** (danger).
-  - Inserting: the route leads to the new Stage, its condition and limit kept; one route with no condition leads from it to the old target, with the default limit for where it leads; it takes a column right after the route's Stage.
+  - Inserting: the route leads to the new Stage, its condition and limit kept; one route with no condition leads from it to the old target, with the default limit for where it leads; it goes right after the route's Stage in the order, beside it on the canvas.
 - **Goes to**: a select of every Stage of the Pipeline in its order, the route's own Stage included, and **End**. Hint "Any Stage, this one or an earlier one to go back, or End to make <Stage> a final Stage."
 - **At most**: a stepper 1 to 9 with "times", and **No limit**.
 - The condition, by the row's kind:
@@ -225,30 +270,35 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 - **Add a Stage** (every host but a Proposal) is a menu "Add a Stage" with **Agent Stage**, **Script Stage**, **Gate**, **Publish Stage**, then **From a template** listing the Stage templates by name (each with its kind icon); the same menu is under **Insert a Stage on this route**.
   - Disabled item when none: "No Stage template yet. Make one in Settings › Pipelines, or save a Stage as one."; a read error: "The Stage templates can't be read".
-  - A new Stage: named "New Stage" (Agent Stage), "Script", "Gate" or "Publish"; a name and key no other Stage has; added in a column of its own right after the picked Stage, a row below it, or after the last on row 0, with no routes (drawn after).
+  - A new Stage: named "New Stage" (Agent Stage), "Script", "Gate" or "Publish"; a name and key no other Stage has; added right after the picked Stage in the Pipeline's order, or last when none is picked (in a Task's own Stages, after the last started Stage), with no routes (drawn after).
+  - It stands 76 right of the Stage before it in the order, at that Stage's y, moved down by 16 until it covers no card ([A Stage's position](../2.3.2-flows.md#a-stages-position)).
   - A new Publish Stage publishes by the Project's publishing mode.
 - A template added to a Pipeline's Stages, office-wide or a Project's, is linked to it ([Linked-template line](#linked-template-line)); added to a Task's own Stages, it is a copy.
-- **Save as a template** (⋯ menu) saves the Stage without its key, place and routes; in a Pipeline the Stage is then linked to the new template.
+- **Save as a template** (⋯ menu) saves the Stage without its key, position and routes; in a Pipeline the Stage is then linked to the new template.
 - Templates are made, edited and removed in Settings › Pipelines, which lists their linked Stages and asks which get an edit ([settings.md](settings.md#pipelines)).
 
 ## Locks
 
 - Used by Edit for this Task: each Stage already started is locked, marked with its state ("Done", …) and a lock icon with "<state>: started, so it can't be changed".
-- A locked Stage can't be dragged, moved, removed or drawn from; its panel's fields and Routes out (where each leads, its condition, its limit and their order) are disabled, with that note as the tooltip, and the panel opens with a lock note.
-- The columns up to the last holding a locked Stage are frozen: no Stage or column is made or closed up among them, and a Stage added goes after them.
+- A locked Stage can't be moved in the order, removed or drawn from; its panel's fields and Routes out (where each leads, its condition, its limit and their order) are disabled, with that note as the tooltip, and the panel opens with a lock note.
+- The Pipeline's order is frozen up to the last started Stage: no Stage is added among those Stages or moved earlier into them, and a Stage added goes after them.
+- Positions are never locked: a started Stage can be dragged and Auto-align moves it.
 - Routes into a locked Stage can be drawn and changed, routes back included.
-- What still breaks a lock (a Stage put straight after a started one) the service's check names.
+- What still breaks a lock (a Stage put among the started ones, or one moved earlier into them) the service's check names.
 
 ## Proposal on the flow
 
 - Shown with `?proposal=<id>` naming an open Proposal of a Pipeline's routes, instead of the form: in Settings › Pipelines for an office-wide Pipeline, in a Project's Pipelines section for a Project Pipeline.
 - A banner (`role=status`) "<name>'s Proposal, shown on <Pipeline>: not applied yet": the sentences saying what each changed Stage's routes become, with their limits, "Dashed lines are what it proposes; dotted ones, what it takes away. Nothing changes until you apply it."; actions **Apply change**, **Not now** (the Proposal is left) and, when the chat isn't beside, **Back to the Thread**; a refusal **The change can't be applied yet**.
 - Toasts on apply: "<Pipeline> changed. Tasks that haven't started follow it." (office-wide) and "<Pipeline> saved. Tasks that haven't started follow it." (Project Pipeline).
-- The editor is read-only: no menu, no +, no dragging, no keyboard edits.
+- The editor is read-only: no menu, no Auto-align, no +, no dragging, no keyboard edits.
 - Each changed Stage keeps the routes it had; proposed routes are dashed, those taken away dotted.
 - Picking a changed Stage shows its routes, each with its limit, as Was and Proposed under the flow.
 - A Proposal's warnings come from its routes' check.
 - A Stage the Proposal removes isn't drawn on its flow, and neither are its routes.
+- The Stages stand where the Proposal puts them; a Stage it adds without a position stands where [A Stage's position](../2.3.2-flows.md#a-stages-position) puts it.
+- When it changes the order, the banner adds "It changes the Pipeline's order to <Stages in order>."; when it moves Stages, "It also moves N Stages on the canvas, which doesn't change how the Pipeline runs."
+- Positions changed since it was made don't make it stale; **Apply change** keeps where the Stages it doesn't move stand now ([2.3.5 Proposals](../2.3.5-library.md#proposals)).
 
 ## Moved-flow note
 
@@ -261,16 +311,16 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - Loading: a host shows nothing until its Roles, duties and options are read (Project Pipelines) or shows its own errors.
 - Waiting for the check: Save in the host is held while the service's answer is awaited; the Stages shown are the last answer's.
 - Narrow window:
-  - Canvas under 560px wide: "down" layout and its hint.
+  - Canvas under 560px wide: the bands made from positions ([Narrow view](#narrow-view)) and its hint.
   - Settings and Project Pipelines show the list or the open one under 1224px ([project-page.md](project-page.md#pipelines)).
 - Locked and read-only forms are described above.
 
 ## Domain facts
 
-- A Pipeline is a flow, routes and their limits, the Pipeline's order, the route forms: [2.3.2](../2.3.2-flows.md#a-pipeline-is-a-flow), [2.3.2](../2.3.2-flows.md#a-routes-limit), [2.3.2](../2.3.2-flows.md#the-pipelines-order), [2.3.2](../2.3.2-flows.md#which-route-the-walk-follows), [2.3.2](../2.3.2-flows.md#the-route-forms).
+- A Pipeline is a flow, routes and their limits, the Pipeline's order, a Stage's position, the route forms: [2.3.2](../2.3.2-flows.md#a-pipeline-is-a-flow), [2.3.2](../2.3.2-flows.md#a-routes-limit), [2.3.2](../2.3.2-flows.md#the-pipelines-order), [2.3.2](../2.3.2-flows.md#a-stages-position), [2.3.2](../2.3.2-flows.md#which-route-the-walk-follows), [2.3.2](../2.3.2-flows.md#the-route-forms).
 - An Agent's choice, conditions, a limit running out, validation, Proposals: [2.3.2](../2.3.2-flows.md#how-an-agent-chooses-its-route), [2.3.2](../2.3.2-flows.md#built-in-conditions), [2.3.2](../2.3.2-flows.md#the-project-command-condition), [2.3.2](../2.3.2-flows.md#when-a-limit-runs-out), [2.3.2](../2.3.2-flows.md#validation), [2.3.2](../2.3.2-flows.md#route-and-condition-proposals).
 - Stage kinds and fields, a linked Stage, merging the base first: [2.3.1](../2.3.1-stages.md#stage-kinds), [2.3.1](../2.3.1-stages.md#what-a-stage-declares), [2.3.1](../2.3.1-stages.md#a-stage-linked-to-its-stage-template), [2.3.1](../2.3.1-stages.md#an-agent-stage-may-merge-the-base-first).
 - A Stage's effort in the model and effort cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-model-and-effort-cascade).
 - Gates: [2.3.3](../2.3.3-gates-and-checks.md#gates).
 - The Publish Stage, its results, the conflict chain and Resolve: [2.3.4](../2.3.4-publish.md#publish), [2.3.4](../2.3.4-publish.md#publishs-results), [2.3.4](../2.3.4-publish.md#conflicts-in-the-flow), [2.3.4](../2.3.4-publish.md#the-resolve-stage).
-- The library editor, Stage templates and their linked Stages, Project Pipelines, the move: [2.3.5](../2.3.5-library.md#the-library-editor), [2.3.5](../2.3.5-library.md#stage-templates), [2.3.5](../2.3.5-library.md#editing-a-template-with-linked-stages), [2.3.5](../2.3.5-library.md#project-pipelines), [2.3.5](../2.3.5-library.md#the-move-to-routes-back-and-publish-stages).
+- The library editor, Stage templates and their linked Stages, Project Pipelines, Proposals' positions, the moves: [2.3.5](../2.3.5-library.md#the-library-editor), [2.3.5](../2.3.5-library.md#proposals), [2.3.5](../2.3.5-library.md#the-move-to-positions), [2.3.5](../2.3.5-library.md#stage-templates), [2.3.5](../2.3.5-library.md#editing-a-template-with-linked-stages), [2.3.5](../2.3.5-library.md#project-pipelines), [2.3.5](../2.3.5-library.md#the-move-to-routes-back-and-publish-stages).

@@ -134,7 +134,8 @@ export class LinkedStages {
       return withTemplateFields(stage, template.stage, fields);
     });
     if (applied === 0) return { applied };
-    const edit = { name: pipeline.name, description: pipeline.description, stages };
+    const { name, description, endPosition } = pipeline;
+    const edit = { name, description, stages, ...(endPosition && { endPosition }) };
     try {
       if (projectId === null) await this.editor.save(pipeline.id, edit);
       // Only the user's own save ends a Project Pipeline's Broken before the update (spec §2.3.5).

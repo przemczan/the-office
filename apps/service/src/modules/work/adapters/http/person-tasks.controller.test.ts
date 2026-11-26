@@ -74,8 +74,8 @@ async function personsTasks(roleKey: string, query: string): Promise<PersonTaskP
 
 describe("GET /roles/:roleKey/tasks", () => {
   it("lists the person's Tasks with their part, and counts each Work filter", async () => {
-    // The library's Full Pipeline: its Implement, Review & fix and Resolve name the duty the
-    // Developer holds.
+    // The library's Full Pipeline: its Implement, Resolve and Review & fix name the duty the
+    // Developer holds, in the Pipeline's order.
     const createdIt = await aTaskOf(createdBy("developer"));
     const implementing = await aTaskOf({ pipelineId: "full", state: "in-progress" });
     const planning = await aTaskOf({ pipelineId: "full", state: "planning" });
@@ -98,8 +98,8 @@ describe("GET /roles/:roleKey/tasks", () => {
     expect(all.rows.map(({ task, part }) => [task.id, part])).toEqual([
       [done.id, "Created it"],
       [waiting.id, "Created it"],
-      [planning.id, "Planning · A Thread · Implement · Review & fix · Resolve"],
-      [implementing.id, "Implement · Review & fix · Resolve"],
+      [planning.id, "Planning · A Thread · Implement · Resolve · Review & fix"],
+      [implementing.id, "Implement · Resolve · Review & fix"],
       [createdIt.id, "Created it"],
     ]);
     expect(all.counts).toEqual({

@@ -5,13 +5,27 @@ import {
   type GivenRoute,
   type Route,
   type StagePlace,
+  type StagePosition,
 } from "./route.js";
+import { positionsFromPlaces, withFilledPositions } from "./positions.js";
 import { withPublishStages } from "./publish-stages.js";
 import { withRoutesBack } from "./routes-back.js";
 import type { AgentStage, Gate, PublishStage, ScriptStage, Stage } from "./stage.js";
 
-/** A Stage of a flow: one that carries its routes and its place, as a Pipeline's always do. */
+/**
+ * A Stage of a flow: one that carries its routes and its position, as a Pipeline's always do. A
+ * flow's Stages are in the Pipeline's order, the order of their list (spec §2.3).
+ */
 export type FlowStage<Of extends Stage = Stage> = Of & {
+  readonly routes: Route[];
+  readonly position: StagePosition;
+};
+
+/**
+ * A Stage of a flow as the conversions read it, before it has a position: on its old grid place,
+ * which a list from before positions gives and the conflict chain is drawn in.
+ */
+export type GridStage<Of extends Stage = Stage> = Of & {
   readonly routes: Route[];
   readonly place: StagePlace;
 };
@@ -30,7 +44,7 @@ const WHILE_SOME_NOT_MET: Route["condition"] = {
  * which runs and passes by the Stages the optional setting did. The optional setting itself is kept,
  * as the previous release reads it. Migration 0163 writes the same in SQL.
  */
-export function straightLineFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[] {
+export function straightLineFlow<Of extends Stage>(stages: readonly Of[]): GridStage<Of>[] {
   return stages.map((stage, index) => ({
     ...stage,
     routes: straightLineRoutes(stages, index),
@@ -50,16 +64,21 @@ function straightLineRoutes(stages: readonly Stage[], index: number): Route[] {
 }
 
 /**
- * `stages` as a flow: converted by `straightLineFlow` when none carries routes, as a row a
- * rolled-back release rewrote or a Proposal still sending a plain list gives them; otherwise as they
- * are, a Stage missing its routes getting none (which the check refuses) and one missing its place
- * its index's column on row 0. Then a kept on-failure setting reads as a failure route back
- * (`withRoutesBack`), a kept Script `publish` Stage as a Publish Stage with its conflict chain
- * (`withPublishStages`), and a route given without a limit takes the default for where it leads.
+ * `stages` as a flow, in the Pipeline's order: converted by `straightLineFlow` when none carries
+ * routes, as a row a rolled-back release rewrote or a Proposal still sending a plain list gives
+ * them; otherwise as they are, a Stage missing its routes getting none (which the check refuses).
+ * A kept on-failure setting reads as a failure route back (`withRoutesBack`), a kept Script
+ * `publish` Stage as a Publish Stage with its conflict chain (`withPublishStages`), and a route given
+ * without a limit takes the default for where it leads. A list where no Stage has a position is from
+ * before positions (or a rollback's): once its chain is drawn, it is sorted by its places, a Stage
+ * without one in its index's column, as the Pipeline's order was then, and each place becomes a
+ * position (`positionsFromPlaces`). In any other list a Stage without a position, the chain's drawn
+ * in among them, stands beside the one before it (`withFilledPositions`).
  */
 export function asFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[] {
   const given: readonly Stage[] = stages;
-  const placed: FlowStage[] = given.every(({ routes }) => routes === undefined)
+  const fromPlaces = given.every(({ position }) => position === undefined);
+  const gridded: GridStage[] = given.every(({ routes }) => routes === undefined)
     ? straightLineFlow(given)
     : given.map((stage, index) => ({
         ...stage,
@@ -67,7 +86,24 @@ export function asFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[]
         place: stage.place ?? { column: index, row: 0 },
       }));
   // The conflict chain it draws in are Stages of their own kinds; the others keep their fields.
-  return withRouteLimits(withPublishStages(withRoutesBack(placed))) as FlowStage<Of>[];
+  const drawn = withPublishStages(withRoutesBack(gridded));
+  const positioned = fromPlaces
+    ? positionedByPlaces(withRouteLimits(inPlaceOrder(drawn)))
+    : withFilledPositions(withRouteLimits(drawn));
+  // A place is only written for the previous release (`withPlacesForThePreviousRelease`).
+  return positioned.map(({ place: _place, ...stage }) => stage) as FlowStage<Of>[];
+}
+
+/** Stages by their old places: the columns left to right, then the rows; ties keep their order. */
+function inPlaceOrder<Of extends GridStage>(stages: readonly Of[]): Of[] {
+  return stages.toSorted(
+    (one, other) => one.place.column - other.place.column || one.place.row - other.place.row,
+  );
+}
+
+function positionedByPlaces(stages: readonly GridStage[]): FlowStage[] {
+  const positions = positionsFromPlaces(stages);
+  return stages.map((stage, index) => ({ ...stage, position: positions[index] ?? { x: 0, y: 0 } }));
 }
 
 /**
@@ -75,7 +111,7 @@ export function asFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[]
  * §2.3, "A route's limit"): at most 3 times back, to its own Stage or one before it in the
  * Pipeline's order, and No limit on. Every route kept before routes had limits led on.
  */
-function withRouteLimits(stages: readonly FlowStage[]): FlowStage[] {
+function withRouteLimits<Of extends GridStage>(stages: readonly Of[]): Of[] {
   const limited = limitedRoutes(stages);
   return stages.map((stage, index) => ({ ...stage, routes: limited[index] ?? [] }));
 }
@@ -86,9 +122,8 @@ export type GivenStage = Given<AgentStage> | Given<ScriptStage> | Given<Gate> | 
 type Given<Of extends Stage> = Omit<Of, "routes"> & { readonly routes?: readonly GivenRoute[] };
 
 /**
- * Stages as given, each route without a limit taking the default for where it leads, as `asFlow`
- * gives it, a Stage without a place standing in its index's column: what an edit or a Proposal
- * hands the domain.
+ * Stages as given, in the Pipeline's order, each route without a limit taking the default for where
+ * it leads, as `asFlow` gives it: what an edit or a Proposal hands the domain.
  */
 export function withGivenLimits(stages: readonly GivenStage[]): Stage[] {
   const limited = limitedRoutes(stages);
@@ -100,14 +135,11 @@ export function withGivenLimits(stages: readonly GivenStage[]): Stage[] {
 
 interface RoutedStage {
   readonly key: string;
-  readonly place?: StagePlace;
   readonly routes?: readonly GivenRoute[];
 }
 
 function limitedRoutes(stages: readonly RoutedStage[]): (Route[] | undefined)[] {
-  const order = orderIndexes(
-    stages.map(({ key, place }, index) => ({ key, place: place ?? { column: index, row: 0 } })),
-  );
+  const order = orderIndexes(stages);
   return stages.map(({ key, routes }) => {
     const from = order.get(key) ?? 0;
     return routes?.map((route): Route => ({
@@ -118,12 +150,9 @@ function limitedRoutes(stages: readonly RoutedStage[]): (Route[] | undefined)[] 
   });
 }
 
-/** Each Stage's index in the Pipeline's order, by its key. */
-function orderIndexes(
-  stages: readonly { readonly key: string; readonly place: StagePlace }[],
-): ReadonlyMap<string, number> {
-  const ordered = stages.toSorted((one, other) => comparePlaces(one.place, other.place));
-  return new Map(ordered.map(({ key }, index) => [key, index]));
+/** Each Stage's index in the Pipeline's order, its list's, by its key. */
+function orderIndexes(stages: readonly { readonly key: string }[]): ReadonlyMap<string, number> {
+  return new Map(stages.map(({ key }, index) => [key, index]));
 }
 
 function leadsBack(from: number, { to }: GivenRoute, order: ReadonlyMap<string, number>): boolean {
@@ -133,10 +162,11 @@ function leadsBack(from: number, { to }: GivenRoute, order: ReadonlyMap<string, 
 
 /**
  * Whether a route from `fromKey` to `toKey` leads back (spec §2.3, "The Pipeline's order"): to its
- * own Stage or one before it among `stages` in the Pipeline's order. End never is.
+ * own Stage or one before it among `stages` in the Pipeline's order. End never is. Where Stages
+ * stand never changes it.
  */
 export function isRouteBack(
-  stages: readonly FlowStage[],
+  stages: readonly { readonly key: string }[],
   fromKey: string,
   toKey: string | null,
 ): boolean {
@@ -146,42 +176,76 @@ export function isRouteBack(
 }
 
 /**
- * A flow an agent proposed, ready to be judged and kept: `asFlow`'s, so a Stage left without a place
- * stands in the column of its index in the order given, and every route naming the Stages it leads
- * to and tests by their names among `stages`. In the Pipeline's order.
+ * A flow an agent proposed, ready to be judged and kept: `asFlow`'s, in the order given, a Stage
+ * left without a position standing beside the one before it, and every route naming the Stages it
+ * leads to and tests by their names among `stages`.
  */
-export function placedInOrder(stages: readonly Stage[]): FlowStage[] {
+export function namedFlow(stages: readonly Stage[]): FlowStage[] {
   const names = new Map(stages.map(({ key, name }) => [key, name]));
-  const named: FlowStage[] = asFlow(stages).map((stage) => ({
-    ...stage,
-    routes: namedRoutes(stage.routes, names),
-  }));
-  return pipelineOrder(named);
+  return asFlow(stages).map((stage) => ({ ...stage, routes: namedRoutes(stage.routes, names) }));
 }
 
 /**
- * `stages` in the Pipeline's order (spec §2.3): by their places, the columns left to right and a
- * column's Stages top to bottom; Stages at one place keep the order they came in.
+ * `stages` as kept, in the Pipeline's order, each with `place: { column: index, row: 0 }` beside
+ * its position, so the previous release, which reads the order from places, sees the same order
+ * and walks the same flow after a rollback.
  */
-export function pipelineOrder<Of extends FlowStage>(stages: readonly Of[]): Of[] {
-  return stages.toSorted((one, other) => comparePlaces(one.place, other.place));
+export function withPlacesForThePreviousRelease<Of extends FlowStage>(stages: readonly Of[]): Of[] {
+  return stages.map((stage, index) => ({ ...stage, place: { column: index, row: 0 } }));
 }
 
-/** Sorts places in the Pipeline's order: by column, then by row. */
-export function comparePlaces(one: StagePlace, other: StagePlace): number {
-  return one.column - other.column || one.row - other.row;
+/** A Stage without where it stands on the canvas, as rules that never read layout compare it. */
+export function withoutLayout<Of extends Stage>({
+  position: _position,
+  place: _place,
+  ...stage
+}: Of): Omit<Of, "position" | "place"> {
+  return stage;
+}
+
+/**
+ * A Proposal's Stages as applying it keeps them (spec §2.3.5, "Proposals"): each Stage it adds or
+ * moves from where it stood when drafted (`from`) stands where the Proposal puts it (`to`), and every
+ * other where it stands `now`, as positions are layout and the user may have moved Stages since.
+ */
+export function withProposedPositions(
+  now: readonly Stage[],
+  from: readonly Stage[],
+  to: readonly Stage[],
+): FlowStage[] {
+  const drafted = new Map(asFlow(from).map(({ key, position }) => [key, position]));
+  const standing = new Map(asFlow(now).map(({ key, position }) => [key, position]));
+  return asFlow(to).map((stage) => {
+    const stands = standing.get(stage.key);
+    return stands && samePosition(drafted.get(stage.key), stage.position)
+      ? { ...stage, position: stands }
+      : stage;
+  });
+}
+
+/**
+ * Where End stands once a Proposal is applied: where the Proposal puts it (`to`) when that moves it
+ * from where it stood when drafted (`from`), else where it stands `now`.
+ */
+export function proposedEndPosition(
+  now: StagePosition | undefined,
+  from: StagePosition | undefined,
+  to: StagePosition | undefined,
+): StagePosition | undefined {
+  return to === undefined || samePosition(from, to) ? now : to;
+}
+
+function samePosition(one: StagePosition | undefined, other: StagePosition): boolean {
+  return one !== undefined && one.x === other.x && one.y === other.y;
 }
 
 /** Whether `stages` are a straight line as `straightLineFlow` draws them, so a list can edit them. */
 export function isStraightLine(stages: readonly FlowStage[]): boolean {
-  const ordered = pipelineOrder(stages);
-  return ordered.every(
+  return stages.every(
     (stage, index) =>
-      stage.place.column === index &&
-      stage.place.row === 0 &&
       stage.routes.length === 1 &&
       stage.routes[0]?.condition === null &&
-      stage.routes[0].to === (ordered[index + 1]?.key ?? null),
+      stage.routes[0].to === (stages[index + 1]?.key ?? null),
   );
 }
 

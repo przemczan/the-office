@@ -3,8 +3,8 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
-import { straightLineFlow } from "../domain/flow.js";
 import type { Pipeline } from "../domain/pipeline.js";
+import { straightLine } from "../domain/stage.fixtures.js";
 import { PipelineLibraryModule } from "../pipeline-library.module.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 import { PipelineLibrary, type ReadPipeline } from "./pipeline-library.js";
@@ -95,7 +95,7 @@ describe("PipelineLibrary", () => {
     await repository.save(saved);
     await expect(library.find(added.id)).resolves.toEqual({
       ...saved,
-      stages: straightLineFlow(saved.stages),
+      stages: straightLine(saved.stages),
     });
 
     await repository.remove(added.id);

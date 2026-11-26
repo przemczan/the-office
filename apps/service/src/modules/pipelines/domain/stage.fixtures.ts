@@ -1,4 +1,6 @@
 import type { DutyKey } from "../../people/index.js";
+import { straightLineFlow, type FlowStage } from "./flow.js";
+import { COLUMN_PITCH } from "./positions.js";
 import type { KeptStage } from "./routes-back.js";
 import type { KeptPublishStage } from "./publish-stages.js";
 import type { AgentStage, Gate, PublishStage, ScriptStage, Stage } from "./stage.js";
@@ -63,4 +65,15 @@ export function goingBackOnFailure<Of extends Stage>(
   rounds: number,
 ): KeptStage<Of> {
   return { ...stage, onFailure: { goBackTo, rounds } };
+}
+
+/**
+ * `stages` as `straightLineFlow` draws them, each standing in its column's place in a row as `asFlow`
+ * reads them, with no conflict chain drawn in.
+ */
+export function straightLine<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[] {
+  return straightLineFlow(stages).map(({ place, ...stage }) => ({
+    ...stage,
+    position: { x: place.column * COLUMN_PITCH, y: 0 },
+  })) as FlowStage<Of>[];
 }

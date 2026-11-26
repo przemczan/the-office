@@ -30,6 +30,7 @@ import {
   type SendBack,
   type ContinueAtGate,
   type Stage,
+  type StagePosition,
   type LinkedStageRef,
   type StageTemplate,
   type StageTemplateApplyResult,
@@ -310,8 +311,18 @@ export function applyStageTemplateEdit(
 }
 
 /** Edit for this Task: the Task's Stages replaced, the library Pipeline left as it is. */
-export function editTaskStages(taskId: string, stages: readonly Stage[]): Promise<TaskStages> {
-  return sendToApi("PUT", stagesPath(taskId), { stages }, taskStagesSchema);
+/** The Task's own Stages as edited for it, and where its End stands, if it was moved. */
+export function editTaskStages(
+  taskId: string,
+  stages: readonly Stage[],
+  endPosition?: StagePosition,
+): Promise<TaskStages> {
+  return sendToApi(
+    "PUT",
+    stagesPath(taskId),
+    { stages, ...(endPosition && { endPosition }) },
+    taskStagesSchema,
+  );
 }
 
 /**

@@ -10,7 +10,7 @@ import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { proposedTestTargetsSchema } from "./test-targets.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { stageContextLimitsSchema } from "./stage-context-limits.js";
-import { routeSchema, stageProblemSchema, stageSchema } from "./stages.js";
+import { routeSchema, stagePositionSchema, stageProblemSchema, stageSchema } from "./stages.js";
 import { userRefSchema } from "./users.js";
 import { prioritySchema } from "./work.js";
 
@@ -608,6 +608,8 @@ export const projectPipelineFieldsSchema = z.object({
   name: z.string(),
   description: z.string(),
   stages: z.array(stageSchema),
+  /** Where End stands on the canvas; absent, right of the right-most Stage. */
+  endPosition: stagePositionSchema.optional(),
   copyOf: z.string().optional(),
 });
 export type ProjectPipelineFields = z.infer<typeof projectPipelineFieldsSchema>;
@@ -781,6 +783,8 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     pipelineId: z.string(),
     from: z.array(stageSchema),
     to: z.array(stageSchema),
+    /** Where the proposal puts End on the canvas; absent keeps where it stands. */
+    endPosition: stagePositionSchema.optional(),
     /** Null for a Proposal drafted before Proposals carried routes. */
     routes: proposedRoutesSchema.nullable(),
   }),

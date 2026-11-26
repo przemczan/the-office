@@ -35,12 +35,12 @@ describe("builtInStageTemplates", () => {
       ...resolve,
       key: "resolve",
       routes: undefined,
-      place: undefined,
+      position: undefined,
       templateId: undefined,
     });
   });
 
-  it("keep the first Pipeline's Stage of the name, without its routes and place", () => {
+  it("keep the first Pipeline's Stage of the name, without its routes and position", () => {
     const fullsReviewAndFix = builtInPipelines[0]?.stages.find(
       ({ key }) => key === "review-and-fix",
     );
@@ -49,11 +49,13 @@ describe("builtInStageTemplates", () => {
     expect(builtInStageTemplates[2]?.stage).toEqual({
       ...fullsReviewAndFix,
       routes: undefined,
-      place: undefined,
+      position: undefined,
     });
-    expect(builtInStageTemplates.some(({ stage }) => "routes" in stage || "place" in stage)).toBe(
-      false,
-    );
+    expect(
+      builtInStageTemplates.some(
+        ({ stage }) => "routes" in stage || "position" in stage || "place" in stage,
+      ),
+    ).toBe(false);
   });
 
   it("name a duty in every Agent Stage, never a Role", () => {

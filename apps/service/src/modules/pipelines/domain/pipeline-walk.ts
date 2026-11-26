@@ -2,7 +2,7 @@ import { recordedCommandResults } from "./condition-command-results.js";
 import { type RouteChoice, weighRoutes } from "./conditions.js";
 import { reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
 import { conflictOnlyStages, isConflictRoute, takesPublishResult } from "./conflict-handling.js";
-import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
+import { asFlow, type FlowStage } from "./flow.js";
 import { publishResultOf } from "./publish-result.js";
 import { runsOfLatestStart } from "./start-over.js";
 import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "./publish-stages.js";
@@ -305,7 +305,7 @@ function walkOver(
   runs: readonly StageRun[],
   definitionOfDone: readonly string[],
 ): Walk {
-  const flow = pipelineOrder(asFlow(stages));
+  const flow = asFlow(stages);
   const chain = conflictOnlyStages(flow);
   // A chain drawn before a Publish that is first stands before it: the walk starts after it.
   const firstKey = flow.find(({ key }) => !chain.has(key))?.key;

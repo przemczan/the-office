@@ -1,6 +1,7 @@
 import type { DutyKey } from "../../people/index.js";
 import { asFlow, reachableFrom } from "./flow.js";
 import { routesFollowed, type FollowedRoute } from "./pipeline-walk.js";
+import type { StagePosition } from "./route.js";
 import type { Stage } from "./stage.js";
 import { staffedRole, staffedStages } from "./stage-staffing.js";
 import { runsOfLatestStart } from "./start-over.js";
@@ -65,6 +66,8 @@ export interface StageProgress {
 /** A Task's own Stages with where each stands, as the Task page shows them. */
 export interface TaskProgress {
   readonly stages: readonly StageProgress[];
+  /** Where End stands on the canvas; undefined, right of the right-most Stage. */
+  readonly endPosition?: StagePosition;
   /** Whether the user edited the Stages for the Task, which the Pipeline's label says. */
   readonly editedForTask: boolean;
   /** How many Stages, from the first, have started and are locked (`lockedStageCount`). */

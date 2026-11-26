@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { straightLineFlow, type FlowStage } from "./flow.js";
+import type { FlowStage } from "./flow.js";
 import {
   proposedRoutes,
   routeChangesOf,
@@ -7,7 +7,7 @@ import {
   routesWords,
 } from "./proposed-routes.js";
 import { ENDED_FAILED, ROUTE_BACK_LIMIT, type ConditionGroup, type Route } from "./route.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, gate, scriptStage, straightLine } from "./stage.fixtures.js";
 
 const implement = agentStage();
 const tests = scriptStage();
@@ -19,7 +19,7 @@ const ENDED_DONE: ConditionGroup = {
   tests: [{ kind: "stage", stage: null, is: "done" }],
 };
 
-const before = straightLineFlow([implement, tests, publish]);
+const before = straightLine([implement, tests, publish]);
 
 const reviewWhenChangedOrFailed: Route[] = [
   {
@@ -40,16 +40,16 @@ const reviewWhenChangedOrFailed: Route[] = [
 /** `before` with Review after Tests, run only when Tests changed files or ended Failed. */
 const after: FlowStage[] = [
   before[0] as FlowStage,
-  { ...tests, routes: reviewWhenChangedOrFailed, place: { column: 1, row: 0 } },
+  { ...tests, routes: reviewWhenChangedOrFailed, position: { x: 308, y: 0 } },
   {
     ...review,
     routes: [{ to: "publish", condition: null, limit: null }],
-    place: { column: 2, row: 0 },
+    position: { x: 616, y: 0 },
   },
   {
     ...publish,
     routes: [{ to: null, condition: null, limit: null }],
-    place: { column: 3, row: 0 },
+    position: { x: 924, y: 0 },
   },
 ];
 
@@ -76,7 +76,7 @@ describe("routeChangesOf", () => {
       {
         ...implement,
         routes: [{ to: "publish", condition: null, limit: null }],
-        place: { column: 0, row: 0 },
+        position: { x: 0, y: 0 },
       },
       before[2] as FlowStage,
     ];

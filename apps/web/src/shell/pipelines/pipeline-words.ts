@@ -14,7 +14,6 @@ import { EFFORT_LABELS } from "../engine-words.ts";
 import { editLabel, hardSwitchValueLabel, RUN_LABELS, webLabel } from "../role-card-words.ts";
 import { dayOf } from "../time.ts";
 import { conflictOnlyStages } from "./flow/conflict-chain.ts";
-import { inFlowOrder } from "./flow/flow-model.ts";
 import { commandWords } from "./stage-commands.ts";
 import { stageWorker } from "./stage-edits.ts";
 
@@ -151,7 +150,7 @@ function permissionsWords(
  * chain's Stages, which run only after a conflict, are left out (spec §2.3.5, "Library").
  */
 export function stagesLine({ stages }: { readonly stages: readonly Stage[] }): string {
-  const chain = conflictOnlyStages(inFlowOrder(stages));
+  const chain = conflictOnlyStages(stages);
   return stages
     .filter(({ key }) => !chain.has(key))
     .map(({ name }) => name)

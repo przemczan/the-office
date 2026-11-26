@@ -42,7 +42,11 @@ export async function addAnswering(
   const question = page
     .getByRole("dialog")
     .getByRole("radiogroup", { name: "Run this Project's checks in a run environment?" });
-  await expect(question.getByRole("radio")).toHaveText(["No", "Yes"]);
+  // Each answer is a native radio named by its label, holding no text of its own.
+  const answers = question.getByRole("radio");
+  await expect(answers).toHaveCount(2);
+  await expect(answers.nth(0)).toHaveAccessibleName("No");
+  await expect(answers.nth(1)).toHaveAccessibleName("Yes");
   await expect(question.getByRole("radio", { name: "No", exact: true })).toBeChecked();
   await question.getByRole("radio", { name: answer, exact: true }).check();
   const added = page.waitForResponse(

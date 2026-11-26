@@ -42,6 +42,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Attachment**: [2.1.2 Attachment](2.1.2-ideas-and-attachments.md#attachment); screen: [Task page › Attachments tab](screens/task-page.md#attachments-tab)
 - **Authenticator**: [2.10 The authenticator](2.10-users-and-signing-in.md#the-authenticator); screen: [Account › Authenticator](screens/account.md#authenticator)
 - **Authority, authority setting (Allowed, Consult a person, Ask me, Proposal, Never), one setting per Office tool or group, Own work**: [6 Authority](6-permissions-and-safety.md#authority); [6 Authority by role](6-permissions-and-safety.md#authority-by-role); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches); screen: [People › Role card tab](screens/people.md#role-card-tab)
+- **Auto-align, its Undo**: screen: [Pipeline flow editor › Auto-align](screens/pipeline-flow-editor.md#auto-align)
 - **Auto mode**: [2.1.5 Auto mode](2.1.5-planning-and-start.md#auto-mode)
 - **Avatar**: [2.2 Avatar](2.2-people.md#avatar)
 
@@ -199,8 +200,10 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Pause the Initiative, Resume the Initiative**: [2.1.4 Pause the Initiative](2.1.4-initiatives.md#pause-the-initiative); [2.8 The alarm and an Initiative's Pause](2.8-fire-alarm.md#the-alarm-and-an-initiatives-pause)
 - **Pinned version, Source, Update (skills)**: [2.6 The pinned version](2.6-skills.md#the-pinned-version); [2.6 Installing from a source](2.6-skills.md#installing-from-a-source); [2.6 Updates are flagged, then proposed](2.6-skills.md#updates-are-flagged-then-proposed)
 - **Pipeline**: [2.3.2 A Pipeline is a flow](2.3.2-flows.md#a-pipeline-is-a-flow); screen: [Pipeline flow editor](screens/pipeline-flow-editor.md#pipeline-flow-editor)
+- **Pipeline's order, Move earlier, Move later**: [2.3.2 The Pipeline's order](2.3.2-flows.md#the-pipelines-order); screen: [Pipeline flow editor › Moving a Stage in the order](screens/pipeline-flow-editor.md#moving-a-stage-in-the-order)
 - **Pipeline rail**: screen: [Task page › Pipeline rail](screens/task-page.md#pipeline-rail)
 - **Plan the Initiative**: [2.1.4 Plan the Initiative](2.1.4-initiatives.md#plan-the-initiative)
+- **Position (a Stage's), End's position, snapping, guides, the narrow view's bands, the move to positions**: [2.3.2 A Stage's position](2.3.2-flows.md#a-stages-position); [2.3.5 The move to positions](2.3.5-library.md#the-move-to-positions); screens: [Pipeline flow editor › Moving a Stage](screens/pipeline-flow-editor.md#moving-a-stage), [Pipeline flow editor › Narrow view](screens/pipeline-flow-editor.md#narrow-view)
 - **Preset, a preset's default vs set**: [2.2 Presets](2.2-people.md#presets); [6 Authority by role](6-permissions-and-safety.md#authority-by-role)
 - **Process, Sub-agent**: [2.9.1 Sub-agents and Processes](2.9.1-the-model.md#sub-agents-and-processes); screen: [Thread › Sub-agents and Processes](screens/thread.md#sub-agents-and-processes)
 - **Project**: [2.1.1 Project](2.1.1-projects.md#project); screen: [Projects page](screens/projects.md#projects-page-and-add-a-project)
@@ -212,7 +215,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Project setting change, `GET /api/projects/:id/setting-changes`**: [6 Project settings by Agents](6-permissions-and-safety.md#project-settings-by-agents), "The record"; screen: [Project page › Recent activity tile](screens/project-page.md#recent-activity-tile)
 - **Project's own stand-in list, Use this Project's own list**: [5.4.6 A Project's own list](5.4.6-stand-in-engines-and-usage-windows.md#a-projects-own-list); screen: [Project page › Engine](screens/project-page.md#engine)
 - **Prompt template**: [2.2 Prompt templates](2.2-people.md#prompt-templates); [5.3 Prompt templates is its own module](5.3-modules.md#prompt-templates-is-its-own-module); screen: [Settings › Prompt templates](screens/settings.md#prompt-templates)
-- **Proposal**: [2.3.2 Route and condition Proposals](2.3.2-flows.md#route-and-condition-proposals); [2.3.5 Project commands by Proposal and by hand](2.3.5-library.md#project-commands-by-proposal-and-by-hand); screen: [Task page › Pipeline proposal](screens/task-page.md#pipeline-proposal)
+- **Proposal**: [2.3.2 Route and condition Proposals](2.3.2-flows.md#route-and-condition-proposals); [2.3.5 Proposals](2.3.5-library.md#proposals); [2.3.5 Project commands by Proposal and by hand](2.3.5-library.md#project-commands-by-proposal-and-by-hand); screen: [Task page › Pipeline proposal](screens/task-page.md#pipeline-proposal)
 - **Proposals and approvals, the generic Proposal (kind office-action), a call ruled Proposal, approval card**: [2.4.2 Proposals and approvals](2.4.2-decisions.md#proposals-and-approvals); [6 Authority](6-permissions-and-safety.md#authority)
 - **Public address**: [5.1 The public address](5.1-shape.md#the-public-address); [2.10 Which ways work on which address](2.10-users-and-signing-in.md#which-ways-work-on-which-address)
 - **Publish Stage, Publish's results (Published, Nothing to publish, Conflict, After publishing failed)**: [2.3.4 Publish](2.3.4-publish.md#publish); [2.3.4 Publish's results](2.3.4-publish.md#publishs-results); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
@@ -358,10 +361,10 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, setting a Project up, presets, duties, the Office Manager, limits.
 - [2.3 Pipelines](2.3-pipelines.md): index of the pages below.
   - [2.3.1 Stages](2.3.1-stages.md): Stage kinds, what a Stage declares, how it ends, skipping, Review & fix, linked Stages.
-  - [2.3.2 Flows](2.3.2-flows.md): routes, routes back and their limits, the route forms, an Agent's choice, conditions, the stage runs file, who is asked, validation.
+  - [2.3.2 Flows](2.3.2-flows.md): routes, routes back and their limits, the Pipeline's order, a Stage's position, the route forms, an Agent's choice, conditions, the stage runs file, who is asked, validation.
   - [2.3.3 Gates and checks](2.3.3-gates-and-checks.md): Gates, Send back, Gate notes, Reported met and Out of reach.
   - [2.3.4 Publish](2.3.4-publish.md): the Publish Stage and its results, conflicts in the flow, the commit message, before and after publishing, pull requests.
-  - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Stage templates, Project Pipelines, the move to routes back and Publish Stages.
+  - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Proposals' positions, Stage templates, Project Pipelines, the move to routes back and Publish Stages, the move to positions.
 - [2.4 Conversations](2.4-conversations.md): index of the pages below.
   - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what each Thread adds, what a Thread reads, Allow changes.
   - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows, Waiting for you.
@@ -508,6 +511,7 @@ Where each default lives, by page:
   - [A route's limit by default](2.3.2-flows.md#a-routes-limit-by-default)
   - [The holder of Asked first on failures](2.3.2-flows.md#the-holder-of-asked-first-on-failures)
   - [A refused turn is no failure](2.3.2-flows.md#a-refused-turn-is-no-failure)
+  - [A Stage's position](2.3.2-flows.md#a-stages-position): a Stage without one, End without one, the bounds
 - 2.3.3 Gates and checks
   - [Statements Out of reach](2.3.3-gates-and-checks.md#statements-out-of-reach)
   - [Reports count across Stages, and the check runs before Publish](2.3.3-gates-and-checks.md#reports-count-across-stages-and-the-check-runs-before-publish)
@@ -529,6 +533,10 @@ Where each default lives, by page:
   - [A Pipeline needs the commands it runs](2.3.5-library.md#a-pipeline-needs-the-commands-it-runs)
   - [Project Pipelines](2.3.5-library.md#project-pipelines)
   - [The move to routes back and Publish Stages](2.3.5-library.md#the-move-to-routes-back-and-publish-stages)
+  - [The move to positions](2.3.5-library.md#the-move-to-positions)
+- Pipeline flow editor (screen)
+  - [Moving a Stage](screens/pipeline-flow-editor.md#moving-a-stage): the 16-unit snapping grid, snapping to other Stages within 8 screen pixels
+  - [Narrow view](screens/pipeline-flow-editor.md#narrow-view): bands under 560px
 - 2.4.1 Threads
   - [Thread titles](2.4.1-threads.md#thread-titles)
 - 2.4.2 Decisions

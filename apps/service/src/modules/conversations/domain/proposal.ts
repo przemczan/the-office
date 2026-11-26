@@ -236,8 +236,16 @@ export interface ProposedPipelineChange {
   readonly pipelineId: string;
   readonly from: readonly PipelineStage[];
   readonly to: readonly PipelineStage[];
+  /** Where it puts End on the canvas, as Pipelines gave it; undefined keeps where End stands. */
+  readonly endPosition?: PipelineEndPosition;
   /** Undefined on a Proposal drafted before Proposals carried routes. */
   readonly routes?: PipelineRoutes;
+}
+
+/** Where a Proposal puts a Pipeline's End on the flow editor's canvas, in canvas units. */
+export interface PipelineEndPosition {
+  readonly x: number;
+  readonly y: number;
 }
 
 /**
@@ -278,6 +286,7 @@ export interface ProjectPipelineFields {
   readonly name: string;
   readonly description: string;
   readonly stages: readonly PipelineStage[];
+  readonly endPosition?: PipelineEndPosition;
   readonly copyOf?: string;
 }
 

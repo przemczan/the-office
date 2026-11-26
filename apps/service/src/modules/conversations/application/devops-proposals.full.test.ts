@@ -238,15 +238,17 @@ describe("Devops' Proposals, through the scripted engine", () => {
 
   it('drafts "run Review only when Tests changed files or ended Failed, otherwise Publish"; applied it saves the flow, declined it changes nothing', async () => {
     const pipeline = await aPipeline();
-    // Review stands where Publish stood, which moves a column on.
-    const reviewWhenNeeded: Stage[] = [
-      ...pipeline.stages.map((stage) => {
-        if (stage.key === "tests") return { ...stage, routes: REVIEW_WHEN_TESTS_CHANGED_OR_FAILED };
-        if (stage.key === "publish") return { ...stage, place: { column: 3, row: 0 } };
-        return stage;
-      }),
-      { ...REVIEW, routes: [{ to: "publish", condition: null }], place: { column: 2, row: 0 } },
-    ];
+    // Review comes just before Publish in the Pipeline's order and stands where Publish stood,
+    // which moves on by a card and its gap.
+    const reviewWhenNeeded: Stage[] = pipeline.stages.flatMap((stage): Stage[] => {
+      if (stage.key === "tests") return [{ ...stage, routes: REVIEW_WHEN_TESTS_CHANGED_OR_FAILED }];
+      if (stage.key !== "publish" || !stage.position) return [stage];
+      const { x, y } = stage.position;
+      return [
+        { ...REVIEW, routes: [{ to: "publish", condition: null }], position: { x, y } },
+        { ...stage, position: { x: x + 308, y } },
+      ];
+    });
 
     const proposing = [
       PROPOSE_LIBRARY_PIPELINE_TOOL,
@@ -1216,14 +1218,24 @@ describe("Devops' Proposals of Actions, through the scripted engine", () => {
     name: "Build web",
     leavesTheWorkstation: false,
     kind: "project-command",
-    settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: null },
+    settings: {
+      commandKey: "build",
+      commandsBefore: ["install"],
+      timeLimitMinutes: null,
+      projectDeviceId: null,
+    },
   } as const;
   const LINT = {
     key: "lint",
     name: "Lint",
     leavesTheWorkstation: false,
     kind: "project-command",
-    settings: { commandKey: "lint", commandsBefore: [], timeLimitMinutes: 10 },
+    settings: {
+      commandKey: "lint",
+      commandsBefore: [],
+      timeLimitMinutes: 10,
+      projectDeviceId: null,
+    },
   } as const;
 
   it("drafts Actions that change nothing until applied, a value the user set only when named, and applies them as set by the Proposal", async () => {
@@ -1577,17 +1589,18 @@ function withLint(stages: readonly Stage[]): Stage[] {
     optional: false,
     command: "lint",
   };
-  const plain = asPlainList(stages.filter(({ place }) => (place?.row ?? 0) === 0));
+  // Without the conflict chain, which the library draws in again for a kept Publish alone.
+  const plain = asPlainList(stages.filter(({ key }) => !key.startsWith("office:resolve")));
   return [...plain.slice(0, -1), lint, ...plain.slice(-1)];
 }
 
 /**
- * The Stages without their routes and places, as a Proposal sending a plain list gives them: the
+ * The Stages without their routes and positions, as a Proposal sending a plain list gives them: the
  * library converts them to a straight line, where Stages read back with routes would keep routes
  * to Stages the Proposal moved or took away.
  */
 function asPlainList(stages: readonly Stage[]): Stage[] {
-  return stages.map(({ routes: _routes, place: _place, ...stage }) => stage);
+  return stages.map(({ routes: _routes, place: _place, position: _position, ...stage }) => stage);
 }
 
 /** The Stages with each Agent Stage keeping only the Project's test command. */

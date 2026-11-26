@@ -15,6 +15,7 @@
     "@tanstack/react-router": "1.170.46",
     "@the-office/contracts": "*",
     "@the-office/ui": "*",
+    "elkjs": "0.12.2",
     "hast-util-from-dom": "5.0.1",
     "hast-util-to-mdast": "10.1.4",
     "mdast-util-gfm": "3.1.0",

@@ -5,6 +5,7 @@ import type {
   Role,
   RoleCardOptions,
   Stage,
+  StagePosition,
   TaskStages,
   TaskSummary,
 } from "@the-office/contracts";
@@ -21,7 +22,7 @@ import {
   type PipelineChoiceGroup,
 } from "../../shell/pipelines/pipeline-choices.ts";
 import { PipelinePicker } from "../../shell/pipelines/pipeline-picker.tsx";
-import { asWholeFlow } from "../../shell/pipelines/flow/flow-model.ts";
+import { asFlow } from "../../shell/pipelines/flow/flow-model.ts";
 import { TaskFlowEditor } from "../../shell/pipelines/flow/task-flow-editor.tsx";
 import { byLevel, checkAwaited } from "../../shell/pipelines/stages-check.ts";
 import { unlinkedStage } from "../../shell/pipelines/template-link.ts";
@@ -106,7 +107,7 @@ function EditTaskStagesForm({
   readonly onClose: () => void;
 }): ReactNode {
   const stagesOf = (pipelineId: string): readonly Stage[] =>
-    asWholeFlow(
+    asFlow(
       (pipelineId === task.pipelineId ? taskStages.stages?.map(({ stage }) => stage) : undefined) ??
         // A Task's own Stages are copies, never linked to a Stage template.
         choiceById(groups, pipelineId)?.stages.map(unlinkedStage) ??
@@ -118,7 +119,12 @@ function EditTaskStagesForm({
   // With none chosen yet, it opens on its Kind's default, so one press chooses it.
   const [opening] = useState(() => (notChosen ? (openingChoice(groups)?.id ?? "") : followed));
   const [chosenPipelineId, setChosenPipelineId] = useState(opening);
+  const endPositionOf = (pipelineId: string): StagePosition | undefined =>
+    pipelineId === task.pipelineId && taskStages.stages
+      ? taskStages.endPosition
+      : choiceById(groups, pipelineId)?.endPosition;
   const [stages, setStages] = useState(() => stagesOf(opening));
+  const [endPosition, setEndPosition] = useState(() => endPositionOf(opening));
   const [edited, setEdited] = useState(false);
   const pipeline = choiceById(groups, chosenPipelineId);
   const swapped = chosenPipelineId !== followed;
@@ -143,7 +149,7 @@ function EditTaskStagesForm({
       if (swapped) await swapping.mutateAsync(chosenPipelineId);
       // A swap alone keeps the Task following the library, so it saves no Stages of its own.
       if (edited) {
-        const saved = await editTaskStages(task.id, stages);
+        const saved = await editTaskStages(task.id, stages, endPosition);
         queryClient.setQueryData(pipelineQueries.taskStages(task.id).queryKey, saved);
       }
       return notChosen
@@ -205,6 +211,7 @@ function EditTaskStagesForm({
             onChange={(pipelineId) => {
               setChosenPipelineId(pipelineId);
               setStages(stagesOf(pipelineId));
+              setEndPosition(endPositionOf(pipelineId));
               setEdited(false);
             }}
           />
@@ -226,8 +233,10 @@ function EditTaskStagesForm({
             // Another Pipeline opens at 100%, with its Start in view.
             key={chosenPipelineId}
             stages={stages}
-            onChange={(changed) => {
+            endPosition={endPosition}
+            onChange={(changed, end) => {
               setStages(changed);
+              setEndPosition(end);
               setEdited(true);
             }}
             started={started}

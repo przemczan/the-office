@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { builtInPipelines } from "./built-in-pipelines.js";
-import { straightLineFlow } from "./flow.js";
 import {
   addedPipeline,
   copiedPipeline,
@@ -14,7 +13,7 @@ import {
 } from "./library-pipeline.js";
 import type { Pipeline } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
-import { agentStage, scriptStage } from "./stage.fixtures.js";
+import { agentStage, scriptStage, straightLine } from "./stage.fixtures.js";
 import type { RoleFilling } from "./stage-staffing.js";
 
 const DEVELOPER_HIRED = new Map<string, RoleFilling>([
@@ -139,7 +138,7 @@ describe("addedPipeline and savedPipeline", () => {
       id: "nightly-id",
       name: "Nightly",
       description: "Runs at night.",
-      stages: straightLineFlow(edit.stages),
+      stages: straightLine(edit.stages),
     });
     expect(added.event).toBeInstanceOf(PipelineAdded);
     const saved = savedPipeline("nightly-id", edit);

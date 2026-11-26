@@ -1,4 +1,4 @@
-import { pipelineOrder, type FlowStage } from "./flow.js";
+import type { FlowStage } from "./flow.js";
 import type { PublishResult } from "./publish-result.js";
 import { testsOf, type Route } from "./route.js";
 import { isPublishStage } from "./stage.js";
@@ -34,9 +34,8 @@ export function isConflictRoute(route: Route, stage: FlowStage): boolean {
  * a chain drawn before a Publish that is first stands before it.
  */
 export function conflictOnlyStages(flow: readonly FlowStage[]): ReadonlySet<string> {
-  const ordered = pipelineOrder(flow);
-  const byKey = new Map(ordered.map((stage) => [stage.key, stage]));
-  const conflictTargets = ordered.flatMap((stage) =>
+  const byKey = new Map(flow.map((stage) => [stage.key, stage]));
+  const conflictTargets = flow.flatMap((stage) =>
     stage.routes.flatMap((route) =>
       isConflictRoute(route, stage) && route.to !== null ? [route.to] : [],
     ),
@@ -46,7 +45,7 @@ export function conflictOnlyStages(flow: readonly FlowStage[]): ReadonlySet<stri
       (key) => !isPublishStage(byKey.get(key)),
     ),
   );
-  const start = ordered.find(({ key }) => !afterConflict.has(key)) ?? ordered[0];
+  const start = flow.find(({ key }) => !afterConflict.has(key)) ?? flow[0];
   if (!start) return new Set();
   const withoutConflict = reached(
     byKey,

@@ -4,7 +4,10 @@ import { menuPlacement } from "./menu-placement.ts";
 /**
  * Places an open list drawn on the page's body where `menuPlacement` says, measured and set on the
  * element before it paints (the list is hidden until then, `.floating-menu`), and again as the page
- * scrolls or the window resizes, since the list is fixed to the window and its trigger moves.
+ * scrolls or the window resizes, since the list is fixed to the window and its trigger moves, and
+ * as the list itself changes size: an item that arrives once open (an action whose data loads late)
+ * would otherwise grow a list placed above its trigger down over it, moving every item under the
+ * pointer. With no `ResizeObserver` (a test's DOM) it is placed on opening only.
  */
 export function usePlacedList(
   open: boolean,
@@ -25,9 +28,12 @@ export function usePlacedList(
       element.style.setProperty("visibility", "visible");
     };
     place();
+    const resizing = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(place);
+    resizing?.observe(element);
     window.addEventListener("scroll", place, true);
     window.addEventListener("resize", place);
     return () => {
+      resizing?.disconnect();
       window.removeEventListener("scroll", place, true);
       window.removeEventListener("resize", place);
     };

@@ -1,9 +1,9 @@
-import { asFlow, pipelineOrder } from "./flow.js";
+import { asFlow, withoutLayout } from "./flow.js";
 import { pipelineProblem, stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { UnknownProjectPipeline } from "./pipeline-library-refusals.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { pipelineNameProblems, type TakenName } from "./pipeline-names.js";
-import { unnamedRoutes } from "./route.js";
+import { unnamedRoutes, type StagePosition } from "./route.js";
 import { sameAsKept, type Stage } from "./stage.js";
 
 /** The Pipeline a Project Pipeline was copied from, by name, and when; for its words alone. */
@@ -14,8 +14,8 @@ export interface CopiedFrom {
 }
 
 /**
- * A Pipeline of one Project (spec §2.3.5, "Project Pipelines"): its own Stages, routes and places,
- * made as a copy of another Pipeline.
+ * A Pipeline of one Project (spec §2.3.5, "Project Pipelines"): its own Stages, routes and
+ * positions, made as a copy of another Pipeline.
  */
 export interface ProjectPipeline {
   readonly id: string;
@@ -23,6 +23,8 @@ export interface ProjectPipeline {
   readonly name: string;
   readonly description: string;
   readonly stages: readonly Stage[];
+  /** Where End stands on the canvas; undefined, right of the right-most Stage. */
+  readonly endPosition?: StagePosition;
   readonly copiedFrom: CopiedFrom;
   /**
    * Why it was Broken when The Office moved it to a flow of its own, each Stage change that didn't
@@ -36,6 +38,7 @@ export interface ProjectPipelineEdit {
   readonly name: string;
   readonly description: string;
   readonly stages: readonly Stage[];
+  readonly endPosition?: StagePosition;
 }
 
 /** A new Project Pipeline: a copy of a Pipeline (`copyOf`, by id) under its own name. */
@@ -65,8 +68,14 @@ export interface PipelinesAround {
 }
 
 /** The Project Pipeline as a Pipeline a Task copies its Stages from. */
-export function asPipeline({ id, name, description, stages }: ProjectPipeline): Pipeline {
-  return { id, name, description, stages };
+export function asPipeline({
+  id,
+  name,
+  description,
+  stages,
+  endPosition,
+}: ProjectPipeline): Pipeline {
+  return { id, name, description, stages, ...(endPosition && { endPosition }) };
 }
 
 /**
@@ -122,7 +131,7 @@ export function proposedProjectPipelineProblems(
 
 /**
  * Fields alike as they are kept, the Stages compared as flows in order; the Stages' names in routes
- * are for their words alone, so they don't count.
+ * are for their words alone, and where Stages and End stand is layout, so they don't count.
  */
 function sameFieldsAsKept(one: ProjectPipelineEdit, other: ProjectPipelineEdit): boolean {
   return (
@@ -132,9 +141,9 @@ function sameFieldsAsKept(one: ProjectPipelineEdit, other: ProjectPipelineEdit):
   );
 }
 
-function comparedFlow(stages: readonly Stage[]): Stage[] {
-  return pipelineOrder(asFlow(stages)).map((stage) => ({
-    ...stage,
+function comparedFlow(stages: readonly Stage[]): object[] {
+  return asFlow(stages).map((stage) => ({
+    ...withoutLayout(stage),
     routes: unnamedRoutes(stage.routes),
   }));
 }
@@ -153,8 +162,9 @@ function takenByProjectPipeline(
 }
 
 /**
- * A Project Pipeline copied from `source`'s Stages as they are, under the name its edit gives, which
- * `projectPipelineNameProblems` allowed; `stages`, when given, are a Proposal's in their place.
+ * A Project Pipeline copied from `source`'s Stages and End as they are, under the name its edit
+ * gives, which `projectPipelineNameProblems` allowed; `flow`, when given, is a Proposal's in their
+ * place.
  */
 export function copiedProjectPipeline(
   id: string,
@@ -162,7 +172,7 @@ export function copiedProjectPipeline(
   { name, description }: Omit<NewProjectPipeline, "copyOf">,
   source: Pipeline,
   at: Date,
-  stages: readonly Stage[] = source.stages,
+  { stages, endPosition }: Pick<Pipeline, "stages" | "endPosition"> = source,
 ): { readonly projectPipeline: ProjectPipeline; readonly event: PipelineAdded } {
   return {
     projectPipeline: {
@@ -171,6 +181,7 @@ export function copiedProjectPipeline(
       name: name.trim(),
       description: description.trim(),
       stages: flowInOrder(stages),
+      ...(endPosition && { endPosition }),
       copiedFrom: { name: source.name, at },
       brokenBeforeUpdate: null,
     },
@@ -186,15 +197,17 @@ export function copiedProjectPipeline(
  */
 export function savedProjectPipeline(
   saved: ProjectPipeline,
-  { name, description, stages }: ProjectPipelineEdit,
+  { name, description, stages, endPosition }: ProjectPipelineEdit,
   { keepsBroken = false }: { readonly keepsBroken?: boolean } = {},
 ): { readonly projectPipeline: ProjectPipeline; readonly event: PipelineSaved } {
+  const { endPosition: _endPosition, ...kept } = saved;
   return {
     projectPipeline: {
-      ...saved,
+      ...kept,
       name: name.trim(),
       description: description.trim(),
       stages: flowInOrder(stages),
+      ...(endPosition && { endPosition }),
       brokenBeforeUpdate: keepsBroken ? saved.brokenBeforeUpdate : null,
     },
     event: new PipelineSaved(saved.id),
@@ -202,5 +215,5 @@ export function savedProjectPipeline(
 }
 
 function flowInOrder(stages: readonly Stage[]): Stage[] {
-  return pipelineOrder(asFlow(stages));
+  return asFlow(stages);
 }

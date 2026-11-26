@@ -5,7 +5,7 @@ import { useToast } from "../toasts.tsx";
 import { STAGE_KIND_NAMES } from "./stage-edits.ts";
 
 /**
- * Save as template: the Stage added to the templates as it is, without its place and routes, which
+ * Save as template: the Stage added to the templates as it is, without its position and routes, which
  * only a Pipeline gives meaning, nor its own link. A Pipeline's host links the Stage to the new
  * template on success.
  */
@@ -22,7 +22,13 @@ export function useSaveAsTemplate() {
 }
 
 function asTemplateStage(stage: Stage): Stage {
-  const { routes: _routes, place: _place, templateId: _templateId, ...rest } = stage;
+  const {
+    routes: _routes,
+    position: _position,
+    place: _place,
+    templateId: _templateId,
+    ...rest
+  } = stage;
   return rest;
 }
 

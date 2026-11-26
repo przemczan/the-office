@@ -1,13 +1,14 @@
-import type { Route, RouteLimit, Stage, StagePlace } from "@the-office/contracts";
-import { type FlowDrop, isRouteBack, limitOf } from "./flow-model.ts";
+import type { Route, RouteLimit, Stage, StagePosition } from "@the-office/contracts";
+import { isRouteBack, limitOf } from "./flow-model.ts";
 import type { FlowOverlay } from "./flow-marks.ts";
+import { CARD_WIDTH } from "./flow-snap.ts";
 
 /**
- * The flow canvas's geometry (docs/design/pipeline-flow.html), apart from React: where each Stage
- * goes in the grid of places, and, from the boxes the canvas measured, the routes' lines as SVG
- * path data: a route on runs to the right, a route back curves back above the Stages in a lane of
- * its own, and each with a limit carries its ≤N× mark. Across, the columns run left to right in the Pipeline's order; down (a canvas
- * under 560px wide) they become bands top to bottom, a column's rows side by side.
+ * The flow canvas's geometry (docs/design/pipeline-flow.html, docs/design/pipeline-free-placement.html),
+ * apart from React: from the boxes the canvas measured, the routes' lines as SVG path data: a route
+ * on runs to the right, a route back curves back above the Stages in a lane of its own, and each
+ * with a limit carries its ≤N× mark. Across, each Stage stands at its position; down (a canvas
+ * under 560px wide) the Stages stand in bands from their positions, top to bottom (`narrowLayout`).
  */
 
 export type FlowOrientation = "across" | "down";
@@ -84,11 +85,7 @@ export interface FlowStartPath extends FlowPath {
   readonly dot: FlowPoint;
 }
 
-export interface FlowGridSize {
-  readonly columns: number;
-  readonly rows: number;
-}
-
+/** Where a Stage or End goes in the narrow view's grid. */
 export interface FlowGridCell {
   readonly gridColumn: string;
   readonly gridRow: string;
@@ -107,32 +104,68 @@ export interface LaidLoop extends Loop {
   readonly lane: number;
 }
 
-/** A Stage's place, or for one with none (only before `asFlow`) a column of its own by its index. */
-export function placeOf(stages: readonly Stage[], stage: Stage): StagePlace {
-  return stage.place ?? { column: stages.indexOf(stage), row: 0 };
+/**
+ * The narrow view's bands, top to bottom, each its Stages' keys in the order they stand side by
+ * side (docs/design/pipeline-free-placement.html, "Narrow screens"): going through the Stages by
+ * x, a Stage joins the band before when its card overlaps it by at least half a card, otherwise it
+ * starts a new one; within a band, top first. Stored positions never change.
+ */
+export function narrowBands(
+  stages: readonly { readonly key: string; readonly position?: StagePosition }[],
+): readonly (readonly string[])[] {
+  const at = (index: number): StagePosition => stages[index]?.position ?? { x: 0, y: 0 };
+  const byX = stages
+    .map((_, index) => index)
+    .toSorted((a, b) => at(a).x - at(b).x || at(a).y - at(b).y || a - b);
+  const bands: { right: number; members: number[] }[] = [];
+  for (const index of byX) {
+    const { x } = at(index);
+    const band = bands.at(-1);
+    if (band && x <= band.right - CARD_WIDTH / 2) {
+      band.members.push(index);
+      band.right = Math.max(band.right, x + CARD_WIDTH);
+    } else {
+      bands.push({ right: x + CARD_WIDTH, members: [index] });
+    }
+  }
+  return bands.map(({ members }) =>
+    members.toSorted((a, b) => at(a).y - at(b).y || a - b).map((index) => stages[index]!.key),
+  );
 }
 
-export function flowGridSize(stages: readonly Stage[]): FlowGridSize {
-  const places = stages.map((stage) => placeOf(stages, stage));
+/** At most this many Stages of a band side by side; the next wraps onto a new line. */
+const BAND_LINE = 2;
+
+export interface FlowNarrowLayout {
+  readonly cells: ReadonlyMap<string, FlowGridCell>;
+  /** Each Stage's band, from 0 at the top. */
+  readonly bands: ReadonlyMap<string, number>;
+  readonly columns: number;
+  /** End, last, in a band of its own across the whole width. */
+  readonly end: FlowGridCell;
+}
+
+/** The narrow view's grid: each band's Stages side by side, at most two to a line, End last. */
+export function narrowLayout(bands: readonly (readonly string[])[]): FlowNarrowLayout {
+  const cells = new Map<string, FlowGridCell>();
+  const bandOf = new Map<string, number>();
+  let row = 0;
+  for (const [band, keys] of bands.entries()) {
+    for (const [slot, key] of keys.entries()) {
+      cells.set(key, {
+        gridColumn: String((slot % BAND_LINE) + 1),
+        gridRow: String(row + Math.floor(slot / BAND_LINE) + 1),
+      });
+      bandOf.set(key, band);
+    }
+    row += Math.ceil(keys.length / BAND_LINE);
+  }
   return {
-    columns: Math.max(0, ...places.map(({ column }) => column)) + 1,
-    rows: Math.max(0, ...places.map(({ row }) => row)) + 1,
+    cells,
+    bands: bandOf,
+    columns: Math.min(BAND_LINE, Math.max(1, ...bands.map((keys) => keys.length))),
+    end: { gridColumn: "1 / -1", gridRow: String(row + 1) },
   };
-}
-
-export function gridCellOf(place: StagePlace, orientation: FlowOrientation): FlowGridCell {
-  const across = { gridColumn: String(place.column + 1), gridRow: String(place.row + 1) };
-  return orientation === "across"
-    ? across
-    : { gridColumn: across.gridRow, gridRow: across.gridColumn };
-}
-
-/** End stands after the last column, the whole height of the rows (the whole width, down). */
-export function endCellOf(size: FlowGridSize, orientation: FlowOrientation): FlowGridCell {
-  const after = String(size.columns + 1);
-  return orientation === "across"
-    ? { gridColumn: after, gridRow: "1 / -1" }
-    : { gridColumn: "1 / -1", gridRow: after };
 }
 
 /** Whether a Stage lists its routes inside it: more than one, or one with a condition or a limit. */
@@ -192,39 +225,44 @@ function overlayLines(
 }
 
 /**
- * Whether a line must go round rather than straight: it leads to its own or an earlier column (a
- * later row of its own column, or a Proposal's route back), or a Stage stands between on its row. A
- * line to End never does, as End is after every column.
+ * Whether a line must go round rather than straight, worked out across: its target stands at or
+ * before its Stage (overlapping it, or left of it), or another card stands between them across the
+ * Stage's middle.
  */
 export function needsDetour(
-  stages: readonly Stage[],
-  from: Stage,
-  target: Stage | undefined,
+  from: FlowBox,
+  target: FlowBox | undefined,
+  others: readonly FlowBox[],
 ): boolean {
   if (!target) return false;
-  const start = placeOf(stages, from);
-  const end = placeOf(stages, target);
-  if (end.column <= start.column) return true;
-  return stages.some((other) => {
-    if (other === from || other === target) return false;
-    const place = placeOf(stages, other);
-    return place.row === start.row && place.column > start.column && place.column < end.column;
-  });
+  const right = from.x + from.width;
+  if (target.x < right) return true;
+  const level = middleY(from);
+  return others.some(
+    (other) =>
+      other.x >= right &&
+      other.x + other.width <= target.x &&
+      other.y < level &&
+      level < other.y + other.height,
+  );
 }
 
 /**
  * The routes back, to their own Stage or an earlier one, each in a lane of its own above the Stages
- * (beside them, down), so two that overlap never share a line: the shortest get the lanes nearest
- * the Stages.
+ * (beside them, down), so two whose spans overlap never share a line: the shortest get the lanes
+ * nearest the Stages. `spanAt` is where a Stage stands along the flow: its x across, its band down.
  */
-export function loopLanes(stages: readonly Stage[]): readonly LaidLoop[] {
+export function loopLanes(
+  stages: readonly Stage[],
+  spanAt: (stage: Stage) => number,
+): readonly LaidLoop[] {
   const loops = stages
     .flatMap((from): Loop[] =>
       (from.routes ?? []).flatMap((route, routeIndex): Loop[] => {
         const to = stages.find(({ key }) => key === route.to);
         if (!to || !isRouteBack(stages, from.key, to.key)) return [];
-        const a = placeOf(stages, from).column;
-        const b = placeOf(stages, to).column;
+        const a = spanAt(from);
+        const b = spanAt(to);
         const limit = limitOf(stages, from.key, route);
         return [{ from, to, routeIndex, limit, lo: Math.min(a, b), hi: Math.max(a, b) }];
       }),
@@ -240,8 +278,8 @@ export function loopLanes(stages: readonly Stage[]): readonly LaidLoop[] {
 }
 
 /**
- * Loops that only meet at a column share a lane, as their ends there take separate points; a loop
- * within one column runs over that column, so it can't share it.
+ * Loops that only meet at a Stage's span share a lane, as their ends there take separate points; a
+ * loop within one span runs over it, so it can't share it.
  */
 function lanesClash(a: Loop, b: Loop): boolean {
   if (a.lo === a.hi || b.lo === b.hi) return a.lo <= b.hi && b.lo <= a.hi;
@@ -268,13 +306,13 @@ const CORNER = 6;
 
 /** The room the canvas keeps for the routes back's lanes and for the lines that go round, in px. */
 export function flowRoom(
-  stages: readonly Stage[],
   lines: readonly FlowLine[],
   loops: readonly LaidLoop[],
+  measure: FlowMeasure,
   orientation: FlowOrientation,
 ): { readonly loops: number; readonly detours: number } {
   const laneCount = loops.reduce((most, { lane }) => Math.max(most, lane + 1), 0);
-  const detours = lines.filter((line) => lineDetours(stages, line)).length;
+  const detours = lines.filter((line) => lineDetours(line, measure, orientation)).length;
   return {
     loops: laneCount
       ? LOOP_CLEARANCE + (laneCount - 1) * LOOP_LANE + markHalf(orientation).across
@@ -295,10 +333,16 @@ function markHalf(orientation: FlowOrientation): MarkHalf {
     : { along: MARK_HEIGHT / 2, across: MARK_WIDTH / 2 };
 }
 
-function lineDetours(stages: readonly Stage[], line: FlowLine): boolean {
-  const from = stages.find(({ key }) => key === line.fromKey);
-  const target = line.to === null ? undefined : stages.find(({ key }) => key === line.to);
-  return from !== undefined && needsDetour(stages, from, target);
+/** Whether the line goes round, by the measured boxes; down, as across with x and y swapped. */
+function lineDetours(line: FlowLine, measure: FlowMeasure, orientation: FlowOrientation): boolean {
+  const frame = orientation === "down" ? swappedMeasure(measure) : measure;
+  const from = frame.stages.get(line.fromKey)?.box;
+  const target = line.to === null ? frame.end : frame.stages.get(line.to)?.box;
+  if (!from) return false;
+  const others = [...frame.stages]
+    .filter(([key]) => key !== line.fromKey && key !== line.to)
+    .map(([, { box }]) => box);
+  return needsDetour(from, target, others);
 }
 
 type Pt = readonly [number, number];
@@ -358,7 +402,6 @@ const middleY = (box: FlowBox): number => box.y + box.height / 2;
  * that go round take a lane each, below or beside.
  */
 export function routePaths(
-  stages: readonly Stage[],
   lines: readonly FlowLine[],
   measure: FlowMeasure,
   orientation: FlowOrientation,
@@ -369,7 +412,7 @@ export function routePaths(
     const from = measure.stages.get(line.fromKey);
     const target = line.to === null ? measure.end : measure.stages.get(line.to)?.box;
     if (!from || !target) return [];
-    const away = lineDetours(stages, line);
+    const away = lineDetours(line, measure, orientation);
     const lane = away ? detour++ : 0;
     const path =
       orientation === "across"
@@ -853,82 +896,4 @@ function outerEdges(measure: FlowMeasure): {
     bottom: Math.max(...boxes.map(({ y, height }) => y + height)),
     right: Math.max(...boxes.map(({ x, width }) => x + width)),
   };
-}
-
-/** The grid's tracks as laid out, in px, End's track last. */
-export interface FlowTracks {
-  readonly columns: readonly number[];
-  readonly rows: readonly number[];
-  readonly columnGap: number;
-  readonly rowGap: number;
-}
-
-export interface FlowDropAt {
-  readonly drop: FlowDrop;
-  /** Where to show it, relative to the grid: a cell, or a thin bar in a gap for a new column. */
-  readonly ghost: FlowBox;
-}
-
-interface Slot {
-  readonly index: number;
-  readonly newColumn: boolean;
-  readonly start: number;
-  readonly size: number;
-}
-
-/**
- * Where a Stage dragged to `point` (relative to the grid) would drop: the column under it, or a new
- * one when it is near a column's edge or past the last, and the row under it.
- */
-export function dropAt(
-  tracks: FlowTracks,
-  point: FlowPoint,
-  orientation: FlowOrientation,
-): FlowDropAt {
-  const down = orientation === "down";
-  const major = majorSlot(
-    (down ? tracks.rows : tracks.columns).slice(0, -1),
-    down ? tracks.rowGap : tracks.columnGap,
-    down ? point.y : point.x,
-  );
-  const minor = minorSlot(
-    down ? tracks.columns : tracks.rows,
-    down ? tracks.columnGap : tracks.rowGap,
-    down ? point.x : point.y,
-  );
-  const crossSize = sum(
-    down ? tracks.columns : tracks.rows,
-    down ? tracks.columnGap : tracks.rowGap,
-  );
-  const ghost: FlowBox = major.newColumn
-    ? down
-      ? { x: 0, y: major.start - 3, width: crossSize, height: 6 }
-      : { x: major.start - 3, y: 0, width: 6, height: crossSize }
-    : down
-      ? { x: minor.start, y: major.start, width: minor.size, height: major.size }
-      : { x: major.start, y: minor.start, width: major.size, height: minor.size };
-  return { drop: { column: major.index, row: minor.index, newColumn: major.newColumn }, ghost };
-}
-
-function majorSlot(sizes: readonly number[], gap: number, at: number): Slot {
-  let start = 0;
-  for (const [index, size] of sizes.entries()) {
-    if (at < start + size * 0.2) return { index, newColumn: true, start: start - gap / 2, size: 0 };
-    if (at <= start + size * 0.8) return { index, newColumn: false, start, size };
-    start += size + gap;
-  }
-  return { index: sizes.length, newColumn: true, start: start - gap / 2, size: 0 };
-}
-
-function minorSlot(sizes: readonly number[], gap: number, at: number): Slot {
-  let start = 0;
-  for (const [index, size] of sizes.entries()) {
-    if (at <= start + size + gap / 2) return { index, newColumn: false, start, size };
-    start += size + gap;
-  }
-  return { index: sizes.length, newColumn: false, start, size: sizes[0] ?? 60 };
-}
-
-function sum(sizes: readonly number[], gap: number): number {
-  return sizes.reduce((total, size) => total + size, 0) + gap * Math.max(0, sizes.length - 1);
 }

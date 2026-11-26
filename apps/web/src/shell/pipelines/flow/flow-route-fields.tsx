@@ -2,7 +2,7 @@ import { ROUTE_LIMIT_MAX, type Route, type RouteLimit, type Stage } from "@the-o
 import { Select, Stepper } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { routeTargetName } from "./condition-words.ts";
-import { inFlowOrder, limitOf, ROUTE_BACK_LIMIT } from "./flow-model.ts";
+import { limitOf, ROUTE_BACK_LIMIT } from "./flow-model.ts";
 
 /** The Goes to select's value for End. */
 const END = "";
@@ -28,7 +28,7 @@ export function FlowRouteTarget({
       : [];
   const options = [
     ...gone,
-    ...inFlowOrder(stages).map(({ key, name }) => ({ value: key, label: name })),
+    ...stages.map(({ key, name }) => ({ value: key, label: name })),
     { value: END, label: "End" },
   ];
   return (

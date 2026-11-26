@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { asFlow, pipelineOrder } from "../domain/flow.js";
+import { asFlow } from "../domain/flow.js";
 import { gateActionProblems, waitingGateRun } from "../domain/gate.js";
 import { GateRefused } from "../domain/gate-refused.js";
 import type { TaskProgress } from "../domain/stage-progress.js";
@@ -74,7 +74,7 @@ export class GateService {
   /** The Task's Stages after the action; refused with the reasons when the Gate doesn't allow it. */
   private async act(taskId: string, action: GateAction): Promise<TaskProgress | undefined> {
     const runs = runsOfLatestStart(await this.runs.list(taskId));
-    const stages = pipelineOrder(asFlow((await this.taskStages.find(taskId))?.stages ?? []));
+    const stages = asFlow((await this.taskStages.find(taskId))?.stages ?? []);
     const problems = gateActionProblems(stages, runs, action);
     const gate = waitingGateRun(stages, runs);
     if (problems.length > 0 || !gate) throw new GateRefused(problems);

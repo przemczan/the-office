@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { stageSchema } from "@the-office/contracts";
+import { stagePositionSchema, stageSchema } from "@the-office/contracts";
 import { z } from "zod";
 import {
   LIST_PIPELINES_TOOL,
@@ -26,7 +26,7 @@ import { StageProjectCommands } from "../../application/stage-project-commands.j
 import { StageRunEnvironmentDefinitions } from "../../application/stage-run-environment-definitions.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf } from "../../domain/agent-command.js";
-import { placedInOrder, withGivenLimits } from "../../domain/flow.js";
+import { namedFlow, withGivenLimits } from "../../domain/flow.js";
 import { proposedEdit } from "../../domain/library-pipeline.js";
 import type { StageProblem } from "../../domain/pipeline.js";
 import type { ProjectPipeline } from "../../domain/project-pipeline.js";
@@ -71,6 +71,20 @@ const STAGE_KINDS_WORDS =
 /** The worked example both propose tools give. */
 const ROUTES_EXAMPLE =
   'For example, "run Review only when Tests changed files or ended Failed, otherwise Publish" gives the Tests Stage the routes `[{ "to": "review", "condition": { "combine": "any", "tests": [{ "kind": "stage", "stage": null, "is": "changed" }, { "kind": "stage", "stage": null, "is": "failed" }] } }, { "to": "publish", "condition": null }]`, Review the routes `[{ "to": "publish", "condition": null }]`, and Publish `[{ "to": null, "condition": null }]`; and "when Tests fail, go back to Implement at most 2 times" puts `{ "to": "implement", "condition": { "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }, "limit": 2 }` first among Tests\' routes.';
+
+/** Where the Stages and End stand on the canvas, which both propose tools take. */
+const POSITION_WORDS =
+  "The order of `stages` is the Pipeline's order: the first is where every walk starts, and a route to its own Stage or an earlier one leads back. A Stage's `position` (`x`, `y`) is where its card's top-left corner stands on the editor's canvas, in canvas units (a card is 232 wide and 72 to about 170 high; leave 76 between Stages side by side); it is layout alone and never changes how the Pipeline runs. Leave every position out to have the Stages stand in a row in the order given; leave one out and it stands right of the Stage before it. `endPosition` places End, right of the last Stage when left out. Stages that all leave their routes out are taken as a straight line, each to the next.";
+
+/** Why a Stage given with the place it had on the old grid is refused. */
+const PLACE_REFUSED =
+  "`place` (column, row) is from before free placement: give each Stage a `position` (x, y) in the Pipeline's order, or leave it out.";
+
+const END_POSITION_INPUT = stagePositionSchema
+  .optional()
+  .describe(
+    "Where End's top-left corner stands on the editor's canvas, in canvas units; right of the last Stage when left out.",
+  );
 
 /** What both propose tools do before drafting. */
 const CHECKED_WORDS =
@@ -224,7 +238,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
       description:
-        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions (an Agent Stage's choices among them, each a choice test with its words) and its place on the editor's canvas, in the shape propose_library_pipeline takes them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which propose_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
+        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions (an Agent Stage's choices among them, each a choice test with its words) and its position on the editor's canvas, and where End stands (`endPosition`) when it was moved, in the shape propose_library_pipeline takes them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which propose_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
       input: z.object({
         project: z
           .string()
@@ -278,7 +292,7 @@ export class PipelineOfficeTools implements OnModuleInit {
       description: [
         "Drafts an office-wide Pipeline's whole new flow as a Proposal the user applies with a click: its Stages, where each stands, and their routes with their conditions and limits; its name and description stay.",
         ROUTES_WORDS,
-        "A Stage's `place` (`column`, `row`) is where it stands on the editor's canvas, which gives the Pipeline's order, the columns left to right; leave every place out to have the Stages stand one to a column in the order given. Stages that all leave their routes out are taken as a straight line, each to the next.",
+        POSITION_WORDS,
         ROUTES_EXAMPLE,
         CHECKED_WORDS,
         "It shows in this Thread as a card, with each Stage whose routes change, its routes as they were and as proposed, and changes nothing until the user applies it. It returns at once.",
@@ -288,24 +302,32 @@ export class PipelineOfficeTools implements OnModuleInit {
         stages: z
           .array(stageSchema)
           .describe(
-            `The Pipeline's Stages as they should be, all of them, each with its routes and place, in the shape list_pipelines gives them. ${STAGE_KINDS_WORDS} Every Project with the Pipeline as default, or with a Task on it that hasn't started, must have each key it names, a command test's among them.`,
+            `The Pipeline's Stages as they should be, all of them, in the Pipeline's order, each with its routes and position, in the shape list_pipelines gives them. ${STAGE_KINDS_WORDS} Every Project with the Pipeline as default, or with a Task on it that hasn't started, must have each key it names, a command test's among them.`,
           ),
+        endPosition: END_POSITION_INPUT,
       }),
-      run: async ({ pipeline: pipelineId, stages }, { sessionId }) => {
+      run: async ({ pipeline: pipelineId, stages, endPosition }, { sessionId }) => {
         const pipeline = await this.library.find(pipelineId.trim());
         if (!pipeline) {
           return { text: `The library has no Pipeline "${pipelineId}".`, isError: true };
         }
-        const to = placedInOrder(withGivenLimits(stages));
-        const check = await this.editor.check(proposedEdit(pipeline, to), pipeline.id);
+        if (stages.some(({ place }) => place !== undefined)) {
+          return { text: PLACE_REFUSED, isError: true };
+        }
+        const to = namedFlow(withGivenLimits(stages));
+        const check = await this.editor.check(
+          proposedEdit(pipeline, to, endPosition ?? pipeline.endPosition),
+          pipeline.id,
+        );
         if (check.problems.length > 0) return refusedWords(check.problems);
-        const routes = proposedRoutes(placedInOrder(pipeline.stages), to, check.flags);
+        const routes = proposedRoutes(namedFlow(pipeline.stages), to, check.flags);
         const answer = await drafted(PIPELINE_DRAFTED, () =>
           this.proposals.draft(sessionId, {
             kind: "pipeline",
             pipelineId: pipeline.id,
             from: pipeline.stages,
             to,
+            ...(endPosition && { endPosition }),
             routes,
           }),
         );
@@ -322,7 +344,7 @@ export class PipelineOfficeTools implements OnModuleInit {
         "Drafts a new Project Pipeline of a Project, copied from a Pipeline, or a change to one, as a Proposal the user applies with a click: its name, description and whole flow, its Stages, where each stands, and their routes with their conditions and limits.",
         "A new one is a copy of `copyOf`: an office-wide Pipeline other than Onboard, or one of the Project's own; it takes that Pipeline's Stages when `stages` is left out.",
         ROUTES_WORDS,
-        "A Stage's `place` (`column`, `row`) is where it stands on the editor's canvas, which gives the Pipeline's order, the columns left to right; leave every place out to have the Stages stand one to a column in the order given. Stages that all leave their routes out are taken as a straight line, each to the next.",
+        POSITION_WORDS,
         ROUTES_EXAMPLE,
         CHECKED_WORDS,
         "It shows in this Thread as a card, each value now and as proposed, with each Stage whose routes change, its routes as they were and as proposed, and changes nothing until the user applies it. It never removes a Project Pipeline or sets a Project's default. It returns at once.",
@@ -355,15 +377,19 @@ export class PipelineOfficeTools implements OnModuleInit {
           .array(stageSchema)
           .optional()
           .describe(
-            `Its Stages as they should be, all of them, each with its routes and place, in the shape list_pipelines gives them; a new one takes the copied Pipeline's, and a change keeps its own, when left out. ${STAGE_KINDS_WORDS} The Project must have each key it names, a command test's among them.`,
+            `Its Stages as they should be, all of them, in the Pipeline's order, each with its routes and position, in the shape list_pipelines gives them; a new one takes the copied Pipeline's, and a change keeps its own, when left out. ${STAGE_KINDS_WORDS} The Project must have each key it names, a command test's among them.`,
           ),
+        endPosition: END_POSITION_INPUT,
       }),
       run: async (input, { sessionId }) => {
         const projectId = input.project.trim();
         const pipelineId = input.pipeline?.trim() || undefined;
         const copyOf = pipelineId === undefined ? input.copyOf?.trim() || undefined : undefined;
+        if (input.stages?.some(({ place }) => place !== undefined)) {
+          return { text: PLACE_REFUSED, isError: true };
+        }
         let from: ProjectPipelineFields | null = null;
-        let stagesBefore: readonly Stage[];
+        let before: Pick<ProjectPipelineFields, "stages" | "endPosition">;
         if (pipelineId !== undefined) {
           const saved = await this.library.projectPipeline(pipelineId);
           if (!saved || saved.projectId !== projectId) {
@@ -373,7 +399,7 @@ export class PipelineOfficeTools implements OnModuleInit {
             };
           }
           from = fieldsOf(saved);
-          stagesBefore = saved.stages;
+          before = saved;
         } else {
           if (copyOf === undefined || input.name === undefined) {
             return {
@@ -389,16 +415,18 @@ export class PipelineOfficeTools implements OnModuleInit {
             };
           }
           // A new one's routes change from those of the Pipeline it copies.
-          stagesBefore = source.stages;
+          before = source;
         }
         // A new one carries its whole flow too, so it gets the whole check.
-        const stages = placedInOrder(
-          input.stages === undefined ? stagesBefore : withGivenLimits(input.stages),
+        const stages = namedFlow(
+          input.stages === undefined ? before.stages : withGivenLimits(input.stages),
         );
+        const endPosition = input.endPosition ?? before.endPosition;
         const to: ProjectPipelineFields = {
           name: input.name ?? from?.name ?? "",
           description: input.description ?? from?.description ?? "",
           stages,
+          ...(endPosition && { endPosition }),
           ...(copyOf === undefined ? {} : { copyOf }),
         };
         const check = await this.editor.checkProposedProjectPipeline(
@@ -406,7 +434,7 @@ export class PipelineOfficeTools implements OnModuleInit {
           copyOf,
         );
         if (check.problems.length > 0) return refusedWords(check.problems);
-        const routes = proposedRoutes(placedInOrder(stagesBefore), stages, check.flags);
+        const routes = proposedRoutes(namedFlow(before.stages), stages, check.flags);
         const answer = await drafted(PROJECT_PIPELINE_DRAFTED, () =>
           this.proposals.draft(sessionId, {
             kind: "project-pipeline",
@@ -461,7 +489,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_STAGE_TEMPLATE_TOOL,
       description:
-        "Drafts a new Stage for a Stage template as a Proposal the user applies with a click. It shows in this Thread as a card, with the Stage now and the one proposed, and changes nothing until the user applies it. A template keeps no routes or place, which only a Pipeline gives meaning. It returns at once.",
+        "Drafts a new Stage for a Stage template as a Proposal the user applies with a click. It shows in this Thread as a card, with the Stage now and the one proposed, and changes nothing until the user applies it. A template keeps no routes or position, which only a Pipeline gives meaning. It returns at once.",
       input: z.object({
         template: z.string().describe("The template's id, as list_stage_templates gives it."),
         stage: stageSchema.describe(
@@ -514,8 +542,13 @@ function listedProjectPipeline(
 }
 
 /** The Project Pipeline's fields as a Proposal of it starts from. */
-function fieldsOf({ name, description, stages }: ProjectPipeline): ProjectPipelineFields {
-  return { name, description, stages };
+function fieldsOf({
+  name,
+  description,
+  stages,
+  endPosition,
+}: ProjectPipeline): ProjectPipelineFields {
+  return { name, description, stages, ...(endPosition && { endPosition }) };
 }
 
 /** What the Agent is told of a draft the check refused: every problem, on its Stage. */

@@ -48,7 +48,7 @@ export function addStage(stages: readonly Stage[], kind: StageKind): AddedStage 
 
 /**
  * The Stage template's Stage, added where a new Stage of its kind goes: it gets its own key, keeps
- * its name unless another Stage has it, and has no routes or place, which only a Pipeline gives
+ * its name unless another Stage has it, and has no routes or position, which only a Pipeline gives
  * meaning. Linked to the template in a Pipeline's Stages; a copy in a Task's own.
  */
 export function addStageFrom(
@@ -59,9 +59,9 @@ export function addStageFrom(
   return placed(stages, stageFromTemplate(template, linked));
 }
 
-/** The template's Stage as added, without routes or place, and linked to it when `linked`. */
+/** The template's Stage as added, without routes or position, and linked to it when `linked`. */
 export function stageFromTemplate(template: StageTemplate, linked: boolean): Stage {
-  const { routes: _routes, place: _place, ...stage } = template.stage;
+  const { routes: _routes, position: _position, place: _place, ...stage } = template.stage;
   return linked ? { ...stage, templateId: template.id } : stage;
 }
 

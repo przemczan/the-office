@@ -135,7 +135,8 @@ export function ProjectPipelineForm({
           />
           <OfficeFlowEditor
             stages={draft.stages}
-            onChange={(stages) => change({ stages: [...stages] })}
+            endPosition={draft.endPosition}
+            onChange={(stages, endPosition) => change({ stages: [...stages], endPosition })}
             problems={problems}
             warnings={warnings}
             roles={roles}
@@ -213,7 +214,7 @@ function ProjectPipelineHead({
   );
 }
 
-/** The Pipeline as the editor holds it: its Stages a flow, each with its place and routes. */
-function editOf({ name, description, stages }: ProjectPipeline): PipelineEdit {
-  return { name, description, stages: [...asFlow(stages)] };
+/** The Pipeline as the editor holds it: its Stages a flow, each with its position and routes. */
+function editOf({ name, description, stages, endPosition }: ProjectPipeline): PipelineEdit {
+  return { name, description, stages: [...asFlow(stages)], ...(endPosition && { endPosition }) };
 }

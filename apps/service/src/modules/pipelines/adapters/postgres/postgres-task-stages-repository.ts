@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { asFlow, pipelineOrder } from "../../domain/flow.js";
+import { asFlow, withPlacesForThePreviousRelease } from "../../domain/flow.js";
 import type { TaskStages, TaskTrace } from "../../domain/task-stages.js";
 import { TaskStagesRepository } from "../../ports/task-stages-repository.js";
 import { taskStages } from "./task-stages.schema.js";
@@ -13,9 +13,14 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
   }
 
   async save(given: TaskStages): Promise<void> {
-    // In the Pipeline's order, as the previous release reads them.
-    const stages = pipelineOrder(asFlow(given.stages));
-    const row = { ...given, stages, trace: given.trace ?? null };
+    // In the Pipeline's order, with the places the previous release reads it from.
+    const stages = withPlacesForThePreviousRelease(asFlow(given.stages));
+    const row = {
+      ...given,
+      stages,
+      endPosition: given.endPosition ?? null,
+      trace: given.trace ?? null,
+    };
     await this.database
       .insert(taskStages)
       .values(row)
@@ -48,7 +53,7 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
  * A row's Task's Stages, a flow even when a rolled-back release wrote them as a list, and unlinked:
  * the Resolve Stages `asFlow` draws in come linked to their template, which a Task's never are.
  */
-function taskStagesOf(row: typeof taskStages.$inferSelect): TaskStages {
+function taskStagesOf({ endPosition, ...row }: typeof taskStages.$inferSelect): TaskStages {
   const stages = asFlow(row.stages).map(({ templateId: _templateId, ...stage }) => stage);
-  return { ...row, stages, trace: row.trace ?? undefined };
+  return { ...row, stages, ...(endPosition && { endPosition }), trace: row.trace ?? undefined };
 }

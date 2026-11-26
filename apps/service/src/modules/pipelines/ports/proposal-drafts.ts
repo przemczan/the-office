@@ -1,5 +1,6 @@
 import type { ProjectPipelineEdit } from "../domain/project-pipeline.js";
 import type { ProposedRoutes } from "../domain/proposed-routes.js";
+import type { StagePosition } from "../domain/route.js";
 import type { Stage } from "../domain/stage.js";
 
 /**
@@ -11,6 +12,8 @@ export interface ProposedPipelineChange {
   readonly pipelineId: string;
   readonly from: readonly Stage[];
   readonly to: readonly Stage[];
+  /** Where it puts End; undefined keeps where End stands. */
+  readonly endPosition?: StagePosition;
   readonly routes: ProposedRoutes;
 }
 

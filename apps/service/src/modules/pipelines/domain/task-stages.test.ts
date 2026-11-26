@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { straightLineFlow, type FlowStage } from "./flow.js";
+import type { FlowStage } from "./flow.js";
 import type { StageProblem } from "./pipeline.js";
 import type { ConditionGroup } from "./route.js";
 import type { Stage } from "./stage.js";
-import { agentStage, gate, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
+import {
+  agentStage,
+  gate,
+  goingBackOnFailure,
+  scriptStage,
+  straightLine,
+} from "./stage.fixtures.js";
 import type { StageRun } from "./stage-run.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { TaskStagesEdited } from "./task-stages-events.js";
@@ -43,7 +49,7 @@ const ROUTES_OUT =
   "it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.";
 
 /** The fixture's Stages as a straight line, `implement` and `tests` started. */
-const line = straightLineFlow(stages);
+const line = straightLine(stages);
 const started = [ranOnce("implement", 1), ranOnce("tests", 2)];
 
 function lockProblems(
@@ -147,16 +153,51 @@ describe("editProblems", () => {
     ]);
   });
 
-  it("refuses a started Stage moved to another place", () => {
-    const moved = withStage("implement", (stage) => ({ ...stage, place: { column: 0, row: 1 } }));
+  it("lets a started Stage move anywhere on the canvas, as where it stands is layout alone", () => {
+    const moved = withStage("implement", (stage) => ({ ...stage, position: { x: 900, y: -300 } }));
 
-    expect(lockProblems(moved).map(({ text }) => text)).toEqual([
-      "Stage 1 · Implement: it has started, so it stays where it is.",
+    expect(editProblems({ ...own, stages: line }, moved, started, roles)).toEqual([]);
+  });
+
+  it("refuses a started Stage moved in the Pipeline's order", () => {
+    const [first, second, ...rest] = line as [FlowStage, FlowStage, ...FlowStage[]];
+
+    expect(lockProblems([second, first, ...rest]).map(({ text }) => text)).toEqual([
+      "Stage 2 · Implement: it has started, so it keeps its place in the order.",
+      "Stage 1 · Tests: it has started, so it keeps its place in the order.",
+    ]);
+  });
+
+  it("refuses a Stage that hasn't started moved or added among the started ones", () => {
+    const [first, second, third, fourth] = line as [FlowStage, FlowStage, FlowStage, FlowStage];
+    const look: FlowStage = {
+      ...gate({ key: "look", name: "Look" }),
+      routes: [{ to: "tests", condition: null, limit: null }],
+      position: { x: 0, y: 200 },
+    };
+
+    expect(
+      editProblems({ ...own, stages: line }, [first, third, second, fourth], started, roles).map(
+        ({ text }) => text,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "Stage 3 · Tests: it has started, so it keeps its place in the order.",
+        "Stage 2 · Review & fix: the Pipeline's order up to Tests, which has started, stays as it is.",
+      ]),
+    );
+    expect(
+      editProblems({ ...own, stages: line }, [first, look, second, third, fourth], started, roles)
+        .map(({ text }) => text)
+        .filter((text) => text.includes("order")),
+    ).toEqual([
+      "Stage 3 · Tests: it has started, so it keeps its place in the order.",
+      "Stage 2 · Look: the Pipeline's order up to Tests, which has started, stays as it is.",
     ]);
   });
 
   it("refuses a Stage inserted straight after the last started one, with the routes-out words", () => {
-    const edited = straightLineFlow([
+    const edited = straightLine([
       implement,
       tests,
       gate({ key: "look", name: "Look" }),
@@ -181,7 +222,7 @@ describe("editProblems", () => {
   });
 
   it("passes a Stage inserted after one that hasn't started", () => {
-    const edited = straightLineFlow([
+    const edited = straightLine([
       implement,
       tests,
       review,
@@ -203,22 +244,22 @@ describe("editProblems", () => {
           { to: "fix", condition: failed, limit: null },
           { to: "review", condition: null, limit: null },
         ],
-        place: { column: 0, row: 0 },
+        position: { x: 0, y: 0 },
       },
       {
         ...fix,
         routes: [{ to: "check", condition: null, limit: null }],
-        place: { column: 1, row: 0 },
+        position: { x: 308, y: 0 },
       },
       {
         ...check,
         routes: [{ to: "review", condition: null, limit: null }],
-        place: { column: 2, row: 0 },
+        position: { x: 616, y: 0 },
       },
       {
         ...review,
         routes: [{ to: null, condition: null, limit: null }],
-        place: { column: 3, row: 0 },
+        position: { x: 924, y: 0 },
       },
     ];
     const ran = [ranOnce("implement", 1), ranOnce("review", 2)];
@@ -297,11 +338,12 @@ describe("editTaskStages", () => {
   it("replaces the Stages and marks the copy edited for the Task", () => {
     const edited = [implement, gate(), publish];
 
-    const { taskStages, event } = editTaskStages(own, edited);
+    const { taskStages, event } = editTaskStages(own, edited, { x: 1000, y: 20 });
 
     expect(taskStages).toEqual({
       ...own,
-      stages: straightLineFlow(edited),
+      stages: straightLine(edited),
+      endPosition: { x: 1000, y: 20 },
       editedForTask: true,
     });
     // The event's time is its own, so only what it says is compared.
@@ -310,15 +352,35 @@ describe("editTaskStages", () => {
   });
 
   it("never keeps a Stage's link to its template: a Task's Stages are copies", () => {
-    const { taskStages } = editTaskStages(own, [{ ...implement, templateId: "review" }, publish]);
+    const { taskStages } = editTaskStages(
+      own,
+      [{ ...implement, templateId: "review" }, publish],
+      undefined,
+    );
 
     expect(taskStages.stages.map(({ templateId }) => templateId)).toEqual([undefined, undefined]);
   });
 });
 
 describe("makeTaskStages", () => {
+  it("copies the Pipeline's End where it stands", () => {
+    const { taskStages } = makeTaskStages(
+      "task-1",
+      {
+        id: "full",
+        name: "Full",
+        description: "",
+        stages: [implement],
+        endPosition: { x: 5, y: 6 },
+      },
+      new Date(),
+    );
+
+    expect(taskStages.endPosition).toEqual({ x: 5, y: 6 });
+  });
+
   it("copies the Pipeline's Stages without their links to templates", () => {
-    const linked = straightLineFlow([{ ...implement, templateId: "review" }, publish]);
+    const linked = straightLine([{ ...implement, templateId: "review" }, publish]);
 
     const { taskStages } = makeTaskStages(
       "task-1",

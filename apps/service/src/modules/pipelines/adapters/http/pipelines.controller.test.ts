@@ -39,6 +39,7 @@ describe("GET /api/pipelines/:id", () => {
     const response = await fetch(`${url}/api/pipelines/quick-fix`);
 
     expect(response.status).toBe(200);
+    // In the order the old places gave, the conflict chain under the Stages before Publish.
     expect(pipelineSchema.parse(await response.json()).stages).toEqual([
       {
         kind: "agent",
@@ -50,7 +51,23 @@ describe("GET /api/pipelines/:id", () => {
         session: "fresh",
         budget: 200_000,
         routes: [{ to: "tests", condition: null, limit: null }],
-        place: { column: 0, row: 0 },
+        position: { x: 0, y: 0 },
+      },
+      {
+        kind: "agent",
+        key: RESOLVE_KEY,
+        name: "Resolve",
+        optional: false,
+        duty: "implements",
+        brief: RESOLVE_TEMPLATE_BRIEF,
+        session: "fresh",
+        budget: 450_000,
+        mergeBaseFirst: true,
+        templateId: "resolve",
+        routes: [
+          { to: RESOLVE_TEST_KEY, toName: "Test after Resolve", condition: null, limit: null },
+        ],
+        position: { x: 0, y: 148 },
       },
       {
         kind: "script",
@@ -67,23 +84,7 @@ describe("GET /api/pipelines/:id", () => {
           },
           { to: "publish", condition: null, limit: null },
         ],
-        place: { column: 1, row: 0 },
-      },
-      {
-        kind: "agent",
-        key: RESOLVE_KEY,
-        name: "Resolve",
-        optional: false,
-        duty: "implements",
-        brief: RESOLVE_TEMPLATE_BRIEF,
-        session: "fresh",
-        budget: 450_000,
-        mergeBaseFirst: true,
-        templateId: "resolve",
-        routes: [
-          { to: RESOLVE_TEST_KEY, toName: "Test after Resolve", condition: null, limit: null },
-        ],
-        place: { column: 0, row: 1 },
+        position: { x: 308, y: 0 },
       },
       {
         kind: "script",
@@ -100,7 +101,7 @@ describe("GET /api/pipelines/:id", () => {
           },
           { to: "publish", toName: "Publish", condition: null, limit: null },
         ],
-        place: { column: 1, row: 1 },
+        position: { x: 308, y: 148 },
       },
       {
         kind: "publish",
@@ -111,7 +112,7 @@ describe("GET /api/pipelines/:id", () => {
           { to: RESOLVE_KEY, toName: "Resolve", condition: ENDED_CONFLICT, limit: 3 },
           { to: null, condition: null, limit: null },
         ],
-        place: { column: 2, row: 0 },
+        position: { x: 616, y: 0 },
       },
     ]);
   });

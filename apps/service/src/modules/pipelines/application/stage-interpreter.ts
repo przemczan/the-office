@@ -23,7 +23,7 @@ import {
 } from "../../work/index.js";
 import { ConditionCommands, type WeighCommandMove } from "./condition-commands.js";
 import { StaffingHolds } from "./staffing-holds.js";
-import { asFlow, pipelineOrder } from "../domain/flow.js";
+import { asFlow } from "../domain/flow.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
 import { closingOf, interruptedOutcome, outranks } from "../domain/stage-interruption.js";
@@ -479,7 +479,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const atBoundary = stageKey === undefined || startsAtStageBoundary(stageKey, runs);
     if (atBoundary && (await this.tasks.holdForFireAlarm(taskId))) return { step: "over" };
     if (move.move === "weigh-command") {
-      await this.weighCommand(move, record, pipelineOrder(asFlow(staffed)), runs, interruption);
+      await this.weighCommand(move, record, asFlow(staffed), runs, interruption);
       return { step: "weighed" };
     }
     // A Task added to its Initiative meanwhile blocks it; a Gate waits too, as it shows the change.
@@ -511,7 +511,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       step: "started",
       stage,
       started,
-      stages: pipelineOrder(asFlow(staffed)),
+      stages: asFlow(staffed),
       earlierRuns: runs,
     };
   }

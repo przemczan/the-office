@@ -1,5 +1,5 @@
 import { conflictOnlyStages } from "./conflict-handling.js";
-import { asFlow, pipelineOrder, reachableFrom, type FlowStage } from "./flow.js";
+import { asFlow, reachableFrom, type FlowStage } from "./flow.js";
 import {
   agentChoiceOf,
   hasChoiceTest,
@@ -8,6 +8,7 @@ import {
   testsOf,
   type ConditionTest,
   type Route,
+  type StagePosition,
 } from "./route.js";
 import {
   isPublishResultTest,
@@ -35,6 +36,8 @@ export interface Pipeline {
   /** When to choose it, in a sentence. */
   readonly description: string;
   readonly stages: readonly Stage[];
+  /** Where End stands on the canvas; undefined, right of the right-most Stage. */
+  readonly endPosition?: StagePosition;
 }
 
 /** Where on its Stage a problem is: the Stage, or one of its routes (and a test in it). */
@@ -85,7 +88,7 @@ export function stageWarnings(stages: readonly Stage[]): StageProblem[] {
 }
 
 function flowChecks(stages: readonly Stage[]): StageProblem[] {
-  const ordered = pipelineOrder(asFlow(stages));
+  const ordered = asFlow(stages);
   const [first] = ordered;
   if (!first) return [pipelineProblem("A Pipeline needs at least one Stage.")];
   const reachable = reachableFrom(ordered, first.key);

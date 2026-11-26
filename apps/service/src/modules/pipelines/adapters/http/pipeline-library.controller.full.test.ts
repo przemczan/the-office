@@ -14,8 +14,8 @@ import {
   PipelineRemoved,
   PipelineSaved,
 } from "../../domain/pipeline-library-events.js";
-import { straightLineFlow, withGivenLimits } from "../../domain/flow.js";
-import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
+import { withGivenLimits } from "../../domain/flow.js";
+import { agentStage, scriptStage, straightLine } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
   type PipelinesApplication,
@@ -88,7 +88,7 @@ describe("POST /api/pipelines", () => {
 
     const pipeline = await added(edit);
 
-    expect(pipeline.stages).toEqual(straightLineFlow(edit.stages));
+    expect(pipeline.stages).toEqual(straightLine(edit.stages));
   });
 
   it("keeps an Agent Stage's Project commands, and reads them back the same", async () => {
@@ -97,7 +97,7 @@ describe("POST /api/pipelines", () => {
 
     const read = await send("GET", `/pipelines/${pipeline.id}`);
 
-    expect(pipelineSchema.parse(await read.json()).stages).toEqual(straightLineFlow(edit.stages));
+    expect(pipelineSchema.parse(await read.json()).stages).toEqual(straightLine(edit.stages));
   });
 
   it("refuses an Agent Stage whose Project commands are an empty list, or name install", async () => {
@@ -232,7 +232,7 @@ describe("POST /api/pipelines/check", () => {
         },
       ],
     });
-    expect((await added(edit)).stages).toEqual(straightLineFlow(edit.stages));
+    expect((await added(edit)).stages).toEqual(straightLine(edit.stages));
   });
 
   it("refuses a Stage that would give back editing", async () => {
@@ -372,7 +372,7 @@ describe("an office-wide Pipeline and the Project Pipelines copied from it", () 
     const response = await send("PUT", `/pipelines/${source.id}`, {
       name: source.name,
       description: source.description,
-      stages: straightLineFlow(withGivenLimits([source.stages[0]!, lint])),
+      stages: straightLine(withGivenLimits([source.stages[0]!, lint])),
     });
 
     expect(response.status).toBe(200);

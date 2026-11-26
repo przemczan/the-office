@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { builtInPipelines } from "./built-in-pipelines.js";
-import { straightLineFlow } from "./flow.js";
 import { copiedPipeline, pipelineEditProblems } from "./library-pipeline.js";
 import type { Pipeline } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
@@ -13,13 +12,13 @@ import {
   type ProjectPipeline,
   type ProjectPipelineEdit,
 } from "./project-pipeline.js";
-import { agentStage, scriptStage } from "./stage.fixtures.js";
+import { agentStage, scriptStage, straightLine } from "./stage.fixtures.js";
 
 const FULL: Pipeline = {
   id: "full-for-tests",
   name: "Full for tests",
   description: "Everything.",
-  stages: straightLineFlow([agentStage(), scriptStage()]),
+  stages: straightLine([agentStage(), scriptStage()]),
 };
 
 const SITE = { id: "site", name: "Site" };
@@ -32,7 +31,7 @@ function aProjectPipeline(fields: Partial<ProjectPipeline> = {}): ProjectPipelin
     projectId: SITE.id,
     name: "Full with Linux check",
     description: "Full, then Linux.",
-    stages: straightLineFlow([agentStage(), scriptStage(), LINUX]),
+    stages: straightLine([agentStage(), scriptStage(), LINUX]),
     copiedFrom: { name: FULL.name, at: new Date("2026-11-12T09:30:00.000Z") },
     brokenBeforeUpdate: null,
     ...fields,
@@ -43,7 +42,7 @@ function anEdit(fields: Partial<ProjectPipelineEdit> = {}): ProjectPipelineEdit 
   return {
     name: "Full with visual check",
     description: "Full, then a look.",
-    stages: straightLineFlow([agentStage({ brief: "Build it." }), scriptStage()]),
+    stages: straightLine([agentStage({ brief: "Build it." }), scriptStage()]),
     ...fields,
   };
 }
@@ -149,12 +148,16 @@ describe("copiedProjectPipeline and savedProjectPipeline", () => {
     expect(added.event.pipelineId).toBe("visual");
   });
 
-  it("copy a Proposal's Stages in place of the source's", () => {
-    const stages = straightLineFlow([agentStage(), LINUX]);
+  it("copy a Proposal's Stages and End in place of the source's", () => {
+    const stages = straightLine([agentStage(), LINUX]);
+    const endPosition = { x: 700, y: 30 };
 
-    const added = copiedProjectPipeline("visual", SITE.id, anEdit(), FULL, new Date(), stages);
+    const added = copiedProjectPipeline("visual", SITE.id, anEdit(), FULL, new Date(), {
+      stages,
+      endPosition,
+    });
 
-    expect(added.projectPipeline.stages).toEqual(stages);
+    expect(added.projectPipeline).toMatchObject({ stages, endPosition });
   });
 
   it("save the edit, keeping its Project and where it was copied from, and end its Broken flag", () => {

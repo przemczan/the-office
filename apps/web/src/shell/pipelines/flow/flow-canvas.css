@@ -1,8 +1,9 @@
 /* The flow canvas: see flow-canvas.tsx, docs/design/pipeline-flow.html and
-   docs/design/pipeline-editor.html. The Stages sit in a grid of places; the routes and loops are drawn
-   in one SVG under the grid, whose empty places let a press through to the lines. A card keeps its
-   size, so a large Pipeline grows past the viewport (flow-viewport.css), which moves and zooms it.
-   Under 560px of viewport (flow-layout.ts's NARROW_FLOW_WIDTH) it runs down and fills its width. */
+   docs/design/pipeline-editor.html, docs/design/pipeline-free-placement.html. Each Stage stands where
+   it is placed, absolutely in the box around every card; the routes and loops are drawn in one SVG
+   under the cards, and the empty canvas lets a press through to the lines. A card keeps its size, so a
+   large Pipeline grows past the viewport (flow-viewport.css), which moves and zooms it. Under 560px of
+   viewport (flow-layout.ts's NARROW_FLOW_WIDTH) it runs down in bands and fills its width. */
 .flow-canvas {
   --flow-loop-room: 0px;
   --flow-detour-room: 0px;
@@ -17,26 +18,69 @@
   padding: 34px calc(16px + var(--flow-detour-room)) 16px calc(14px + var(--flow-loop-room));
 }
 
-.flow-canvas-grid {
+.flow-canvas-stages {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(var(--flow-columns), var(--flow-card-width)) 44px;
-  grid-template-rows: repeat(var(--flow-rows), minmax(72px, auto));
-  gap: 22px 76px;
-  align-items: center;
   pointer-events: none;
 }
 
-.flow-canvas-grid > * {
+.flow-canvas-stages > * {
   pointer-events: auto;
 }
 
-.flow-canvas[data-orientation="down"] .flow-canvas-grid {
-  grid-template-columns: repeat(var(--flow-rows), minmax(0, 1fr));
-  grid-template-rows: none;
+.flow-canvas[data-orientation="across"] .flow-canvas-stage,
+.flow-canvas[data-orientation="across"] .flow-canvas-end {
+  position: absolute;
+}
+
+.flow-canvas[data-orientation="across"] .flow-canvas-stage {
+  width: var(--flow-card-width);
+}
+
+.flow-canvas[data-orientation="down"] .flow-canvas-stages {
+  display: grid;
+  grid-template-columns: repeat(var(--flow-band-columns, 1), minmax(0, 1fr));
   grid-auto-rows: auto;
   gap: 34px 14px;
+}
+
+/* While a Stage is dragged, the snapping grid's dots, 16 apart on the canvas's own positions */
+.flow-canvas--snapping .flow-canvas-stages::before {
+  content: "";
+  position: absolute;
+  inset: -480px;
+  z-index: -1;
+  background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1.3px);
+  background-position: calc(var(--flow-grid-x) + 480px) calc(var(--flow-grid-y) + 480px);
+  background-size: 16px 16px;
+  pointer-events: none;
+}
+
+/* Auto-align: the cards glide to their places and the lines come back at the end */
+.flow-canvas--gliding .flow-canvas-stage,
+.flow-canvas--gliding .flow-canvas-end {
+  transition:
+    left var(--duration-slow) var(--ease-out),
+    top var(--duration-slow) var(--ease-out);
+}
+
+.flow-canvas--gliding .flow-canvas-lines,
+.flow-canvas--gliding .flow-canvas-marks {
+  opacity: 0;
+}
+
+.flow-canvas-lines,
+.flow-canvas-marks {
+  transition: opacity 160ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-canvas--gliding .flow-canvas-stage,
+  .flow-canvas--gliding .flow-canvas-end,
+  .flow-canvas-lines,
+  .flow-canvas-marks {
+    transition: none;
+  }
 }
 
 /* Under 60%, a card shows only its kind mark and its name, drawn large enough to read. */
@@ -78,7 +122,7 @@
   touch-action: none;
 }
 
-/* Down, a Stage moves by Move and Shift + arrows, so a touch on it scrolls the page */
+/* Down, a Stage isn't dragged, so a touch on it scrolls the page */
 .flow-canvas[data-orientation="down"] .flow-canvas-stage {
   touch-action: auto;
 }
@@ -325,6 +369,7 @@
 }
 
 .flow-canvas-end {
+  z-index: 1;
   display: grid;
   place-items: center;
   justify-self: center;
@@ -335,6 +380,17 @@
   background: var(--surface);
   color: var(--fg-1);
   font: 600 var(--text-2xs) / 1 var(--font-sans);
+}
+
+.flow-canvas-end--draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.flow-canvas-end--dragging {
+  z-index: 30;
+  box-shadow: var(--shadow-3);
+  cursor: grabbing;
 }
 
 .flow-canvas-end--target {
@@ -488,7 +544,8 @@
   opacity: 0.6;
 }
 
-.flow-canvas-drop {
+/* Where a dragged card lands when it would cover another: its outline, clear of every card */
+.flow-canvas-landing {
   position: absolute;
   z-index: 0;
   border: 1.5px dashed var(--accent);
@@ -497,20 +554,23 @@
   pointer-events: none;
 }
 
-.flow-canvas-drop--column {
-  border-radius: var(--radius-full);
+/* What a dragged card snapped to: a dashed violet line through the matched edge or centre */
+.flow-canvas-guides {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  overflow: visible;
+  pointer-events: none;
 }
 
-/* Why a Stage stays, by the pointer (flow-canvas.tsx, FlowToldWhyToast): on the body, unscaled. */
-.flow-canvas-told {
-  position: fixed;
-  z-index: var(--z-tooltip);
-  max-width: 300px;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  background: var(--surface-inverse);
-  color: var(--fg-inverse);
-  box-shadow: var(--shadow-3);
-  font: 500 var(--text-xs) / 1.4 var(--font-sans);
-  pointer-events: none;
+.flow-canvas-guide {
+  stroke: var(--violet-500);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.flow-canvas-guide-dot {
+  fill: var(--violet-500);
 }

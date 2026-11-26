@@ -34,7 +34,7 @@ const TESTS: Stage = {
   name: "Tests",
   optional: false,
   command: "test",
-  place: { column: 0, row: 0 },
+  position: { x: 0, y: 0 },
   routes: [{ to: "write", condition: null }],
 };
 const WRITE: Stage = {
@@ -42,7 +42,7 @@ const WRITE: Stage = {
   key: "write",
   name: "Write",
   optional: false,
-  place: { column: 1, row: 0 },
+  position: { x: 308, y: 0 },
   routes: [{ to: null, condition: null }],
 };
 

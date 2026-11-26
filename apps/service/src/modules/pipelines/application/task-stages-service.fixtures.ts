@@ -1,5 +1,5 @@
 import { builtInPipelinesBeforeFlows } from "../domain/built-in-pipelines-before-flows.fixtures.js";
-import { asFlow, pipelineOrder, type FlowStage } from "../domain/flow.js";
+import { asFlow, type FlowStage } from "../domain/flow.js";
 import type { Stage } from "../domain/stage.js";
 import { gate } from "../domain/stage.fixtures.js";
 import { unlinked } from "../domain/stage-template-link.js";
@@ -28,7 +28,7 @@ export const withGate: readonly Stage[] = [
  * Publish, in the Pipeline's order and without links to Stage templates.
  */
 export function taskCopyOf(stages: readonly Stage[]): FlowStage[] {
-  return unlinked(pipelineOrder(asFlow(stages))) as FlowStage[];
+  return unlinked(asFlow(stages)) as FlowStage[];
 }
 
 export async function refusalOf(work: Promise<unknown>): Promise<readonly string[]> {

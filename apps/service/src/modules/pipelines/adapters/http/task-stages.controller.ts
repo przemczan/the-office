@@ -52,9 +52,11 @@ export class TaskStagesController {
   @UseFilters(StagesEditRefusalsFilter)
   async edit(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(taskStagesEditSchema)) { stages }: TaskStagesEdit,
+    @Body(new ContractPipe(taskStagesEditSchema)) { stages, endPosition }: TaskStagesEdit,
   ): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(await this.taskStages.edit(id, withGivenLimits(stages)));
+    return toTaskStagesResponse(
+      await this.taskStages.edit(id, withGivenLimits(stages), endPosition),
+    );
   }
 
   /**

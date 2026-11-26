@@ -7,6 +7,7 @@ import type {
   ProposedRoutes,
   Role,
   Stage,
+  StagePosition,
 } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import { useMemo, type ReactNode } from "react";
@@ -17,7 +18,11 @@ import { useChat } from "../chat/use-chat.tsx";
 import { FlowEditor, useFlowEditorControls } from "../pipelines/flow/flow-editor.tsx";
 import { flowSummary } from "../pipelines/flow/flow-editor-words.ts";
 import { asFlow } from "../pipelines/flow/flow-model.ts";
-import { proposalFlow, routesOutSentence } from "../pipelines/flow/proposal-flow.ts";
+import {
+  layoutSentences,
+  proposalFlow,
+  routesOutSentence,
+} from "../pipelines/flow/proposal-flow.ts";
 import { whoWorks } from "../pipelines/pipeline-words.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
@@ -113,6 +118,8 @@ function routesChangeOf(
 
 interface OnFlowProps {
   readonly proposal: Proposal;
+  /** Where the Pipeline's End stands now, which a Proposal that doesn't move it keeps. */
+  readonly endPosition?: StagePosition | undefined;
   readonly roles: readonly Role[];
   readonly duties: readonly Duty[];
 }
@@ -120,6 +127,7 @@ interface OnFlowProps {
 /** An office-wide Pipeline's Proposal on its flow in Settings › Pipelines. */
 export function OfficeProposalOnFlow({
   proposal,
+  endPosition,
   change,
   pipelineName,
   roles,
@@ -133,6 +141,7 @@ export function OfficeProposalOnFlow({
       proposal={proposal}
       routes={change.routes}
       stages={change.to}
+      endPosition={change.endPosition ?? endPosition}
       was={change.from}
       title="Stages and routes"
       pipelineName={pipelineName}
@@ -147,6 +156,7 @@ export function OfficeProposalOnFlow({
 /** A Project Pipeline's Proposal on its flow on the Project page. */
 export function ProjectProposalOnFlow({
   proposal,
+  endPosition,
   change,
   roles,
   duties,
@@ -158,6 +168,7 @@ export function ProjectProposalOnFlow({
       proposal={proposal}
       routes={change.routes}
       stages={change.to.stages}
+      endPosition={change.to.endPosition ?? endPosition}
       was={change.from?.stages ?? change.to.stages}
       title="Stages and routes"
       pipelineName={change.to.name}
@@ -181,6 +192,8 @@ function ProposalOnFlow(props: {
   readonly routes: ProposedRoutes;
   /** The flow as proposed. */
   readonly stages: readonly Stage[];
+  /** Where the Proposal puts End; absent, where it is derived. */
+  readonly endPosition: StagePosition | undefined;
   /** The flow as it is, which names the Stages the routes taken away lead to. */
   readonly was: readonly Stage[];
   readonly title: string;
@@ -199,11 +212,12 @@ function ProposalOnFlow(props: {
   const picked = routes.stages.find(({ stageKey }) => stageKey === controls.picked?.key);
   return (
     <div className="proposal-on-flow">
-      <ProposalBanner {...props} stages={stages} draftedBy={draftedBy} />
+      <ProposalBanner {...props} stages={stages} was={asFlow(props.was)} draftedBy={draftedBy} />
       <FlowEditor
         title={props.title}
         summary={flowSummary(stages)}
         stages={flow.stages}
+        endPosition={props.endPosition}
         overlay={flow.overlay}
         problems={[]}
         warnings={routes.check}
@@ -227,6 +241,7 @@ function ProposalBanner({
   proposal,
   routes,
   stages,
+  was,
   pipelineName,
   draftedBy,
   changes,
@@ -235,6 +250,8 @@ function ProposalBanner({
   readonly proposal: Proposal;
   readonly routes: ProposedRoutes;
   readonly stages: readonly Stage[];
+  /** The flow as it was when the Proposal was drafted. */
+  readonly was: readonly Stage[];
   readonly pipelineName: string;
   readonly draftedBy: string;
   readonly changes: readonly QueryKey[];
@@ -259,7 +276,10 @@ function ProposalBanner({
       leave();
     },
   );
-  const sentences = routes.stages.map((change) => routesOutSentence(change, stages));
+  const sentences = [
+    ...routes.stages.map((change) => routesOutSentence(change, stages)),
+    ...layoutSentences(was, stages),
+  ];
   return (
     <section
       className="proposal-banner"

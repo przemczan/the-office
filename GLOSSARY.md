@@ -474,8 +474,16 @@ A daily window of each user's own, off until they set it, in which no Notificati
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
-A named flow of Stages joined by routes, each with an optional condition and its limit, that a Task's work follows from its first Stage to End, one path at a time; a Publishing Task follows its Project's Initiative's Pipeline. Its Stages keep an order, the Pipeline's order, their places on the canvas from left to right and top to bottom; a route may lead to any Stage, so routes back go round again, each loop held by a route limit. It is an office-wide Pipeline or a Project Pipeline. "Flow" says what shape it has, as in the flow editor, and never names it.
+A named flow of Stages joined by routes, each with an optional condition and its limit, that a Task's work follows from its first Stage to End, one path at a time; a Publishing Task follows its Project's Initiative's Pipeline. Its Stages keep an order, the Pipeline's order, the order of its Stages' list; each also has a position on the canvas, which is layout alone; a route may lead to any Stage, so routes back go round again, each loop held by a route limit. It is an office-wide Pipeline or a Project Pipeline. "Flow" says what shape it has, as in the flow editor, and never names it.
 _Avoid_: Workflow, graph, process (a Process is a session's background command)
+
+**Position** (a Stage's):
+Where a Stage's card stands on the flow editor's canvas, its top-left corner in canvas units; layout alone, never part of how the Pipeline runs. End may have one too.
+_Avoid_: Place, coordinates, cell
+
+**Auto-align**:
+The flow editor's button that lays out the whole Pipeline as a layered diagram from left to right in the Pipeline's order, undone by one Undo.
+_Avoid_: Tidy up, auto-layout, arrange
 
 **Route**:
 A link in a Pipeline from one Stage to any Stage, itself or an earlier one included, or to End, that the walk follows as the Stage ends when its condition holds, while its route limit lasts; the first route out of a Stage that holds is followed, and one with no condition (Otherwise) always holds.
@@ -522,7 +530,7 @@ The office-wide Pipelines and, beside them, the Stage templates, edited in Setti
 _Avoid_: Pipeline catalog, Pipeline templates
 
 **Project Pipeline**:
-A full Pipeline that belongs to one Project, with its own Stages, routes and places, made on its Project's page as a copy of an office-wide Pipeline or of another of the Project's own, and then changed in any way; it keeps the name it was copied from and when ("Copied from Full on 12 Nov"), for its words alone, and no later edit of either reaches the other. Only that Project's Tasks, its default and an Initiative's Pipeline in that Project can choose it.
+A full Pipeline that belongs to one Project, with its own Stages, routes and positions, made on its Project's page as a copy of an office-wide Pipeline or of another of the Project's own, and then changed in any way; it keeps the name it was copied from and when ("Copied from Full on 12 Nov"), for its words alone, and no later edit of either reaches the other. Only that Project's Tasks, its default and an Initiative's Pipeline in that Project can choose it.
 _Avoid_: Custom Pipeline, derived Pipeline, Project-owned Pipeline, base Pipeline
 
 **Office-wide Pipeline**:

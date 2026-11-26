@@ -28,6 +28,15 @@ export interface FlowViewportLink {
   readonly showOverview: (shape: FlowOverviewShape) => void;
   /** Moves the view just enough to show `box`, in the canvas's pixels. */
   readonly bringIntoView: (box: FlowBox) => void;
+  /** The view's zoom, from 0.25 to 1: snapping's reach is in screen pixels. */
+  readonly zoom: number;
+  /** Fits the whole Pipeline in view, as Fit does (after Auto-align). */
+  readonly fit: () => void;
+  /**
+   * Moves the view by `dx`, `dy` canvas pixels, so the cards stay where they were on the screen when
+   * the canvas's box grows left or up.
+   */
+  readonly shiftBy: (dx: number, dy: number) => void;
   /** While a Stage or a route is dragged: near the viewport's edge, the view follows. */
   readonly followDrag: (point: { readonly clientX: number; readonly clientY: number }) => void;
 }

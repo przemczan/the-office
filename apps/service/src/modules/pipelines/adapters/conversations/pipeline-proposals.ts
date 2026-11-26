@@ -5,6 +5,7 @@ import {
   publishTargetSchema,
   routeSchema,
   stagePlaceSchema,
+  stagePositionSchema,
   stageSchema,
   type Route,
 } from "@the-office/contracts";
@@ -22,7 +23,7 @@ import { StageTemplateLibraryEditor } from "../../application/stage-template-lib
 import {
   asFlow,
   isRouteBack,
-  placedInOrder,
+  namedFlow,
   withGivenLimits,
   type FlowStage,
 } from "../../domain/flow.js";
@@ -54,6 +55,7 @@ const KEPT_PUBLISH_STAGE = z.object({
   name: z.string(),
   optional: z.boolean(),
   routes: z.array(routeSchema).optional(),
+  position: stagePositionSchema.optional(),
   place: stagePlaceSchema.optional(),
   command: z.literal(PUBLISH_COMMAND),
   publishTarget: publishTargetSchema.optional(),
@@ -139,7 +141,12 @@ export class PipelineProposals implements OnModuleInit {
 
   private async applyPipeline(change: ProposedPipelineChange): Promise<ProposedPipelineChange> {
     await refusedAsProposal(() =>
-      this.editor.saveProposedStages(change.pipelineId, stagesOf(change.from), stagesOf(change.to)),
+      this.editor.saveProposedStages(
+        change.pipelineId,
+        stagesOf(change.from),
+        stagesOf(change.to),
+        change.endPosition,
+      ),
     );
     return change;
   }
@@ -241,8 +248,13 @@ function proposedOf(change: ProposedProjectPipelineChange): ProposedProjectPipel
   };
 }
 
-function editOf({ name, description, stages }: z.infer<typeof FIELDS>): ProjectPipelineEdit {
-  return { name, description, stages: keptStages(stages) };
+function editOf({
+  name,
+  description,
+  stages,
+  endPosition,
+}: z.infer<typeof FIELDS>): ProjectPipelineEdit {
+  return { name, description, stages: keptStages(stages), ...(endPosition && { endPosition }) };
 }
 
 /** Why a Proposal whose fields don't read can't be applied: what it proposed is no longer kept so. */
@@ -305,7 +317,7 @@ function shownFlow(stages: readonly PipelineStage[]): FlowStage[] | undefined {
 
 /** The route changes between two flows as the propose tools draft them, each route naming its Stages. */
 function shownRouteChanges(from: readonly FlowStage[], to: readonly FlowStage[]) {
-  return routeChangesOf(placedInOrder(from), placedInOrder(to));
+  return routeChangesOf(namedFlow(from), namedFlow(to));
 }
 
 /**

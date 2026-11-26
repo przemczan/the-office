@@ -4,12 +4,12 @@ import {
   SET_UP_RUN_ENVIRONMENT_PIPELINE,
   SET_UP_TEST_TARGETS_PIPELINE,
 } from "./built-in-pipelines.js";
-import { asFlow, pipelineOrder } from "./flow.js";
+import { asFlow, withoutLayout } from "./flow.js";
 import { pipelineProblem, stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { comparableName, pipelineNameProblems, type TakenName } from "./pipeline-names.js";
 import type { ProjectPipeline } from "./project-pipeline.js";
-import { unnamedRoutes } from "./route.js";
+import { unnamedRoutes, type StagePosition } from "./route.js";
 import { sameAsKept, type Stage } from "./stage.js";
 import { commandsWords, missingCommandsOnStages } from "./stage-commands.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
@@ -19,6 +19,7 @@ export interface PipelineEdit {
   readonly name: string;
   readonly description: string;
   readonly stages: readonly Stage[];
+  readonly endPosition?: StagePosition;
 }
 
 /** A Task as the library weighs who uses a Pipeline. */
@@ -112,8 +113,9 @@ export function proposedStagesProblems(
   otherPipelines: readonly Pipeline[],
   projectPipelineNames: readonly TakenName[],
 ): StageProblem[] {
-  // A draft from before flows, or one sending a plain list, reads as its conversion.
-  if (!sameAsKept(comparedFlow(pipeline.stages), comparedFlow(from))) {
+  // A draft from before flows, or one sending a plain list, reads as its conversion; where Stages
+  // stand is layout, which may have changed since without making the draft stale.
+  if (!sameAsKept(comparedOrder(pipeline.stages), comparedOrder(from))) {
     return [pipelineProblem(`${pipeline.name}'s Stages changed since this was proposed.`)];
   }
   if (sameAsKept(comparedFlow(from), comparedFlow(to))) {
@@ -126,9 +128,21 @@ export function proposedStagesProblems(
   return pipelineEditProblems(proposedEdit(pipeline, to), otherPipelines, projectPipelineNames);
 }
 
-/** The Pipeline with a Proposal's Stages, under its own name and description. */
-export function proposedEdit(pipeline: Pipeline, stages: readonly Stage[]): PipelineEdit {
-  return { name: pipeline.name, description: pipeline.description, stages };
+/**
+ * The Pipeline with a Proposal's Stages, under its own name and description; End stays where it
+ * stands unless `endPosition` is given.
+ */
+export function proposedEdit(
+  pipeline: Pipeline,
+  stages: readonly Stage[],
+  endPosition: StagePosition | undefined = pipeline.endPosition,
+): PipelineEdit {
+  return {
+    name: pipeline.name,
+    description: pipeline.description,
+    stages,
+    ...(endPosition && { endPosition }),
+  };
 }
 
 /** A Pipeline made from scratch, which `pipelineEditProblems` allowed. */
@@ -345,17 +359,37 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
 }
 
 function flowInOrder(stages: readonly Stage[]): Stage[] {
-  return pipelineOrder(asFlow(stages));
+  return asFlow(stages);
 }
 
-/** The flow in order as a Proposal compares it: the Stages' names in routes are for words alone. */
-function comparedFlow(stages: readonly Stage[]): Stage[] {
-  return pipelineOrder(asFlow(stages)).map((stage) => ({
+/**
+ * The flow in order as a Proposal compares it: the Stages' names in routes are for words alone,
+ * and the old places are only for the previous release.
+ */
+function comparedFlow(stages: readonly Stage[]): object[] {
+  return asFlow(stages).map(({ place: _place, ...stage }) => ({
     ...stage,
     routes: unnamedRoutes(stage.routes),
   }));
 }
 
-function pipelineOf(id: string, { name, description, stages }: PipelineEdit): Pipeline {
-  return { id, name: name.trim(), description: description.trim(), stages: flowInOrder(stages) };
+/** The flow in order as a Proposal's staleness weighs it, without where its Stages stand. */
+function comparedOrder(stages: readonly Stage[]): object[] {
+  return asFlow(stages).map((stage) => ({
+    ...withoutLayout(stage),
+    routes: unnamedRoutes(stage.routes),
+  }));
+}
+
+function pipelineOf(
+  id: string,
+  { name, description, stages, endPosition }: PipelineEdit,
+): Pipeline {
+  return {
+    id,
+    name: name.trim(),
+    description: description.trim(),
+    stages: flowInOrder(stages),
+    ...(endPosition && { endPosition }),
+  };
 }

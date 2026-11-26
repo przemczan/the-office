@@ -1,4 +1,4 @@
-import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
+import { asFlow, type FlowStage } from "./flow.js";
 import {
   stageProblems,
   problemOnStage,
@@ -6,7 +6,7 @@ import {
   type StageProblem,
   type StageProblemAt,
 } from "./pipeline.js";
-import { unnamedRoutes, type Route, type StagePlace } from "./route.js";
+import { unnamedRoutes, type Route, type StagePosition } from "./route.js";
 import {
   agentStageWorkers,
   mergedWorkers,
@@ -29,6 +29,8 @@ export interface TaskStages {
   /** The library Pipeline they were copied from. */
   readonly pipelineId: string;
   readonly stages: readonly Stage[];
+  /** Where End stands on the canvas; undefined, right of the right-most Stage. */
+  readonly endPosition?: StagePosition;
   readonly madeAt: Date;
   /** Set once the user edited them for the Task, which the Task's Pipeline label says. */
   readonly editedForTask: boolean;
@@ -51,7 +53,8 @@ export function makeTaskStages(
   const taskStages: TaskStages = {
     taskId,
     pipelineId: pipeline.id,
-    stages: pipelineOrder(asFlow(unlinked(pipeline.stages))),
+    stages: asFlow(unlinked(pipeline.stages)),
+    ...(pipeline.endPosition && { endPosition: pipeline.endPosition }),
     madeAt,
     editedForTask: false,
     trace: undefined,
@@ -155,35 +158,53 @@ export function editProblems(
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
   const started = startedStageKeys(runs);
-  const ordered = pipelineOrder(asFlow(edited));
+  const ordered = asFlow(edited);
   return [
-    ...lockedStageProblems(pipelineOrder(asFlow(own.stages)), ordered, started),
+    ...lockedStageProblems(asFlow(own.stages), ordered, started),
     ...stageProblems(ordered),
     ...staffingProblems(ordered, started, roles),
   ];
 }
 
-/** The Task's own Stages replaced by the user's edit, which `editProblems` allowed. */
+/**
+ * The Task's own Stages replaced by the user's edit, which `editProblems` allowed, End standing
+ * where the edit puts it.
+ */
 export function editTaskStages(
   own: TaskStages,
   edited: readonly Stage[],
+  endPosition: StagePosition | undefined,
 ): { readonly taskStages: TaskStages; readonly event: TaskStagesEdited } {
+  const { endPosition: _endPosition, ...kept } = own;
   return {
-    taskStages: { ...own, stages: pipelineOrder(asFlow(unlinked(edited))), editedForTask: true },
+    taskStages: {
+      ...kept,
+      stages: asFlow(unlinked(edited)),
+      ...(endPosition && { endPosition }),
+      editedForTask: true,
+    },
     event: new TaskStagesEdited(own.taskId, own.pipelineId),
   };
 }
 
 /**
  * Started Stages, and the routes out of them, are locked (spec §2.3): each started Stage must still
- * be there, by its key, with the same fields, routes out and place. Routes into it aren't locked.
+ * be there, by its key, with the same fields and routes out, and the Pipeline's order up to the last
+ * started Stage stays as it is, so no Stage is added among them or moved into them, and a started
+ * one isn't moved; a Stage among them that hasn't started may still be removed. Routes into a
+ * started Stage aren't locked, and neither is any Stage's position, which is layout alone.
  */
 function lockedStageProblems(
   stages: readonly FlowStage[],
   edited: readonly FlowStage[],
   started: ReadonlySet<string>,
 ): StageProblem[] {
-  return stages
+  const editedKeys = new Set(edited.map(({ key }) => key));
+  const frozen = stages
+    .slice(0, stages.findLastIndex(({ key }) => started.has(key)) + 1)
+    .filter(({ key }) => editedKeys.has(key) || started.has(key));
+  const keptOrder = frozen.filter(({ key }) => editedKeys.has(key)).map(({ key }) => key);
+  const startedProblems = frozen
     .filter(({ key }) => started.has(key))
     .flatMap((stage) => {
       const stageIndex = edited.findIndex(({ key }) => key === stage.key);
@@ -198,11 +219,34 @@ function lockedStageProblems(
           ? []
           : [problemOnStage(kept, stageIndex, "it has started, so it stays as it is.")]),
         ...(routesAt ? [problemOnStage(kept, stageIndex, ROUTES_OUT_LOCKED, routesAt)] : []),
-        ...(samePlace(stage.place, kept.place)
+        ...(keptOrder[stageIndex] === stage.key
           ? []
-          : [problemOnStage(kept, stageIndex, "it has started, so it stays where it is.")]),
+          : [
+              problemOnStage(
+                kept,
+                stageIndex,
+                "it has started, so it keeps its place in the order.",
+              ),
+            ]),
       ];
     });
+  const lastStarted = frozen.at(-1);
+  if (!lastStarted) return startedProblems;
+  // A Stage that hasn't started, put in the frozen order where another stood.
+  const movedIn = edited
+    .slice(0, keptOrder.length)
+    .flatMap((stage, index) =>
+      started.has(stage.key) || keptOrder[index] === stage.key
+        ? []
+        : [
+            problemOnStage(
+              stage,
+              index,
+              `the Pipeline's order up to ${lastStarted.name.trim() || lastStarted.key}, which has started, stays as it is.`,
+            ),
+          ],
+    );
+  return [...startedProblems, ...movedIn];
 }
 
 const ROUTES_OUT_LOCKED =
@@ -224,16 +268,13 @@ function changedRoutesAt(
   return routeIndex < 0 ? undefined : { kind: "route", routeIndex };
 }
 
-function samePlace(place: StagePlace, other: StagePlace): boolean {
-  return place.column === other.column && place.row === other.row;
-}
-
 /**
- * The Stage's own fields as `sorted` JSON, wherever it was read from. Its routes and place are
- * weighed apart (`changedRoutesAt`, `samePlace`), each giving its own problem.
+ * The Stage's own fields as `sorted` JSON, wherever it was read from. Its routes are weighed apart
+ * (`changedRoutesAt`), giving their own problem; where it stands on the canvas never counts.
  */
 function comparable({
   routes: _routes,
+  position: _position,
   place: _place,
   templateId: _templateId,
   ...stage

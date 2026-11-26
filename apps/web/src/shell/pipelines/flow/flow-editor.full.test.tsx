@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ConditionGroup, RoleCardOptions, Stage, StageProblem } from "@the-office/contracts";
 import { act, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import ELK from "elkjs/lib/elk.bundled.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../toasts.tsx";
 import type { StageCommandSource } from "../stage-commands.ts";
@@ -13,6 +14,9 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+// No Web Worker in jsdom: Auto-align lays out with elkjs in-process, as the worker would.
+vi.mock("./elk-in-worker.ts", () => ({ elkInWorker: () => Promise.resolve(new ELK()) }));
+
 const IMPLEMENT: Stage = {
   kind: "agent",
   key: "implement",
@@ -22,7 +26,7 @@ const IMPLEMENT: Stage = {
   brief: "Build it.",
   session: "fresh",
   budget: 100_000,
-  place: { column: 0, row: 0 },
+  position: { x: 0, y: 0 },
   routes: [{ to: "tests", condition: null }],
 };
 const TESTS: Stage = {
@@ -31,7 +35,7 @@ const TESTS: Stage = {
   name: "Tests",
   optional: false,
   command: "test",
-  place: { column: 1, row: 0 },
+  position: { x: 308, y: 0 },
   routes: [{ to: "publish", condition: null }],
 };
 const PUBLISH: Stage = {
@@ -39,7 +43,7 @@ const PUBLISH: Stage = {
   key: "publish",
   name: "Publish",
   optional: false,
-  place: { column: 2, row: 0 },
+  position: { x: 616, y: 0 },
   routes: [{ to: null, condition: null }],
 };
 
@@ -595,8 +599,8 @@ describe("the flow editor's problems", () => {
   });
 });
 
-const placesOf = (stages: readonly Stage[]) =>
-  stages.map(({ key, place }) => [key, place?.column, place?.row]);
+const positionsOf = (stages: readonly Stage[]) =>
+  stages.map(({ key, position }) => [key, position?.x, position?.y]);
 
 async function renderedTask(
   started: Readonly<Record<string, string>>,
@@ -657,11 +661,13 @@ describe("the flow editor for a Task, its started Stages locked", () => {
     expect(buttonsNamed("Draw a route from Tests")).toHaveLength(1);
 
     await press("Implement");
-    for (const direction of ["earlier", "later", "up", "down"]) {
+    for (const direction of ["earlier", "later"]) {
       const move = buttonNamed(`Move Implement ${direction}`);
       expect(move.disabled).toBe(true);
-      expect(move.title).toBe(DONE);
+      expect(move.title).toBe("Started, so it keeps its place in the order");
     }
+    expect(buttonsNamed("Move Implement up")).toEqual([]);
+    expect(buttonsNamed("Move Implement down")).toEqual([]);
     expect(buttonsNamed("More for Implement")).toEqual([]);
     const add = buttonNamed("Add a route");
     expect([add.disabled, add.title]).toEqual([true, DONE]);
@@ -689,16 +695,17 @@ describe("the flow editor for a Task, its started Stages locked", () => {
     );
   });
 
-  it("adds a Stage after a locked one after the frozen columns, the locked Stages staying where they are", async () => {
+  it("adds a Stage after the last started one in the order, beside it on the canvas", async () => {
     await renderedTask({ implement: "Done", tests: "Done" });
     await press("Implement");
     await press("Add a Stage");
     await press("Gate");
-    expect(placesOf(seen.stages)).toEqual([
+    // 76 right of Tests stands Publish, so the Gate goes down until it covers no card.
+    expect(positionsOf(seen.stages)).toEqual([
       ["implement", 0, 0],
-      ["tests", 1, 0],
-      ["gate", 2, 1],
-      ["publish", 3, 0],
+      ["tests", 308, 0],
+      ["gate", 616, 80],
+      ["publish", 616, 0],
     ]);
   });
 
@@ -728,7 +735,7 @@ function templatesServed(url: string, init?: RequestInit): Response {
     const { stage } = JSON.parse(String(init.body)) as { stage: Stage };
     return Response.json({ id: "saved-template", stage });
   }
-  const { place: _place, routes: _routes, ...stage } = IMPLEMENTATION_TEMPLATE.stage;
+  const { position: _position, routes: _routes, ...stage } = IMPLEMENTATION_TEMPLATE.stage;
   return Response.json([{ ...IMPLEMENTATION_TEMPLATE, stage }]);
 }
 
@@ -877,14 +884,6 @@ function tool(name: string): HTMLButtonElement {
   return button;
 }
 
-function pointer(target: Element, type: string, clientX: number): void {
-  act(() => {
-    target.dispatchEvent(
-      new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY: 10 }),
-    );
-  });
-}
-
 describe("the flow editor's canvas, which pans and zooms", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -947,16 +946,189 @@ describe("the flow editor's canvas, which pans and zooms", () => {
     expect(page.querySelector(".flow-editor:not(.flow-editor--full-screen)")).not.toBeNull();
   });
 
-  it("says why a started Stage stays where it is when someone drags it", async () => {
+  it("moves a started Stage on the canvas, as positions are never locked", async () => {
     await renderedTask({ implement: "Done" });
-    const card = document.body.querySelector('[data-flow-stage="implement"]');
-    if (!card) throw new Error("No Implement on the canvas.");
-    pointer(card, "pointerdown", 10);
-    pointer(card, "pointermove", 40);
-    pointer(card, "pointerup", 40);
-    expect(document.body.querySelector(".flow-canvas-told")?.textContent).toBe(
-      "Implement has started, so it stays where it is.",
+    drag(stageCard("implement"), { x: 10, y: 10 }, { x: 10, y: 170 });
+    expect(stageKeyed("implement")?.position).toEqual({ x: 0, y: 160 });
+    expect(seen.stages.map(({ key }) => key)).toEqual(["implement", "tests", "publish"]);
+  });
+});
+
+function stageCard(key: string): Element {
+  const card = document.body.querySelector(`[data-flow-stage="${key}"]`);
+  if (!card) throw new Error(`No ${key} on the canvas.`);
+  return card;
+}
+
+/** A press on `target`, moved to `to` and let go there, with keys held as `held` says. */
+function drag(
+  target: Element,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  held: { altKey?: boolean; shiftKey?: boolean } = {},
+): void {
+  const at = (type: string, { x, y }: { x: number; y: number }) =>
+    act(() => {
+      target.dispatchEvent(
+        new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          clientX: x,
+          clientY: y,
+          ...held,
+        }),
+      );
+    });
+  at("pointerdown", from);
+  at("pointermove", { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 });
+  at("pointermove", to);
+  at("pointerup", to);
+}
+
+/** Waits for `done`, as Auto-align lays out asynchronously. */
+async function until(done: () => boolean): Promise<void> {
+  for (let tries = 0; tries < 100 && !done(); tries += 1) await settled();
+}
+
+/** Lets Auto-align's cards finish gliding (280ms), so nothing renders after the test. */
+async function glided(): Promise<void> {
+  await act(() => new Promise((resolve) => setTimeout(resolve, 320)));
+}
+
+function hint(): string {
+  return document.querySelector(".flow-editor-hint")?.textContent ?? "";
+}
+
+describe("the flow editor's free placement", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
     );
-    expect(seen.stages.find(({ key }) => key === "implement")?.place).toEqual(IMPLEMENT.place);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json([]))),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("drops a dragged Stage where it was let go, snapped to the grid, the order kept", async () => {
+    await rendered();
+    // Tests from x 308 by 30: 338 rounds to the grid's 336; its top stays level with the others'.
+    drag(stageCard("tests"), { x: 10, y: 10 }, { x: 40, y: 10 });
+    expect(stageKeyed("tests")?.position).toEqual({ x: 336, y: 0 });
+    expect(seen.stages.map(({ key }) => key)).toEqual(["implement", "tests", "publish"]);
+    expect(seen.stages.find(({ key }) => key === "tests")?.routes).toEqual(TESTS.routes);
+    // With Alt it goes exactly where it was let go.
+    drag(stageCard("tests"), { x: 10, y: 10 }, { x: 13, y: 207 }, { altKey: true });
+    expect(stageKeyed("tests")?.position).toEqual({ x: 339, y: 197 });
+  });
+
+  it("puts a Stage dropped on another beside it, saying so", async () => {
+    await rendered();
+    drag(stageCard("tests"), { x: 400, y: 10 }, { x: 100, y: 20 });
+    const tests = stageKeyed("tests")?.position;
+    // Never within 16 of Implement's card, 232 by 72 at the origin.
+    expect(tests && (tests.x >= 248 || tests.y >= 88 || tests.y <= -88)).toBe(true);
+    expect(hint()).toContain("Tests was put beside Implement, so it doesn't cover it.");
+    expect(document.querySelector(".flow-canvas-landing")).toBeNull();
+  });
+
+  it("moves a picked Stage a grid step with Shift + an arrow; a plain arrow picks the next", async () => {
+    await rendered();
+    const pick = stageCard("tests").querySelector<HTMLButtonElement>(".flow-canvas-stage-pick")!;
+    act(() => {
+      pick.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", shiftKey: true, bubbles: true }),
+      );
+    });
+    expect(stageKeyed("tests")?.position).toEqual({ x: 308, y: 16 });
+    act(() => {
+      pick.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+    expect(stageKeyed("tests")?.position).toEqual({ x: 308, y: 16 });
+    expect(
+      document.activeElement?.closest("[data-flow-stage]")?.getAttribute("data-flow-stage"),
+    ).toBe("publish");
+  });
+
+  it("moves a Stage earlier or later in the order without moving it on the canvas", async () => {
+    await rendered();
+    await press("Tests");
+    expect(buttonNamed("Move Tests earlier").title).toBe(
+      "Earlier in the Pipeline's order; it stays where it is on the canvas",
+    );
+    await press("Move Tests earlier");
+    expect(positionsOf(seen.stages)).toEqual([
+      ["tests", 308, 0],
+      ["implement", 0, 0],
+      ["publish", 616, 0],
+    ]);
+    expect(hint()).toContain(
+      "Tests is now 1 of 3 in the Pipeline's order; it stays where it is on the canvas.",
+    );
+    expect(hint()).toContain("The route from Implement to Tests now leads back.");
+    expect(hint()).toContain("Walks now start at Tests.");
+    expect(buttonNamed("Move Tests earlier").title).toBe("Tests is already first");
+    expect(buttonsNamed("Move Tests up")).toEqual([]);
+  });
+
+  it("lays the Pipeline out with Auto-align, and one Undo puts every Stage back", async () => {
+    const scattered = [
+      { ...IMPLEMENT, position: { x: 500, y: 300 } },
+      { ...TESTS, position: { x: -200, y: 40 } },
+      { ...PUBLISH, position: { x: 90, y: -120 } },
+    ];
+    await rendered(scattered);
+    await press("Auto-align");
+    await until(() => hint().includes("Auto-align laid out"));
+    const laid = positionsOf(seen.stages);
+    expect(laid.map(([key]) => key)).toEqual(["implement", "tests", "publish"]);
+    const xs = laid.map(([, x]) => x as number);
+    expect(xs[0]! < xs[1]! && xs[1]! < xs[2]!).toBe(true);
+    expect(hint()).toContain(
+      "Auto-align laid out the 3 Stages from left to right in the Pipeline's order, with routes back in their own lanes.",
+    );
+    await press("Undo");
+    expect(positionsOf(seen.stages)).toEqual(positionsOf(scattered));
+    expect(hint()).toContain("The Stages are back where they were before Auto-align.");
+    expect(buttonsNamed("Undo")).toEqual([]);
+
+    // Ctrl + Z does the same while the Undo is offered.
+    await press("Auto-align");
+    await until(() => hint().includes("Auto-align laid out"));
+    expect(positionsOf(seen.stages)).toEqual(laid);
+    act(() => {
+      stageCard("tests").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+      );
+    });
+    expect(positionsOf(seen.stages)).toEqual(positionsOf(scattered));
+    await glided();
+  });
+
+  it("takes Auto-align's Undo away with the next edit", async () => {
+    await rendered();
+    await press("Auto-align");
+    await until(() => hint().includes("Auto-align laid out"));
+    expect(buttonsNamed("Undo")).toHaveLength(1);
+    await press("Tests");
+    expect(buttonsNamed("Undo")).toEqual([]);
+    await glided();
+  });
+
+  it("speaks of no drop slots: dragging between or below a Stage is gone", async () => {
+    await rendered();
+    expect(hint()).toContain("Drag a Stage anywhere: it snaps to the grid and to other Stages");
+    expect(hint()).not.toMatch(/between|below it|new column/);
   });
 });

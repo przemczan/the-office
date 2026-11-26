@@ -7,7 +7,7 @@ import {
   routeCounts,
   routesFollowed,
 } from "./pipeline-walk.js";
-import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
+import { asFlow, type FlowStage } from "./flow.js";
 import {
   CONFLICT_ROUTE_LIMIT,
   ENDED_CONFLICT,
@@ -487,7 +487,7 @@ describe("nextMove", () => {
   describe("a conflict at Publish", () => {
     const publish = keptPublish({ afterConflict: "review" });
     const pipeline = [agentStage("write"), scriptStage("check"), publish];
-    const flow = pipelineOrder(asFlow(pipeline));
+    const flow = asFlow(pipeline);
     const drawn = (key: string): FlowStage => {
       const stage = flow.find((candidate) => candidate.key === key);
       if (!stage) throw new Error(`No "${key}" was drawn in.`);
@@ -810,7 +810,7 @@ describe("nextMove", () => {
       );
       expect(nextMove(twoPublishes, shipped, NO_DEFINITION_OF_DONE)).toEqual({ move: "complete" });
       expect(routeCounts(twoPublishes, shipped, "ship", [])).toEqual([]);
-      const conflictRoute = pipelineOrder(asFlow(twoPublishes))
+      const conflictRoute = asFlow(twoPublishes)
         .find(({ key }) => key === "ship")
         ?.routes.find(({ to }) => to === `${RESOLVE_KEY}-2`);
       if (!conflictRoute) throw new Error("No Conflict route was drawn for the second Publish.");
@@ -2562,7 +2562,7 @@ describe("routesFollowed", () => {
 });
 
 function flowOf(pipelineStages: readonly Stage[]): FlowStage[] {
-  return pipelineOrder(asFlow(pipelineStages));
+  return asFlow(pipelineStages);
 }
 
 describe("gateChecksDefinitionOfDone", () => {

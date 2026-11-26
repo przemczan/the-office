@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
-import { asFlow, pipelineOrder } from "../../domain/flow.js";
+import { asFlow, withPlacesForThePreviousRelease } from "../../domain/flow.js";
 import type { ProjectPipeline } from "../../domain/project-pipeline.js";
 import { ProjectPipelineRepository } from "../../ports/project-pipeline-repository.js";
 import { projectPipelines } from "./project-pipelines.schema.js";
@@ -70,21 +70,24 @@ export class PostgresProjectPipelineRepository extends ProjectPipelineRepository
 }
 
 function projectPipelineOf(row: Row): ProjectPipeline {
-  const { id, projectId, name, description, stages, copiedFromName, copiedAt } = row;
+  const { id, projectId, name, description, stages, endPosition, copiedFromName, copiedAt } = row;
   return {
     id,
     projectId,
     name,
     description,
     stages: asFlow(stages),
+    ...(endPosition && { endPosition }),
     copiedFrom: { name: copiedFromName ?? "", at: copiedAt },
     brokenBeforeUpdate: row.brokenBeforeUpdate,
   };
 }
 
-function flowColumnsOf({ stages, copiedFrom, brokenBeforeUpdate }: ProjectPipeline) {
+/** Its Stages in the Pipeline's order, with the places the previous release reads it from. */
+function flowColumnsOf({ stages, endPosition, copiedFrom, brokenBeforeUpdate }: ProjectPipeline) {
   return {
-    stages: pipelineOrder(asFlow(stages)),
+    stages: withPlacesForThePreviousRelease(asFlow(stages)),
+    endPosition: endPosition ?? null,
     copiedFromName: copiedFrom.name,
     copiedAt: copiedFrom.at,
     brokenBeforeUpdate: brokenBeforeUpdate === null ? null : [...brokenBeforeUpdate],

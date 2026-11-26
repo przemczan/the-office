@@ -2,6 +2,7 @@ import type { ProposedRoutes, Route, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { choiceCondition } from "./flow-model.ts";
 import {
+  layoutSentences,
   proposalFlow,
   routesOutSentence,
   routeWhenAfterTarget,
@@ -17,14 +18,14 @@ const review: Stage = {
   brief: "",
   session: "fresh",
   budget: 1000,
-  place: { column: 0, row: 0 },
+  position: { x: 0, y: 0 },
 };
 const implement: Stage = {
   kind: "gate",
   key: "implement",
   name: "Implement",
   optional: false,
-  place: { column: 1, row: 0 },
+  position: { x: 308, y: 0 },
   routes: [{ to: null, condition: null, limit: null }],
 };
 const otherwise: Route = { to: null, condition: null, limit: null };
@@ -67,5 +68,38 @@ describe("a Proposal of an Agent's choices", () => {
     expect(routesOutSentence(change, stages)).toBe(
       "Routes out of Review: to Implement if the Agent chooses: the review found something to fix, at most 3 times, otherwise to End.",
     );
+  });
+});
+
+describe("a Proposal's order and positions", () => {
+  const tests: Stage = { kind: "gate", key: "tests", name: "Tests", optional: false };
+  const was = [review, implement, { ...tests, position: { x: 616, y: 0 } }];
+
+  it("says nothing when it keeps the order and where every Stage stands", () => {
+    const added = { ...tests, key: "lint", name: "Lint", position: { x: 924, y: 0 } };
+    expect(layoutSentences(was, [...was, added])).toEqual([]);
+  });
+
+  it("names the new order, and how many Stages it moves on the canvas", () => {
+    const proposed = [
+      { ...implement, position: { x: 0, y: 0 } },
+      { ...review, position: { x: 308, y: 96 } },
+      was[2]!,
+    ];
+    expect(layoutSentences(was, proposed)).toEqual([
+      "It changes the Pipeline's order to Implement, Review, Tests.",
+      "It also moves 2 Stages on the canvas, which doesn't change how the Pipeline runs.",
+    ]);
+  });
+
+  it("counts a Stage it adds among the others as changing the order", () => {
+    const lint = { ...tests, key: "lint", name: "Lint" };
+    expect(layoutSentences(was, [review, lint, implement, was[2]!])).toEqual([
+      "It changes the Pipeline's order to Review, Lint, Implement, Tests.",
+    ]);
+    const moved = [review, { ...implement, position: { x: 308, y: 40 } }, was[2]!];
+    expect(layoutSentences(was, moved)).toEqual([
+      "It also moves 1 Stage on the canvas, which doesn't change how the Pipeline runs.",
+    ]);
   });
 });

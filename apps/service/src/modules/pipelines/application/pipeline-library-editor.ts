@@ -24,6 +24,8 @@ import {
   type StageProblem,
 } from "../domain/pipeline.js";
 import type { TakenName } from "../domain/pipeline-names.js";
+import { proposedEndPosition, withProposedPositions } from "../domain/flow.js";
+import type { StagePosition } from "../domain/route.js";
 import { ONBOARD_PIPELINE } from "../domain/built-in-pipelines.js";
 import {
   asPipeline,
@@ -157,12 +159,15 @@ export class PipelineLibraryEditor {
 
   /**
    * Saves a Proposal's Stages (`to`) on the Pipeline, under its own name and description, as long
-   * as its Stages are still those the Proposal was drafted from (`from`); refused otherwise.
+   * as its Stages are still those the Proposal was drafted from (`from`); refused otherwise. Each
+   * Stage it adds or moves, and End when it gives `endPosition`, stands where it puts them; every
+   * other Stage where it stands now.
    */
   async saveProposedStages(
     id: string,
     from: readonly Stage[],
     to: readonly Stage[],
+    endPosition?: StagePosition,
   ): Promise<Pipeline> {
     return this.changes.run(LIBRARY, async () => {
       const library = await this.repository.list();
@@ -170,7 +175,14 @@ export class PipelineLibraryEditor {
       if (!pipeline) throw new UnknownPipeline(id);
       const problems = await this.proposalProblems(pipeline, from, to, library);
       if (problems.length > 0) throw new StagesEditRefused(problems);
-      return this.store(id, proposedEdit(pipeline, to));
+      return this.store(
+        id,
+        proposedEdit(
+          pipeline,
+          withProposedPositions(pipeline.stages, from, to),
+          proposedEndPosition(pipeline.endPosition, undefined, endPosition),
+        ),
+      );
     });
   }
 
@@ -307,15 +319,17 @@ export class PipelineLibraryEditor {
     return this.changes.run(LIBRARY, async () => {
       const outcome = await this.proposalOutcome(proposal, copyOf);
       if (outcome.problems.length > 0) throw new StagesEditRefused(outcome.problems);
-      if (outcome.saved) return this.storeProjectPipeline(outcome.saved, proposal.to);
+      if (outcome.saved) {
+        return this.storeProjectPipeline(outcome.saved, appliedEdit(outcome.saved, proposal));
+      }
       // Without problems, a new one always has its source.
       if (!outcome.source) throw new StagesEditRefused(outcome.problems);
-      const { name, description, stages } = proposal.to;
+      const { name, description, stages, endPosition } = proposal.to;
       return this.addCopy(
         proposal.projectId,
         { copyOf: outcome.source.id, name, description },
         outcome.source,
-        stages,
+        { stages, ...(endPosition && { endPosition }) },
       );
     });
   }
@@ -444,7 +458,7 @@ export class PipelineLibraryEditor {
     projectId: string,
     edit: NewProjectPipeline,
     source: Pipeline,
-    stages?: readonly Stage[],
+    flow?: Pick<Pipeline, "stages" | "endPosition">,
   ): Promise<ProjectPipeline> {
     const { projectPipeline, event } = copiedProjectPipeline(
       randomUUID(),
@@ -452,7 +466,7 @@ export class PipelineLibraryEditor {
       edit,
       source,
       new Date(),
-      stages && (await this.withLiveLinks({ stages })).stages,
+      flow && (await this.withLiveLinks(flow)),
     );
     await this.projectPipelines.add(projectPipeline);
     await this.events.publish(event);
@@ -695,4 +709,21 @@ function projectNameOf(projectId: string, projects: readonly ProjectDefault[]): 
 
 function othersThan(id: string | undefined, library: readonly Pipeline[]): readonly Pipeline[] {
   return library.filter((pipeline) => pipeline.id !== id);
+}
+
+/**
+ * A Proposal's change of a Project Pipeline as applying it saves it on `saved`: each Stage it adds
+ * or moves, and End when it moves it, where it puts them; every other Stage where it stands now.
+ */
+function appliedEdit(
+  saved: ProjectPipeline,
+  { from, to }: ProposedProjectPipeline,
+): ProjectPipelineEdit {
+  const endPosition = proposedEndPosition(saved.endPosition, from?.endPosition, to.endPosition);
+  return {
+    name: to.name,
+    description: to.description,
+    stages: withProposedPositions(saved.stages, from?.stages ?? saved.stages, to.stages),
+    ...(endPosition && { endPosition }),
+  };
 }

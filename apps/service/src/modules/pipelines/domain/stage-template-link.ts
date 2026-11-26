@@ -12,14 +12,15 @@ import type { StageTemplate } from "./stage-template.js";
 export const WHO_FIELD = "who";
 
 /**
- * Fields a template never gives: those naming the Stage within its Pipeline, its place and routes,
- * which belong to the Pipeline, the rollback's `optional`, the link itself, and the kind, which a
+ * Fields a template never gives: those naming the Stage within its Pipeline, its position, place and
+ * routes, which belong to the Pipeline, the rollback's `optional`, the link itself, and the kind, which a
  * link never crosses.
  */
 const PIPELINE_FIELDS: ReadonlySet<string> = new Set([
   "kind",
   "key",
   "name",
+  "position",
   "place",
   "routes",
   "optional",

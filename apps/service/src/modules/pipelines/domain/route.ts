@@ -116,10 +116,19 @@ export function hasChoiceTest(condition: ConditionGroup): boolean {
   return testsOf(condition).some(({ test }) => test.kind === "choice");
 }
 
-/** Where a Stage stands on the flow editor's canvas: the columns left to right give the order. */
+/**
+ * Where a Stage stood on the flow editor's grid before Stages had a position: kept for the previous
+ * release, which reads the Pipeline's order from it (`positions.ts`).
+ */
 export interface StagePlace {
   readonly column: number;
   readonly row: number;
+}
+
+/** Where a Stage's card, or End, stands on the canvas: its top-left corner, in canvas units. */
+export interface StagePosition {
+  readonly x: number;
+  readonly y: number;
 }
 
 /** The one route out of a straight line's Stage: to `to`, always, with No limit. */

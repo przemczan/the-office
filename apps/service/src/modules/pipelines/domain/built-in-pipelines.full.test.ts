@@ -8,6 +8,7 @@ import {
 } from "./built-in-pipelines.js";
 import { builtInPipelinesBeforeFlows } from "./built-in-pipelines-before-flows.fixtures.js";
 import { asFlow } from "./flow.js";
+import { CARD_WIDTH, estimatedCardHeight } from "./positions.js";
 import { stageProblems } from "./pipeline.js";
 import { ENDED_CONFLICT, RESOLVE_KEY, RESOLVE_TEST_KEY } from "./publish-stages.js";
 import { RESOLVE_TEMPLATE_BRIEF } from "./resolve-template.js";
@@ -44,14 +45,38 @@ describe("the built-in Pipelines", () => {
     expect(new Set(builtInPipelines.map((pipeline) => pipeline.id)).size).toBe(8);
   });
 
-  it("follow the Stages of spec §2.3, the conflict chain just before Publish", () => {
-    const chain = ["Resolve", "Test after Resolve"];
-    expect(stagesOf("Full")).toEqual(["Implement", "Tests", "Review & fix", ...chain, "Publish"]);
-    expect(stagesOf("Quick fix")).toEqual(["Implement", "Tests", ...chain, "Publish"]);
+  it("follow the Stages of spec §2.3 in the order their old places gave, the conflict chain under the Stages before Publish", () => {
+    expect(stagesOf("Full")).toEqual([
+      "Implement",
+      "Tests",
+      "Resolve",
+      "Review & fix",
+      "Test after Resolve",
+      "Publish",
+    ]);
+    expect(stagesOf("Quick fix")).toEqual([
+      "Implement",
+      "Resolve",
+      "Tests",
+      "Test after Resolve",
+      "Publish",
+    ]);
     expect(stagesOf("Document")).toEqual(["Produce", "Review & fix"]);
-    expect(stagesOf("Onboard")).toEqual(["Onboard", "Verify", ...chain, "Publish"]);
+    expect(stagesOf("Onboard")).toEqual([
+      "Onboard",
+      "Resolve",
+      "Verify",
+      "Test after Resolve",
+      "Publish",
+    ]);
     expect(stagesOf("Proof of concept")).toEqual(["Implement", "Tests", "Publish"]);
-    expect(stagesOf("Set up run environment")).toEqual(["Set up", "Verify", ...chain, "Publish"]);
+    expect(stagesOf("Set up run environment")).toEqual([
+      "Set up",
+      "Resolve",
+      "Verify",
+      "Test after Resolve",
+      "Publish",
+    ]);
     expect(stagesOf("Resolve conflicts")).toEqual(["Resolve conflicts", "Test", "Publish"]);
     expect(stagesOf("Set up test targets")).toEqual(["Set up test targets"]);
   });
@@ -93,7 +118,7 @@ describe("the built-in Pipelines", () => {
     ]);
 
     expect(budgets).toEqual([
-      ["Full", [250_000, 370_000, 620_000]],
+      ["Full", [250_000, 620_000, 370_000]],
       ["Quick fix", [200_000, 450_000]],
       ["Document", [80_000, 120_000]],
       ["Onboard", [150_000, 400_000]],
@@ -110,6 +135,32 @@ describe("the built-in Pipelines", () => {
       const before = builtInPipelinesBeforeFlows.find(({ id }) => id === pipeline.id);
 
       expect(pipeline.stages).toEqual(asFlow(before?.stages ?? []));
+    },
+  );
+
+  it.each(builtInPipelines.map((pipeline) => [pipeline.name, pipeline] as const))(
+    "%s stands with no card over another, by the estimated card heights",
+    (_name, pipeline) => {
+      const boxes = pipeline.stages.map((stage) => ({
+        key: stage.key,
+        x: stage.position!.x,
+        y: stage.position!.y,
+        height: estimatedCardHeight(stage),
+      }));
+      const overlapping = boxes.flatMap((one, index) =>
+        boxes
+          .slice(index + 1)
+          .filter(
+            (other) =>
+              one.x < other.x + CARD_WIDTH &&
+              other.x < one.x + CARD_WIDTH &&
+              one.y < other.y + other.height &&
+              other.y < one.y + one.height,
+          )
+          .map((other) => [one.key, other.key]),
+      );
+
+      expect(overlapping).toEqual([]);
     },
   );
 
@@ -148,7 +199,7 @@ describe("the built-in Pipelines", () => {
         { to: RESOLVE_KEY, toName: "Resolve", condition: ENDED_CONFLICT, limit: 3 },
         { to: null, condition: null, limit: null },
       ],
-      place: { column: 2, row: 0 },
+      position: { x: 616, y: 0 },
     });
     expect(publishOf("proof-of-concept")).toMatchObject({ publishTarget: "branch-only" });
     expect(publishOf("proof-of-concept")?.routes).toEqual([
@@ -173,7 +224,7 @@ describe("the built-in Pipelines", () => {
       routes: [
         { to: RESOLVE_TEST_KEY, toName: "Test after Resolve", condition: null, limit: null },
       ],
-      place: { column: 1, row: 1 },
+      position: { x: 308, y: 170 },
     });
     expect(stages.find(({ key }) => key === RESOLVE_TEST_KEY)).toMatchObject({
       kind: "script",
@@ -182,7 +233,7 @@ describe("the built-in Pipelines", () => {
         { to: RESOLVE_KEY, condition: ENDED_FAILED, limit: 2 },
         { to: "publish", condition: null, limit: null },
       ],
-      place: { column: 2, row: 1 },
+      position: { x: 616, y: 170 },
     });
   });
 

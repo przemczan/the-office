@@ -73,6 +73,7 @@ export function ProjectPipelinesSection(): ReactNode {
         {open && onFlow.shown?.change.kind === "project-pipeline" ? (
           <ProjectProposalOnFlow
             proposal={onFlow.shown.proposal}
+            endPosition={open.endPosition}
             change={onFlow.shown.change}
             roles={roles.data}
             duties={duties.data}

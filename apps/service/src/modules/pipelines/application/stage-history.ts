@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
 import { TASK_STATE_NAMES } from "../../work/index.js";
-import { asFlow, pipelineOrder } from "../domain/flow.js";
+import { asFlow } from "../domain/flow.js";
 import { routesFollowed } from "../domain/pipeline-walk.js";
 import type { StageRun } from "../domain/stage-run.js";
 import {
@@ -43,7 +43,7 @@ export class StageHistory {
       windows,
       async ({ runId, window }) => [runId, await this.threadMessages.count(window)] as const,
     );
-    return stageHistoryWords(pipelineOrder(asFlow(own?.stages ?? [])), runs, new Map(counts));
+    return stageHistoryWords(asFlow(own?.stages ?? []), runs, new Map(counts));
   }
 
   /**
@@ -55,7 +55,7 @@ export class StageHistory {
     if (!own && runs.length === 0) return this.notStartedWords(taskId);
     const run = runs.find(({ number }) => number === runNumber);
     if (!run) return noRunWords(runNumber, runs.length);
-    const stages = pipelineOrder(asFlow(own?.stages ?? []));
+    const stages = asFlow(own?.stages ?? []);
     const outputs = (await this.runs.commandOutputs(taskId, run.id)) ?? [];
     const route = routesFollowed(stages, runs).get(run.id);
     const window = threadWindow(taskId, run);

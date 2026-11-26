@@ -24,7 +24,13 @@ import {
   RESOLVE_TEMPLATE_ID,
   RESOLVE_TEMPLATE_NAME,
 } from "./resolve-template.js";
-import { ENDED_FAILED, plainRoute, type Route, type RouteLimit, type StagePlace } from "./route.js";
+import {
+  ENDED_FAILED,
+  plainRoute,
+  type Route,
+  type RouteLimit,
+  type StagePosition,
+} from "./route.js";
 import type { Stage } from "./stage.js";
 import { UPDATE_BRANCH_TOOL } from "./stage-commit.js";
 
@@ -53,7 +59,9 @@ export const RESOLVE_CONFLICTS_PIPELINE = "resolve-conflicts";
 // Each built-in is a straight line of Stages, a column each, with a failure route back placed first
 // where the previous releases' "On failure go back" was, its rounds the route's limit, and a Publish
 // by the publishing mode with the conflict chain on a row under it: the flow `asFlow` reads those
-// releases' built-ins as, so an Office seeded before and one seeded now walk alike.
+// releases' built-ins as, so an Office seeded before and one seeded now walk alike. Each lists its
+// Stages in the Pipeline's order, the old grid's (columns, then rows), at the positions
+// `positionsFromPlaces` gives that grid, so the built-ins open where they stood.
 
 /** A failure route back to the Stage `to`, named `toName`, at most `limit` times. */
 function backOnFailure(to: string, toName: string, limit: RouteLimit): Route {
@@ -74,10 +82,13 @@ const RESOLVE_TEST_NAME = "Test after Resolve";
  * The conflict chain before the Publish `publish` (spec §2.3.4, "Conflicts in the flow"): Resolve,
  * linked to the Resolve template, worked by `duty` with the Pipeline's largest Agent Stage budget
  * plus 250k (`largestBudget`), then Test after Resolve, going back to Resolve when it fails at most
- * 2 times and on to Publish; on row 1 from `column`.
+ * 2 times and on to Publish; under the Stages from `at`, side by side.
  */
-function conflictChain(duty: DutyKey, largestBudget: number, column: number): Stage[] {
-  const at = (offset: number): StagePlace => ({ column: column + offset, row: 1 });
+function conflictChain(
+  duty: DutyKey,
+  largestBudget: number,
+  at: StagePosition,
+): readonly [Stage, Stage] {
   return [
     {
       kind: "agent",
@@ -91,7 +102,7 @@ function conflictChain(duty: DutyKey, largestBudget: number, column: number): St
       mergeBaseFirst: true,
       templateId: RESOLVE_TEMPLATE_ID,
       routes: [{ ...plainRoute(RESOLVE_TEST_KEY), toName: RESOLVE_TEST_NAME }],
-      place: at(0),
+      position: at,
     },
     {
       kind: "script",
@@ -103,10 +114,13 @@ function conflictChain(duty: DutyKey, largestBudget: number, column: number): St
         backOnFailure(RESOLVE_KEY, RESOLVE_TEMPLATE_NAME, 2),
         { ...plainRoute("publish"), toName: "Publish" },
       ],
-      place: at(1),
+      position: { x: at.x + 308, y: at.y },
     },
   ];
 }
+
+// Full's row 0 is as tall as Publish, with its three routes listed.
+const [fullResolve, fullResolveTest] = conflictChain(IMPLEMENTS, 370_000, { x: 308, y: 170 });
 
 const full: Pipeline = {
   id: "full",
@@ -124,7 +138,7 @@ const full: Pipeline = {
       budget: 250_000,
       optional: false,
       routes: [plainRoute("tests")],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
     {
       kind: "script",
@@ -133,8 +147,9 @@ const full: Pipeline = {
       command: "test",
       optional: false,
       routes: [backOnFailure("implement", "Implement", 3), plainRoute("review-and-fix")],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     },
+    fullResolve,
     {
       kind: "agent",
       key: "review-and-fix",
@@ -146,9 +161,9 @@ const full: Pipeline = {
       budget: 250_000 + 120_000,
       optional: false,
       routes: [backOnFailure("implement", "Implement", 1), plainRoute("publish")],
-      place: { column: 2, row: 0 },
+      position: { x: 616, y: 0 },
     },
-    ...conflictChain(IMPLEMENTS, 370_000, 1),
+    fullResolveTest,
     {
       kind: "publish",
       key: "publish",
@@ -159,10 +174,14 @@ const full: Pipeline = {
         CONFLICT_ROUTE,
         plainRoute(null),
       ],
-      place: { column: 3, row: 0 },
+      position: { x: 924, y: 0 },
     },
   ],
 };
+
+// Under a row 0 as tall as Tests and Publish, each with two routes listed.
+const UNDER_TWO_ROUTES: StagePosition = { x: 0, y: 148 };
+const [quickFixResolve, quickFixResolveTest] = conflictChain(IMPLEMENTS, 200_000, UNDER_TWO_ROUTES);
 
 const quickFix: Pipeline = {
   id: "quick-fix",
@@ -179,8 +198,9 @@ const quickFix: Pipeline = {
       budget: 200_000,
       optional: false,
       routes: [plainRoute("tests")],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
+    quickFixResolve,
     {
       kind: "script",
       key: "tests",
@@ -188,16 +208,16 @@ const quickFix: Pipeline = {
       command: "test",
       optional: false,
       routes: [backOnFailure("implement", "Implement", 2), plainRoute("publish")],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     },
-    ...conflictChain(IMPLEMENTS, 200_000, 0),
+    quickFixResolveTest,
     {
       kind: "publish",
       key: "publish",
       name: "Publish",
       optional: false,
       routes: [CONFLICT_ROUTE, plainRoute(null)],
-      place: { column: 2, row: 0 },
+      position: { x: 616, y: 0 },
     },
   ],
 };
@@ -218,7 +238,7 @@ const document: Pipeline = {
       budget: 80_000,
       optional: false,
       routes: [plainRoute("review-and-fix")],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
     {
       kind: "agent",
@@ -230,10 +250,16 @@ const document: Pipeline = {
       budget: 80_000 + 40_000,
       optional: false,
       routes: [plainRoute(null)],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     },
   ],
 };
+
+const [onboardResolve, onboardResolveTest] = conflictChain(
+  ONBOARDS_PROJECTS,
+  150_000,
+  UNDER_TWO_ROUTES,
+);
 
 const onboard: Pipeline = {
   id: ONBOARD_PIPELINE,
@@ -251,8 +277,9 @@ const onboard: Pipeline = {
       budget: 150_000,
       optional: false,
       routes: [plainRoute("verify")],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
+    onboardResolve,
     {
       kind: "script",
       key: "verify",
@@ -260,16 +287,16 @@ const onboard: Pipeline = {
       command: "test",
       optional: false,
       routes: [backOnFailure("onboard", "Onboard", 2), plainRoute("publish")],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     },
-    ...conflictChain(ONBOARDS_PROJECTS, 150_000, 0),
+    onboardResolveTest,
     {
       kind: "publish",
       key: "publish",
       name: "Publish",
       optional: false,
       routes: [CONFLICT_ROUTE, plainRoute(null)],
-      place: { column: 2, row: 0 },
+      position: { x: 616, y: 0 },
     },
   ],
 };
@@ -290,7 +317,7 @@ const proofOfConcept: Pipeline = {
       budget: 200_000,
       optional: false,
       routes: [plainRoute("tests")],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
     {
       kind: "script",
@@ -299,7 +326,7 @@ const proofOfConcept: Pipeline = {
       command: "test",
       optional: false,
       routes: [backOnFailure("implement", "Implement", 2), plainRoute("publish")],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     },
     {
       kind: "publish",
@@ -308,7 +335,7 @@ const proofOfConcept: Pipeline = {
       publishTarget: "branch-only",
       optional: false,
       routes: [plainRoute(null)],
-      place: { column: 2, row: 0 },
+      position: { x: 616, y: 0 },
     },
   ],
 };
@@ -317,6 +344,12 @@ const proofOfConcept: Pipeline = {
  * Building the image and running the checks inside it come with the Script Stage's run environment;
  * until then Verify runs the Test command as any Script Stage does.
  */
+const [setUpResolve, setUpResolveTest] = conflictChain(
+  ONBOARDS_PROJECTS,
+  150_000,
+  UNDER_TWO_ROUTES,
+);
+
 const setUpRunEnvironment: Pipeline = {
   id: SET_UP_RUN_ENVIRONMENT_PIPELINE,
   name: "Set up run environment",
@@ -333,8 +366,9 @@ const setUpRunEnvironment: Pipeline = {
       budget: 150_000,
       optional: false,
       routes: [plainRoute("verify")],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
+    setUpResolve,
     {
       kind: "script",
       key: "verify",
@@ -342,16 +376,16 @@ const setUpRunEnvironment: Pipeline = {
       command: "test",
       optional: false,
       routes: [backOnFailure("set-up", "Set up", 2), plainRoute("publish")],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     },
-    ...conflictChain(ONBOARDS_PROJECTS, 150_000, 0),
+    setUpResolveTest,
     {
       kind: "publish",
       key: "publish",
       name: "Publish",
       optional: false,
       routes: [CONFLICT_ROUTE, plainRoute(null)],
-      place: { column: 2, row: 0 },
+      position: { x: 616, y: 0 },
     },
   ],
 };
@@ -377,7 +411,7 @@ const resolveConflicts: Pipeline = {
       budget: 150_000,
       optional: false,
       routes: [plainRoute("test")],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
     {
       kind: "script",
@@ -386,7 +420,7 @@ const resolveConflicts: Pipeline = {
       command: "test",
       optional: false,
       routes: [backOnFailure("resolve-conflicts", "Resolve conflicts", 2), plainRoute("publish")],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     },
     {
       kind: "publish",
@@ -395,7 +429,7 @@ const resolveConflicts: Pipeline = {
       publishTarget: "branch-only",
       optional: false,
       routes: [plainRoute(null)],
-      place: { column: 2, row: 0 },
+      position: { x: 616, y: 0 },
     },
   ],
 };
@@ -421,7 +455,7 @@ const setUpTestTargets: Pipeline = {
       budget: 100_000,
       optional: false,
       routes: [plainRoute(null)],
-      place: { column: 0, row: 0 },
+      position: { x: 0, y: 0 },
     },
   ],
 };

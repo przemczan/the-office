@@ -2,7 +2,6 @@ import type { ConditionGroup, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   asFlow,
-  canDropAt,
   canMoveRoute,
   canMoveStage,
   choiceCondition,
@@ -13,9 +12,11 @@ import {
   formsToAdd,
   isRouteBack,
   laterStages,
+  positionsOf,
   routeFormOf,
   routesMoved,
   stepInOrder,
+  withPositions,
   withRouteAdded,
   withRouteCondition,
   withRouteDrawn,
@@ -24,12 +25,13 @@ import {
   withRouteRemoved,
   withRouteTarget,
   withStageAdded,
-  withStageDropped,
   withStageMoved,
   withStageOnRoute,
+  withStagePositioned,
   withStageRemovedFromFlow,
 } from "./flow-model.ts";
 import { isConvertedFlow } from "./converted-flow.ts";
+import { canvasEdited } from "./office-flow-edits.ts";
 
 const plan: Stage = { kind: "gate", key: "plan", name: "Plan", optional: false };
 const tests: Stage = {
@@ -48,17 +50,18 @@ const changed: ConditionGroup = {
 };
 
 const line = asFlow([plan, tests, publish]);
-const places = (stages: readonly Stage[]) =>
-  stages.map(({ key, place }) => [key, place?.column, place?.row]);
+const positions = (stages: readonly Stage[]) =>
+  stages.map(({ key, position }) => [key, position?.x, position?.y]);
+const keys = (stages: readonly Stage[]) => stages.map(({ key }) => key);
 const routesOf = (stages: readonly Stage[], key: string) =>
   stages.find((stage) => stage.key === key)?.routes;
 
 describe("a flow", () => {
-  it("is given places and straight routes where Stages lack them", () => {
-    expect(places(line)).toEqual([
+  it("is given positions in one row and straight routes where Stages lack them", () => {
+    expect(positions(line)).toEqual([
       ["plan", 0, 0],
-      ["tests", 1, 0],
-      ["publish", 2, 0],
+      ["tests", 308, 0],
+      ["publish", 616, 0],
     ]);
     expect(line.map(({ routes }) => routes)).toEqual([
       [{ to: "tests", condition: null, limit: null }],
@@ -68,22 +71,64 @@ describe("a flow", () => {
     expect(isConvertedFlow(line)).toBe(true);
   });
 
-  it("keeps the places and routes Stages have, placing the rest after the last column", () => {
+  it("keeps the positions and routes Stages have, the rest beside the Stage before them", () => {
     const flow = asFlow([
-      { ...plan, place: { column: 0, row: 0 }, routes: [{ to: "review", condition: changed }] },
+      { ...plan, position: { x: 40, y: 96 }, routes: [{ to: "review", condition: changed }] },
       review,
     ]);
-    expect(places(flow)).toEqual([
-      ["plan", 0, 0],
-      ["review", 1, 0],
+    // Plan lists its route, so it is 82 + 22 tall: Review stands right of it, level with it.
+    expect(positions(flow)).toEqual([
+      ["plan", 40, 96],
+      ["review", 348, 96],
     ]);
     expect(flow[0]?.routes).toEqual([{ to: "review", condition: changed }]);
     expect(flow[1]?.routes).toEqual([{ to: null, condition: null, limit: null }]);
     expect(isConvertedFlow(flow)).toBe(false);
   });
 
+  it("moves a Stage without a position down until it covers no card", () => {
+    const flow = asFlow([
+      { ...plan, position: { x: 0, y: 0 } },
+      { ...review, position: { x: 308, y: 0 } },
+      tests,
+    ]);
+    // 76 right of Review nothing stands: it keeps Review's y.
+    expect(positions(flow).at(-1)).toEqual(["tests", 616, 0]);
+    const blocked = asFlow([
+      { ...plan, position: { x: 0, y: 0 } },
+      tests,
+      { ...review, position: { x: 308, y: 0 } },
+    ]);
+    // 76 right of Plan Review stands, so Tests goes down 16 at a time until it is clear of it.
+    expect(positions(blocked)[1]).toEqual(["tests", 308, 80]);
+  });
+
+  it("converts a list from before positions by its places, in their order", () => {
+    const flow = asFlow([
+      { ...plan, place: { column: 0, row: 0 }, routes: [{ to: "tests", condition: null }] },
+      {
+        ...publish,
+        place: { column: 2, row: 0 },
+        routes: [
+          { to: "review", condition: changed },
+          { to: null, condition: null },
+        ],
+      },
+      { ...tests, place: { column: 1, row: 0 }, routes: [{ to: "publish", condition: null }] },
+      { ...review, place: { column: 2, row: 1 }, routes: [{ to: null, condition: null }] },
+    ]);
+    expect(keys(flow)).toEqual(["plan", "tests", "publish", "review"]);
+    // Row 0 is as tall as Publish, which lists its 2 routes (82 + 2 × 22), then a gap of 22.
+    expect(positions(flow)).toEqual([
+      ["plan", 0, 0],
+      ["tests", 308, 0],
+      ["publish", 616, 0],
+      ["review", 616, 148],
+    ]);
+  });
+
   it("isn't the converted line once a Stage stands on another row", () => {
-    expect(isConvertedFlow(withStageMoved(line, "tests", "down"))).toBe(false);
+    expect(isConvertedFlow(withStagePositioned(line, "tests", { x: 308, y: 120 }))).toBe(false);
   });
 
   it("is the moved line with the conflict chain drawn in under its Publish", () => {
@@ -97,7 +142,7 @@ describe("a flow", () => {
       session: "fresh",
       budget: 620_000,
       mergeBaseFirst: true,
-      place: { column: 1, row: 1 },
+      position: { x: 308, y: 148 },
       routes: [{ to: "office:resolve-test", condition: null, limit: null }],
     };
     const resolveTest: Stage = {
@@ -106,18 +151,18 @@ describe("a flow", () => {
       name: "Test after Resolve",
       optional: false,
       command: "test",
-      place: { column: 2, row: 1 },
+      position: { x: 616, y: 148 },
       routes: [
         { to: "office:resolve", condition: FAILED_CONDITION, limit: 2 },
         { to: "publish", condition: null, limit: null },
       ],
     };
     const moved = [
-      { ...plan, place: { column: 0, row: 0 }, routes: [{ to: "tests", condition: null }] },
-      { ...tests, place: { column: 2, row: 0 }, routes: [{ to: "publish", condition: null }] },
+      { ...plan, position: { x: 0, y: 0 }, routes: [{ to: "tests", condition: null }] },
+      { ...tests, position: { x: 616, y: 0 }, routes: [{ to: "publish", condition: null }] },
       {
         ...publish,
-        place: { column: 3, row: 0 },
+        position: { x: 924, y: 0 },
         routes: [
           { to: "office:resolve", condition: endsCondition(["conflict"]), limit: 3 },
           { to: null, condition: null, limit: null },
@@ -129,17 +174,16 @@ describe("a flow", () => {
     expect(isConvertedFlow(moved)).toBe(true);
   });
 
-  it("says which Stages come later by column", () => {
-    const flow = withStageDropped(line, "publish", { column: 1, row: 1, newColumn: false });
+  it("says which Stages come later by the order, wherever they stand", () => {
+    const flow = withStagePositioned(line, "publish", { x: -400, y: 200 });
     expect(laterStages(flow, "plan").map(({ key }) => key)).toEqual(["tests", "publish"]);
-    expect(laterStages(flow, "tests")).toEqual([]);
+    expect(laterStages(flow, "publish")).toEqual([]);
   });
 
-  it("says a route leads back to its own Stage or one before it in the Pipeline's order", () => {
-    const flow = withStageDropped(line, "publish", { column: 1, row: 1, newColumn: false });
+  it("says a route leads back by the order alone, never by where Stages stand", () => {
+    const flow = withStagePositioned(line, "publish", { x: -400, y: 200 });
     expect(isRouteBack(flow, "tests", "tests")).toBe(true);
     expect(isRouteBack(flow, "tests", "plan")).toBe(true);
-    // A row below in the same column comes later in the order; one above comes before.
     expect(isRouteBack(flow, "tests", "publish")).toBe(false);
     expect(isRouteBack(flow, "publish", "tests")).toBe(true);
     expect(isRouteBack(flow, "publish", null)).toBe(false);
@@ -147,81 +191,86 @@ describe("a flow", () => {
 });
 
 describe("adding a Stage", () => {
-  it("puts it unconnected in a column of its own after the picked Stage, a row below", () => {
+  it("puts it unconnected right after the picked Stage in the order, beside it on the canvas", () => {
     const added = withStageAdded(line, gate, "plan");
     expect(added.key).toBe("gate");
-    expect(places(added.stages)).toEqual([
-      ["plan", 0, 0],
-      ["gate", 1, 1],
-      ["tests", 2, 0],
-      ["publish", 3, 0],
-    ]);
+    expect(keys(added.stages)).toEqual(["plan", "gate", "tests", "publish"]);
+    // 76 right of Plan stands Tests, so it goes down 16 at a time until it covers no card.
+    expect(positions(added.stages)[1]).toEqual(["gate", 308, 80]);
     expect(routesOf(added.stages, "gate")).toEqual([]);
+    expect(positions(added.stages).filter(([key]) => key !== "gate")).toEqual(positions(line));
   });
 
-  it("puts it after the last column on row 0 when none is picked, its name and key its own", () => {
+  it("puts it last, beside the last Stage, when none is picked, its name and key its own", () => {
     const added = withStageAdded(line, { ...plan }, undefined);
     expect(added.key).toBe("plan-2");
-    expect(added.stages.at(-1)).toMatchObject({ name: "Plan 2", place: { column: 3, row: 0 } });
+    expect(added.stages.at(-1)).toMatchObject({ name: "Plan 2", position: { x: 924, y: 0 } });
   });
 });
 
 describe("moving a Stage", () => {
-  it("swaps a Stage alone in its column with the neighbouring column", () => {
+  it("on the canvas changes its position alone, never the order or a route", () => {
+    const back = withRouteDrawn(line, "publish", "plan").stages;
+    const moved = withStagePositioned(back, "publish", { x: -300, y: 40 });
+    expect(keys(moved)).toEqual(keys(back));
+    expect(positions(moved).at(-1)).toEqual(["publish", -300, 40]);
+    expect(routesOf(moved, "publish")).toEqual(routesOf(back, "publish"));
+    expect(isRouteBack(moved, "publish", "plan")).toBe(true);
+  });
+
+  it("earlier and later swaps it in the order, keeping every position", () => {
     const moved = withStageMoved(line, "tests", "earlier");
-    expect(places(moved)).toEqual([
-      ["tests", 0, 0],
-      ["plan", 1, 0],
-      ["publish", 2, 0],
-    ]);
+    expect(keys(moved)).toEqual(["tests", "plan", "publish"]);
+    expect(positions(moved).toSorted()).toEqual(positions(line).toSorted());
+    expect(keys(withStageMoved(line, "tests", "later"))).toEqual(["plan", "publish", "tests"]);
     expect(canMoveStage(line, "plan", "earlier")).toBe(false);
+    expect(canMoveStage(line, "plan", "later")).toBe(true);
     expect(canMoveStage(line, "publish", "later")).toBe(false);
-    expect(canMoveStage(line, "plan", "up")).toBe(false);
-    expect(canMoveStage(line, "plan", "down")).toBe(true);
-  });
-
-  it("moves a Stage sharing its column into the neighbouring one, then up past another", () => {
-    const shared = withStageDropped(line, "publish", { column: 1, row: 0, newColumn: false });
-    expect(places(shared)).toEqual([
-      ["plan", 0, 0],
-      ["tests", 1, 0],
-      ["publish", 1, 1],
-    ]);
-
-    const later = withStageMoved(shared, "publish", "later");
-    expect(places(later)).toEqual([
-      ["plan", 0, 0],
-      ["tests", 1, 0],
-      ["publish", 2, 1],
-    ]);
-
-    const earlier = withStageMoved(shared, "publish", "earlier");
-    expect(places(earlier)).toEqual([
-      ["plan", 0, 0],
-      ["publish", 0, 1],
-      ["tests", 1, 0],
-    ]);
-
-    const up = withStageMoved(shared, "publish", "up");
-    expect(places(up)).toEqual([
-      ["plan", 0, 0],
-      ["publish", 1, 0],
-      ["tests", 1, 1],
-    ]);
-  });
-
-  it("drops a Stage into a new column, later columns shifting right", () => {
-    const dropped = withStageDropped(line, "publish", { column: 1, row: 0, newColumn: true });
-    expect(places(dropped)).toEqual([
-      ["plan", 0, 0],
-      ["publish", 1, 0],
-      ["tests", 2, 0],
-    ]);
+    expect(withStageMoved(line, "plan", "earlier")).toBe(line);
   });
 
   it("steps through the Pipeline's order", () => {
     expect(stepInOrder(line, "tests", -1)).toBe("plan");
     expect(stepInOrder(line, "publish", 1)).toBeUndefined();
+  });
+});
+
+describe("Auto-align's edit", () => {
+  const laid = {
+    stages: new Map([
+      ["plan", { x: 0, y: 0 }],
+      ["tests", { x: 300, y: 10 }],
+      ["publish", { x: 600, y: 20 }],
+    ]),
+    end: { x: 900, y: 30 },
+  };
+
+  it("moves every Stage and End, and one Undo puts them back exactly", () => {
+    const moved = withStagePositioned(line, "tests", { x: 333, y: -47 });
+    const before = positionsOf(moved, { x: 1200, y: 5 });
+    const aligned = canvasEdited(moved, { kind: "auto-align", laid, before });
+    expect(positions(aligned.stages)).toEqual([
+      ["plan", 0, 0],
+      ["tests", 300, 10],
+      ["publish", 600, 20],
+    ]);
+    expect(aligned.endPosition).toEqual({ x: 900, y: 30 });
+    expect(aligned.undo).toBe(before);
+    expect(keys(aligned.stages)).toEqual(keys(moved));
+
+    const undone = canvasEdited(aligned.stages, { kind: "undo-auto-align", before });
+    expect(undone.stages).toEqual(moved);
+    expect(undone.endPosition).toEqual({ x: 1200, y: 5 });
+    expect(undone.hint).toBe("The Stages are back where they were before Auto-align.");
+    expect(undone.undo).toBeUndefined();
+  });
+
+  it("puts back an End that stood where it was derived", () => {
+    const before = positionsOf(line, undefined);
+    const aligned = canvasEdited(line, { kind: "auto-align", laid, before });
+    const undone = canvasEdited(aligned.stages, { kind: "undo-auto-align", before });
+    expect("endPosition" in undone && undone.endPosition).toBeUndefined();
+    expect(withPositions(aligned.stages, before)).toEqual(line);
   });
 });
 
@@ -402,7 +451,7 @@ describe("editing routes", () => {
     const named = withRouteTarget(
       line.with(0, {
         ...plan,
-        place: { column: 0, row: 0 },
+        position: { x: 0, y: 0 },
         routes: [{ to: "tests", toName: "Tests", condition: null, limit: 2 }],
       }),
       "plan",
@@ -438,12 +487,9 @@ describe("a Stage on a route", () => {
   it("takes the route, its condition kept, and leads on where it led", () => {
     const added = withStageOnRoute(two, "plan", 0, gate);
     expect(added.key).toBe("gate");
-    expect(places(added.stages)).toEqual([
-      ["plan", 0, 0],
-      ["gate", 1, 0],
-      ["tests", 2, 0],
-      ["publish", 3, 0],
-    ]);
+    expect(keys(added.stages)).toEqual(["plan", "gate", "tests", "publish"]);
+    // Plan lists its two routes (82 + 2 × 22 tall); beside it Tests stands, so it goes down.
+    expect(positions(added.stages)[1]).toEqual(["gate", 308, 80]);
     expect(routesOf(added.stages, "plan")).toEqual([
       { to: "gate", condition: changed, limit: null },
       { to: "tests", condition: null, limit: null },
@@ -488,9 +534,10 @@ describe("removing a Stage", () => {
     );
     const removed = withStageRemovedFromFlow(parting, "tests");
     expect(routesOf(removed, "plan")).toEqual([]);
-    expect(places(removed)).toEqual([
+    // Nothing else moves.
+    expect(positions(removed)).toEqual([
       ["plan", 0, 0],
-      ["publish", 1, 0],
+      ["publish", 616, 0],
     ]);
   });
 });
@@ -499,50 +546,37 @@ describe("a Task's flow, its started Stages locked", () => {
   const flow = asFlow([plan, tests, review, publish]);
   const started = new Set(["plan", "tests"]);
 
-  it("adds a Stage after a locked one after the frozen columns, so no locked Stage moves", () => {
+  it("adds a Stage after the last started one, so the frozen order stays", () => {
     const added = withStageAdded(flow, gate, "plan", started);
-    expect(places(added.stages)).toEqual([
-      ["plan", 0, 0],
-      ["tests", 1, 0],
-      ["gate", 2, 1],
-      ["review", 3, 0],
-      ["publish", 4, 0],
+    expect(keys(added.stages)).toEqual(["plan", "tests", "gate", "review", "publish"]);
+    expect(keys(withStageAdded(flow, gate, "plan").stages)).toEqual([
+      "plan",
+      "gate",
+      "tests",
+      "review",
+      "publish",
     ]);
-    expect(places(withStageAdded(flow, gate, "plan").stages)).toContainEqual(["tests", 2, 0]);
   });
 
-  it("puts a Stage on a route into a frozen column after the frozen ones", () => {
+  it("puts a Stage on a route after the frozen ones in the order", () => {
     const added = withStageOnRoute(flow, "plan", 0, gate, started);
-    expect(places(added.stages).slice(0, 3)).toEqual([
-      ["plan", 0, 0],
-      ["tests", 1, 0],
-      ["gate", 2, 0],
-    ]);
+    expect(keys(added.stages).slice(0, 3)).toEqual(["plan", "tests", "gate"]);
   });
 
-  it("never closes up a frozen column when a Stage that hasn't started goes", () => {
-    const locked = new Set(["plan", "review"]);
-    expect(places(withStageRemovedFromFlow(flow, "tests", locked))).toEqual([
-      ["plan", 0, 0],
-      ["review", 2, 0],
-      ["publish", 3, 0],
-    ]);
-    expect(places(withStageRemovedFromFlow(flow, "tests"))).toContainEqual(["review", 1, 0]);
-  });
-
-  it("offers no drop into a new column among the frozen ones, and moves no locked Stage", () => {
-    expect(canDropAt(flow, { column: 1, row: 0, newColumn: true }, started)).toBe(false);
-    expect(canDropAt(flow, { column: 2, row: 0, newColumn: true }, started)).toBe(true);
-    expect(canDropAt(flow, { column: 1, row: 1, newColumn: false }, started)).toBe(true);
-    expect(withStageDropped(flow, "publish", { column: 0, row: 0, newColumn: true }, started)).toBe(
-      flow,
-    );
-    expect(withStageDropped(flow, "tests", { column: 3, row: 1, newColumn: false }, started)).toBe(
-      flow,
-    );
+  it("moves no started Stage in the order, nor another into the frozen ones", () => {
     expect(canMoveStage(flow, "tests", "later", started)).toBe(false);
     expect(canMoveStage(flow, "review", "earlier", started)).toBe(false);
     expect(canMoveStage(flow, "review", "later", started)).toBe(true);
+    expect(withStageMoved(flow, "plan", "later", started)).toBe(flow);
+  });
+
+  it("never locks a started Stage's position", () => {
+    const moved = canvasEdited(
+      flow,
+      { kind: "move-to", key: "plan", position: { x: 32, y: 160 } },
+      started,
+    );
+    expect(positions(moved.stages)[0]).toEqual(["plan", 32, 160]);
   });
 });
 

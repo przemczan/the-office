@@ -1,36 +1,42 @@
-import type { Stage, StagePlace } from "@the-office/contracts";
+import type { Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
-  dropAt,
-  endCellOf,
-  flowGridSize,
   flowLines,
   flowRoom,
-  gridCellOf,
   listsRoutes,
   loopLanes,
   loopPaths,
   markSpot,
+  narrowBands,
+  narrowLayout,
   type FlowBox,
   type FlowMeasure,
   needsDetour,
   orientationFor,
   routePaths,
 } from "./flow-layout.ts";
-import { FAILED_CONDITION } from "./flow-model.ts";
+import { asFlow, FAILED_CONDITION } from "./flow-model.ts";
 
-function gate(key: string, place: StagePlace, routes: Stage["routes"] = []): Stage {
-  return { kind: "gate", key, name: key, optional: false, place, routes };
+/** Where a test's Stage stands, on a grid of its own: columns 140 apart, rows 60 apart. */
+interface At {
+  readonly column: number;
+  readonly row: number;
 }
 
-function script(key: string, place: StagePlace, routes: Stage["routes"], goBackTo?: string): Stage {
+const positionAt = ({ column, row }: At) => ({ x: column * 140, y: row * 60 });
+
+function gate(key: string, at: At, routes: Stage["routes"] = []): Stage {
+  return { kind: "gate", key, name: key, optional: false, position: positionAt(at), routes };
+}
+
+function script(key: string, at: At, routes: Stage["routes"], goBackTo?: string): Stage {
   return {
     kind: "script",
     key,
     name: key,
     optional: false,
     command: "test",
-    place,
+    position: positionAt(at),
     routes: [
       ...(goBackTo === undefined ? [] : [{ to: goBackTo, condition: FAILED_CONDITION, limit: 2 }]),
       ...(routes ?? []),
@@ -40,30 +46,30 @@ function script(key: string, place: StagePlace, routes: Stage["routes"], goBackT
 
 const plain = (to: string | null) => ({ to, condition: null, limit: null });
 
-/** A Stage's box: 100 by 40, its column 140 apart, its row 60 apart. */
-function boxAt({ column, row }: StagePlace): FlowBox {
-  return { x: column * 140, y: row * 60, width: 100, height: 40 };
+/** A Stage's box: 100 by 40 at its position. */
+function boxAt({ position = { x: 0, y: 0 } }: Stage): FlowBox {
+  return { ...position, width: 100, height: 40 };
 }
 
-/** Each Stage's box, and End after the last column. */
+/** Each Stage's box, and End right of the right-most. */
 function measureOf(
   stages: readonly Stage[],
   rowCentres: Record<string, number[]> = {},
 ): FlowMeasure {
-  const columns = flowGridSize(stages).columns;
+  const right = Math.max(0, ...stages.map((stage) => boxAt(stage).x + 140));
   return {
     stages: new Map(
       stages.map((stage) => [
         stage.key,
-        {
-          box: boxAt(stage.place ?? { column: 0, row: 0 }),
-          rowCentres: rowCentres[stage.key] ?? [],
-        },
+        { box: boxAt(stage), rowCentres: rowCentres[stage.key] ?? [] },
       ]),
     ),
-    end: { x: columns * 140, y: 0, width: 60, height: 40 },
+    end: { x: right, y: 0, width: 60, height: 40 },
   };
 }
+
+/** The routes back's lanes, by where their Stages stand across. */
+const lanesOf = (stages: readonly Stage[]) => loopLanes(stages, (stage) => stage.position?.x ?? 0);
 
 type Pt = readonly [number, number];
 
@@ -100,32 +106,44 @@ describe("the canvas's orientation", () => {
   });
 });
 
-describe("the grid of places", () => {
-  const stages = [
-    gate("plan", { column: 0, row: 0 }),
-    gate("a", { column: 1, row: 0 }),
-    gate("b", { column: 1, row: 1 }),
-    gate("publish", { column: 2, row: 0 }),
-  ];
+/** A Stage as the narrow view's bands read it: its key and position. */
+const card = (key: string, x: number, y: number) => ({ key, position: { x, y } });
 
-  it("has as many columns and rows as the places use, which the columns share", () => {
-    expect(flowGridSize(stages)).toEqual({ columns: 3, rows: 2 });
+describe("the narrow view's bands", () => {
+  it("are a converted Pipeline's columns, each column's rows top first", () => {
+    const flow = asFlow([
+      { kind: "gate", key: "plan", name: "Plan", optional: false, place: { column: 0, row: 0 } },
+      { kind: "gate", key: "b", name: "B", optional: false, place: { column: 1, row: 1 } },
+      { kind: "gate", key: "a", name: "A", optional: false, place: { column: 1, row: 0 } },
+      { kind: "gate", key: "end", name: "Last", optional: false, place: { column: 2, row: 0 } },
+    ]);
+    expect(narrowBands(flow)).toEqual([["plan"], ["a", "b"], ["end"]]);
   });
 
-  it("puts a place in its column and row across, and swaps them down", () => {
-    expect(gridCellOf({ column: 1, row: 1 }, "across")).toEqual({ gridColumn: "2", gridRow: "2" });
-    expect(gridCellOf({ column: 2, row: 0 }, "down")).toEqual({ gridColumn: "1", gridRow: "3" });
+  it("take in a Stage overlapping the band by half a card or more, else start a new one", () => {
+    // Half a card is 116: overlapping by 132 joins, by 82 doesn't.
+    expect(narrowBands([card("a", 0, 0), card("b", 100, 200)])).toEqual([["a", "b"]]);
+    expect(narrowBands([card("a", 0, 0), card("b", 150, 200)])).toEqual([["a"], ["b"]]);
+    // By x, whatever the order, and within a band by y, top first.
+    expect(narrowBands([card("c", 700, 0), card("b", 20, -50), card("a", 0, 90)])).toEqual([
+      ["b", "a"],
+      ["c"],
+    ]);
   });
 
-  it("stands End after the last column, the whole height of the rows", () => {
-    const size = flowGridSize(stages);
-    expect(endCellOf(size, "across")).toEqual({ gridColumn: "4", gridRow: "1 / -1" });
-    expect(endCellOf(size, "down")).toEqual({ gridColumn: "1 / -1", gridRow: "4" });
-  });
-
-  it("gives a Stage with no place yet the column of its index", () => {
-    const unplaced: Stage = { kind: "gate", key: "x", name: "X", optional: false };
-    expect(flowGridSize([unplaced, { ...unplaced, key: "y" }])).toEqual({ columns: 2, rows: 1 });
+  it("stand side by side two to a line, a third wrapping, End last across the width", () => {
+    const layout = narrowLayout([["a"], ["b", "c", "d"], ["e"]]);
+    expect([...layout.cells]).toEqual([
+      ["a", { gridColumn: "1", gridRow: "1" }],
+      ["b", { gridColumn: "1", gridRow: "2" }],
+      ["c", { gridColumn: "2", gridRow: "2" }],
+      ["d", { gridColumn: "1", gridRow: "3" }],
+      ["e", { gridColumn: "1", gridRow: "4" }],
+    ]);
+    expect(layout.end).toEqual({ gridColumn: "1 / -1", gridRow: "5" });
+    expect(layout.columns).toBe(2);
+    expect(layout.bands.get("d")).toBe(1);
+    expect(narrowLayout([["a"], ["b"]]).columns).toBe(1);
   });
 });
 
@@ -146,7 +164,7 @@ describe("the routes' lines", () => {
       ["review:0", undefined],
       ["publish:0", undefined],
     ]);
-    const paths = routePaths(stages, lines, measureOf(stages, { tests: [12, 28] }), "across");
+    const paths = routePaths(lines, measureOf(stages, { tests: [12, 28] }), "across");
     // Leaving Tests' right edge (x 100) at each route line's middle.
     expect(paths[0]?.d.startsWith("M100,12")).toBe(true);
     expect(paths[1]?.d.startsWith("M100,28")).toBe(true);
@@ -156,7 +174,7 @@ describe("the routes' lines", () => {
 
   it("leave from the bottom edge down, spread across it", () => {
     const lines = flowLines(stages);
-    const paths = routePaths(stages, lines, measureOf(stages, { tests: [30, 70] }), "down");
+    const paths = routePaths(lines, measureOf(stages, { tests: [30, 70] }), "down");
     expect(paths[0]?.d.startsWith("M33.33")).toBe(true);
     expect(paths[0]?.d).toContain(",40");
   });
@@ -164,10 +182,11 @@ describe("the routes' lines", () => {
   it("go round a Stage in between, or back, each in a lane of its own", () => {
     const skipping = script("plan", { column: 0, row: 0 }, [plain("publish")]);
     const flow = [skipping, gate("middle", { column: 1, row: 0 }, [plain("publish")]), publish];
-    expect(needsDetour(flow, skipping, publish)).toBe(true);
-    expect(needsDetour(flow, flow[1]!, publish)).toBe(false);
-    expect(needsDetour(flow, publish, skipping)).toBe(true);
-    const room = flowRoom(flow, flowLines(flow), [], "across");
+    const [plan, middle, last] = flow.map(boxAt) as [FlowBox, FlowBox, FlowBox];
+    expect(needsDetour(plan, last, [middle])).toBe(true);
+    expect(needsDetour(middle, last, [plan])).toBe(false);
+    expect(needsDetour(last, plan, [middle])).toBe(true);
+    const room = flowRoom(flowLines(flow), [], measureOf(flow), "across");
     expect(room.detours).toBeGreaterThan(0);
   });
 
@@ -187,11 +206,11 @@ describe("the routes' lines", () => {
       ["review:0", 2],
       ["publish:1", null],
     ]);
-    const [path] = routePaths(flow, [lines[2]!], measureOf(flow), "across");
+    const [path] = routePaths([lines[2]!], measureOf(flow), "across");
     // From Review's right edge (x 240, y 20) into Publish's left (x 280): its middle.
     expect(path?.mark).toEqual({ x: 257, y: 20 });
     // Publish's route back to Review, a route with no limit given, takes the default of 3.
-    expect(loopLanes(flow).map(({ from, to, limit }) => [from.key, to.key, limit])).toEqual([
+    expect(lanesOf(flow).map(({ from, to, limit }) => [from.key, to.key, limit])).toEqual([
       ["publish", "review", 3],
     ]);
   });
@@ -205,7 +224,7 @@ describe("the routes back", () => {
       script("tests", { column: 2, row: 0 }, [plain("review")], "implement"),
       script("review", { column: 3, row: 0 }, [plain(null)], "implement"),
     ];
-    const lanes = loopLanes(stages);
+    const lanes = lanesOf(stages);
     expect(lanes.map(({ from, lane }) => [from.key, lane])).toEqual([
       ["tests", 0],
       ["review", 1],
@@ -215,8 +234,8 @@ describe("the routes back", () => {
     expect(paths[0]?.lane).toBe(0);
     // The nearest lane 24 off the cards' tops (y 0), the next 22 further: a mark's height apart.
     expect(paths.map(({ mark }) => mark.y)).toEqual([-24, -46]);
-    expect(flowRoom(stages, [], lanes, "across").loops).toBe(24 + 22 + 9);
-    expect(flowRoom(stages, [], lanes, "down").loops).toBe(24 + 22 + 20);
+    expect(flowRoom([], lanes, measureOf(stages), "across").loops).toBe(24 + 22 + 9);
+    expect(flowRoom([], lanes, measureOf(stages), "down").loops).toBe(24 + 22 + 20);
   });
 
   it("enter and leave a Stage they share at points of their own across its top", () => {
@@ -226,7 +245,7 @@ describe("the routes back", () => {
       script("tests", { column: 2, row: 0 }, [], "implement"),
       script("review", { column: 3, row: 0 }, [], "implement"),
     ];
-    const paths = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    const paths = loopPaths(lanesOf(stages), measureOf(stages), "across");
     const atImplement = paths.flatMap((path) => [
       ...(path.line.to === "implement" ? [arrowTip(path.arrow)] : []),
       ...(path.line.fromKey === "implement" ? [startOf(path.d)] : []),
@@ -247,7 +266,7 @@ describe("the routes back", () => {
       script("c", { column: 2, row: 1 }, [], "b"),
     ];
     const measure = measureOf(stages);
-    // Down, the same places laid out as bands: a column's rows side by side.
+    // Down, the same Stages laid out as bands: a band's Stages side by side.
     const down: FlowMeasure = {
       stages: new Map(
         [...measure.stages].map(([key, { box, rowCentres }]) => [
@@ -261,7 +280,7 @@ describe("the routes back", () => {
       ["across", measure],
       ["down", down],
     ] as const) {
-      const paths = loopPaths(loopLanes(stages), laidOut, orientation);
+      const paths = loopPaths(lanesOf(stages), laidOut, orientation);
       expect(paths).toHaveLength(2);
       const boxes = [...laidOut.stages.values()].map(({ box }) => box);
       for (const path of paths)
@@ -269,7 +288,7 @@ describe("the routes back", () => {
           for (const box of boxes) expect(crossesInside(p, q, box)).toBe(false);
     }
     // Across, B leaves its left side (x 140) and turns up in the gutter's middle (x 120).
-    const across = loopPaths(loopLanes(stages), measure, "across");
+    const across = loopPaths(lanesOf(stages), measure, "across");
     const fromB = pointsOf(across.find(({ line }) => line.fromKey === "b")!.d);
     expect(fromB[0]).toEqual([140, 72]);
     expect(fromB).toContainEqual([120, 72]);
@@ -282,7 +301,7 @@ describe("the routes back", () => {
       script("c", { column: 2, row: 0 }, [], "a"),
       script("d", { column: 3, row: 0 }, [], "b"),
     ];
-    const paths = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    const paths = loopPaths(lanesOf(stages), measureOf(stages), "across");
     const low = paths.find(({ line }) => line.fromKey === "c")!;
     const high = paths.find(({ line }) => line.fromKey === "d")!;
     expect(low.lane).toBeLessThan(high.lane);
@@ -309,12 +328,12 @@ describe("the routes back", () => {
       ),
       end: undefined,
     };
-    const [inner, outer] = loopPaths(loopLanes(stages), down, "down").map(({ mark }) => mark);
+    const [inner, outer] = loopPaths(lanesOf(stages), down, "down").map(({ mark }) => mark);
     // A mark is 40 by 18: side by side 22 apart, they must sit a mark's height apart along.
     expect(Math.abs(inner!.x - outer!.x)).toBeLessThan(40);
     expect(Math.abs(inner!.y - outer!.y)).toBeGreaterThanOrEqual(18);
     // Across, lanes are a mark's height apart already, so both keep the middle.
-    const across = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    const across = loopPaths(lanesOf(stages), measureOf(stages), "across");
     expect(across.map(({ mark }) => mark.x)).toEqual([260, 260]);
   });
 
@@ -332,7 +351,7 @@ describe("the routes back", () => {
       script("d", { column: 3, row: 0 }, [], "c"),
       script("e", { column: 4, row: 0 }, [], "gone"),
     ];
-    expect(loopLanes(stages).map(({ lane }) => lane)).toEqual([0, 0]);
+    expect(lanesOf(stages).map(({ lane }) => lane)).toEqual([0, 0]);
   });
 
   it("draw a route to its own Stage out of and into its top edge, with its limit", () => {
@@ -340,7 +359,7 @@ describe("the routes back", () => {
       gate("a", { column: 0, row: 0 }, [plain("b")]),
       script("b", { column: 1, row: 0 }, [plain(null)], "b"),
     ];
-    const [path] = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    const [path] = loopPaths(lanesOf(stages), measureOf(stages), "across");
     expect(path?.line).toMatchObject({ fromKey: "b", to: "b", routeIndex: 0, limit: 2 });
     const [tipX, tipY] = arrowTip(path!.arrow);
     const [startX, startY] = startOf(path!.d);
@@ -350,39 +369,5 @@ describe("the routes back", () => {
     expect(tipX).toBeLessThan(startX);
     for (const x of [tipX, startX]) expect(x > 140 && x < 240).toBe(true);
     expect(path?.mark.y).toBe(-24);
-  });
-});
-
-describe("where a dragged Stage drops", () => {
-  const tracks = { columns: [100, 100, 60], rows: [40, 40], columnGap: 40, rowGap: 20 };
-
-  it("drops into the cell under it", () => {
-    expect(dropAt(tracks, { x: 190, y: 70 }, "across").drop).toEqual({
-      column: 1,
-      row: 1,
-      newColumn: false,
-    });
-  });
-
-  it("makes a new column near a column's edge, and after the last", () => {
-    expect(dropAt(tracks, { x: 145, y: 10 }, "across").drop).toEqual({
-      column: 1,
-      row: 0,
-      newColumn: true,
-    });
-    expect(dropAt(tracks, { x: 400, y: 10 }, "across").drop).toEqual({
-      column: 2,
-      row: 0,
-      newColumn: true,
-    });
-  });
-
-  it("reads the columns top to bottom down", () => {
-    const down = { columns: [100, 100], rows: [40, 40, 30], columnGap: 20, rowGap: 30 };
-    expect(dropAt(down, { x: 150, y: 90 }, "down").drop).toEqual({
-      column: 1,
-      row: 1,
-      newColumn: false,
-    });
   });
 });

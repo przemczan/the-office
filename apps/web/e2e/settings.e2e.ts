@@ -384,13 +384,16 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   );
   await expect(held).toHaveCount(0);
 
-  // A Gate added beside Publish, then moved before it by the keyboard on the canvas.
+  // A Gate added after Publish, then moved before it in the order by Move earlier; Shift + an
+  // arrow on the canvas moves it a grid step, never in the order.
   await flow.getByRole("button", { name: "Publish", exact: true }).click();
   await page.getByRole("button", { name: "Add a Stage" }).click();
   await page.getByRole("menu").getByRole("button", { name: "Gate", exact: true }).click();
   const gate = page.getByRole("region", { name: "Gate", exact: true });
   await expect(gate).toContainText("2 of 2 in the Pipeline's order");
-  await flow.getByRole("button", { name: "Gate", exact: true }).press("Shift+ArrowLeft");
+  await gate.getByRole("button", { name: "Move Gate earlier" }).click();
+  await expect(gate).toContainText("1 of 2 in the Pipeline's order");
+  await flow.getByRole("button", { name: "Gate", exact: true }).press("Shift+ArrowDown");
   await expect(gate).toContainText("1 of 2 in the Pipeline's order");
   await expect(flow.getByRole("button", { name: "Gate", exact: true })).toBeFocused();
 
@@ -573,7 +576,7 @@ test(
         name: "Tests",
         optional: false,
         command: "test",
-        place: { column: 0, row: 0 },
+        position: { x: 0, y: 0 },
         routes: [{ to: "smoke", condition: null, limit: null }],
       },
       {
@@ -582,7 +585,7 @@ test(
         name: stageName,
         optional: true,
         command: "build",
-        place: { column: 1, row: 0 },
+        position: { x: 308, y: 0 },
         routes: [
           {
             to: "tests",
@@ -872,10 +875,11 @@ test(
 );
 
 test(
-  "on a wide canvas the user drags a Stage into a new column and draws a route from a Stage's + to End",
+  "on a wide canvas the user drags a Stage anywhere, Auto-aligns with Undo, and draws a route from a Stage's + to End",
   { tag: "@full" },
   async ({ page }) => {
-    await page.setViewportSize({ width: 1600, height: 900 });
+    // Tall enough that every drag below stays inside the window.
+    await page.setViewportSize({ width: 1600, height: 1200 });
     const pipeline = await addedPipeline(page, `Dragged ${Date.now()}`, [
       { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
       { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
@@ -885,21 +889,55 @@ test(
     const flow = page.getByRole("region", { name: "Flow" });
     await expect(flow).toHaveAttribute("data-orientation", "across");
 
-    // Review dropped at the left edge of Tests' column goes into a new column before it.
-    const review = await boxOf(flow.locator('[data-flow-stage="review"]'));
-    const tests = await boxOf(flow.locator('[data-flow-stage="tests"]'));
+    // Review dropped under Tests stands there; the Pipeline's order stays as it was.
+    const review = await settledBoxOf(flow.locator('[data-flow-stage="review"]'));
+    const tests = await settledBoxOf(flow.locator('[data-flow-stage="tests"]'));
     await page.mouse.move(review.x + review.width / 2, review.y + review.height / 2);
     await page.mouse.down();
-    await page.mouse.move(tests.x + 4, tests.y + tests.height / 2, { steps: 12 });
-    await expect(flow.locator(".flow-canvas-drop--column")).toBeVisible();
+    await page.mouse.move(tests.x + tests.width / 2, tests.y + tests.height + 140, { steps: 12 });
+    // In line with Tests, it snaps to its edges and centre, with a guide (an upright line, no box).
+    await expect(flow.locator(".flow-canvas-guide").first()).toBeAttached();
+    await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "pipeline-flow-dragging.png") });
     await page.mouse.up();
+    const dropped = await settledBoxOf(flow.locator('[data-flow-stage="review"]'));
+    const testsAfter = await settledBoxOf(flow.locator('[data-flow-stage="tests"]'));
+    expect(Math.abs(dropped.x - testsAfter.x)).toBeLessThan(1);
     await expect(page.getByRole("region", { name: "Review", exact: true })).toContainText(
-      "2 of 3 in the Pipeline's order",
+      "3 of 3 in the Pipeline's order",
     );
-    // Tests' route to Review now leads back, drawn above the Stages, its No limit kept: no loop
-    // runs through it, so nothing holds Save.
-    await expect(flow.getByRole("button", { name: "Route from Tests to Review" })).toHaveCount(1);
-    await expect(page.getByText("1 problem holds Save")).toHaveCount(0);
+    const under = async (): Promise<void> => {
+      const moved = await boxOf(flow.locator('[data-flow-stage="review"]'));
+      const above = await boxOf(flow.locator('[data-flow-stage="tests"]'));
+      expect(moved.y).toBeGreaterThan(above.y + above.height);
+    };
+    await under();
+    // Saved, and read again, it stands where it was dropped.
+    await page.getByRole("button", { name: "Save the Pipeline" }).click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    const saved = await libraryPipeline(page, pipeline.id);
+    const position = (key: string) => saved.stages.find((stage) => stage.key === key)?.position;
+    expect(position("review")?.y).toBeGreaterThan(position("tests")?.y ?? 0);
+    expect(saved.stages.map(({ key }) => key)).toEqual(["build", "tests", "review"]);
+    await page.reload();
+    await under();
+
+    // Auto-align lays it out from left to right in its order; one Undo puts Review back.
+    await page.getByRole("button", { name: "Auto-align" }).click();
+    await expect(
+      page.getByText("Auto-align laid out the 3 Stages", { exact: false }),
+    ).toBeVisible();
+    const aligned = await boxOf(flow.locator('[data-flow-stage="review"]'));
+    const before = await boxOf(flow.locator('[data-flow-stage="tests"]'));
+    expect(aligned.x).toBeGreaterThan(before.x + before.width);
+    await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "pipeline-flow-auto-aligned.png") });
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(
+      page.getByText("The Stages are back where they were before Auto-align."),
+    ).toBeVisible();
+    await under();
+    // Placed freely, and at 390 wide in bands from top to bottom.
+    await screenshotScenario(page, "pipeline-flow-placed", { inView: flow });
+    await page.setViewportSize({ width: 1600, height: 1200 });
 
     // From Build's + to End: a second route out of Build, drawn before its route with no condition.
     const handle = await boxOf(flow.getByRole("button", { name: "Draw a route from Build" }));
@@ -961,6 +999,22 @@ async function boxOf(
   const box = await locator.boundingBox();
   if (!box) throw new Error("Not laid out");
   return box;
+}
+
+/** `boxOf` once two reads in a row agree, as the flow canvas measures its cards and fits its view. */
+async function settledBoxOf(
+  locator: Locator,
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  let last = await boxOf(locator);
+  await expect
+    .poll(async () => {
+      const now = await boxOf(locator);
+      const same = now.x === last.x && now.y === last.y;
+      last = now;
+      return same;
+    })
+    .toBe(true);
+  return last;
 }
 
 async function projectPipeline(page: Page, projectPipelineId: string): Promise<ProjectPipeline> {

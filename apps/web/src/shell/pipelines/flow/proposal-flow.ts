@@ -38,6 +38,38 @@ export function proposalFlow(stages: readonly Stage[], routes: ProposedRoutes): 
   return { stages: shown, overlay: { proposed, takenAway } };
 }
 
+/**
+ * The banner's words for what a Proposal does beyond routes (docs/design/pipeline-free-placement.html,
+ * "The Proposal on the flow"): the Pipeline's order when it changes it, and how many Stages it moves
+ * on the canvas, which doesn't change how the Pipeline runs. None when it does neither.
+ */
+export function layoutSentences(
+  was: readonly Stage[],
+  proposed: readonly Stage[],
+): readonly string[] {
+  const before = new Map(was.map((stage) => [stage.key, stage]));
+  const kept = proposed.filter(({ key }) => before.has(key)).map(({ key }) => key);
+  const keptBefore = was.filter(({ key }) => kept.includes(key)).map(({ key }) => key);
+  // An added Stage changes the order when it goes in among the Stages there already.
+  const lastKept = proposed.findLastIndex(({ key }) => before.has(key));
+  const addedAmong = proposed.some(({ key }, index) => !before.has(key) && index < lastKept);
+  const reordered = addedAmong || kept.some((key, index) => keptBefore[index] !== key);
+  const moved = proposed.filter(({ key, position }) => {
+    const earlier = before.get(key)?.position;
+    return earlier && position && (earlier.x !== position.x || earlier.y !== position.y);
+  }).length;
+  return [
+    ...(reordered
+      ? [`It changes the Pipeline's order to ${proposed.map(({ name }) => name).join(", ")}.`]
+      : []),
+    ...(moved > 0
+      ? [
+          `It also moves ${moved === 1 ? "1 Stage" : `${moved} Stages`} on the canvas, which doesn't change how the Pipeline runs.`,
+        ]
+      : []),
+  ];
+}
+
 /** How a route reads after where it leads: "→ Review & fix, always", "→ Publish otherwise". */
 export function routeWhenAfterTarget(
   route: Route,

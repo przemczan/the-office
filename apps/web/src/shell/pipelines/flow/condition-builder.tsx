@@ -25,7 +25,6 @@ import {
   STAGE_TEST_WORDS,
   stageNameOrGone,
 } from "./condition-words.ts";
-import { inFlowOrder } from "./flow-model.ts";
 
 /** The most runs "ran N or more times" offers. */
 const MOST_TIMES = 20;
@@ -284,7 +283,7 @@ function subjectChoices(
   from: Stage,
   stages: readonly Stage[],
 ): { value: string; label: string }[] {
-  const others = inFlowOrder(stages).filter(({ key }) => key !== from.key);
+  const others = stages.filter(({ key }) => key !== from.key);
   const named = test.kind === "stage" && test.stage !== null && test.stage !== from.key;
   const gone =
     named && !stages.some(({ key }) => key === test.stage)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
+import { asFlow, type FlowStage } from "./flow.js";
 import {
   ENDED_CONFLICT,
   RESOLVE_GATE_KEY,
@@ -39,12 +39,12 @@ describe("withPublishStages, read through asFlow", () => {
       optional: false,
       publishTarget: "branch-only",
       routes: [plainRoute(null)],
-      place: { column: 1, row: 0 },
+      position: { x: 308, y: 0 },
     });
     expect(flow).toHaveLength(2);
   });
 
-  it("draws the conflict chain for a Publish by the publishing mode, on a row under it", () => {
+  it("draws the conflict chain for a Publish by the publishing mode, on a row under it, in the old grid's order", () => {
     const flow = asFlow([
       implement,
       tests,
@@ -52,7 +52,7 @@ describe("withPublishStages, read through asFlow", () => {
       goingBackOnFailure(keptPublishStage(), "review", 1),
     ]);
 
-    expect(pipelineOrder(flow).map(({ key }) => key)).toEqual([
+    expect(flow.map(({ key }) => key)).toEqual([
       "implement",
       "tests",
       RESOLVE_KEY,
@@ -77,7 +77,8 @@ describe("withPublishStages, read through asFlow", () => {
       mergeBaseFirst: true,
       templateId: RESOLVE_TEMPLATE_ID,
       routes: [{ ...plainRoute(RESOLVE_TEST_KEY), toName: "Test after Resolve" }],
-      place: { column: 1, row: 1 },
+      // Row 0 is as tall as Publish, which lists its three routes.
+      position: { x: 308, y: 170 },
     });
     expect(stageOf(flow, RESOLVE_TEST_KEY)).toMatchObject({
       kind: "script",
@@ -86,7 +87,7 @@ describe("withPublishStages, read through asFlow", () => {
         { to: RESOLVE_KEY, toName: "Resolve", condition: ENDED_FAILED, limit: 2 },
         { ...plainRoute("publish"), toName: "Publish" },
       ],
-      place: { column: 2, row: 1 },
+      position: { x: 616, y: 170 },
     });
   });
 
@@ -105,11 +106,25 @@ describe("withPublishStages, read through asFlow", () => {
   it("makes new columns before a Publish that has too few", () => {
     const flow = asFlow([implement, keptPublishStage()]);
 
-    expect(pipelineOrder(flow).map(({ key, place }) => ({ key, place }))).toEqual([
-      { key: "implement", place: { column: 0, row: 0 } },
-      { key: RESOLVE_KEY, place: { column: 0, row: 1 } },
-      { key: RESOLVE_TEST_KEY, place: { column: 1, row: 1 } },
-      { key: "publish", place: { column: 2, row: 0 } },
+    expect(flow.map(({ key, position }) => ({ key, position }))).toEqual([
+      { key: "implement", position: { x: 0, y: 0 } },
+      { key: RESOLVE_KEY, position: { x: 0, y: 148 } },
+      { key: RESOLVE_TEST_KEY, position: { x: 308, y: 148 } },
+      { key: "publish", position: { x: 616, y: 0 } },
+    ]);
+  });
+
+  it("draws the chain just before its Publish in a list with positions, each beside the Stage before it", () => {
+    const flow = asFlow([
+      { ...implement, routes: [plainRoute("publish")], position: { x: 0, y: 0 } },
+      { ...keptPublishStage(), routes: [plainRoute(null)], position: { x: 900, y: 0 } },
+    ]);
+
+    expect(flow.map(({ key, position }) => ({ key, position }))).toEqual([
+      { key: "implement", position: { x: 0, y: 0 } },
+      { key: RESOLVE_KEY, position: { x: 308, y: 0 } },
+      { key: RESOLVE_TEST_KEY, position: { x: 616, y: 0 } },
+      { key: "publish", position: { x: 900, y: 0 } },
     ]);
   });
 

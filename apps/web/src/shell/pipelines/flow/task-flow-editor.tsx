@@ -6,7 +6,7 @@ import { FlowEditor, useFlowEditorControls } from "./flow-editor.tsx";
 import { flowSummary } from "./flow-editor-words.ts";
 import type { FlowLocks, FlowStageMark, FlowStageMarks } from "./flow-marks.ts";
 import { FlowPanel } from "./flow-panel.tsx";
-import { canvasEdited, type FlowEdited, stageAdded } from "./office-flow-edits.ts";
+import { canvasEdited, draftAfter, type FlowEdited, stageAdded } from "./office-flow-edits.ts";
 import type { OfficeFlowEditorProps } from "./office-flow-editor.tsx";
 
 export interface TaskFlowEditorProps extends OfficeFlowEditorProps {
@@ -17,8 +17,8 @@ export interface TaskFlowEditorProps extends OfficeFlowEditorProps {
 /**
  * The flow editor as "Edit for this Task" hosts it for the Task's own Stages: the office-wide
  * Pipeline's edits, with each started Stage locked (spec §2.3). A locked Stage shows its lock and
- * state, stays where it is, and its fields and routes out read only; the columns up to the last
- * holding one stay as they are, so a Stage added after one goes after them. What still breaks a lock,
+ * state, keeps its place in the order, and its fields and routes out read only; the order up to the
+ * last started Stage is frozen, so a Stage added goes after them. Positions are never locked. What still breaks a lock,
  * such as a Stage put straight after a started one, the service's check names.
  */
 export function TaskFlowEditor(props: TaskFlowEditorProps): ReactNode {
@@ -28,15 +28,16 @@ export function TaskFlowEditor(props: TaskFlowEditorProps): ReactNode {
   const locked = useMemo(() => lockedNotes(started), [started]);
   const marks = useMemo(() => stateMarks(started), [started]);
   const apply = (edited: FlowEdited): void => {
-    onChange(edited.stages);
-    if ("pick" in edited) controls.pick(edited.pick);
-    if (edited.hint !== undefined) controls.say(edited.hint);
+    const draft = draftAfter(edited, props.endPosition);
+    onChange(draft.stages, draft.endPosition);
+    controls.took(edited);
   };
   return (
     <FlowEditor
       title="Stages and routes"
       summary={flowSummary(stages)}
       stages={stages}
+      endPosition={props.endPosition}
       problems={props.problems}
       warnings={props.warnings}
       problemsTitle="These Stages can't be saved yet"

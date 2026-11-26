@@ -15,11 +15,17 @@ export interface StageTemplate {
 }
 
 /**
- * The Stage as a template keeps it: its name trimmed and without routes, place or link, since
- * routes name other Stages, which only a Pipeline has.
+ * The Stage as a template keeps it: its name trimmed and without routes, position, place or link,
+ * since routes name other Stages and a position stands among them, which only a Pipeline has.
  */
 export function templateStage(stage: Stage): Stage {
-  const { routes: _routes, place: _place, templateId: _templateId, ...unplaced } = stage;
+  const {
+    routes: _routes,
+    position: _position,
+    place: _place,
+    templateId: _templateId,
+    ...unplaced
+  } = stage;
   return { ...unplaced, name: stage.name.trim() };
 }
 

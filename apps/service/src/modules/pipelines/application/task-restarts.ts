@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { asFlow, pipelineOrder } from "../domain/flow.js";
+import { asFlow } from "../domain/flow.js";
 import { RestartRefused } from "../domain/restart-refused.js";
 import { runsOfLatestStart } from "../domain/start-over.js";
 import type { HoldingUser, StageRun } from "../domain/stage-run.js";
@@ -43,7 +43,7 @@ export class TaskRestarts {
     }
     // Under the Task's lock, so no walk starts a run between the checks and the record.
     const stageName = await this.taskStages.holding(taskId, async ({ stages }) => {
-      const flow = pipelineOrder(asFlow(stages));
+      const flow = asFlow(stages);
       const stage = flow.find(({ key }) => key === choice.stageKey);
       const runs = runsOfLatestStart(await this.runs.list(taskId));
       const held = runs.at(-1);

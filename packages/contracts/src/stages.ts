@@ -138,12 +138,33 @@ export const routeSchema = z.strictObject({
 });
 export type Route = z.infer<typeof routeSchema>;
 
-/** Where a Stage stands on the flow editor's canvas, which gives the Pipeline's order. */
+/**
+ * Where a Stage stood on the flow editor's grid before Stages had a position. Kept for the previous
+ * release alone, which reads the Pipeline's order from it: this release writes `{ column: index,
+ * row: 0 }` beside each position and reads it only to convert a Stage that has no position.
+ */
 export const stagePlaceSchema = z.strictObject({
   column: z.int().nonnegative(),
   row: z.int().nonnegative(),
 });
 export type StagePlace = z.infer<typeof stagePlaceSchema>;
+
+/** The most a position's x or y may be either side of the canvas's origin. */
+export const STAGE_POSITION_LIMIT = 20000;
+
+const POSITION_REFUSED = "A Stage's position is two whole numbers from −20000 to 20000.";
+
+const positionAxisSchema = z
+  .int(POSITION_REFUSED)
+  .min(-STAGE_POSITION_LIMIT, POSITION_REFUSED)
+  .max(STAGE_POSITION_LIMIT, POSITION_REFUSED);
+
+/**
+ * Where a Stage's card, or End, stands on the flow editor's canvas (spec §2.3, "The Pipeline's
+ * order"): its top-left corner, in canvas units. Layout alone: it never changes how the Pipeline runs.
+ */
+export const stagePositionSchema = z.strictObject({ x: positionAxisSchema, y: positionAxisSchema });
+export type StagePosition = z.infer<typeof stagePositionSchema>;
 
 const stageFields = {
   key: z.string().min(1),
@@ -159,7 +180,9 @@ const stageFields = {
    * always carry them.
    */
   routes: z.array(routeSchema).optional(),
-  /** Absent where `routes` is. */
+  /** Absent where `routes` is; filled in where it is missing (spec §2.3, "A Stage's position"). */
+  position: stagePositionSchema.optional(),
+  /** For the previous release alone (`stagePlaceSchema`). */
   place: stagePlaceSchema.optional(),
   /**
    * The Stage template it is linked to (spec §2.3.1), on an office-wide or Project Pipeline's Stage

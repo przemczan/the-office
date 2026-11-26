@@ -77,7 +77,8 @@ function panel(): HTMLElement | null {
 it("shows the CPU use now and the logical cores", () => {
   render(LOAD);
 
-  expect(figure().textContent).toBe("23%CPU · 2 cores");
+  // Its label is Workstation, or CPU on a tight strip: the CSS shows one of the two.
+  expect(figure().textContent).toBe("WorkstationCPU23%· 2 cores");
   expect(figure().getAttribute("aria-label")).toBe("Workstation: 23% CPU, 2 cores");
 });
 
@@ -135,7 +136,7 @@ it("closes the panel on a press outside it", () => {
 it("says Measuring… rather than 0% before the first CPU measure", () => {
   render({ ...LOAD, cpu: { ...LOAD.cpu, use: null } });
 
-  expect(figure().textContent).toBe("Measuring…· 2 cores");
+  expect(figure().textContent).toBe("WorkstationCPUMeasuring…· 2 cores");
   act(() => figure().click());
   expect(panel()?.querySelector('[aria-label="CPU"]')?.textContent).toBe("CPUMeasuring…2 cores");
   expect(panel()?.textContent).not.toContain("0%");

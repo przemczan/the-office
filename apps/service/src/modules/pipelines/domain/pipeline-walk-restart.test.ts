@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { reportedMet } from "./definition-of-done-reports.js";
-import { asFlow, pipelineOrder } from "./flow.js";
+import { asFlow } from "./flow.js";
 import { nextMove, routeCounts } from "./pipeline-walk.js";
 import type { KeptStage } from "./routes-back.js";
 import type { Stage } from "./stage.js";
@@ -121,7 +121,7 @@ describe("Restart from… in the walk", () => {
       ["write", done],
       ["review", failed],
     );
-    const flow = pipelineOrder(asFlow(stages));
+    const flow = asFlow(stages);
     const review = flow.find(({ key }) => key === "review");
     if (!review) throw new Error("No review.");
 
@@ -147,7 +147,7 @@ describe("Restart from… in the walk", () => {
   });
 
   it("shows the Stages a restart jumped over as Skipped, and the held run's Stage as stopped", () => {
-    const flow = pipelineOrder(asFlow(stages));
+    const flow = asFlow(stages);
     const ran = runs(["write", paused, restartFrom("test")]);
 
     expect(stagesProgress(flow, ran).map(({ stage, state }) => [stage.key, state])).toEqual([
@@ -206,7 +206,7 @@ describe("Start over in the walk", () => {
       stage: { key: "write" },
       carriedFailure: { round: 1, rounds: 1 },
     });
-    const progress = stagesProgress(pipelineOrder(asFlow(stages)), ran);
+    const progress = stagesProgress(asFlow(stages), ran);
     expect(progress[0]?.runs.map(({ number }) => number)).toEqual([1, 3, 5]);
     expect([...(progress[0]?.earlierStart ?? [])]).toEqual(["run-1", "run-3"]);
     expect(progress[1]?.state).toBe("failed");

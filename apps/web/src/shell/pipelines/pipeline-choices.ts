@@ -4,6 +4,7 @@ import type {
   Pipeline,
   ProjectPipeline,
   Stage,
+  StagePosition,
   TaskKind,
 } from "@the-office/contracts";
 import { stagesLine } from "./pipeline-words.ts";
@@ -14,6 +15,8 @@ export interface PipelineChoice {
   readonly name: string;
   /** The Stages a Task on it gets. */
   readonly stages: readonly Stage[];
+  /** Where its End stands on the flow canvas, if it has a position of its own. */
+  readonly endPosition?: StagePosition | undefined;
   /** Its second line: its Stages, and the Pipeline a Project Pipeline was copied from. */
   readonly line: string;
   /** Whether it is the Project's default, or its Task's Kind's, marked as such in a Task's picker. */
@@ -145,6 +148,7 @@ function officeWideChoice(pipeline: Pipeline): PipelineChoice {
     id: pipeline.id,
     name: pipeline.name,
     stages: pipeline.stages,
+    endPosition: pipeline.endPosition,
     line: stagesLine(pipeline),
     isDefault: false,
     brokenWhy: undefined,
@@ -159,6 +163,7 @@ function projectPipelineChoice(
     id: projectPipeline.id,
     name: projectPipeline.name,
     stages: projectPipeline.stages,
+    endPosition: projectPipeline.endPosition,
     line: `${stagesLine(projectPipeline)} · copied from ${projectPipeline.copiedFrom.name}`,
     isDefault: false,
     brokenWhy: brokenWords(projectPipeline, projectName),

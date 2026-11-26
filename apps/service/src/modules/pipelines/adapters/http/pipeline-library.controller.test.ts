@@ -15,8 +15,7 @@ import {
   PipelineRemoved,
   PipelineSaved,
 } from "../../domain/pipeline-library-events.js";
-import { straightLineFlow } from "../../domain/flow.js";
-import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
+import { agentStage, scriptStage, straightLine } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
   type PipelinesApplication,
@@ -74,7 +73,7 @@ describe("POST /api/pipelines", () => {
     expect(pipeline).toEqual({
       id: expect.any(String),
       ...edit,
-      stages: straightLineFlow(edit.stages),
+      stages: straightLine(edit.stages),
     });
     const read = await send("GET", `/pipelines/${pipeline.id}`);
     expect(pipelineSchema.parse(await read.json())).toEqual(pipeline);
@@ -113,7 +112,7 @@ describe("PUT /api/pipelines/:id", () => {
     expect(pipelineSchema.parse(await response.json())).toEqual({
       id: pipeline.id,
       ...edit,
-      stages: straightLineFlow(edit.stages),
+      stages: straightLine(edit.stages),
     });
     expect(publishedFor(PipelineSaved, pipeline.id)).toBe(true);
   });
@@ -132,9 +131,7 @@ describe("PUT /api/pipelines/:id", () => {
     const later = randomUUID();
     pipelines.tasks.put(later, { state: "in-progress", pipelineId: pipeline.id });
 
-    expect((await taskStages.make(later, pipeline.id)).stages).toEqual(
-      straightLineFlow(edit.stages),
-    );
+    expect((await taskStages.make(later, pipeline.id)).stages).toEqual(straightLine(edit.stages));
     expect((await taskStages.find(started))?.stages).toEqual(pipeline.stages);
   });
 

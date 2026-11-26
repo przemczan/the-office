@@ -1,4 +1,11 @@
-import type { Duty, Role, RoleCardOptions, Stage, StageProblem } from "@the-office/contracts";
+import type {
+  Duty,
+  Role,
+  RoleCardOptions,
+  Stage,
+  StagePosition,
+  StageProblem,
+} from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { whoWorks } from "../pipeline-words.ts";
 import { namedCommands, type StageCommandSource } from "../stage-commands.ts";
@@ -6,12 +13,15 @@ import { FlowAddMenu } from "./flow-add-menu.tsx";
 import { FlowEditor, useFlowEditorControls } from "./flow-editor.tsx";
 import { flowSummary } from "./flow-editor-words.ts";
 import { FlowPanel } from "./flow-panel.tsx";
-import { canvasEdited, type FlowEdited, stageAdded } from "./office-flow-edits.ts";
+import { canvasEdited, draftAfter, type FlowEdited, stageAdded } from "./office-flow-edits.ts";
 
 export interface OfficeFlowEditorProps {
-  /** The flow, as `asFlow` gives it: every Stage with its place and routes. */
+  /** The flow, as `asFlow` gives it: every Stage, in the Pipeline's order, with its position and routes. */
   readonly stages: readonly Stage[];
-  readonly onChange: (stages: readonly Stage[]) => void;
+  /** Where End stands; derived, right of the right-most Stage, without. */
+  readonly endPosition?: StagePosition | undefined;
+  /** The Stages and End's position after an edit. */
+  readonly onChange: (stages: readonly Stage[], endPosition: StagePosition | undefined) => void;
   readonly problems: readonly StageProblem[];
   readonly warnings: readonly StageProblem[];
   readonly roles: readonly Role[];
@@ -39,15 +49,16 @@ export function OfficeFlowEditor(props: OfficeFlowEditorProps): ReactNode {
     props.pickedStage === undefined ? undefined : { kind: "stage", key: props.pickedStage },
   );
   const apply = (edited: FlowEdited): void => {
-    onChange(edited.stages);
-    if ("pick" in edited) controls.pick(edited.pick);
-    if (edited.hint !== undefined) controls.say(edited.hint);
+    const draft = draftAfter(edited, props.endPosition);
+    onChange(draft.stages, draft.endPosition);
+    controls.took(edited);
   };
   return (
     <FlowEditor
       title="Stages and routes"
       summary={flowSummary(stages)}
       stages={stages}
+      endPosition={props.endPosition}
       problems={props.problems}
       warnings={props.warnings}
       whoWorks={(stage) => whoWorks(stage, roles, named, duties)}

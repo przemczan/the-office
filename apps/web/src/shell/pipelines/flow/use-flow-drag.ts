@@ -1,28 +1,29 @@
+import type { StagePosition } from "@the-office/contracts";
 import { type PointerEvent, type RefObject, useRef, useState } from "react";
-import {
-  dropAt,
-  type FlowBox,
-  type FlowDropAt,
-  type FlowPoint,
-  type FlowTracks,
-} from "./flow-layout.ts";
-import type { FlowDrop } from "./flow-model.ts";
+import type { FlowPoint } from "./flow-layout.ts";
+import { type ClearSpot, clearSpot, type FlowCard, type FlowGuide, snapMove } from "./flow-snap.ts";
 import type { FlowCanvasEdit } from "./flow-view.ts";
 import { scaleOf } from "./use-flow-measure.ts";
 
-/** A Stage being dragged to a place: how far it moved, and where it would drop. */
-export interface StageDrag {
-  readonly kind: "stage";
-  readonly key: string;
+/**
+ * A Stage (its key) or End (null) being dragged on the canvas: where it was, where it shows now,
+ * snapped, with the guides it snapped to, and where it would land, clear of every other card.
+ */
+export interface CardDrag {
+  readonly kind: "card";
+  readonly key: string | null;
   readonly pointerId: number;
   /** Where the press was, in the canvas's own pixels, so the view may move under the drag. */
   readonly x0: number;
   readonly y0: number;
+  /** The card's position when the drag started. */
+  readonly start: StagePosition;
+  /** The canvas's origin when the drag started, which holds while it lasts. */
+  readonly origin: StagePosition;
   readonly moved: boolean;
-  readonly dx: number;
-  readonly dy: number;
-  /** The drop place, its ghost relative to the canvas. */
-  readonly at: FlowDropAt | undefined;
+  readonly shown: StagePosition;
+  readonly guides: readonly FlowGuide[];
+  readonly landing: ClearSpot | undefined;
 }
 
 /** A route being drawn from a Stage's +: the pointer, and the Stage or End (null) under it. */
@@ -34,24 +35,14 @@ export interface RouteDrag {
   readonly target: string | null | undefined;
 }
 
-/** A press on a Stage that keeps its place: once it moves, the canvas says why it stays. */
-export interface StaysDrag {
-  readonly kind: "stays";
-  readonly key: string;
-  readonly pointerId: number;
-  readonly x0: number;
-  readonly y0: number;
-  readonly told: boolean;
-}
-
-export type FlowDrag = StageDrag | RouteDrag | StaysDrag;
+export type FlowDrag = CardDrag | RouteDrag;
 
 /** How far a press moves before it is a drag rather than a pick, in px. */
 const DRAG_START = 5;
 
 export interface FlowDragging {
   readonly drag: FlowDrag | undefined;
-  readonly onStagePointer: (event: PointerEvent<HTMLDivElement>, key: string) => void;
+  readonly onCardPointer: (event: PointerEvent<HTMLElement>, key: string | null) => void;
   readonly onHandlePointer: (event: PointerEvent<HTMLButtonElement>, key: string) => void;
   readonly onPointerMove: (event: PointerEvent<HTMLElement>) => void;
   readonly onPointerUp: (event: PointerEvent<HTMLElement>) => void;
@@ -62,46 +53,40 @@ export interface FlowDragging {
 
 export interface FlowDragOptions {
   readonly canvas: RefObject<HTMLElement | null>;
-  readonly canDrag: (key: string) => boolean;
-  /** Whether a dragged Stage may drop there: not among a Task's frozen columns. */
-  readonly canDrop: (drop: FlowDrop) => boolean;
+  /** Whether a Stage or End can be dragged: not on a read-only or narrow canvas. */
+  readonly canDrag: (key: string | null) => boolean;
   /** Whether a route may be drawn from the Stage: not from a Task's started one. */
   readonly canDraw: (key: string) => boolean;
+  /** Every card as it stands, in canvas units: what a dragged one snaps to and lands clear of. */
+  readonly cards: readonly FlowCard[];
+  /** Where the canvas's box starts, in canvas units. */
+  readonly origin: StagePosition;
+  /** The viewport's zoom, by which snapping's reach is scaled. */
+  readonly zoom: number;
   readonly onEdit: ((edit: FlowCanvasEdit) => void) | undefined;
-  /** Whether a Stage that can't be dragged says why when someone tries. */
-  readonly saysWhyItStays?: (key: string) => boolean;
-  /** Someone tried to drag a Stage that keeps its place, the pointer where it is now. */
-  readonly onStays?: (key: string, point: { clientX: number; clientY: number }) => void;
   /** Each move of a drag, so the viewport can follow it near its edge. */
   readonly onDragMove?: ((point: { clientX: number; clientY: number }) => void) | undefined;
 }
 
 /**
- * Dragging on the canvas, by Pointer Events with the pointer captured: a Stage to a place, or a
- * route from a Stage's + to a Stage or End. A touch that turns into a scroll ends in pointercancel,
- * which drops nothing.
+ * Dragging on the canvas, by Pointer Events with the pointer captured: a Stage or End anywhere,
+ * snapping as `snapMove` says (Alt held, freely; Shift held, along its row or column) and dropped
+ * where `clearSpot` lands it; or a route from a Stage's + to a Stage or End. A touch that turns into
+ * a scroll ends in pointercancel, which drops nothing.
  */
 export function useFlowDrag(options: FlowDragOptions): FlowDragging {
   const [drag, setDrag] = useState<FlowDrag | undefined>(undefined);
   const dragged = useRef(false);
   const move = (event: PointerEvent<HTMLElement>): void => {
     if (!drag || event.pointerId !== drag.pointerId) return;
-    if (drag.kind === "stays") {
-      if (drag.told || Math.hypot(event.clientX - drag.x0, event.clientY - drag.y0) < DRAG_START)
-        return;
-      setDrag({ ...drag, told: true });
-      options.onStays?.(drag.key, event);
-      return;
-    }
     if (drag.kind === "route" || drag.moved) options.onDragMove?.(event);
     setDrag(
-      drag.kind === "stage" ? movedStage(drag, event, options) : movedRoute(drag, event, options),
+      drag.kind === "card" ? movedCard(drag, event, options) : movedRoute(drag, event, options),
     );
   };
   const up = (event: PointerEvent<HTMLElement>): void => {
     if (!drag || event.pointerId !== drag.pointerId) return;
     setDrag(undefined);
-    if (drag.kind === "stays") return;
     if (drag.kind === "route") {
       if (drag.target === undefined) return;
       // The click that follows on the + would pick its Stage over the route just drawn.
@@ -109,41 +94,40 @@ export function useFlowDrag(options: FlowDragOptions): FlowDragging {
       options.onEdit?.({ kind: "draw-route", from: drag.from, to: drag.target });
       return;
     }
-    if (!drag.moved) return;
+    if (!drag.moved || !drag.landing) return;
     dragged.current = true;
-    if (drag.at) options.onEdit?.({ kind: "drop", key: drag.key, drop: drag.at.drop });
+    const { position, covered } = drag.landing;
+    if (!covered && position.x === drag.start.x && position.y === drag.start.y) return;
+    options.onEdit?.({
+      kind: "move-to",
+      key: drag.key,
+      position,
+      ...(covered ? { beside: covered.key } : {}),
+    });
   };
   return {
     drag,
-    onStagePointer: (event, key) => {
-      if (event.button > 0) return;
+    onCardPointer: (event, key) => {
+      if (event.button > 0 || !options.canDrag(key)) return;
       if ((event.target as Element).closest("[data-flow-route], .flow-canvas-handle")) return;
-      if (!options.canDrag(key)) {
-        if (!options.saysWhyItStays?.(key)) return;
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        setDrag({
-          kind: "stays",
-          key,
-          pointerId: event.pointerId,
-          x0: event.clientX,
-          y0: event.clientY,
-          told: false,
-        });
-        return;
-      }
+      const card = options.cards.find((each) => each.key === key);
+      if (!card) return;
       event.currentTarget.setPointerCapture?.(event.pointerId);
       dragged.current = false;
       const at = canvasPoint(options.canvas.current, event);
+      const start = { x: card.box.x, y: card.box.y };
       setDrag({
-        kind: "stage",
+        kind: "card",
         key,
         pointerId: event.pointerId,
         x0: at.x,
         y0: at.y,
+        start,
+        origin: options.origin,
         moved: false,
-        dx: 0,
-        dy: 0,
-        at: undefined,
+        shown: start,
+        guides: [],
+        landing: undefined,
       });
     },
     onHandlePointer: (event, key) => {
@@ -170,44 +154,31 @@ export function useFlowDrag(options: FlowDragOptions): FlowDragging {
   };
 }
 
-function movedStage(
-  drag: StageDrag,
+function movedCard(
+  drag: CardDrag,
   event: PointerEvent<HTMLElement>,
-  { canvas, canDrop }: FlowDragOptions,
-): StageDrag {
+  { canvas, cards, zoom }: FlowDragOptions,
+): CardDrag {
   const point = canvasPoint(canvas.current, event);
   const dx = point.x - drag.x0;
   const dy = point.y - drag.y0;
   if (!drag.moved && Math.hypot(dx, dy) < DRAG_START) return drag;
-  const grid = canvas.current?.querySelector<HTMLElement>(".flow-canvas-grid");
-  const at = grid ? dropOn(grid, point) : undefined;
-  return { ...drag, moved: true, dx, dy, at: at && canDrop(at.drop) ? at : undefined };
-}
-
-/** The drop place under `point`, in the canvas's pixels; the grid sits at its offset inside it. */
-function dropOn(grid: HTMLElement, point: FlowPoint): FlowDropAt {
-  const offset = { x: grid.offsetLeft, y: grid.offsetTop };
-  const at = dropAt(tracksOf(grid), { x: point.x - offset.x, y: point.y - offset.y }, "across");
-  const ghost: FlowBox = { ...at.ghost, x: at.ghost.x + offset.x, y: at.ghost.y + offset.y };
-  return { ...at, ghost };
-}
-
-/** A computed track list's sizes, "120px 80px" as [120, 80]. */
-function sizes(list: string): number[] {
-  return list
-    .split(" ")
-    .map(Number.parseFloat)
-    .filter((size) => Number.isFinite(size));
-}
-
-/** The grid's tracks as the browser laid them out, which its computed style gives in px. */
-function tracksOf(grid: HTMLElement): FlowTracks {
-  const style = getComputedStyle(grid);
+  const own = cards.find(({ key }) => key === drag.key);
+  if (!own) return drag;
+  const others = cards.filter(({ key }) => key !== drag.key);
+  const size = { width: own.box.width, height: own.box.height };
+  const snapped = snapMove(
+    { x: drag.start.x + dx, y: drag.start.y + dy },
+    size,
+    others.map(({ box }) => box),
+    { zoom, free: event.altKey, along: event.shiftKey ? drag.start : undefined },
+  );
   return {
-    columns: sizes(style.gridTemplateColumns),
-    rows: sizes(style.gridTemplateRows),
-    columnGap: Number.parseFloat(style.columnGap) || 0,
-    rowGap: Number.parseFloat(style.rowGap) || 0,
+    ...drag,
+    moved: true,
+    shown: snapped.position,
+    guides: snapped.guides,
+    landing: clearSpot({ ...snapped.position, ...size }, others),
   };
 }
 

@@ -3,10 +3,9 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { straightLineFlow } from "../../domain/flow.js";
 import type { Pipeline } from "../../domain/pipeline.js";
 import type { ProjectPipeline } from "../../domain/project-pipeline.js";
-import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
+import { agentStage, scriptStage, straightLine } from "../../domain/stage.fixtures.js";
 import { PostgresPipelineRepository } from "./postgres-pipeline-repository.js";
 import { PostgresProjectPipelineRepository } from "./postgres-project-pipeline-repository.js";
 
@@ -32,7 +31,7 @@ async function anOfficeWidePipeline(): Promise<Pipeline> {
     id: randomUUID(),
     name: `Full ${randomUUID()}`,
     description: "To copy.",
-    stages: straightLineFlow([agentStage(), scriptStage()]),
+    stages: straightLine([agentStage(), scriptStage()]),
   };
   await new PostgresPipelineRepository(database).add(pipeline);
   return pipeline;
@@ -68,7 +67,8 @@ describe("PostgresProjectPipelineRepository", () => {
     const saved = {
       ...first,
       name: "Renamed",
-      stages: straightLineFlow([agentStage()]),
+      stages: straightLine([agentStage()]),
+      endPosition: { x: 400, y: -30 },
       projectId: randomUUID(),
     };
     await repository.save(saved);
@@ -120,7 +120,7 @@ describe("PostgresProjectPipelineRepository", () => {
     // Ending it is the user's save (`savedProjectPipeline`); a template's edit applied keeps it.
     const kept = {
       ...moved,
-      stages: straightLineFlow([agentStage()]),
+      stages: straightLine([agentStage()]),
       brokenBeforeUpdate: ["Still broken."],
     };
     await repository.save(kept);

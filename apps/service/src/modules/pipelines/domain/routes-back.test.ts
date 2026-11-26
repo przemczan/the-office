@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asFlow, straightLineFlow, type FlowStage } from "./flow.js";
+import { asFlow, straightLineFlow, type GridStage } from "./flow.js";
 import { ENDED_FAILED, plainRoute, ROUTE_LIMIT_MAX, type Route } from "./route.js";
 import { withRoutesBack, type KeptStage } from "./routes-back.js";
 import { agentStage, scriptStage } from "./stage.fixtures.js";
@@ -32,7 +32,7 @@ describe("withRoutesBack", () => {
 
   it("keeps a Script Stage's own ended-Failed route after the one its setting became", () => {
     const own: Route = { to: null, condition: ENDED_FAILED, limit: null };
-    const kept: KeptStage<FlowStage> = {
+    const kept: KeptStage<GridStage> = {
       ...keptTests,
       routes: [own, plainRoute(null)],
       place: { column: 1, row: 0 },
@@ -72,8 +72,8 @@ describe("withRoutesBack", () => {
 describe("asFlow of kept Stages", () => {
   it("converts a plain list, then reads its on-failure settings as routes back", () => {
     expect(asFlow([implement, keptTests])).toEqual([
-      { ...implement, routes: [plainRoute("tests")], place: { column: 0, row: 0 } },
-      { ...tests, routes: [BACK_TO_IMPLEMENT, plainRoute(null)], place: { column: 1, row: 0 } },
+      { ...implement, routes: [plainRoute("tests")], position: { x: 0, y: 0 } },
+      { ...tests, routes: [BACK_TO_IMPLEMENT, plainRoute(null)], position: { x: 308, y: 0 } },
     ]);
   });
 
@@ -95,7 +95,7 @@ describe("asFlow of kept Stages", () => {
         ],
         place: { column: 1, row: 0 },
       },
-    ] as FlowStage[];
+    ] as GridStage[];
 
     expect(asFlow(keptRoutes).map(({ routes }) => routes.map(({ limit }) => limit))).toEqual([
       [null],

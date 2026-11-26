@@ -10,7 +10,7 @@ import {
   type StagePipeline,
 } from "./agent-stage-brief.js";
 import { allowedCommands } from "./allowed-commands.js";
-import { asFlow, pipelineOrder } from "./flow.js";
+import { asFlow } from "./flow.js";
 import { RESOLVE_KEY } from "./publish-stages.js";
 import { keptPublishStage, publishStage } from "./stage.fixtures.js";
 import { choiceCondition, ENDED_FAILED, plainRoute, type Route } from "./route.js";
@@ -235,7 +235,7 @@ describe("isLastAgentStageBeforePublish", () => {
   });
 
   it("passes over the conflict chain's Resolve, which is never it", () => {
-    const stages = pipelineOrder(asFlow([implement, review, lint, keptPublishStage()]));
+    const stages = asFlow([implement, review, lint, keptPublishStage()]);
 
     expect(stages.map(({ key }) => key)).toContain(RESOLVE_KEY);
     expect(isLastAgentStageBeforePublish(review, stages)).toBe(true);

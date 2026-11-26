@@ -5,26 +5,42 @@ import { RefusalAlert } from "../../refusal-alert.tsx";
 import { STAGE_KIND_ICONS, STAGE_KIND_NAMES } from "../stage-edits.ts";
 import { StageForm } from "../stage-form.tsx";
 import { shownName, useSaveAsTemplate } from "../use-save-as-template.ts";
-import { FlowLockedFields, FlowLockedNote, lockedTitle } from "./flow-locked.tsx";
-import { canMoveStage, inFlowOrder, type MoveDirection, withStageMoved } from "./flow-model.ts";
+import { FlowLockedFields, FlowLockedNote } from "./flow-locked.tsx";
+import { canMoveStage, type MoveDirection } from "./flow-model.ts";
 import { NO_LOCKS } from "./flow-marks.ts";
 import type { FlowPanelProps } from "./flow-panel.tsx";
 import { FlowProblemAlert } from "./flow-problem-alert.tsx";
 import { FlowRoutesOut } from "./flow-routes-out.tsx";
 import { FlowTemplateLine } from "./flow-template-line.tsx";
 import { stageProblemsOf } from "./flow-view.ts";
-import { stageRemoved } from "./office-flow-edits.ts";
+import { stageMoved, stageRemoved } from "./office-flow-edits.ts";
 
-const MOVES: readonly { direction: MoveDirection; icon: string }[] = [
-  { direction: "earlier", icon: "chevron-left" },
-  { direction: "later", icon: "chevron-right" },
-  { direction: "up", icon: "chevron-up" },
-  { direction: "down", icon: "chevron-down" },
+const MOVES: readonly {
+  direction: MoveDirection;
+  icon: string;
+  tooltip: string;
+  already: string;
+}[] = [
+  {
+    direction: "earlier",
+    icon: "chevron-left",
+    tooltip: "Earlier in the Pipeline's order; it stays where it is on the canvas",
+    already: "first",
+  },
+  {
+    direction: "later",
+    icon: "chevron-right",
+    tooltip: "Later in the Pipeline's order; it stays where it is on the canvas",
+    already: "last",
+  },
 ];
 
+/** A started Stage's Move, disabled. */
+const STARTED_KEEPS_ITS_PLACE = "Started, so it keeps its place in the order";
+
 /**
- * The picked Stage's panel: its place in the Pipeline's order with Move earlier, later, up and down
- * and its ⋯ menu; its link to its Stage template, if any, on a Pipeline's Stages only (`links`: a
+ * The picked Stage's panel: its place in the Pipeline's order with Move earlier and Move later
+ * (which change the order alone, never where it stands on the canvas) and its ⋯ menu; its link to its Stage template, if any, on a Pipeline's Stages only (`links`: a
  * Task's own Stages are copies), and its fields as the Stage form has them; then Routes out. A locked Stage's (a Task's started one) reads only: its Moves disabled, no ⋯
  * menu.
  */
@@ -32,7 +48,6 @@ export function FlowStagePanel(props: FlowPanelProps & { readonly stage: Stage }
   const { stage, stages, onEdited, problems, locked = NO_LOCKS } = props;
   const name = shownName(stage);
   const note = locked.get(stage.key);
-  const order = inFlowOrder(stages);
   const index = stages.indexOf(stage);
   const saving = useSaveAsTemplate();
   // The draft as it is once the template is saved, which edits made meanwhile may have changed.
@@ -55,24 +70,32 @@ export function FlowStagePanel(props: FlowPanelProps & { readonly stage: Stage }
           </span>
           {name}{" "}
           <small>
-            {STAGE_KIND_NAMES[stage.kind]} · {order.indexOf(stage) + 1} of {order.length} in the
-            Pipeline's order
+            {STAGE_KIND_NAMES[stage.kind]} · {index + 1} of {stages.length} in the Pipeline's order
           </small>
         </h4>
         <span className="flow-panel-tools">
-          {MOVES.map(({ direction, icon }) => (
-            <IconButton
-              key={direction}
-              size="sm"
-              icon={<Icon name={icon} size={13} />}
-              label={`Move ${name} ${direction}`}
-              {...lockedTitle(note)}
-              disabled={note !== undefined || !canMoveStage(stages, stage.key, direction, locked)}
-              onClick={() =>
-                onEdited({ stages: withStageMoved(stages, stage.key, direction, locked) })
-              }
-            />
-          ))}
+          {MOVES.map(({ direction, icon, tooltip, already }) => {
+            const can = note === undefined && canMoveStage(stages, stage.key, direction, locked);
+            const why =
+              note !== undefined || locked.has(stage.key)
+                ? STARTED_KEEPS_ITS_PLACE
+                : !can && (direction === "earlier" ? index === 0 : index === stages.length - 1)
+                  ? `${name} is already ${already}`
+                  : !can
+                    ? STARTED_KEEPS_ITS_PLACE
+                    : tooltip;
+            return (
+              <IconButton
+                key={direction}
+                size="sm"
+                icon={<Icon name={icon} size={13} />}
+                label={`Move ${name} ${direction}`}
+                title={why}
+                disabled={!can}
+                onClick={() => onEdited(stageMoved(stages, stage.key, direction, locked))}
+              />
+            );
+          })}
           {note === undefined && (
             <StageMenu
               name={name}

@@ -2,16 +2,20 @@ import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
-import { asFlow, pipelineOrder } from "../../domain/flow.js";
+import { asFlow, withPlacesForThePreviousRelease } from "../../domain/flow.js";
 import type { Pipeline } from "../../domain/pipeline.js";
+import type { StagePosition } from "../../domain/route.js";
 import { PipelineRepository } from "../../ports/pipeline-repository.js";
 import { pipelines } from "./pipelines.schema.js";
+
+type Row = Omit<Pipeline, "endPosition"> & { readonly endPosition: StagePosition | null };
 
 const PIPELINE_COLUMNS = {
   id: pipelines.id,
   name: pipelines.name,
   description: pipelines.description,
   stages: pipelines.stages,
+  endPosition: pipelines.endPosition,
 };
 
 @Injectable()
@@ -56,12 +60,24 @@ export class PostgresPipelineRepository extends PipelineRepository {
   }
 }
 
-/** A row's Pipeline, its Stages a flow even when a rolled-back release wrote them as a list. */
-function pipelineOf(row: Pipeline): Pipeline {
-  return { ...row, stages: asFlow(row.stages) };
+/**
+ * A row's Pipeline, its Stages a flow, each with its position, even when a rolled-back release wrote
+ * them as a list or with places alone.
+ */
+function pipelineOf({ endPosition, ...row }: Row): Pipeline {
+  return { ...row, stages: asFlow(row.stages), ...(endPosition && { endPosition }) };
 }
 
-/** The row of `pipeline`, its Stages in the Pipeline's order, as the previous release reads them. */
-function rowOf({ id, name, description, stages }: Pipeline) {
-  return { id, name, description, stages: pipelineOrder(asFlow(stages)) };
+/**
+ * The row of `pipeline`, its Stages in the Pipeline's order with the places the previous release
+ * reads it from.
+ */
+function rowOf({ id, name, description, stages, endPosition }: Pipeline) {
+  return {
+    id,
+    name,
+    description,
+    stages: withPlacesForThePreviousRelease(asFlow(stages)),
+    endPosition: endPosition ?? null,
+  };
 }

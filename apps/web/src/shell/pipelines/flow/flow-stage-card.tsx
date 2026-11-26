@@ -19,7 +19,8 @@ import {
 export interface FlowStageCardProps {
   readonly stage: Stage;
   readonly stages: readonly Stage[];
-  readonly cell: FlowGridCell;
+  /** Across, where the card stands from the canvas's top-left; down, its cell in the bands' grid. */
+  readonly place: CSSProperties | FlowGridCell;
   readonly who: string;
   readonly picked: FlowPick | undefined;
   readonly ownProblems: readonly StageProblem[];
@@ -32,7 +33,8 @@ export interface FlowStageCardProps {
   readonly listsRoutes: boolean;
   readonly showsHandle: boolean;
   readonly draggable: boolean;
-  readonly dragging: { readonly dx: number; readonly dy: number } | undefined;
+  /** Being dragged: drawn over the others, where it would snap to. */
+  readonly dragging: boolean;
   readonly target: boolean;
   readonly onPick: (pick: FlowPick) => void;
   readonly onStageKey: (event: KeyboardEvent<HTMLButtonElement>, key: string) => void;
@@ -60,12 +62,8 @@ const WRAPPING_BADGE: CSSProperties = {
  * routes out when it lists them, its +.
  */
 export function FlowStageCard(props: FlowStageCardProps): ReactNode {
-  const { stage, cell, mark, dragging } = props;
-  const style: CSSProperties = {
-    gridColumn: cell.gridColumn,
-    gridRow: cell.gridRow,
-    ...(dragging ? { transform: `translate(${dragging.dx}px, ${dragging.dy}px)` } : {}),
-  };
+  const { stage, place, mark } = props;
+  const style: CSSProperties = { ...place };
   return (
     <div
       className={cardClass(props)}

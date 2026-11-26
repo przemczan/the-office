@@ -7,7 +7,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { builtInPipelinesBeforeFlows } from "../../domain/built-in-pipelines-before-flows.fixtures.js";
-import { straightLineFlow, type FlowStage } from "../../domain/flow.js";
+import { straightLineFlow } from "../../domain/flow.js";
 import type { KeptStage } from "../../domain/routes-back.js";
 import type { Stage } from "../../domain/stage.js";
 import { agentStage, gate, scriptStage } from "../../domain/stage.fixtures.js";
@@ -36,7 +36,7 @@ function asAList({ routes: _routes, place: _place, ...stage }: KeptStage): KeptS
  * release before routes had limits kept them, and a kept on-failure setting left as it was.
  */
 function drawnByTheMigration(stages: readonly KeptStage[]): unknown[] {
-  return straightLineFlow(stages).map((stage: FlowStage) => ({
+  return straightLineFlow(stages).map((stage) => ({
     ...stage,
     routes: stage.routes.map(({ limit: _limit, ...route }) => route),
   }));

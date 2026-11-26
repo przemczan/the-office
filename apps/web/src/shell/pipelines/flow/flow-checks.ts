@@ -8,7 +8,7 @@ import type {
 } from "@the-office/contracts";
 import { isGroup, type TestPath } from "./condition-edits.ts";
 import { routeTargetName } from "./condition-words.ts";
-import { choiceWordsOf, inFlowOrder } from "./flow-model.ts";
+import { choiceWordsOf } from "./flow-model.ts";
 
 /**
  * What the flow editor refuses on its own, beside the service's check: a condition group with no
@@ -20,7 +20,7 @@ import { choiceWordsOf, inFlowOrder } from "./flow-model.ts";
  * and holds Save the same way; `byLevel` drops the service's copy of the same problem.
  */
 export function flowProblems(stages: readonly Stage[]): readonly StageProblem[] {
-  const ordered = inFlowOrder(stages);
+  const ordered = stages;
   return ordered.flatMap((stage, stageIndex) => {
     const problem = (at: StageProblemAt, text: string): StageProblem => ({
       stageKey: stage.key,

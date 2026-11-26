@@ -813,8 +813,13 @@ test(
     await expect(added.getByLabel("Default model")).toHaveValue("claude-sonnet-5-5");
     await added.getByLabel("Name", { exact: true }).fill("Second account");
     const second = page.getByRole("group", { name: "Second account" });
+    // The Switch has no accessible name (e2e/MAP.md), so it is found by its label's text.
+    const fallback = second
+      .locator("label")
+      .filter({ hasText: "The -p fallback" })
+      .getByRole("switch");
     await second.getByLabel("Default model").selectOption({ label: "Haiku 5.5" });
-    await second.getByRole("switch").click();
+    await fallback.click();
     await page.getByRole("tab", { name: "Account" }).click();
     await expect(second.getByText("It has no folder to sign in yet")).toBeVisible();
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -836,7 +841,7 @@ test(
     await openEngine(page, "Second account");
     await expect(second.getByLabel("Name", { exact: true })).toHaveValue("Second account");
     await expect(second.getByLabel("Default model")).toHaveValue("claude-haiku-5-5");
-    await expect(second.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+    await expect(fallback).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("button", { name: "Remove Second account" })).toBeVisible();
     await openEngine(page, "People Strata");
     await expect(
@@ -910,14 +915,14 @@ test(
       await expect(moves.getByRole("listitem")).toHaveCount(1);
       await expect(
         moves.getByRole("listitem").filter({ hasText: "The Project default of Removal shop" }),
-      ).toContainText("Sonnet 5.5 on Leaving account → Sonnet 5.5 on Claude Code");
+      ).toContainText("Leaving account → Claude Code");
       await expect(confirm).toBeEnabled();
 
-      // A Project default names no model, so the move names each engine's default model.
+      // Every level names an engine, not a model, so the move follows the replacement picked.
       await replacement.selectOption({ label: "People Strata" });
       await expect(
         moves.getByRole("listitem").filter({ hasText: "The Project default of Removal shop" }),
-      ).toContainText("Sonnet 5.5 on Leaving account → org/coder:q4 on People Strata");
+      ).toContainText("Leaving account → People Strata");
 
       await replacement.selectOption({ label: "Claude Code" });
       await expect(confirm).toBeEnabled();
@@ -1808,7 +1813,7 @@ test(
       await expect(page).toHaveURL(/\/people\/developer\/work$/);
       const row = page.getByRole("row", { name: /Fix the login redirect/ });
       const elsewhereRow = page.getByRole("row", { name: /Fix the signup redirect/ });
-      await expect(row).toContainText("Implement · Review & fix");
+      await expect(row).toContainText("Implement · Resolve · Review & fix");
       await expect(row).toContainText("Backlog");
       await expect(elsewhereRow).toBeVisible();
 
@@ -2026,22 +2031,22 @@ test(
         path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-project-commands.png"),
       });
 
-      // An Agent Stage added beside Implement comes unconnected: the check's problems hold Save.
-      // Resolve, under Implement in the conflict chain's row, comes before it in the order.
+      // An Agent Stage added with Implement picked goes right after it in the order, beside it on
+      // the canvas, and comes unconnected: the check's problems hold Save.
       const save = dialog.getByRole("button", { name: "Save for this Task" });
       const problems = dialog.getByRole("list", { name: "Problems" });
       await addAStage("Agent Stage");
       const added = panel("New Stage");
-      await expect(added).toContainText("3 of 7 in the Pipeline's order");
+      await expect(added).toContainText("2 of 7 in the Pipeline's order");
       await expect(problems).toContainText("New Stage: give it a route out");
       await expect(save).toBeDisabled();
-      // Moved later it goes after Tests, earlier back before it, and up into Implement's row.
+      // Moved later it goes after Resolve, earlier back before it; it stays where it is on the canvas.
       await added.getByRole("button", { name: "Move New Stage later" }).click();
-      await expect(added).toContainText("5 of 7 in the Pipeline's order");
-      await added.getByRole("button", { name: "Move New Stage earlier" }).click();
       await expect(added).toContainText("3 of 7 in the Pipeline's order");
-      await added.getByRole("button", { name: "Move New Stage up" }).click();
-      await expect(added.getByRole("button", { name: "Move New Stage up" })).toBeDisabled();
+      await expect(dialog).toContainText("it stays where it is on the canvas");
+      await added.getByRole("button", { name: "Move New Stage earlier" }).click();
+      await expect(added).toContainText("2 of 7 in the Pipeline's order");
+      await expect(added.getByRole("button", { name: "Move New Stage up" })).toHaveCount(0);
       // Implement's route leads to it, and it on to Tests.
       await onFlow("Implement").click();
       await implement
@@ -2052,6 +2057,9 @@ test(
       await onFlow("New Stage").click();
       await added.getByRole("button", { name: "Add a route" }).click();
       await page.getByRole("menu").getByRole("button", { name: "Otherwise" }).click();
+      // A new route goes to the next Stage in the order, Resolve here, so Tests is picked.
+      await expect(panel("Route")).toContainText("Route from New Stage to Resolve");
+      await panel("Route").getByLabel("Goes to").selectOption({ label: "Tests" });
       await expect(panel("Route")).toContainText("Route from New Stage to Tests");
       await expect(problems).not.toContainText("give it a route out");
       // It continues Implement's session with the same Role, and with someone to work it the
@@ -2187,10 +2195,10 @@ test(
         .getByRole("article", { name: "Keep the filters on reload" })
         .getByRole("button", { name: "More for Keep the filters on reload" })
         .click();
-      await page
-        .getByRole("menu")
-        .getByRole("button", { name: "Edit Stages for this Task" })
-        .click();
+      // Mark Ready joins the menu once the Task's readiness has loaded, so it is waited for first.
+      const cardMenu = page.getByRole("menu");
+      await expect(cardMenu.getByRole("button", { name: "Mark Ready" })).toBeVisible();
+      await cardMenu.getByRole("button", { name: "Edit Stages for this Task" }).click();
       await onFlow("Implement").click();
       const brief = implement.getByLabel("Brief");
       await brief.scrollIntoViewIfNeeded();
@@ -3085,6 +3093,16 @@ const A_SCREENSHOT = Buffer.from(
 );
 
 /** The Task's Stages: a Gate first, so it waits there with no session, then Build. */
+/**
+ * Answers the Decision the walk opens when the Pipeline ends with the Definition of Done not
+ * reported met, in Needs you as the user does: its form's "Mark the Task Done", then Submit.
+ */
+async function markDoneInNeedsYou(needsYou: Locator): Promise<void> {
+  await needsYou.getByRole("radio", { name: /^Mark the Task Done/ }).check();
+  await needsYou.getByRole("button", { name: "Submit" }).click();
+  await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
+}
+
 async function seedGateFirst(page: Page, taskId: string): Promise<void> {
   const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
     data: {
@@ -3424,7 +3442,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
         .getByRole("button", { name: "Draw a route from Build" }),
     ).toHaveCount(1);
     await editForThisTaskScreenshots(page, stagesWindow);
-    // Build comes after the locked columns, so it can't move before them.
+    // Build comes after the started Stages in the order, so it can't move in among them.
     await flow.getByRole("button", { name: "Build", exact: true }).click();
     await expect(
       panelOf("Build").getByRole("button", { name: "Move Build earlier" }),
@@ -3716,10 +3734,7 @@ test(
       const details = page.getByRole("dialog", { name: /Before Build/ });
       // No Agent reported the Definition of Done met, so the walk asks before the Task can end. It
       // must end here: a run outliving the repository would fail on the next test's page.
-      const markDone = async (): Promise<void> => {
-        await needsYou.getByRole("button", { name: "Mark the Task Done" }).click();
-        await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
-      };
+      const markDone = (): Promise<void> => markDoneInNeedsYou(needsYou);
 
       const continued = await readyTask(page, project.id, "Goes on past the look");
       await seedGateFirst(page, continued);
@@ -3891,8 +3906,7 @@ test(
       await start.click();
       // Build ran on this computer and passed, and the walk asks before the Task can end.
       const needsYou = page.getByRole("region", { name: "Needs you" });
-      await needsYou.getByRole("button", { name: "Mark the Task Done" }).click();
-      await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
+      await markDoneInNeedsYou(needsYou);
       expect(await runEnvironmentOf(page, project.id)).toBe("off");
     } finally {
       await repository.remove();

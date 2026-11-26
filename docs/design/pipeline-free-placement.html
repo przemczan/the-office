@@ -1,0 +1,2592 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Free Stage placement in the Pipeline flow editor · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, light palette) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-700: #865b05;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --guide: var(--violet-500);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.35 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono: 400 var(--text-xs) / 1.55 var(--font-mono);
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      /* ---------- Page ---------- */
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      html {
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        margin: 0;
+      }
+      .doc {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 40px 28px 96px;
+      }
+      .doc-head {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 28px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-2);
+      }
+      h1 {
+        margin: 0;
+        font: 600 28px / 1.2 var(--font-sans);
+        letter-spacing: -0.015em;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font: 600 20px / 1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        margin: 18px 0 6px;
+        font: var(--type-section-title);
+      }
+      h4 {
+        margin: 0 0 4px;
+        font: var(--type-card-title);
+      }
+      p {
+        margin: 0 0 10px;
+      }
+      .lead {
+        max-width: 760px;
+        color: var(--fg-2);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .chip.review {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      code,
+      .mono {
+        font: var(--type-mono);
+      }
+      code {
+        padding: 1px 4px;
+        border-radius: var(--radius-sm);
+        background: var(--gray-100);
+      }
+      pre {
+        margin: 8px 0 12px;
+        padding: 12px 14px;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--gray-25);
+        font: var(--type-mono);
+        white-space: pre;
+      }
+      pre code {
+        padding: 0;
+        background: none;
+      }
+      kbd {
+        display: inline-block;
+        min-width: 20px;
+        padding: 0 5px;
+        border: 1px solid var(--border-strong);
+        border-bottom-width: 2px;
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        font: 500 var(--text-2xs) / 18px var(--font-mono);
+        text-align: center;
+        color: var(--fg-1);
+      }
+      .toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        font: var(--type-body-sm);
+      }
+      .toc a {
+        color: var(--fg-2);
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: var(--accent-subtle-fg);
+        text-decoration: underline;
+      }
+      section {
+        margin-top: 44px;
+        scroll-margin-top: 16px;
+      }
+      ul.facts {
+        margin: 6px 0 12px;
+        padding-left: 20px;
+      }
+      ul.facts li {
+        margin: 3px 0;
+      }
+      .card {
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .decisions {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .decision {
+        display: grid;
+        gap: 6px;
+        align-content: start;
+      }
+      .decision .overline {
+        color: var(--accent-subtle-fg);
+      }
+      .decision p {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .decision a {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      table.spec {
+        width: 100%;
+        margin: 8px 0 14px;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      table.spec th,
+      table.spec td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      table.spec th {
+        font: var(--type-label);
+        color: var(--fg-2);
+        background: var(--gray-25);
+      }
+      table.spec td:first-child {
+        width: 26%;
+        font-weight: 500;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .table-wrap table.spec {
+        margin: 0;
+      }
+      .table-wrap tr:last-child td {
+        border-bottom: 0;
+      }
+      .two {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 16px;
+        align-items: start;
+      }
+      .callout {
+        display: flex;
+        gap: 10px;
+        margin: 10px 0 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-lg);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        font: var(--type-body-sm);
+      }
+      .callout.rec {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .callout svg {
+        flex: none;
+        margin-top: 2px;
+      }
+      .callout p {
+        margin: 0;
+      }
+      .figure-caption {
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      /* ---------- Buttons (packages/ui Button / IconButton) ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+        font: var(--type-label);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: var(--control-hover);
+      }
+      .btn:active {
+        background: var(--control-press);
+      }
+      .btn:focus-visible,
+      .node:focus-visible,
+      .end-node:focus-visible,
+      .seg button:focus-visible,
+      .link-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .btn[disabled] {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .btn.busy {
+        opacity: 1;
+        color: var(--fg-2);
+      }
+      .btn .spin {
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--gray-200);
+        border-top-color: var(--fg-2);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .link-btn {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--accent-subtle-fg);
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        cursor: pointer;
+      }
+      .seg {
+        display: inline-flex;
+        padding: 2px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--gray-50);
+      }
+      .seg button {
+        height: 24px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+      }
+      .demo-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 18px;
+        margin: 14px 0 10px;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .demo-bar label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .demo-bar .overline {
+        margin-right: 4px;
+      }
+
+      /* ---------- The flow editor mock (flow-editor.css / flow-canvas.css) ---------- */
+      .ed {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+      }
+      .ed.narrow {
+        width: 390px;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+      .ed-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px 16px;
+        padding: 16px 18px 10px;
+      }
+      .ed-title {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .ed-summary {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .ed-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .ed-legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 16px;
+        padding: 0 18px 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .ed-legend .sample {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .ed-hint {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        min-height: 40px;
+        padding: 8px 18px 10px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .ed-hint svg {
+        flex: none;
+        margin-top: 3px;
+        color: var(--info);
+      }
+      .ed-hint .hint-text {
+        flex: 1 1 auto;
+      }
+      .ed-hint .link-btn {
+        margin-left: 6px;
+      }
+      .canvas {
+        position: relative;
+        height: 470px;
+        overflow: auto;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-sunken);
+        overscroll-behavior: contain;
+      }
+      .ed.narrow .canvas {
+        height: auto;
+        max-height: 720px;
+      }
+      .world {
+        position: relative;
+        min-width: 100%;
+        min-height: 100%;
+      }
+      .world.show-grid {
+        background-image: radial-gradient(circle, var(--gray-300) 1px, transparent 1.3px);
+        background-size: 16px 16px;
+      }
+      .layer-routes,
+      .layer-guides {
+        position: absolute;
+        inset: 0;
+        overflow: visible;
+        pointer-events: none;
+      }
+      .layer-routes {
+        z-index: 0;
+        transition: opacity 160ms var(--ease-out);
+      }
+      .world.anim .layer-routes {
+        opacity: 0;
+      }
+      .layer-guides {
+        z-index: 4;
+      }
+      .route-line {
+        fill: none;
+        stroke: var(--gray-400);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+      .route-arrow {
+        fill: var(--gray-400);
+      }
+      .route-start {
+        fill: var(--fg-1);
+      }
+      .route-start-line {
+        fill: none;
+        stroke: var(--fg-1);
+        stroke-width: 1.5;
+      }
+      .mark-rect {
+        fill: var(--surface);
+        stroke: var(--gray-300);
+      }
+      .mark-text {
+        fill: var(--fg-1);
+        font: 600 11px / 1 var(--font-mono);
+      }
+      .guide {
+        stroke: var(--guide);
+        stroke-width: 1;
+        stroke-dasharray: 4 3;
+      }
+      .guide-dot {
+        fill: var(--guide);
+      }
+      .node {
+        position: absolute;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        width: 232px;
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+        text-align: left;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+      }
+      .ed.readonly .node,
+      .ed.narrow .node {
+        cursor: pointer;
+        touch-action: auto;
+      }
+      .node:hover {
+        border-color: var(--gray-300);
+      }
+      .node.picked {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-subtle);
+      }
+      .node.dragging {
+        z-index: 5;
+        box-shadow: var(--shadow-3);
+        cursor: grabbing;
+      }
+      .world.anim .node,
+      .world.anim .end-node {
+        transition:
+          left 280ms var(--ease-out),
+          top 280ms var(--ease-out);
+      }
+      .node-head {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        min-height: 70px;
+        padding: 12px 30px 10px 12px;
+      }
+      .mark {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--fg-2);
+      }
+      .mark.kind-gate {
+        width: 19px;
+        height: 19px;
+        margin: 1.5px;
+        border-radius: var(--radius-sm);
+        transform: rotate(45deg);
+      }
+      .mark.kind-gate svg {
+        transform: rotate(-45deg);
+      }
+      .mark.kind-publish {
+        border-radius: 7px;
+      }
+      .node-words {
+        display: grid;
+        gap: 1px;
+        min-width: 0;
+      }
+      .node-name {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+        overflow-wrap: anywhere;
+      }
+      .node-who {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        overflow-wrap: anywhere;
+      }
+      .plus {
+        position: absolute;
+        top: 10px;
+        right: 8px;
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border: 1px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 600 13px / 1 var(--font-sans);
+      }
+      .order-badge {
+        position: absolute;
+        top: -9px;
+        left: -9px;
+        display: grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: var(--radius-full);
+        background: var(--primary);
+        color: var(--primary-fg);
+        font: 600 10px / 1 var(--font-mono);
+      }
+      .rows {
+        display: grid;
+        padding: 4px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        height: 22px;
+        padding: 0 12px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .row-words {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row-words b {
+        font-weight: 500;
+        color: var(--fg-1);
+      }
+      .limit {
+        flex: none;
+        padding: 0 4px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        font: 600 10px / 15px var(--font-mono);
+        color: var(--fg-1);
+      }
+      .end-node {
+        position: absolute;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        margin: 0;
+        padding: 0;
+        border: 2px solid var(--fg-1);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--fg-1);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+        cursor: grab;
+        touch-action: none;
+      }
+      .ed.narrow .end-node,
+      .ed.readonly .end-node {
+        cursor: default;
+      }
+      .end-node.dragging {
+        z-index: 5;
+        box-shadow: var(--shadow-3);
+      }
+      .ghost {
+        position: absolute;
+        z-index: 2;
+        border: 1.5px dashed var(--accent);
+        border-radius: var(--radius-lg);
+        background: color-mix(in oklab, var(--accent) 7%, transparent);
+        pointer-events: none;
+      }
+      .canvas-tools {
+        position: sticky;
+        float: right;
+        top: 10px;
+        right: 10px;
+        z-index: 6;
+        display: flex;
+        gap: 2px;
+        margin: 10px 10px -40px 0;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+      }
+      .canvas-tools span {
+        display: grid;
+        place-items: center;
+        min-width: 24px;
+        height: 24px;
+        padding: 0 4px;
+        border-radius: var(--radius-sm);
+        font: var(--type-label);
+        color: var(--fg-2);
+      }
+      .ed.narrow .canvas-tools {
+        display: none;
+      }
+      .panel {
+        display: grid;
+        gap: 10px;
+        padding: 14px 18px 16px;
+        font: var(--type-body-sm);
+      }
+      .panel-empty {
+        color: var(--fg-2);
+      }
+      .panel-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 12px;
+      }
+      .panel-name {
+        font: var(--type-card-title);
+      }
+      .panel-sub {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .readout {
+        font: var(--type-mono);
+        color: var(--fg-3);
+      }
+
+      /* ---------- Static pictures ---------- */
+      .pic {
+        overflow-x: auto;
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface-sunken);
+      }
+      .pic svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      .states {
+        display: grid;
+        gap: 10px;
+      }
+      .state {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .state .ed-head {
+        padding: 12px 14px 8px;
+      }
+      .state .ed-hint {
+        padding: 0 14px 10px;
+        min-height: 0;
+      }
+      .state-label {
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--gray-25);
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-2);
+      }
+
+      @media (max-width: 720px) {
+        .doc {
+          padding: 24px 14px 64px;
+        }
+        table.spec td:first-child {
+          width: 34%;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .world.anim .node,
+        .world.anim .end-node,
+        .layer-routes {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="doc">
+      <header class="doc-head">
+        <div class="overline">Design proposal · Pipelines view · the flow editor</div>
+        <h1>Free Stage placement, with snapping and Auto-align</h1>
+        <p class="lead">
+          A Stage no longer sits in a column and a row: it stands wherever it is dropped on the canvas, snapping to a
+          grid and to the other Stages. <b>Auto-align</b> lays the whole Pipeline out as a layered diagram, left to
+          right, and one Undo puts it back. Where a Stage stands is layout alone: the Pipeline’s order is the Stages’
+          own list, so moving a Stage never changes how the Pipeline runs.
+        </p>
+        <div class="chips">
+          <span class="chip review">For review before implementation</span>
+          <span class="chip">Screen page: docs/spec/screens/pipeline-flow-editor.md</span>
+          <span class="chip">Spec: 2.3.2 Flows, 2.3.5 Library</span>
+          <span class="chip">Route drawing: unchanged here, rewritten by the next Task</span>
+        </div>
+        <ul class="toc" aria-label="Contents">
+          <li><a href="#short">In short</a></li>
+          <li><a href="#try">Try it</a></li>
+          <li><a href="#position">Position model</a></li>
+          <li><a href="#order">The Pipeline’s order</a></li>
+          <li><a href="#snapping">Moving and snapping</a></li>
+          <li><a href="#align">Auto-align</a></li>
+          <li><a href="#narrow">Narrow screens</a></li>
+          <li><a href="#conversion">Conversion</a></li>
+          <li><a href="#tools">Office tools and Proposals</a></li>
+          <li><a href="#words">Words</a></li>
+          <li><a href="#spec">Spec changes</a></li>
+          <li><a href="#build">Building it</a></li>
+        </ul>
+      </header>
+
+      <!-- ================= In short ================= -->
+      <section id="short">
+        <h2>In short</h2>
+        <p class="lead">Six decisions. Each one is worked out further down the page.</p>
+        <div class="decisions">
+          <div class="card decision">
+            <div class="overline">Position model</div>
+            <h4>Each Stage has a <code>position</code>: <code>{ x, y }</code></h4>
+            <p>
+              Whole canvas units (a CSS pixel at 100%), marking the card’s top-left corner. End gets an optional
+              position of its own. A missing position is filled in by fixed rules.
+            </p>
+            <a href="#position">Position model →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">The Pipeline’s order</div>
+            <h4>The order is the Stages’ list, kept apart from positions</h4>
+            <p>
+              Moving a Stage or running Auto-align never reorders the list. <b>Move earlier</b> and <b>Move later</b>
+              in the Stage panel do, so the start Stage, routes back and limits only change when you ask.
+            </p>
+            <a href="#order">The Pipeline’s order →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Snapping</div>
+            <h4>A 16-unit grid, plus the edges and centres of other Stages</h4>
+            <p>
+              Dashed guides show what a Stage snapped to. Hold <kbd>Alt</kbd>/<kbd>⌥</kbd> to place it freely and
+              <kbd>Shift</kbd> to keep it on its line. A drop never covers another Stage.
+            </p>
+            <a href="#snapping">Moving and snapping →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Auto-align</div>
+            <h4>elkjs layered, left to right, loaded on first use</h4>
+            <p>
+              The layout follows the Pipeline’s order, so a route back is exactly an edge that runs against it, drawn
+              in a lane of its own. One edit, undone by Undo in the hint or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd>.
+            </p>
+            <a href="#align">Auto-align →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Narrow screens</div>
+            <h4>Under 560px: a quarter turn of your own layout</h4>
+            <p>
+              Stages that stand roughly above each other on the canvas share a band, and the bands read top to
+              bottom, using today’s <code>down</code> drawing. Stored positions never change.
+            </p>
+            <a href="#narrow">Narrow screens →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Conversion</div>
+            <h4>A migration turns each column and row into a position</h4>
+            <p>
+              It sorts every stored list by place, adds positions that reproduce today’s grid, and keeps
+              <code>place</code> so the previous release still runs. The Office tools take <code>position</code>.
+            </p>
+            <a href="#conversion">Conversion →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Playground ================= -->
+      <section id="try">
+        <h2>Try it</h2>
+        <p class="lead">
+          A working mock-up of the editor on the built-in shape of a full Pipeline. Drag a Stage and watch the guides.
+          Press <b>Auto-align</b>, then <b>Undo</b>. Pick a Stage and use <b>Move earlier</b> to see the order
+          change while the position stays. Switch to <b>Narrow</b> for the view under 560px.
+        </p>
+
+        <div class="demo-bar" id="demo-bar">
+          <span class="overline">Demo only</span>
+          <label>Width
+            <span class="seg" role="group" aria-label="Width">
+              <button type="button" data-width="wide" aria-pressed="true">Wide</button>
+              <button type="button" data-width="narrow" aria-pressed="false">Narrow · 390px</button>
+            </span>
+          </label>
+          <label>Start from
+            <span class="seg" role="group" aria-label="Start from">
+              <button type="button" data-start="dragged" aria-pressed="true">After a few drags</button>
+              <button type="button" data-start="converted" aria-pressed="false">Converted from the grid</button>
+            </span>
+          </label>
+          <label><input type="checkbox" id="show-order" /> Show each Stage’s number in the order</label>
+        </div>
+
+        <div class="ed" id="editor">
+          <div class="ed-head">
+            <div>
+              <h3 class="ed-title" style="margin: 0">Stages and routes</h3>
+              <div class="ed-summary js-summary"></div>
+            </div>
+            <div class="ed-actions">
+              <button type="button" class="btn js-align" title="Lay out the whole Pipeline from left to right in its order">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="4" height="3" rx="1"/><rect x="10.5" y="2.5" width="4" height="3" rx="1"/><rect x="10.5" y="10.5" width="4" height="3" rx="1"/><path d="M5.5 4h5M12.5 5.5v5"/></svg>
+                <span class="js-align-label">Auto-align</span>
+              </button>
+              <button type="button" class="btn js-add">
+                Add a Stage
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="ed-legend" role="list" aria-label="What the lines mean">
+            <span class="sample" role="listitem"><svg width="28" height="8" aria-hidden="true"><path d="M1 4h22" stroke="#8a8a84" stroke-width="1.5"/><path d="M27 4l-5-3v6z" fill="#8a8a84"/></svg>Route</span>
+            <span class="sample" role="listitem"><span class="limit">≤3×</span>at most 3 times</span>
+          </div>
+          <div class="ed-hint" role="status">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v4M8 4.8v.2"/></svg>
+            <span class="hint-text"><span class="js-hint"></span><button type="button" class="link-btn js-undo" hidden>Undo</button></span>
+          </div>
+          <div class="canvas js-canvas" role="region" aria-label="Flow">
+            <div class="canvas-tools" aria-hidden="true"><span>−</span><span>100%</span><span>+</span><span>Fit</span><span>⤢</span></div>
+          </div>
+          <div class="panel js-panel"></div>
+        </div>
+        <p class="figure-caption">
+          The mock-up draws routes in a simplified version of today’s style. Its Auto-align is a short stand-in for
+          elkjs that follows the same rules (layers in the Pipeline’s order, rows aligned to their ports). Only the
+          positions and order on this page change, and nothing is saved.
+        </p>
+      </section>
+
+      <!-- ================= Position ================= -->
+      <section id="position">
+        <h2>Position model</h2>
+        <p class="lead">The contract stores where each card stands and nothing more. The order, routes and limits stay as they are.</p>
+        <div class="two">
+          <div>
+            <div class="table-wrap">
+              <table class="spec">
+                <tbody>
+                  <tr><td>Field</td><td><code>position: { x, y }</code> on every Stage of a Pipeline, a Project Pipeline and a Task’s own Stages. It is absent wherever <code>routes</code> is absent (a Stage template’s Stage, a plain list).</td></tr>
+                  <tr><td>What it marks</td><td>The <b>top-left corner</b> of the Stage’s card. Cards have different heights (their route rows), so the top-left corner is the one point that doesn’t move when a route row is added.</td></tr>
+                  <tr><td>Units</td><td><b>Canvas units</b>: one CSS pixel at 100% zoom. Whole numbers only.</td></tr>
+                  <tr><td>Bounds</td><td>x and y from −20000 to 20000. Anything else is refused: “A Stage’s position is two whole numbers from −20000 to 20000.” The origin has no meaning: the canvas draws the box around all Stages with its own margin, so a drop past the left or top edge just grows the canvas, and the view moves to keep everything in place.</td></tr>
+                  <tr><td>End</td><td><code>endPosition: { x, y }</code> on the Pipeline (and on a Task’s Stages), optional. End can be dragged like a Stage. When it has no position, it stands 76 to the right of the right-most Stage, level with the first final Stage in the order.</td></tr>
+                  <tr><td>Card size</td><td>232 wide (unchanged). Height: 72 for a card that lists no route rows, otherwise 82 plus 22 per route row. The editor measures the real heights. The service only uses this estimate where it has to (conversion, filling in a missing position).</td></tr>
+                  <tr><td>Overlaps</td><td>The editor never drops one Stage onto another (<a href="#snapping">see below</a>). The service doesn’t check overlaps, because it doesn’t know the real heights. Auto-align clears any overlap an Office tool or the previous release left.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h4>A Stage without a position</h4>
+            <ul class="facts">
+              <li><b>No Stage in the list has one</b> (an Office tool leaving them all out, or a plain list): the Stages stand in one row in the order given, <code>x = index × 308</code>, <code>y = 0</code>. That is today’s straight line.</li>
+              <li><b>Only some have one</b>: each Stage without one stands 76 to the right of the Stage before it in the order, at that Stage’s y, moving down in steps of 16 until it covers nothing (by the estimated heights). This is the same rule as <b>Add a Stage</b>.</li>
+              <li><b>It has a <code>place</code> but no position</b> (a Proposal stored before the update, or a list saved by the previous release after a rollback): it is converted from the place (<a href="#conversion">Conversion</a>).</li>
+            </ul>
+            <pre><code>{
+  "key": "tests",
+  "name": "Tests",
+  "kind": "script",
+  "command": "verify",
+  "routes": [ … ],
+  "position": { "x": 616, "y": 0 },
+  "place": { "column": 2, "row": 0 }   // written for the previous release only
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Order ================= -->
+      <section id="order">
+        <h2>The Pipeline’s order without columns</h2>
+        <p class="lead">
+          Today the order comes from the places (columns left to right, then rows). With free positions that would mean
+          a small drag could change the start Stage or turn a route on into a route back. So the order becomes the
+          Stages’ own list, which the editor, the service and the Office tools already pass around in order.
+        </p>
+        <div class="callout rec">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>
+          <p><b>Rule:</b> the Pipeline’s order is the order of its Stages’ list. Positions are layout alone: no rule of the walk, the check, the limits or the summary reads them.</p>
+        </div>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead><tr><th>What</th><th>What it does to the order</th><th>What it does to positions</th></tr></thead>
+            <tbody>
+              <tr><td>Dragging a Stage, Shift + arrows, Auto-align, Undo</td><td>Nothing.</td><td>Moves the Stage, or all of them.</td></tr>
+              <tr><td><b>Move earlier</b> / <b>Move later</b> (Stage panel)</td><td>Swaps the Stage with the one before or after it. The hint names any route that now leads back or on. Its limit stays, and the check says when a loop is left with none (as today).</td><td>Nothing: “it stays where it is on the canvas”.</td></tr>
+              <tr><td><b>Add a Stage</b> (a kind or From a template)</td><td>Goes right after the picked Stage, or last when nothing is picked. In a Task’s own Stages it goes after the last started Stage.</td><td>76 to the right of the Stage before it, at that Stage’s y, moving down by 16 until it covers nothing.</td></tr>
+              <tr><td><b>Insert a Stage on this route</b></td><td>Right after the route’s Stage.</td><td>Same rule as Add a Stage, starting from the route’s Stage.</td></tr>
+              <tr><td><b>Remove</b></td><td>Drops it from the list.</td><td>Nothing else moves.</td></tr>
+              <tr><td>Conversion</td><td>Each stored list is sorted by its old places (columns, then rows) once, so the order is exactly what it was.</td><td>From the column and row (<a href="#conversion">Conversion</a>).</td></tr>
+              <tr><td>An Office tool or a Proposal</td><td>The order of <code>stages</code> as given.</td><td>As given, or filled in by the rules above.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>What stays the same</h3>
+        <ul class="facts">
+          <li>The first Stage in the list is the Pipeline’s first Stage, where every walk starts. The start marker is drawn into it wherever it stands.</li>
+          <li>A route back still means a route to its own Stage or an earlier one in the order. Its default limit (3), the “N routes back” summary and the Routes out hints all read the order, never where Stages stand.</li>
+          <li>The Pipeline rail, the Later Stages, every “Goes to” and “What it tests” select, and the panel’s “N of M in the Pipeline’s order” list Stages in this order.</li>
+          <li>The arrow keys still pick the previous or next Stage in the order.</li>
+          <li>The line drawing goes by where Stages stand. A route on can therefore point left if you placed it so. Auto-align straightens that out.</li>
+        </ul>
+        <h3>Locks (Edit for this Task)</h3>
+        <ul class="facts">
+          <li>Today “the columns up to the last holding a locked Stage are frozen”. Now: <b>the order up to the last started Stage is frozen</b>. No Stage is added among those Stages or moved earlier into them, and Move earlier / Move later are disabled on a started Stage (“Started, so it keeps its place in the order”).</li>
+          <li><b>Positions are never locked.</b> A started Stage can be dragged and Auto-align moves it, because where it stands doesn’t touch what has run. The service’s lock check compares a started Stage without its position.</li>
+          <li>The old refusal “<i>&lt;Stage&gt; has started, so it stays where it is.</i>” goes.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Snapping ================= -->
+      <section id="snapping">
+        <h2>Moving and snapping</h2>
+        <div class="two">
+          <div>
+            <div class="table-wrap">
+              <table class="spec">
+                <tbody>
+                  <tr><td>Grid</td><td>16 canvas units. The dots show only while a Stage is being dragged, so the canvas stays quiet.</td></tr>
+                  <tr><td>Other Stages</td><td>Each axis snaps on its own. On x: the dragged card’s left edge, centre and right edge, against the same three lines of every other Stage and End. On y: top, centre and bottom.</td></tr>
+                  <tr><td>Reach</td><td>8 screen pixels (so 8 ÷ zoom canvas units). The nearest line wins. When no Stage line is within reach, that axis snaps to the grid.</td></tr>
+                  <tr><td>Guides</td><td>A dashed violet line through the matched edge or centre, running from the dragged card to every Stage it lines up with, with a dot on each end. One guide per axis at most. Guides disappear on drop.</td></tr>
+                  <tr><td>Without snapping</td><td>Hold <kbd>Alt</kbd> (<kbd>⌥</kbd> on a Mac) while dragging: no grid, no guides, whole units only.</td></tr>
+                  <tr><td>Along a line</td><td>Hold <kbd>Shift</kbd> while dragging to keep the Stage on its row or column, whichever way it has moved further.</td></tr>
+                  <tr><td>A drop never covers</td><td>When the Stage would come within 16 units of another card, it lands on the nearest free grid spot. A dashed outline shows that spot while dragging, so nothing surprises on release. The hint then says “<i>Tests was put beside Review, so it doesn’t cover it.</i>”</td></tr>
+                  <tr><td>Keyboard</td><td>Focus a Stage: <kbd>Shift</kbd> + an arrow moves it one grid step (16), past any card in the way. Plain arrows still pick the previous or next Stage in the order.</td></tr>
+                  <tr><td>Kept as today</td><td>A drag starts after 5px. A press without one picks the Stage. A touch that turns into a scroll drops nothing. Dragging near the view’s edge moves the view along. Drawing from the + is unchanged.</td></tr>
+                  <tr><td>Gone</td><td>The drop cells and slots: “dropping between columns makes a new column”, “dropping into a taken cell puts it below”, the up/down row moves and their hints.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div class="pic" aria-label="A Stage being dragged, snapped to two others">
+              <svg viewBox="0 0 520 330" width="520" height="330" role="img" aria-label="Implement dragged under Tests: a vertical guide through both centres and a horizontal guide along the tops of Implement and Review">
+                <defs>
+                  <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#b1b1ab" /></pattern>
+                </defs>
+                <rect x="0" y="0" width="520" height="330" fill="url(#dots)" />
+                <!-- Tests -->
+                <rect x="40" y="32" width="200" height="66" rx="8" fill="#fff" stroke="#dededa" />
+                <circle cx="62" cy="54" r="10" fill="#fff" stroke="#dededa" stroke-width="2" />
+                <text x="80" y="52" font-family="ui-sans-serif, system-ui" font-size="13" font-weight="600" fill="#262624">Tests</text>
+                <text x="80" y="69" font-family="ui-sans-serif, system-ui" font-size="12" fill="#8a8a84">Verify</text>
+                <!-- Review -->
+                <rect x="290" y="190" width="200" height="66" rx="8" fill="#fff" stroke="#dededa" />
+                <circle cx="312" cy="212" r="10" fill="#fff" stroke="#dededa" stroke-width="2" />
+                <text x="330" y="210" font-family="ui-sans-serif, system-ui" font-size="13" font-weight="600" fill="#262624">Review &amp; fix</text>
+                <text x="330" y="227" font-family="ui-sans-serif, system-ui" font-size="12" fill="#8a8a84">Reviewer</text>
+                <!-- guides -->
+                <line x1="140" y1="22" x2="140" y2="268" stroke="#7c5cd6" stroke-dasharray="4 3" />
+                <circle cx="140" cy="22" r="2.5" fill="#7c5cd6" />
+                <circle cx="140" cy="268" r="2.5" fill="#7c5cd6" />
+                <line x1="30" y1="190" x2="500" y2="190" stroke="#7c5cd6" stroke-dasharray="4 3" />
+                <circle cx="30" cy="190" r="2.5" fill="#7c5cd6" />
+                <circle cx="500" cy="190" r="2.5" fill="#7c5cd6" />
+                <!-- dragged -->
+                <rect x="40" y="190" width="200" height="66" rx="8" fill="#fff" stroke="#dededa" filter="drop-shadow(0 10px 18px rgba(16,16,15,.18))" />
+                <circle cx="62" cy="212" r="10" fill="#fff" stroke="#dededa" stroke-width="2" />
+                <text x="80" y="210" font-family="ui-sans-serif, system-ui" font-size="13" font-weight="600" fill="#262624">Implement</text>
+                <text x="80" y="227" font-family="ui-sans-serif, system-ui" font-size="12" fill="#8a8a84">Developer</text>
+                <!-- pointer -->
+                <path d="M150 226l0 18 5-5 4 9 3-1.5-4-9 7 0z" fill="#262624" stroke="#fff" stroke-width="1" />
+                <!-- key hint -->
+                <rect x="300" y="290" width="200" height="26" rx="6" fill="#fff" stroke="#dededa" />
+                <text x="312" y="307" font-family="ui-sans-serif, system-ui" font-size="12" fill="#6b6b66">Hold Alt to place it freely</text>
+              </svg>
+            </div>
+            <p class="figure-caption">
+              <i>Implement</i> is dragged under <i>Tests</i>. It snaps to Tests’ centre on x and to Review’s top on y.
+              Both guides show, and the grid dots show while the drag lasts. (The little “Hold Alt” label only
+              illustrates the key. The real canvas says it in the hint line.)
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Auto-align ================= -->
+      <section id="align">
+        <h2>Auto-align</h2>
+        <p class="lead">
+          One button in the editor’s head lays the whole Pipeline out as a layered diagram, left to right: Sugiyama’s
+          method, as ELK layered and dagre use it. Each layer is a column of Stages, routes on lead to later layers,
+          and routes back run right to left in their own lanes above.
+        </p>
+        <div class="two">
+          <div class="states">
+            <div class="state">
+              <div class="state-label">Ready</div>
+              <div class="ed-head">
+                <div><div class="ed-title">Stages and routes</div><div class="ed-summary">7 Stages · 9 routes · 2 routes back</div></div>
+                <div class="ed-actions">
+                  <span class="btn"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="4" height="3" rx="1"/><rect x="10.5" y="2.5" width="4" height="3" rx="1"/><rect x="10.5" y="10.5" width="4" height="3" rx="1"/><path d="M5.5 4h5M12.5 5.5v5"/></svg>Auto-align</span>
+                  <span class="btn">Add a Stage <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span>
+                </div>
+              </div>
+            </div>
+            <div class="state">
+              <div class="state-label">First use: loading the layout code</div>
+              <div class="ed-head">
+                <div><div class="ed-title">Stages and routes</div><div class="ed-summary">7 Stages · 9 routes · 2 routes back</div></div>
+                <div class="ed-actions">
+                  <span class="btn busy" aria-disabled="true"><span class="spin" aria-hidden="true"></span>Laying out…</span>
+                  <span class="btn">Add a Stage <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span>
+                </div>
+              </div>
+            </div>
+            <div class="state">
+              <div class="state-label">Done, with its Undo in the hint</div>
+              <div class="ed-hint" style="padding-top: 12px">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v4M8 4.8v.2"/></svg>
+                <span class="hint-text">Auto-align laid out the 7 Stages from left to right in the Pipeline’s order, with routes back in their own lanes.<button type="button" class="link-btn" tabindex="-1">Undo</button></span>
+              </div>
+            </div>
+            <div class="state">
+              <div class="state-label">Couldn’t load</div>
+              <div class="ed-hint" style="padding-top: 12px">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v4M8 4.8v.2"/></svg>
+                <span class="hint-text">Auto-align couldn’t load its layout code, so nothing moved. Check the connection, then press Auto-align again.</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h4>Behaviour</h4>
+            <ul class="facts">
+              <li><b>Where:</b> a secondary button <b>Auto-align</b> in the head, before the host’s <b>Add a Stage</b>. Tooltip: “Lay out the whole Pipeline from left to right in its order”. Not shown on a read-only flow (a Proposal, a locked-only view) or under 560px, where stored positions aren’t drawn. Disabled with “Add a Stage first” on an empty Pipeline.</li>
+              <li><b>What it moves:</b> every Stage, started ones included, and End. It changes no field, route or limit, and not the order.</li>
+              <li><b>How it looks:</b> the cards glide to their new places (280ms, none with reduced motion), the lines fade back in at the end, and the view fits the Pipeline.</li>
+              <li><b>Undo:</b> one edit in the draft. The hint names what happened, with an <b>Undo</b> link. <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> while focus is in the editor does the same. Undo puts every Stage and End back exactly, and the hint says “The Stages are back where they were before Auto-align.” The next edit of any kind replaces that hint and Undo goes with it. Save saves whatever is shown. This Task adds no general undo history.</li>
+              <li><b>Rounding:</b> positions are rounded to whole units, not to the grid, so the lines it straightened stay straight.</li>
+              <li><b>Same input, same result:</b> the same Stages, sizes and order always give the same layout.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>Layout rules, as elkjs options</h3>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead><tr><th>Rule</th><th>elkjs</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>Layered, left to right</td><td><code>elk.algorithm: layered</code>, <code>elk.direction: RIGHT</code></td><td>The standard method for directed flows, and how the editor already reads.</td></tr>
+              <tr><td>Routes back are what goes against the order</td><td><code>elk.layered.cycleBreaking.strategy: MODEL_ORDER</code>, with the nodes given in the Pipeline’s order</td><td>ELK reverses exactly the edges that run against the order it was given, which are the routes back. So the picture matches what the summary counts.</td></tr>
+              <tr><td>Keep the order where there’s a tie</td><td><code>elk.layered.considerModelOrder.strategy: NODES_AND_EDGES</code></td><td>Stages side by side in one layer keep the order top to bottom unless that adds crossings.</td></tr>
+              <tr><td>The first Stage starts it</td><td><code>layerConstraint: FIRST</code> on the first Stage</td><td>The start marker always sits at the far left.</td></tr>
+              <tr><td>End closes it</td><td>End is a 44 × 44 node with <code>layerConstraint: LAST</code></td><td>Routes to End are laid out with the rest. End’s result becomes <code>endPosition</code>.</td></tr>
+              <tr><td>Lines leave from their rows</td><td>Each card that lists route rows gets one east port per row at its measured y, with <code>portConstraints: FIXED_POS</code></td><td>The route of the top row leads to the higher Stage. That gives fewer crossings and straight main lines.</td></tr>
+              <tr><td>Room for lines and marks</td><td><code>spacing.nodeNodeBetweenLayers: 76</code>, <code>spacing.nodeNode: 28</code>, <code>spacing.edgeNodeBetweenLayers: 20</code>, <code>edgeRouting: ORTHOGONAL</code></td><td>76 is today’s column gap, wide enough for a limit mark. Long routes get their own slots (ELK’s dummy nodes), so a line on never runs through a card.</td></tr>
+              <tr><td>Balanced placement</td><td><code>nodePlacement.strategy: BRANDES_KOEPF</code>, <code>bk.fixedAlignment: BALANCED</code></td><td>Straight chains, with forks and joins centred.</td></tr>
+              <tr><td>Deterministic</td><td><code>elk.randomSeed: 1</code></td><td>Same input, same layout, which tests can rely on.</td></tr>
+              <tr><td>Card sizes</td><td>The measured width and height of each card at 100%</td><td>Cards with more route rows are taller. ELK spaces them by their real size.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="facts">
+          <li><b>Only the positions are used.</b> ELK’s routed lines are thrown away. The editor draws the lines itself, with today’s rules: a route back in its own lane above the Stages it spans, lanes a mark’s height apart. The next Task, <i>Switchable route-drawing modes</i>, rewrites the drawing.</li>
+          <li><b>Library:</b> <code>elkjs</code> (EPL-2.0, maintained by the Eclipse ELK team), pinned at its current release. It runs in a Web Worker so the page never stalls, and loads with a dynamic <code>import()</code> on the first press. It is about 1.5 MB unzipped and never part of the main bundle. A Pipeline of 30 Stages lays out in a few milliseconds.</li>
+          <li><b>Why not dagre or own code:</b> dagre (MIT, smaller) can’t be told the model order or fixed ports, and its cycle breaking would choose its own “routes back”. Our own Sugiyama would be a few hundred lines of crossing minimisation and placement to keep up. ELK is the mature, well-tested option. One thing to note: EPL-2.0 is weak copyleft at the file level. Using it unchanged as a dependency is fine, but it is the user’s call to accept it.</li>
+          <li><b>A Proposal’s Stages:</b> a Proposal on the flow is read-only, so it offers no Auto-align. A Stage it adds stands where it says, or where the missing-position rule puts it. Once applied, the user can Auto-align as with any Pipeline.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Narrow ================= -->
+      <section id="narrow">
+        <h2>Narrow screens (canvas under 560px)</h2>
+        <div class="two">
+          <div>
+            <p>
+              A freely placed Pipeline zoomed to 390px would be about 20%, too small to read. Laying it out afresh for
+              the phone would show a different picture from the one its owner arranged. So the narrow view <b>turns your own
+              layout a quarter turn</b>, as today’s <code>down</code> view turns the grid:
+            </p>
+            <ul class="facts">
+              <li><b>Bands from positions:</b> going through the Stages by x, a Stage joins the current band when its card overlaps the band by at least half a card (116). Otherwise it starts a new band.</li>
+              <li>Bands read top to bottom. Within a band, Stages sit side by side by y, top first, at most 2 to a line, and a third wraps onto a new line.</li>
+              <li>End always stands last, in a band of its own. The start marker comes down into the first Stage.</li>
+              <li>The lines use today’s <code>down</code> rules: routes leave the bottom edge and enter the top edge, and a line that goes back up runs in a lane on the left.</li>
+              <li>A converted Pipeline reads exactly as it does today, because its columns become its bands. After Auto-align, each layer is a band.</li>
+              <li><b>Nothing is stored:</b> the narrow view never changes a position. Dragging a Stage is off (a touch scrolls). Shift + arrows do nothing, and Auto-align is hidden. <b>Move earlier</b> / <b>Move later</b>, Routes out and drawing from the + all work as today.</li>
+              <li>The hint: “Press a Stage or a route to edit it below. The Pipeline reads top to bottom here, as its Stages stand from left to right on a wider screen. Move and Routes out do everything without dragging; drag from a Stage’s + to draw a route.”</li>
+            </ul>
+          </div>
+          <div>
+            <div class="ed narrow readonly" id="narrow-figure">
+              <div class="ed-head"><div><div class="ed-title">Stages and routes</div><div class="ed-summary js-summary"></div></div></div>
+              <div class="canvas js-canvas" role="region" aria-label="Flow, narrow"></div>
+            </div>
+            <p class="figure-caption">The same Pipeline under 560px, from its converted positions. Its bands are its old columns.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Conversion ================= -->
+      <section id="conversion">
+        <h2>Conversion</h2>
+        <p class="lead">
+          One migration gives every stored Stage a position that matches where it stands on today’s grid. It keeps
+          <code>place</code>, so the previous release, which reads only places, still runs after a rollback (AGENTS.md:
+          migrations only expand).
+        </p>
+        <div class="two">
+          <div>
+            <h4>From a column and a row to a position</h4>
+            <pre><code>x = column × 308               // 232 card + 76 gap, today's column pitch
+y = Σ over rows r &lt; row of (rowHeight(r) + 22)
+rowHeight(r) = the tallest card on row r across the Pipeline
+             = 72, or 82 + 22 × its route rows</code></pre>
+            <p>
+              This matches today’s CSS grid, whose rows are as tall as their tallest card with a 22 gap. Using the
+              estimate over the real height at worst leaves a few units of extra space.
+            </p>
+            <h4>Example: the full built-in shape</h4>
+            <div class="table-wrap">
+              <table class="spec">
+                <thead><tr><th>Stage</th><th>Place</th><th>Position</th></tr></thead>
+                <tbody>
+                  <tr><td>Plan</td><td>0, 0</td><td>0, 0</td></tr>
+                  <tr><td>Implement</td><td>1, 0</td><td>308, 0</td></tr>
+                  <tr><td>Tests (2 route rows)</td><td>2, 0</td><td>616, 0</td></tr>
+                  <tr><td>Review &amp; fix</td><td>3, 0</td><td>924, 0</td></tr>
+                  <tr><td>Review final result</td><td>4, 0</td><td>1232, 0</td></tr>
+                  <tr><td>Publish (2 route rows)</td><td>5, 0</td><td>1540, 0</td></tr>
+                  <tr><td>Resolve (1 route row)</td><td>6, 1</td><td>1848, 148 (row 0 is 126 tall, + 22)</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h4>What is converted, and how</h4>
+            <div class="table-wrap">
+              <table class="spec">
+                <tbody>
+                  <tr><td>Library Pipelines, Project Pipelines, Tasks’ own Stages</td><td>The migration, per stored list: sort by place (column, then row, stable, as <code>pipelineOrder</code> does today), add <code>position</code> by the formula, leave <code>place</code> as it is. It skips a Stage that already has a position, so it is safe to run twice.</td></tr>
+                  <tr><td>Built-in Pipelines</td><td>Their definitions in <code>built-in-pipelines.ts</code> carry positions laid out once with Auto-align and checked in, listed in their order. Each built-in keeps its order. A test checks that order against the old places and checks for no overlaps by the estimated heights.</td></tr>
+                  <tr><td>Stage templates, built-in Stage templates</td><td>Nothing to convert: a template keeps no routes and no position, as it kept no place.</td></tr>
+                  <tr><td>Open Proposals, stored before the update</td><td>Converted as they are read: a list with places and no positions is sorted by place and positioned by the formula. Apply then saves positions.</td></tr>
+                  <tr><td>Saving, from this release on</td><td>Writes the list in its order, each <code>position</code>, and <code>place: { column: index, row: 0 }</code>. The previous release, reading only places, then sees exactly the same order and runs the same walk. It draws a straight row, and that is fine for a rollback.</td></tr>
+                  <tr><td>After a rollback and update again</td><td>A Stage the previous release saved has a place but no position (its schema drops unknown keys), so it is converted from the place when read.</td></tr>
+                  <tr><td>Next release</td><td>Drops <code>place</code> from the schema, the read fallback and the migration code, once no release that reads it can be rolled back to.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Tools ================= -->
+      <section id="tools">
+        <h2>Office tools and Proposals</h2>
+        <div class="two">
+          <div>
+            <h4><code>list_pipelines</code> gives positions</h4>
+            <pre><code>{
+  "id": "…", "name": "Full",
+  "endPosition": { "x": 2156, "y": 10 },
+  "stages": [
+    { "key": "plan", "kind": "agent", …, "routes": [ … ],
+      "position": { "x": 0, "y": 0 } },
+    { "key": "implement", …, "position": { "x": 308, "y": 0 } }
+  ]
+}</code></pre>
+            <p>It no longer lists <code>place</code>. The tool’s words become:</p>
+            <pre><code>The order of `stages` is the Pipeline's order: the first is where every walk
+starts, and a route to its own Stage or an earlier one leads back. A Stage's
+`position` (`x`, `y`) is where its card's top-left corner stands on the editor's
+canvas, in canvas units (a card is 232 wide and 72 to about 170 high; leave 76
+between Stages side by side); it is layout alone and never changes how the
+Pipeline runs. Leave every position out to have the Stages stand in a row in the
+order given; leave one out and it stands right of the Stage before it.
+`endPosition` places End, right of the last Stage when left out.</code></pre>
+          </div>
+          <div>
+            <h4><code>propose_library_pipeline</code>, <code>propose_project_pipeline</code></h4>
+            <ul class="facts">
+              <li>Take <code>stages</code> in the Pipeline’s order, each with an optional <code>position</code>, and an optional <code>endPosition</code>. A missing position is filled in by the <a href="#position">rules above</a>.</li>
+              <li><b><code>place</code> is refused</b>, with a message that says what to do: “<i>`place` (column, row) is from before free placement: give each Stage a `position` (x, y) in the Pipeline’s order, or leave it out.</i>” Tool schemas reload every session, so only a stale draft would send it, and quietly converting it could reorder the Stages behind the Agent’s back.</li>
+              <li>A position out of bounds is refused with the position words above.</li>
+            </ul>
+            <h4><code>propose_stage_template</code></h4>
+            <ul class="facts">
+              <li>No change in shape. Its words say “A template keeps no routes or position”.</li>
+            </ul>
+            <h4>The Proposal on the flow</h4>
+            <ul class="facts">
+              <li>It draws the Stages where the Proposal puts them, with a Stage it adds standing where it says or where the missing-position rule puts it. Proposed routes are dashed and taken-away ones dotted, as today.</li>
+              <li>When it changes the order, the banner adds: “<i>It changes the Pipeline’s order to Plan, Implement, Lint, Tests, … .</i>” When it moves Stages: “<i>It also moves 3 Stages on the canvas, which doesn’t change how the Pipeline runs.</i>”</li>
+              <li>Positions changed since the Proposal was made don’t make it stale, because they are layout. <b>Apply change</b> takes the Proposal’s position for each Stage it adds or moves, and keeps the current position of every other Stage.</li>
+              <li>The order and the routes changing since still make it refused, as today.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Words ================= -->
+      <section id="words">
+        <h2>Words</h2>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead><tr><th>Where</th><th>Text</th></tr></thead>
+            <tbody>
+              <tr><td>Hint, wide</td><td>Drag a Stage anywhere: it snaps to the grid and to other Stages; hold Alt (⌥) to place it freely, Shift to keep it in line. Drag from its + to any Stage, itself or an earlier one too, or to End, to draw a route; pick a route to set its condition and its limit. Auto-align lays out the whole Pipeline. Without a mouse: Tab to a Stage, Shift + arrows move it, Enter opens it below. Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline.</td></tr>
+              <tr><td>Hint, narrow</td><td>Press a Stage or a route to edit it below. The Pipeline reads top to bottom here, as its Stages stand from left to right on a wider screen. Move and Routes out do everything without dragging; drag from a Stage’s + to draw a route.</td></tr>
+              <tr><td>Stage added</td><td>&lt;name&gt; was added after &lt;Stage&gt; in the Pipeline’s order (or: as the last Stage), beside it on the canvas. Drag it where it goes, then draw its routes: drag from a Stage’s + to another Stage or to End. Without dragging: Move and Routes out, below.</td></tr>
+              <tr><td>Dropped clear of a card</td><td>&lt;name&gt; was put beside &lt;Stage&gt;, so it doesn’t cover it.</td></tr>
+              <tr><td>Moved earlier / later</td><td>&lt;name&gt; is now N of M in the Pipeline’s order; it stays where it is on the canvas. Then, for each route that changed: “The route from &lt;Stage&gt; to &lt;target&gt; now leads back.” / “… now leads on.” When the first Stage changed: “Walks now start at &lt;name&gt;.”</td></tr>
+              <tr><td>Auto-align done</td><td>Auto-align laid out the N Stages from left to right in the Pipeline’s order, with routes back in their own lanes. <u>Undo</u></td></tr>
+              <tr><td>Undo</td><td>The Stages are back where they were before Auto-align.</td></tr>
+              <tr><td>Auto-align failed</td><td>Auto-align couldn’t load its layout code, so nothing moved. Check the connection, then press Auto-align again.</td></tr>
+              <tr><td>Move tools (panel)</td><td><b>Move &lt;Stage&gt; earlier</b> / <b>later</b>, tooltip “Earlier in the Pipeline’s order; it stays where it is on the canvas”. Disabled: “&lt;Stage&gt; is already first” / “already last” / “Started, so it keeps its place in the order”. <b>Move up</b> and <b>Move down</b> go.</td></tr>
+              <tr><td>Position refused</td><td>A Stage’s position is two whole numbers from −20000 to 20000.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= Spec ================= -->
+      <section id="spec">
+        <h2>Spec changes to write with the implementation</h2>
+        <div class="two">
+          <div>
+            <h4>2.3.2 Flows, “The Pipeline’s order” (replaces its first two bullets and the column bullet)</h4>
+            <pre><code>- A Pipeline's Stages are a list, and **the Pipeline's order** is that list's
+  order.
+- It lists the Stages (the Pipeline rail, the Later Stages, the editor's
+  selects) and says which route leads back, never which route the walk follows.
+- The Pipeline's first Stage is the first in this order, where every walk starts.
+- Each Stage keeps its **position** on the flow editor's canvas, which is layout
+  alone: moving a Stage, or Auto-align, never changes the order.
+- Move earlier and Move later change it; a Stage added goes right after the
+  picked one, or last ([its screen](screens/pipeline-flow-editor.md#flow-view-the-canvas)).
+- A route may lead to any Stage, its own included; the canvas draws a route back
+  as it draws any other.</code></pre>
+            <h4>2.3.5 Library</h4>
+            <ul class="facts">
+              <li>Line 44: “… their order and its place” becomes “… and its place in the Pipeline’s order; its position on the canvas can still change”.</li>
+              <li>Lines 82, 140, 169, 181: “place” becomes “position” (a template keeps no position; a Project Pipeline has its own Stages, routes and positions).</li>
+              <li>Line 178 (the conflict chain’s new row) describes the historical update, so it stays. A new heading, “The move to positions”, records the conversion as the other moves are recorded.</li>
+            </ul>
+            <h4>GLOSSARY</h4>
+            <ul class="facts">
+              <li><b>Pipeline</b>: “Its Stages keep an order, the Pipeline’s order, the order of its Stages’ list; each also has a position on the canvas, which is layout alone.”</li>
+              <li>New <b>Position</b> (a Stage’s): “Where a Stage’s card stands on the flow editor’s canvas, its top-left corner in canvas units; layout alone, never part of how the Pipeline runs.” <i>Avoid:</i> place, coordinates, cell.</li>
+              <li>New <b>Auto-align</b>: “The flow editor’s button that lays out the whole Pipeline as a layered diagram from left to right in the Pipeline’s order, undone by one Undo.” <i>Avoid:</i> tidy up, auto-layout, arrange.</li>
+            </ul>
+          </div>
+          <div>
+            <h4>screens/pipeline-flow-editor.md</h4>
+            <ul class="facts">
+              <li><b>Head:</b> adds Auto-align before the host’s menu, with its states.</li>
+              <li><b>Hint:</b> the wide and narrow texts above, and the new “what an edit says” lines (added, dropped clear, moved earlier/later, Auto-align, Undo). The “put on a route” line keeps its words.</li>
+              <li><b>Flow view:</b> “the Stages in a grid of places” becomes “the Stages where each stands”, End where it stands or derived, and the narrow view’s bands from positions. The Routes back bullets read “above the Stages between its ends” instead of rows and columns.</li>
+              <li><b>Dragging:</b> replaced by the moving-and-snapping rules (grid, Stage lines, guides, Alt, Shift, never covering, keyboard steps). The drop-cell, new-column and taken-cell bullets go.</li>
+              <li><b>Moving a Stage</b> no longer changes the order. The “Moving a Stage changes the Pipeline’s order …” bullet moves to Move earlier / later.</li>
+              <li><b>Stage panel tools:</b> Move earlier and Move later only, with their tooltips.</li>
+              <li><b>Stage templates:</b> “added in a column of its own right after the picked Stage …” becomes the Add a Stage order and position rule. “Save as a template” saves the Stage without its key, position and routes.</li>
+              <li><b>Route panel:</b> Inserting “takes a column right after the route’s Stage” becomes “goes right after it in the order, beside it on the canvas”.</li>
+              <li><b>Locks:</b> the frozen order prefix, positions never locked.</li>
+              <li><b>Proposal on the flow:</b> the order and move sentences, and positions not making it stale.</li>
+              <li><b>States, narrow window:</b> “down layout” becomes “bands from positions, and its hint”.</li>
+            </ul>
+            <h4>Other</h4>
+            <ul class="facts">
+              <li>The README’s Defaults gets “A Stage without a position” and “The snapping grid, 16”. The topic map gets Position and Auto-align.</li>
+              <li><code>docs/design/README.md</code> lists this page. MAP.md for <code>pipelines</code> and <code>apps/web/src/shell</code> (the flow folder): what the position, the order and Auto-align own.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Build ================= -->
+      <section id="build">
+        <h2>Building it</h2>
+        <div class="two">
+          <div>
+            <h4>Contracts</h4>
+            <ul class="facts">
+              <li><code>stagePositionSchema = z.strictObject({ x: z.int().min(-20000).max(20000), y: … })</code>. Add <code>position</code> to <code>stageFields</code>, and <code>endPosition</code> wherever a Pipeline’s or a Task’s Stages are carried (Pipeline, Project Pipeline, Task Stages edit and answer, the Proposal payloads).</li>
+              <li><code>stagePlaceSchema</code> stays, marked as kept for the previous release.</li>
+            </ul>
+            <h4>Service (pipelines)</h4>
+            <ul class="facts">
+              <li><code>flow.ts</code>: <code>pipelineOrder</code> becomes the identity on a list, and <code>comparePlaces</code> only sorts a place-only list once as it is converted. <code>orderIndexes</code> and <code>leadsBack</code> read the list index. <code>asFlow</code> fills in missing positions (all, some, from a place). <code>isStraightLine</code> reads routes and order only.</li>
+              <li>One domain function, <code>positionFromPlace</code>, with the estimated height, used by the migration and the read fallback.</li>
+              <li>The migration over <code>pipelines.stages</code>, <code>project_pipelines.stages</code> and the Task Stages table, as above.</li>
+              <li>The save path writes <code>place: { column: index, row: 0 }</code> beside each position.</li>
+              <li>The lock check compares started Stages without their position, and checks that the order is frozen up to the last started Stage.</li>
+              <li>The Office tools and Proposals as described. The Proposal’s Apply merges positions.</li>
+            </ul>
+            <h4>Web (shell/pipelines/flow)</h4>
+            <ul class="facts">
+              <li><code>flow-layout.ts</code>: drop <code>gridCellOf</code>, <code>endCellOf</code>, <code>flowGridSize</code>, <code>dropAt</code> and its slots. Boxes come from positions and measured sizes. Routes back keep their lanes, computed from horizontal spans. Narrow gets <code>narrowBands(positions)</code>, which feeds the existing <code>down</code> drawing.</li>
+              <li>A new <code>flow-snap.ts</code> (pure): <code>snapMove(box, others, grid, reach)</code> → position and guides, <code>clearSpot(box, others)</code>, and <code>freeSpotBeside(stage, others)</code>.</li>
+              <li>A new <code>flow-auto-align.ts</code>: builds the ELK graph (order, sizes, ports, End), runs it in the worker, and maps the result to positions. Lazy-loaded.</li>
+              <li><code>use-flow-drag.ts</code>: snapping, guides, Alt and Shift, the landing outline. The canvas becomes absolutely positioned cards over the SVG.</li>
+              <li><code>flow-editor.tsx</code>: Auto-align in the head, the one-step Undo with the hint, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd>, and Move earlier / later only.</li>
+              <li><code>proposal-flow.ts</code> and <code>converted-flow.ts</code> read positions. The moved-flow note is unchanged.</li>
+            </ul>
+          </div>
+          <div>
+            <h4>Tests</h4>
+            <ul class="facts">
+              <li><b>Conversion:</b> columns and rows to positions by the formula, the order equal to the old place order, routes back unchanged, rerunning the migration changes nothing, and a list saved by the previous release (place only) reads the same.</li>
+              <li><b>Order:</b> moving a Stage changes neither <code>isRouteBack</code>, the first Stage nor default limits. Move earlier and Move later change them as the hint says.</li>
+              <li><b>Snapping (pure):</b> grid rounding, the nearest Stage line winning per axis, reach scaled by zoom, Alt off, Shift axis lock, the landing spot never within 16 of a card, and Shift + arrow stepping past a card.</li>
+              <li><b>Auto-align</b> on every built-in and on a branching fixture: no two boxes overlap, every route on goes to a later layer (target x past the source’s right edge), every route back leads left or to itself, End right of every final Stage, the same result twice, and one Undo giving back the exact positions.</li>
+              <li><b>Editor:</b> drag to a free spot, Save and reload, same position. Dropping on a card lands clear. No “between” or “below” hint words remain. The narrow bands match the old down view for a converted Pipeline.</li>
+              <li><b>Office tools:</b> <code>list_pipelines</code> gives <code>position</code> and <code>endPosition</code> and no <code>place</code>. A proposal with <code>place</code> is refused with its words. Proposals with all, some or no positions are filled as described.</li>
+            </ul>
+            <div class="callout">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v4M8 4.8v.2"/></svg>
+              <p>Left for the next Task: how lines are routed (around cards, curves, straight). Here the lines only keep working on free positions, and a line may cross a card you placed in its way until then.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var CARD_W = 232;
+        var END_SIZE = 44;
+        var GRID = 16;
+        var REACH = 8;
+        var CLEAR = 16;
+        var SIDE_GAP = 76;
+        var NODE_GAP = 28;
+        var LANE_AIR = 18;
+        var LANE_STEP = 20;
+        var PAD = 64;
+        var NARROW_LEFT = 76;
+        var NARROW_GAP = 12;
+        var BAND_GAP = 44;
+        var END_KEY = "end";
+
+        var KIND_WORDS = { agent: "Agent Stage", script: "Script Stage", gate: "Gate", publish: "Publish Stage" };
+        var ICON_OPEN = '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+        var ICONS = {
+          agent: ICON_OPEN + '<circle cx="8" cy="5.5" r="2.5"/><path d="M3.5 13.5c.6-2.6 2.4-4 4.5-4s3.9 1.4 4.5 4"/></svg>',
+          script: ICON_OPEN + '<path d="M3 5l3 3-3 3M8.5 11.5h4.5"/></svg>',
+          gate: ICON_OPEN + '<path d="M6.5 5v6M9.5 5v6"/></svg>',
+          publish: ICON_OPEN + '<path d="M8 12.5V4M4.5 7.5L8 4l3.5 3.5"/></svg>'
+        };
+
+        var PIPELINE = [
+          { key: "plan", name: "Plan", kind: "agent", who: "CTO", routes: [{ to: "implement" }] },
+          { key: "implement", name: "Implement", kind: "agent", who: "Developer", routes: [{ to: "tests" }] },
+          {
+            key: "tests",
+            name: "Tests",
+            kind: "script",
+            who: "Verify",
+            routes: [
+              { to: "implement", when: "when it fails", limit: 3 },
+              { to: "review", when: "otherwise" }
+            ]
+          },
+          { key: "review", name: "Review & fix", kind: "agent", who: "Reviewer", routes: [{ to: "gate" }] },
+          { key: "gate", name: "Review final result", kind: "gate", who: "waits for you", routes: [{ to: "publish" }] },
+          {
+            key: "publish",
+            name: "Publish",
+            kind: "publish",
+            who: "publishes by pull request",
+            routes: [
+              { to: "resolve", when: "when it ends Conflict", limit: 3 },
+              { to: null, when: "otherwise" }
+            ]
+          },
+          { key: "resolve", name: "Resolve", kind: "agent", who: "Developer", routes: [{ to: "publish", when: "always", limit: 3 }] }
+        ];
+
+        var AFTER_DRAGS = {
+          plan: [0, 48],
+          implement: [304, 0],
+          tests: [624, 32],
+          review: [912, 176],
+          gate: [1200, 208],
+          publish: [1504, 64],
+          resolve: [1808, 256]
+        };
+        var PLACES = {
+          plan: [0, 0],
+          implement: [1, 0],
+          tests: [2, 0],
+          review: [3, 0],
+          gate: [4, 0],
+          publish: [5, 0],
+          resolve: [6, 1]
+        };
+
+        function esc(text) {
+          return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function listsRoutes(stage) {
+          if (stage.routes.length > 1) return true;
+          return stage.routes.some(function (route) {
+            return Boolean(route.limit) || (Boolean(route.when) && route.when !== "always");
+          });
+        }
+
+        function estimatedHeight(stage) {
+          return listsRoutes(stage) ? 82 + 22 * stage.routes.length : 72;
+        }
+
+        /* Conversion: a column and a row to a position (see the Conversion section). */
+        function convertedPositions(stages) {
+          var rowHeights = [];
+          stages.forEach(function (stage) {
+            var row = PLACES[stage.key][1];
+            rowHeights[row] = Math.max(rowHeights[row] || 0, estimatedHeight(stage));
+          });
+          var result = {};
+          stages.forEach(function (stage) {
+            var place = PLACES[stage.key];
+            var y = 0;
+            for (var r = 0; r < place[1]; r += 1) y += (rowHeights[r] || 72) + 22;
+            result[stage.key] = [place[0] * (CARD_W + SIDE_GAP), y];
+          });
+          return result;
+        }
+
+        function freshStages(start) {
+          var positions = start === "converted" ? convertedPositions(PIPELINE) : AFTER_DRAGS;
+          return PIPELINE.map(function (stage) {
+            return {
+              key: stage.key,
+              name: stage.name,
+              kind: stage.kind,
+              who: stage.who,
+              routes: stage.routes.map(function (route) {
+                return { to: route.to, when: route.when, limit: route.limit };
+              }),
+              x: positions[stage.key][0],
+              y: positions[stage.key][1]
+            };
+          });
+        }
+
+        var NEAR = (function () {
+          var list = [];
+          for (var dx = -30; dx <= 30; dx += 1) {
+            for (var dy = -30; dy <= 30; dy += 1) list.push([dx * GRID, dy * GRID]);
+          }
+          list.sort(function (a, b) {
+            return a[0] * a[0] + a[1] * a[1] - (b[0] * b[0] + b[1] * b[1]);
+          });
+          return list;
+        })();
+
+        function makeEditor(root, options) {
+          var st = {
+            stages: freshStages(options.start || "dragged"),
+            end: null,
+            narrow: Boolean(options.narrow),
+            readonly: Boolean(options.readonly),
+            picked: null,
+            undo: null,
+            showOrder: false,
+            loaded: false,
+            aligning: false,
+            press: null,
+            drag: null,
+            added: 0
+          };
+          var canvas = root.querySelector(".js-canvas");
+          var summaryEl = root.querySelector(".js-summary");
+          var hintEl = root.querySelector(".js-hint");
+          var undoEl = root.querySelector(".js-undo");
+          var alignEl = root.querySelector(".js-align");
+          var alignLabel = root.querySelector(".js-align-label");
+          var addEl = root.querySelector(".js-add");
+          var panelEl = root.querySelector(".js-panel");
+          var world = document.createElement("div");
+          world.className = "world";
+          canvas.appendChild(world);
+          var els = {};
+          var rowCentres = {};
+          var lastBoxes = {};
+          var off = { x: PAD, y: PAD };
+          var hintText = "";
+
+          function byKey(key) {
+            for (var i = 0; i < st.stages.length; i += 1) if (st.stages[i].key === key) return st.stages[i];
+            return null;
+          }
+          function indexOf(key) {
+            for (var i = 0; i < st.stages.length; i += 1) if (st.stages[i].key === key) return i;
+            return -1;
+          }
+          function nameOf(key) {
+            if (key === null || key === END_KEY) return "End";
+            var stage = byKey(key);
+            return stage ? stage.name : key;
+          }
+          function isBack(fromKey, toKey) {
+            if (toKey === null) return false;
+            return indexOf(toKey) <= indexOf(fromKey);
+          }
+
+          function defaultHint() {
+            if (st.narrow) {
+              return "Press a Stage or a route to edit it below. The Pipeline reads top to bottom here, as its Stages stand from left to right on a wider screen. Move and Routes out do everything without dragging; drag from a Stage’s + to draw a route.";
+            }
+            if (st.readonly) return "Pick a Stage or a route to read it below.";
+            return "Drag a Stage anywhere: it snaps to the grid and to other Stages; hold Alt (⌥) to place it freely, Shift to keep it in line. Drag from its + to draw a route. Auto-align lays out the whole Pipeline. Without a mouse: Tab to a Stage, Shift + arrows move it.";
+          }
+
+          function setHint(text, withUndo) {
+            hintText = text;
+            if (hintEl) hintEl.textContent = text;
+            if (undoEl) undoEl.hidden = !withUndo;
+          }
+
+          function summary() {
+            var routes = 0;
+            var back = 0;
+            st.stages.forEach(function (stage) {
+              stage.routes.forEach(function (route) {
+                routes += 1;
+                if (isBack(stage.key, route.to)) back += 1;
+              });
+            });
+            var n = st.stages.length;
+            return n + (n === 1 ? " Stage" : " Stages") + " · " + routes + (routes === 1 ? " route" : " routes") + " · " + back + (back === 1 ? " route back" : " routes back");
+          }
+
+          /* ---------- DOM ---------- */
+          function cardHtml(stage, index) {
+            var html = '<span class="node-head"><span class="mark kind-' + stage.kind + '">' + ICONS[stage.kind] + "</span>";
+            html += '<span class="node-words"><span class="node-name">' + esc(stage.name) + '</span><span class="node-who">' + esc(stage.who) + "</span></span>";
+            if (!st.readonly && !st.narrow) html += '<span class="plus" aria-hidden="true">+</span>';
+            if (st.showOrder) html += '<span class="order-badge">' + (index + 1) + "</span>";
+            html += "</span>";
+            if (listsRoutes(stage)) {
+              html += '<span class="rows">';
+              stage.routes.forEach(function (route) {
+                html += '<span class="row"><span class="row-words">→ <b>' + esc(nameOf(route.to)) + "</b> " + esc(route.when || "always") + "</span>";
+                if (route.limit) html += '<span class="limit">≤' + route.limit + "×</span>";
+                html += "</span>";
+              });
+              html += "</span>";
+            }
+            return html;
+          }
+
+          function build() {
+            world.innerHTML = "";
+            els = {};
+            st.stages.forEach(function (stage, index) {
+              var el = document.createElement("button");
+              el.type = "button";
+              el.className = "node" + (st.picked === stage.key ? " picked" : "");
+              el.setAttribute("aria-label", stage.name + ", " + KIND_WORDS[stage.kind] + ", " + (index + 1) + " of " + st.stages.length + " in the Pipeline’s order");
+              el.innerHTML = cardHtml(stage, index);
+              wire(el, stage.key);
+              world.appendChild(el);
+              els[stage.key] = el;
+            });
+            var end = document.createElement("button");
+            end.type = "button";
+            end.className = "end-node";
+            end.textContent = "End";
+            end.setAttribute("aria-label", "End");
+            wire(end, END_KEY);
+            world.appendChild(end);
+            els[END_KEY] = end;
+            if (summaryEl) summaryEl.textContent = summary();
+            layout(true);
+            renderPanel();
+          }
+
+          /* ---------- Measuring and placing ---------- */
+          function measureRows() {
+            rowCentres = {};
+            st.stages.forEach(function (stage) {
+              var rows = els[stage.key].querySelectorAll(".row");
+              rowCentres[stage.key] = Array.prototype.map.call(rows, function (row) {
+                return row.offsetTop + row.offsetHeight / 2;
+              });
+            });
+          }
+
+          function derivedEnd(boxes) {
+            var right = 0;
+            var first = null;
+            st.stages.forEach(function (stage) {
+              var box = boxes[stage.key];
+              right = Math.max(right, box.x + box.w);
+              if (first === null && stage.routes.some(function (route) { return route.to === null; })) first = stage;
+            });
+            var level = first ? boxes[first.key].y + portOffset(first, first.routes.findIndex(function (route) { return route.to === null; }), boxes[first.key]) : 0;
+            return { x: right + SIDE_GAP, y: Math.round(level - END_SIZE / 2) };
+          }
+
+          function portOffset(stage, routeIndex, box) {
+            var centres = rowCentres[stage.key] || [];
+            if (centres.length > routeIndex && routeIndex >= 0) return centres[routeIndex];
+            return box.h / 2;
+          }
+
+          function wideBoxes() {
+            var boxes = {};
+            st.stages.forEach(function (stage) {
+              var el = els[stage.key];
+              el.style.width = CARD_W + "px";
+              boxes[stage.key] = { x: stage.x, y: stage.y, w: CARD_W, h: el.offsetHeight };
+            });
+            var end = st.end || derivedEnd(boxes);
+            boxes[END_KEY] = { x: end.x, y: end.y, w: END_SIZE, h: END_SIZE };
+            return boxes;
+          }
+
+          function narrowBands() {
+            var sorted = st.stages.slice().sort(function (a, b) {
+              return a.x - b.x || a.y - b.y || indexOf(a.key) - indexOf(b.key);
+            });
+            var bands = [];
+            sorted.forEach(function (stage) {
+              var band = bands[bands.length - 1];
+              if (band && stage.x < band.right - CARD_W / 2) {
+                band.keys.push(stage.key);
+                band.right = Math.max(band.right, stage.x + CARD_W);
+              } else {
+                bands.push({ right: stage.x + CARD_W, keys: [stage.key] });
+              }
+            });
+            return bands.map(function (band) {
+              return band.keys.sort(function (a, b) {
+                return byKey(a).y - byKey(b).y || indexOf(a) - indexOf(b);
+              });
+            });
+          }
+
+          function narrowBoxes() {
+            var boxes = {};
+            var avail = Math.max(200, canvas.clientWidth - NARROW_LEFT - 30);
+            var cursor = 0;
+            narrowBands().forEach(function (keys) {
+              for (var start = 0; start < keys.length; start += 2) {
+                var line = keys.slice(start, start + 2);
+                var width = Math.floor((avail - (line.length - 1) * NARROW_GAP) / line.length);
+                var height = 0;
+                line.forEach(function (key, slot) {
+                  var el = els[key];
+                  el.style.width = width + "px";
+                  var h = el.offsetHeight;
+                  boxes[key] = { x: slot * (width + NARROW_GAP), y: cursor, w: width, h: h };
+                  height = Math.max(height, h);
+                });
+                cursor += height + (start + 2 < keys.length ? 14 : BAND_GAP);
+              }
+            });
+            boxes[END_KEY] = { x: Math.round((avail - END_SIZE) / 2), y: cursor, w: END_SIZE, h: END_SIZE };
+            return boxes;
+          }
+
+          /* ---------- Route geometry (simplified from today's drawing) ---------- */
+          function axisFor(orient) {
+            if (orient === "across") {
+              return {
+                m0: function (b) { return b.x; },
+                ml: function (b) { return b.w; },
+                c0: function (b) { return b.y; },
+                cl: function (b) { return b.h; },
+                pt: function (m, c) { return [m, c]; }
+              };
+            }
+            return {
+              m0: function (b) { return b.y; },
+              ml: function (b) { return b.h; },
+              c0: function (b) { return b.x; },
+              cl: function (b) { return b.w; },
+              pt: function (m, c) { return [c, m]; }
+            };
+          }
+
+          function geometry(boxes, orient) {
+            var ax = axisFor(orient);
+            var lines = [];
+            var marks = [];
+            var backs = [];
+            var outs = {};
+            var ins = {};
+            var points = [];
+            st.stages.forEach(function (stage) {
+              var from = boxes[stage.key];
+              stage.routes.forEach(function (route, routeIndex) {
+                var targetKey = route.to === null ? END_KEY : route.to;
+                var to = boxes[targetKey];
+                if (!to) return;
+                var exitM = ax.m0(from) + ax.ml(from);
+                var entryM = ax.m0(to);
+                var self = targetKey === stage.key;
+                if (!self && entryM >= exitM + 20) {
+                  var c1 = orient === "across" ? from.y + portOffset(stage, routeIndex, from) : ax.c0(from) + ax.cl(from) / 2;
+                  var c2 = ax.c0(to) + ax.cl(to) / 2;
+                  var mid = Math.round((exitM + entryM) / 2);
+                  var lo = Math.min(c1, c2) - 6;
+                  var hi = Math.max(c1, c2) + 6;
+                  var detour = -Infinity;
+                  Object.keys(boxes).forEach(function (key) {
+                    if (key === stage.key || key === targetKey) return;
+                    var b = boxes[key];
+                    if (ax.m0(b) < entryM && ax.m0(b) + ax.ml(b) > exitM && ax.c0(b) < hi && ax.c0(b) + ax.cl(b) > lo) {
+                      detour = Math.max(detour, ax.c0(b) + ax.cl(b) + 16);
+                    }
+                  });
+                  var pts;
+                  if (detour > -Infinity) {
+                    pts = [ax.pt(exitM, c1), ax.pt(exitM + 12, c1), ax.pt(exitM + 12, detour), ax.pt(entryM - 12, detour), ax.pt(entryM - 12, c2), ax.pt(entryM - 1, c2)];
+                    if (route.limit) marks.push({ at: ax.pt(mid, detour), limit: route.limit });
+                  } else {
+                    pts = [ax.pt(exitM, c1), ax.pt(mid, c1), ax.pt(mid, c2), ax.pt(entryM - 1, c2)];
+                    if (route.limit) marks.push({ at: ax.pt(mid, Math.round((c1 + c2) / 2)), limit: route.limit });
+                  }
+                  lines.push({ pts: pts, dir: orient === "across" ? "right" : "down" });
+                } else {
+                  outs[stage.key] = (outs[stage.key] || 0) + 1;
+                  ins[targetKey] = (ins[targetKey] || 0) + 1;
+                  var sM = ax.m0(from) + ax.ml(from) * (self ? 0.7 : 0.64 + 0.1 * (outs[stage.key] - 1));
+                  var tM = ax.m0(to) + ax.ml(to) * (self ? 0.3 : 0.36 - 0.1 * (ins[targetKey] - 1));
+                  backs.push({ from: from, to: to, sM: sM, tM: tM, lo: Math.min(sM, tM), hi: Math.max(sM, tM), limit: route.limit });
+                }
+              });
+            });
+            backs.sort(function (a, b) {
+              return a.hi - a.lo - (b.hi - b.lo);
+            });
+            var placed = [];
+            backs.forEach(function (back) {
+              var lane = 0;
+              while (placed.some(function (other) { return other.lane === lane && other.lo < back.hi + 8 && back.lo < other.hi + 8; })) lane += 1;
+              back.lane = lane;
+              placed.push(back);
+              var base = Infinity;
+              Object.keys(boxes).forEach(function (key) {
+                var box = boxes[key];
+                if (ax.m0(box) < back.hi + 4 && ax.m0(box) + ax.ml(box) > back.lo - 4) base = Math.min(base, ax.c0(box));
+              });
+              var level = base - LANE_AIR - lane * LANE_STEP;
+              var pts = [ax.pt(back.sM, ax.c0(back.from)), ax.pt(back.sM, level), ax.pt(back.tM, level), ax.pt(back.tM, ax.c0(back.to) - 1)];
+              lines.push({ pts: pts, dir: orient === "across" ? "down" : "right" });
+              if (back.limit) marks.push({ at: ax.pt(Math.round((back.sM + back.tM) / 2), level), limit: back.limit });
+            });
+            var first = st.stages[0] ? boxes[st.stages[0].key] : null;
+            var start = null;
+            if (first) {
+              var centre = ax.c0(first) + ax.cl(first) / 2;
+              start = { dot: ax.pt(ax.m0(first) - 34, centre), tip: ax.pt(ax.m0(first) - 1, centre), dir: orient === "across" ? "right" : "down" };
+              points.push(start.dot);
+            }
+            lines.forEach(function (line) {
+              line.pts.forEach(function (p) { points.push(p); });
+            });
+            marks.forEach(function (mark) {
+              points.push([mark.at[0] - 20, mark.at[1] - 10]);
+              points.push([mark.at[0] + 20, mark.at[1] + 10]);
+            });
+            return { lines: lines, marks: marks, start: start, points: points };
+          }
+
+          function arrow(p, dir) {
+            var x = p[0];
+            var y = p[1];
+            if (dir === "right") return "M" + x + " " + y + "L" + (x - 7) + " " + (y - 4) + "L" + (x - 7) + " " + (y + 4) + "Z";
+            return "M" + x + " " + y + "L" + (x - 4) + " " + (y - 7) + "L" + (x + 4) + " " + (y - 7) + "Z";
+          }
+
+          function svgFor(geo, width, height) {
+            var out = '<svg class="layer-routes" width="' + width + '" height="' + height + '" aria-hidden="true"><g transform="translate(' + off.x + " " + off.y + ')">';
+            geo.lines.forEach(function (line) {
+              var d = line.pts.map(function (p, i) { return (i === 0 ? "M" : "L") + p[0] + " " + p[1]; }).join(" ");
+              out += '<path class="route-line" d="' + d + '"/>';
+              out += '<path class="route-arrow" d="' + arrow(line.pts[line.pts.length - 1], line.dir) + '"/>';
+            });
+            if (geo.start) {
+              out += '<circle class="route-start" cx="' + geo.start.dot[0] + '" cy="' + geo.start.dot[1] + '" r="4"/>';
+              out += '<path class="route-start-line" d="M' + geo.start.dot[0] + " " + geo.start.dot[1] + "L" + geo.start.tip[0] + " " + geo.start.tip[1] + '"/>';
+              out += '<path class="route-start" d="' + arrow(geo.start.tip, geo.start.dir) + '"/>';
+            }
+            geo.marks.forEach(function (mark) {
+              out += '<rect class="mark-rect" x="' + (mark.at[0] - 17) + '" y="' + (mark.at[1] - 8) + '" width="34" height="16" rx="4"/>';
+              out += '<text class="mark-text" x="' + mark.at[0] + '" y="' + (mark.at[1] + 4) + '" text-anchor="middle">≤' + mark.limit + "×</text>";
+            });
+            return out + "</g></svg>";
+          }
+
+          function guidesFor(guides, width, height) {
+            var out = '<svg class="layer-guides" width="' + width + '" height="' + height + '" aria-hidden="true"><g transform="translate(' + off.x + " " + off.y + ')">';
+            guides.forEach(function (g) {
+              out += '<line class="guide" x1="' + g.x1 + '" y1="' + g.y1 + '" x2="' + g.x2 + '" y2="' + g.y2 + '"/>';
+              out += '<circle class="guide-dot" cx="' + g.x1 + '" cy="' + g.y1 + '" r="2.5"/><circle class="guide-dot" cx="' + g.x2 + '" cy="' + g.y2 + '" r="2.5"/>';
+            });
+            return out + "</g></svg>";
+          }
+
+          function layout(rebuilt) {
+            if (rebuilt) measureRows();
+            var boxes = st.narrow ? narrowBoxes() : wideBoxes();
+            var geo = geometry(boxes, st.narrow ? "down" : "across");
+            var minX = Infinity;
+            var minY = Infinity;
+            var maxX = -Infinity;
+            var maxY = -Infinity;
+            function add(p) {
+              minX = Math.min(minX, p[0]);
+              minY = Math.min(minY, p[1]);
+              maxX = Math.max(maxX, p[0]);
+              maxY = Math.max(maxY, p[1]);
+            }
+            Object.keys(boxes).forEach(function (key) {
+              var box = boxes[key];
+              add([box.x, box.y]);
+              add([box.x + box.w, box.y + box.h]);
+            });
+            geo.points.forEach(add);
+            if (!st.drag) {
+              var next = st.narrow ? { x: NARROW_LEFT, y: Math.round(24 - minY) } : { x: Math.round(PAD - minX), y: Math.round(PAD - minY) };
+              if (!st.narrow && !rebuilt) {
+                canvas.scrollLeft += next.x - off.x;
+                canvas.scrollTop += next.y - off.y;
+              }
+              off = next;
+            }
+            Object.keys(boxes).forEach(function (key) {
+              var box = boxes[key];
+              els[key].style.left = box.x + off.x + "px";
+              els[key].style.top = box.y + off.y + "px";
+            });
+            var width = st.narrow ? canvas.clientWidth : Math.max(canvas.clientWidth, Math.round(maxX + off.x + PAD));
+            var height = Math.round(maxY + off.y + (st.narrow ? 24 : PAD));
+            world.style.width = width + "px";
+            world.style.height = height + "px";
+            world.style.backgroundPosition = off.x + "px " + off.y + "px";
+            var oldRoutes = world.querySelector(".layer-routes");
+            var oldGuides = world.querySelector(".layer-guides");
+            if (oldRoutes) oldRoutes.remove();
+            if (oldGuides) oldGuides.remove();
+            world.insertAdjacentHTML("afterbegin", svgFor(geo, width, height));
+            var ghost = world.querySelector(".ghost");
+            if (ghost) ghost.remove();
+            if (st.drag) {
+              world.insertAdjacentHTML("beforeend", guidesFor(st.drag.guides || [], width, height));
+              var landing = st.drag.landing;
+              var box = boxes[st.drag.key];
+              if (landing && (landing.x !== box.x || landing.y !== box.y)) {
+                var g = document.createElement("div");
+                g.className = "ghost";
+                g.style.left = landing.x + off.x + "px";
+                g.style.top = landing.y + off.y + "px";
+                g.style.width = box.w + "px";
+                g.style.height = box.h + "px";
+                world.appendChild(g);
+              }
+            }
+            lastBoxes = boxes;
+          }
+
+          /* ---------- Positions ---------- */
+          function posOf(key) {
+            var box = lastBoxes[key];
+            if (key === END_KEY) return st.end ? { x: st.end.x, y: st.end.y } : { x: box.x, y: box.y };
+            var stage = byKey(key);
+            return { x: stage.x, y: stage.y };
+          }
+          function setPos(key, x, y) {
+            if (key === END_KEY) {
+              st.end = { x: x, y: y };
+              return;
+            }
+            var stage = byKey(key);
+            stage.x = x;
+            stage.y = y;
+          }
+          function sizeOf(key) {
+            var box = lastBoxes[key];
+            return { w: box.w, h: box.h };
+          }
+          function others(key) {
+            return Object.keys(lastBoxes)
+              .filter(function (k) { return k !== key; })
+              .map(function (k) {
+                var p = posOf(k);
+                var s = sizeOf(k);
+                return { key: k, x: p.x, y: p.y, w: s.w, h: s.h };
+              });
+          }
+          function covers(key, x, y) {
+            var me = sizeOf(key);
+            return others(key).find(function (o) {
+              return x < o.x + o.w + CLEAR && x + me.w + CLEAR > o.x && y < o.y + o.h + CLEAR && y + me.h + CLEAR > o.y;
+            });
+          }
+          function clearSpot(key, x, y) {
+            if (!covers(key, x, y)) return { x: x, y: y, beside: null };
+            var hit = covers(key, x, y);
+            var bx = Math.round(x / GRID) * GRID;
+            var by = Math.round(y / GRID) * GRID;
+            for (var i = 0; i < NEAR.length; i += 1) {
+              var cx = bx + NEAR[i][0];
+              var cy = by + NEAR[i][1];
+              if (!covers(key, cx, cy)) return { x: cx, y: cy, beside: hit.key };
+            }
+            return { x: x, y: y, beside: null };
+          }
+
+          /* Snapping: each axis to the nearest Stage line within reach, else to the grid. */
+          function snap(key, rawX, rawY) {
+            var me = sizeOf(key);
+            var bestX = null;
+            var bestY = null;
+            var list = others(key);
+            list.forEach(function (o) {
+              [o.x, o.x + o.w / 2, o.x + o.w].forEach(function (line) {
+                [0, me.w / 2, me.w].forEach(function (part) {
+                  var d = line - (rawX + part);
+                  if (Math.abs(d) <= REACH && (bestX === null || Math.abs(d) < Math.abs(bestX.d))) bestX = { d: d, line: line };
+                });
+              });
+              [o.y, o.y + o.h / 2, o.y + o.h].forEach(function (line) {
+                [0, me.h / 2, me.h].forEach(function (part) {
+                  var d = line - (rawY + part);
+                  if (Math.abs(d) <= REACH && (bestY === null || Math.abs(d) < Math.abs(bestY.d))) bestY = { d: d, line: line };
+                });
+              });
+            });
+            var x = bestX ? Math.round(rawX + bestX.d) : Math.round(rawX / GRID) * GRID;
+            var y = bestY ? Math.round(rawY + bestY.d) : Math.round(rawY / GRID) * GRID;
+            var guides = [];
+            if (bestX) {
+              var top = y;
+              var bottom = y + me.h;
+              list.forEach(function (o) {
+                if ([o.x, o.x + o.w / 2, o.x + o.w].some(function (l) { return Math.abs(l - bestX.line) < 1; })) {
+                  top = Math.min(top, o.y);
+                  bottom = Math.max(bottom, o.y + o.h);
+                }
+              });
+              guides.push({ x1: bestX.line, y1: top - 10, x2: bestX.line, y2: bottom + 10 });
+            }
+            if (bestY) {
+              var left = x;
+              var right = x + me.w;
+              list.forEach(function (o) {
+                if ([o.y, o.y + o.h / 2, o.y + o.h].some(function (l) { return Math.abs(l - bestY.line) < 1; })) {
+                  left = Math.min(left, o.x);
+                  right = Math.max(right, o.x + o.w);
+                }
+              });
+              guides.push({ x1: left - 10, y1: bestY.line, x2: right + 10, y2: bestY.line });
+            }
+            return { x: x, y: y, guides: guides };
+          }
+
+          /* ---------- Pointer and keyboard ---------- */
+          function wire(el, key) {
+            el.addEventListener("pointerdown", function (ev) {
+              if (ev.button !== 0) return;
+              if (st.readonly || st.narrow) return;
+              var p = posOf(key);
+              var rect = world.getBoundingClientRect();
+              st.press = {
+                key: key,
+                id: ev.pointerId,
+                sx: ev.clientX,
+                sy: ev.clientY,
+                startX: p.x,
+                startY: p.y,
+                dx: ev.clientX - rect.left - off.x - p.x,
+                dy: ev.clientY - rect.top - off.y - p.y,
+                moved: false,
+                guides: [],
+                landing: null
+              };
+              el.setPointerCapture(ev.pointerId);
+            });
+            el.addEventListener("pointermove", function (ev) {
+              var p = st.press;
+              if (!p || ev.pointerId !== p.id) return;
+              if (!p.moved) {
+                if (Math.hypot(ev.clientX - p.sx, ev.clientY - p.sy) < 5) return;
+                p.moved = true;
+                if (key === END_KEY && !st.end) st.end = { x: p.startX, y: p.startY };
+                st.drag = p;
+                world.classList.add("show-grid");
+                el.classList.add("dragging");
+              }
+              var rect = world.getBoundingClientRect();
+              var rawX = ev.clientX - rect.left - off.x - p.dx;
+              var rawY = ev.clientY - rect.top - off.y - p.dy;
+              if (ev.shiftKey) {
+                if (Math.abs(rawX - p.startX) >= Math.abs(rawY - p.startY)) rawY = p.startY;
+                else rawX = p.startX;
+              }
+              var snapped = ev.altKey ? { x: Math.round(rawX), y: Math.round(rawY), guides: [] } : snap(key, rawX, rawY);
+              setPos(key, snapped.x, snapped.y);
+              p.guides = snapped.guides;
+              p.landing = clearSpot(key, snapped.x, snapped.y);
+              layout(false);
+            });
+            el.addEventListener("pointerup", function (ev) {
+              var p = st.press;
+              if (!p || ev.pointerId !== p.id) return;
+              st.press = null;
+              if (!p.moved) {
+                if (key !== END_KEY) pick(key);
+                return;
+              }
+              st.drag = null;
+              world.classList.remove("show-grid");
+              el.classList.remove("dragging");
+              var landing = p.landing || posOf(key);
+              setPos(key, landing.x, landing.y);
+              st.undo = null;
+              if (landing.beside) setHint(nameOf(key) + " was put beside " + nameOf(landing.beside) + ", so it doesn’t cover it.", false);
+              else setHint(nameOf(key) + " moved. The Pipeline’s order stays as it was: " + summary() + ".", false);
+              layout(false);
+              renderPanel();
+            });
+            el.addEventListener("pointercancel", function () {
+              var p = st.press;
+              if (!p) return;
+              st.press = null;
+              if (p.moved) {
+                setPos(key, p.startX, p.startY);
+                st.drag = null;
+                world.classList.remove("show-grid");
+                el.classList.remove("dragging");
+                layout(false);
+              }
+            });
+            el.addEventListener("click", function (ev) {
+              if (ev.detail === 0 && key !== END_KEY) pick(key);
+            });
+            el.addEventListener("keydown", function (ev) {
+              var arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+              var step = arrows[ev.key];
+              if (!step) return;
+              ev.preventDefault();
+              if (ev.shiftKey && !st.readonly && !st.narrow) {
+                var p = posOf(key);
+                var x = p.x;
+                var y = p.y;
+                for (var i = 0; i < 40; i += 1) {
+                  x += step[0] * GRID;
+                  y += step[1] * GRID;
+                  if (!covers(key, x, y)) break;
+                }
+                if (key === END_KEY && !st.end) st.end = { x: p.x, y: p.y };
+                setPos(key, x, y);
+                st.undo = null;
+                setHint("Shift + arrows move " + nameOf(key) + " a grid step; the Pipeline’s order stays as it was.", false);
+                layout(false);
+                renderPanel();
+                return;
+              }
+              if (key === END_KEY) return;
+              var index = indexOf(key) + (step[0] + step[1] > 0 ? 1 : -1);
+              var next = st.stages[index];
+              if (next) els[next.key].focus();
+            });
+          }
+
+          function pick(key) {
+            st.picked = key;
+            Object.keys(els).forEach(function (k) {
+              els[k].classList.toggle("picked", k === key);
+            });
+            renderPanel();
+          }
+
+          /* ---------- Stage panel ---------- */
+          function renderPanel() {
+            if (!panelEl) return;
+            var stage = st.picked ? byKey(st.picked) : null;
+            if (!stage) {
+              panelEl.innerHTML = '<div class="panel-empty">Pick a Stage or a route to edit it here.<br />A Stage’s settings and its Routes out; a route’s place, its condition and its limit.</div>';
+              return;
+            }
+            var index = indexOf(stage.key);
+            var n = st.stages.length;
+            var html = '<div class="panel-head"><div><div class="panel-name">' + esc(stage.name) + '</div><div class="panel-sub">' + KIND_WORDS[stage.kind] + " · " + (index + 1) + " of " + n + " in the Pipeline’s order</div></div>";
+            html += '<div class="ed-actions">';
+            html += '<button type="button" class="btn js-earlier"' + (index === 0 ? " disabled" : "") + ' title="' + (index === 0 ? esc(stage.name) + " is already first" : "Earlier in the Pipeline’s order; it stays where it is on the canvas") + '">Move ' + esc(stage.name) + " earlier</button>";
+            html += '<button type="button" class="btn js-later"' + (index === n - 1 ? " disabled" : "") + ' title="' + (index === n - 1 ? esc(stage.name) + " is already last" : "Later in the Pipeline’s order; it stays where it is on the canvas") + '">Move ' + esc(stage.name) + " later</button>";
+            html += "</div></div>";
+            html += '<div class="readout">Demo readout · position x ' + stage.x + ", y " + stage.y + "</div>";
+            panelEl.innerHTML = html;
+            var earlier = panelEl.querySelector(".js-earlier");
+            var later = panelEl.querySelector(".js-later");
+            if (earlier) earlier.addEventListener("click", function () { reorder(stage.key, -1); });
+            if (later) later.addEventListener("click", function () { reorder(stage.key, 1); });
+          }
+
+          function backStates() {
+            var states = {};
+            st.stages.forEach(function (stage) {
+              stage.routes.forEach(function (route) {
+                states[stage.key + ">" + route.to] = isBack(stage.key, route.to);
+              });
+            });
+            return states;
+          }
+
+          function reorder(key, by) {
+            var index = indexOf(key);
+            var other = index + by;
+            if (other < 0 || other >= st.stages.length) return;
+            var before = backStates();
+            var firstBefore = st.stages[0].key;
+            var moved = st.stages[index];
+            st.stages[index] = st.stages[other];
+            st.stages[other] = moved;
+            var after = backStates();
+            var text = moved.name + " is now " + (other + 1) + " of " + st.stages.length + " in the Pipeline’s order; it stays where it is on the canvas.";
+            st.stages.forEach(function (stage) {
+              stage.routes.forEach(function (route) {
+                var id = stage.key + ">" + route.to;
+                if (before[id] !== after[id]) text += " The route from " + stage.name + " to " + nameOf(route.to) + " now leads " + (after[id] ? "back." : "on.");
+              });
+            });
+            if (st.stages[0].key !== firstBefore) text += " Walks now start at " + st.stages[0].name + ".";
+            st.undo = null;
+            setHint(text, false);
+            build();
+            els[key].focus();
+            var button = panelEl.querySelector(by < 0 ? ".js-earlier" : ".js-later");
+            if (button && !button.disabled) button.focus();
+          }
+
+          /* ---------- Auto-align: a stand-in for elkjs layered with the same rules ---------- */
+          function layered() {
+            var order = {};
+            st.stages.forEach(function (stage, i) { order[stage.key] = i; });
+            var edges = [];
+            st.stages.forEach(function (stage, si) {
+              stage.routes.forEach(function (route, ri) {
+                if (route.to === null) {
+                  edges.push({ from: stage.key, to: END_KEY, port: ri });
+                } else if (order[route.to] > si) {
+                  edges.push({ from: stage.key, to: route.to, port: ri });
+                }
+              });
+            });
+            var layer = {};
+            st.stages.forEach(function (stage) {
+              if (layer[stage.key] === undefined) layer[stage.key] = 0;
+              edges.forEach(function (edge) {
+                if (edge.from === stage.key && edge.to !== END_KEY) layer[edge.to] = Math.max(layer[edge.to] || 0, layer[stage.key] + 1);
+              });
+            });
+            if (st.stages[0]) layer[st.stages[0].key] = 0;
+            var endLayer = 0;
+            edges.forEach(function (edge) {
+              if (edge.to === END_KEY) endLayer = Math.max(endLayer, layer[edge.from] + 1);
+            });
+            layer[END_KEY] = endLayer;
+            var layers = [];
+            st.stages.forEach(function (stage) {
+              var l = layer[stage.key];
+              (layers[l] = layers[l] || []).push(stage.key);
+            });
+            (layers[endLayer] = layers[endLayer] || []).push(END_KEY);
+            var heights = {};
+            Object.keys(lastBoxes).forEach(function (key) {
+              heights[key] = key === END_KEY ? END_SIZE : wideHeight(key);
+            });
+            var y = {};
+            var x = {};
+            for (var l = 0; l < layers.length; l += 1) {
+              var keys = layers[l] || [];
+              var wanted = keys.map(function (key) {
+                var incoming = edges.filter(function (edge) { return edge.to === key && y[edge.from] !== undefined; });
+                if (!incoming.length) return { key: key, at: 0 };
+                var sum = 0;
+                incoming.forEach(function (edge) {
+                  var stage = byKey(edge.from);
+                  sum += y[edge.from] + portOffset(stage, listsRoutes(stage) ? edge.port : -1, { h: heights[edge.from] });
+                });
+                return { key: key, at: sum / incoming.length - heights[key] / 2 };
+              });
+              wanted.sort(function (a, b) {
+                return a.at - b.at || (a.key === END_KEY ? 1 : b.key === END_KEY ? -1 : order[a.key] - order[b.key]);
+              });
+              var floor = -Infinity;
+              wanted.forEach(function (w) {
+                var top = Math.max(w.at, floor);
+                y[w.key] = top;
+                x[w.key] = l * (CARD_W + SIDE_GAP);
+                floor = top + heights[w.key] + NODE_GAP;
+              });
+            }
+            var minY = Infinity;
+            Object.keys(y).forEach(function (key) { minY = Math.min(minY, y[key]); });
+            var result = {};
+            Object.keys(y).forEach(function (key) {
+              result[key] = { x: Math.round(x[key]), y: Math.round(y[key] - minY) };
+            });
+            return result;
+          }
+
+          function wideHeight(key) {
+            var el = els[key];
+            var width = el.style.width;
+            el.style.width = CARD_W + "px";
+            var h = el.offsetHeight;
+            el.style.width = width;
+            return h;
+          }
+
+          function snapshot() {
+            return {
+              stages: st.stages.map(function (stage) { return { key: stage.key, x: stage.x, y: stage.y }; }),
+              end: st.end ? { x: st.end.x, y: st.end.y } : null
+            };
+          }
+
+          function restore(shot) {
+            shot.stages.forEach(function (saved) {
+              var stage = byKey(saved.key);
+              if (stage) {
+                stage.x = saved.x;
+                stage.y = saved.y;
+              }
+            });
+            st.end = shot.end;
+          }
+
+          function glide() {
+            world.classList.add("anim");
+            layout(false);
+            canvas.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+            window.setTimeout(function () {
+              world.classList.remove("anim");
+            }, 320);
+          }
+
+          function runAlign() {
+            var before = snapshot();
+            var result = layered();
+            st.stages.forEach(function (stage) {
+              stage.x = result[stage.key].x;
+              stage.y = result[stage.key].y;
+            });
+            st.end = result[END_KEY];
+            st.undo = before;
+            setHint("Auto-align laid out the " + st.stages.length + " Stages from left to right in the Pipeline’s order, with routes back in their own lanes.", true);
+            glide();
+            renderPanel();
+          }
+
+          function autoAlign() {
+            if (st.aligning || st.narrow || st.readonly) return;
+            if (st.loaded) {
+              runAlign();
+              return;
+            }
+            st.aligning = true;
+            alignEl.classList.add("busy");
+            alignEl.setAttribute("aria-disabled", "true");
+            alignLabel.textContent = "Laying out…";
+            window.setTimeout(function () {
+              st.loaded = true;
+              st.aligning = false;
+              alignEl.classList.remove("busy");
+              alignEl.removeAttribute("aria-disabled");
+              alignLabel.textContent = "Auto-align";
+              runAlign();
+            }, 550);
+          }
+
+          function undo() {
+            if (!st.undo) return;
+            restore(st.undo);
+            st.undo = null;
+            setHint("The Stages are back where they were before Auto-align.", false);
+            glide();
+            renderPanel();
+          }
+
+          function addStage() {
+            if (st.readonly) return;
+            if (st.narrow) {
+              setHint("Add a Stage works here as on a wide screen; in this mock-up, add Stages in the Wide view.", false);
+              return;
+            }
+            st.added += 1;
+            var key = "new-" + st.added;
+            var afterIndex = st.picked ? indexOf(st.picked) : st.stages.length - 1;
+            var base = st.stages[afterIndex];
+            var stage = { key: key, name: st.added === 1 ? "New Stage" : "New Stage " + st.added, kind: "agent", who: "nobody yet", routes: [], x: 0, y: 0 };
+            st.stages.splice(afterIndex + 1, 0, stage);
+            build();
+            var x = base.x + CARD_W + SIDE_GAP;
+            var y = base.y;
+            lastBoxes[key] = { x: x, y: y, w: CARD_W, h: els[key].offsetHeight };
+            for (var i = 0; i < 60 && covers(key, x, y); i += 1) y += GRID;
+            stage.x = x;
+            stage.y = y;
+            st.undo = null;
+            st.picked = key;
+            setHint(stage.name + " was added after " + base.name + " in the Pipeline’s order, beside it on the canvas. Drag it where it goes, then draw its routes: drag from a Stage’s + to another Stage or to End.", false);
+            build();
+            els[key].focus();
+          }
+
+          if (alignEl) alignEl.addEventListener("click", autoAlign);
+          if (undoEl) undoEl.addEventListener("click", undo);
+          if (addEl) addEl.addEventListener("click", addStage);
+          root.addEventListener("keydown", function (ev) {
+            if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z") && st.undo) {
+              ev.preventDefault();
+              undo();
+            }
+          });
+
+          function reset(start) {
+            st.stages = freshStages(start);
+            st.end = null;
+            st.picked = null;
+            st.undo = null;
+            st.added = 0;
+            setHint(defaultHint(), false);
+            build();
+            canvas.scrollTo(0, 0);
+          }
+
+          function setNarrow(narrow) {
+            st.narrow = narrow;
+            root.classList.toggle("narrow", narrow);
+            if (alignEl) alignEl.hidden = narrow;
+            st.undo = null;
+            setHint(defaultHint(), false);
+            build();
+          }
+
+          function setShowOrder(show) {
+            st.showOrder = show;
+            build();
+          }
+
+          root.classList.toggle("narrow", st.narrow);
+          root.classList.toggle("readonly", st.readonly);
+          if (alignEl) alignEl.hidden = st.narrow;
+          setHint(defaultHint(), false);
+          build();
+          window.addEventListener("resize", function () {
+            if (!st.drag) layout(false);
+          });
+
+          return { reset: reset, setNarrow: setNarrow, setShowOrder: setShowOrder, hint: function () { return hintText; } };
+        }
+
+        var main = makeEditor(document.getElementById("editor"), { start: "dragged" });
+        makeEditor(document.getElementById("narrow-figure"), { start: "converted", narrow: true, readonly: true });
+
+        var bar = document.getElementById("demo-bar");
+        function press(group, button) {
+          bar.querySelectorAll("[" + group + "]").forEach(function (b) {
+            b.setAttribute("aria-pressed", String(b === button));
+          });
+        }
+        bar.querySelectorAll("[data-width]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            press("data-width", button);
+            main.setNarrow(button.getAttribute("data-width") === "narrow");
+          });
+        });
+        bar.querySelectorAll("[data-start]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            press("data-start", button);
+            main.reset(button.getAttribute("data-start"));
+          });
+        });
+        document.getElementById("show-order").addEventListener("change", function (ev) {
+          main.setShowOrder(ev.target.checked);
+        });
+      })();
+    </script>
+  </body>
+</html>

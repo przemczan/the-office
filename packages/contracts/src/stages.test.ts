@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { scriptStageCommandSchema, stageSchema } from "./stages.js";
+import { scriptStageCommandSchema, stagePositionSchema, stageSchema } from "./stages.js";
+
+describe("a Stage's position", () => {
+  it.each([
+    { x: 0, y: 0 },
+    { x: -20000, y: 20000 },
+    { x: 308, y: -94 },
+  ])("takes %j", (position) => {
+    expect(stagePositionSchema.safeParse(position).success).toBe(true);
+  });
+
+  it.each([
+    { x: 20001, y: 0 },
+    { x: 0, y: -20001 },
+    { x: 1.5, y: 0 },
+  ])("refuses %j with words an Agent can act on", (position) => {
+    const result = stagePositionSchema.safeParse(position);
+
+    expect(result.error?.issues[0]?.message).toBe(
+      "A Stage's position is two whole numbers from −20000 to 20000.",
+    );
+  });
+
+  it("refuses a position missing an axis", () => {
+    expect(stagePositionSchema.safeParse({ x: 0 }).success).toBe(false);
+  });
+
+  it("is refused on a Stage past the canvas's bounds", () => {
+    const stage = { kind: "gate", key: "review", name: "Review", optional: false };
+
+    expect(stageSchema.safeParse({ ...stage, position: { x: 0, y: 20000 } }).success).toBe(true);
+    expect(stageSchema.safeParse({ ...stage, position: { x: 0, y: 20001 } }).success).toBe(false);
+  });
+});
 
 describe("a Script Stage's command", () => {
   it.each(["test", "test-full", "e2e2"])("takes %s", (command) => {

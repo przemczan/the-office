@@ -3,8 +3,9 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import type { DutyKey } from "../../people/index.js";
 import { TaskMovedToProject, TaskPipelineConfirmed, TaskStageEdits } from "../../work/index.js";
-import { asFlow, pipelineOrder } from "../domain/flow.js";
+import { asFlow } from "../domain/flow.js";
 import { pipelineProblem, type Pipeline, type StageProblem } from "../domain/pipeline.js";
+import type { StagePosition } from "../domain/route.js";
 import {
   agentStageWorkers,
   mergedWorkers,
@@ -120,11 +121,15 @@ export class TaskStagesService implements OnModuleInit {
    * The user's edit of the Task's Stages for that Task, which leaves the library Pipeline as it is;
    * refused with every reason the edited Stages can't run, or change a Stage that has started.
    */
-  async edit(taskId: string, edited: readonly Stage[]): Promise<TaskProgress> {
+  async edit(
+    taskId: string,
+    edited: readonly Stage[],
+    endPosition?: StagePosition,
+  ): Promise<TaskProgress> {
     return this.changes.run(taskId, async () => {
       const { own, allRuns, problems } = await this.review(taskId, edited);
       if (problems.length > 0) throw new StagesEditRefused(problems);
-      const { taskStages, event } = editTaskStages(own, edited);
+      const { taskStages, event } = editTaskStages(own, edited, endPosition);
       await this.repository.save(taskStages);
       await this.events.publish(event);
       return progressOf(taskStages, allRuns, await this.roleFillings.holders(taskStages.stages));
@@ -152,7 +157,7 @@ export class TaskStagesService implements OnModuleInit {
     const own = await this.find(taskId);
     if (!own) return [];
     const runs = runsOfLatestStart(await this.runs.list(taskId));
-    const stages = pipelineOrder(asFlow(await this.roleFillings.staffed(own.stages, runs)));
+    const stages = asFlow(await this.roleFillings.staffed(own.stages, runs));
     const before = stages.slice(0, firstStageToWork(stages, runs)).map(({ key }) => key);
     return staffingProblems(stages, new Set(before), await this.roleFillings.of(stages));
   }
@@ -197,7 +202,7 @@ export class TaskStagesService implements OnModuleInit {
     shown: readonly Stage[],
     followed?: string,
   ): Promise<ReviewedEdit> {
-    const edited = pipelineOrder(asFlow(shown));
+    const edited = asFlow(shown);
     const task = await this.tasks.read(taskId);
     const { state, projectId } = task;
     const pipelineId = followed ?? task.pipelineId;
@@ -339,10 +344,11 @@ function progressOf(
   allRuns: readonly StageRun[],
   holders: ReadonlyMap<DutyKey, string>,
 ): TaskProgress {
-  const stages = pipelineOrder(asFlow(own.stages));
+  const stages = asFlow(own.stages);
   const runs = runsOfLatestStart(allRuns);
   return {
     stages: stagesProgress(stages, allRuns, holders),
+    ...(own.endPosition && { endPosition: own.endPosition }),
     editedForTask: own.editedForTask,
     lockedStages: lockedStageCount(stages, runs),
     definitionOfDoneMet: reportedMet(runs),

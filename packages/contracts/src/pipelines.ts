@@ -1,13 +1,22 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
-import { publishResultSchema, stageProblemSchema, stageSchema } from "./stages.js";
+import {
+  publishResultSchema,
+  stagePositionSchema,
+  stageProblemSchema,
+  stageSchema,
+} from "./stages.js";
+
+/** Where End stands on the flow editor's canvas; absent, right of the right-most Stage. */
+const endPositionField = { endPosition: stagePositionSchema.optional() };
 
 export const pipelineSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   description: z.string(),
   stages: z.array(stageSchema),
+  ...endPositionField,
 });
 export type Pipeline = z.infer<typeof pipelineSchema>;
 
@@ -24,6 +33,7 @@ export const pipelineEditSchema = z.strictObject({
   name: z.string(),
   description: z.string(),
   stages: z.array(stageSchema),
+  ...endPositionField,
 });
 export type PipelineEdit = z.infer<typeof pipelineEditSchema>;
 
@@ -478,6 +488,7 @@ export type TestResult = z.infer<typeof testResultSchema>;
  */
 export const taskStagesSchema = z.object({
   stages: z.array(taskStageSchema).nullable(),
+  ...endPositionField,
   /**
    * The Definition of Done statements Reported met, by their numbers from 1: the walk's own rule over
    * all the Task's runs: met once any Agent Stage reported it, until a later report takes it back.
@@ -502,7 +513,10 @@ export const taskStagesSchema = z.object({
 export type TaskStages = z.infer<typeof taskStagesSchema>;
 
 /** PUT /tasks/:id/stages: the Task's Stages as the user edited them for the Task, in order. */
-export const taskStagesEditSchema = z.object({ stages: z.array(stageSchema) });
+export const taskStagesEditSchema = z.object({
+  stages: z.array(stageSchema),
+  ...endPositionField,
+});
 export type TaskStagesEdit = z.infer<typeof taskStagesEditSchema>;
 
 /**

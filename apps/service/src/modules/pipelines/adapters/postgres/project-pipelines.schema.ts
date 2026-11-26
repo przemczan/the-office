@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import type { StagePosition } from "../../domain/route.js";
 import type { Stage } from "../../domain/stage.js";
 
 /**
@@ -15,6 +16,8 @@ export const projectPipelines = pgTable(
     name: text("name").notNull(),
     description: text("description").notNull(),
     stages: jsonb("stages").$type<readonly Stage[]>().notNull(),
+    /** Where End stands on the canvas; null, right of the right-most Stage. */
+    endPosition: jsonb("end_position").$type<StagePosition>(),
     copiedFromName: text("copied_from_name"),
     /** Null for one the move made. */
     copiedAt: timestamp("copied_at", { withTimezone: true }),

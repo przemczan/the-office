@@ -1,4 +1,4 @@
-import type { FlowStage } from "./flow.js";
+import type { GridStage } from "./flow.js";
 import {
   RESOLVE_BUDGET_ABOVE,
   RESOLVE_TEMPLATE_BRIEF,
@@ -68,10 +68,10 @@ export const ENDED_CONFLICT: ConditionGroup = {
  * already of the Publish kind is as it is, so a chain the user removed stays removed and reading
  * twice changes nothing. Only `asFlow` calls it, as the stored data stays as it is.
  */
-export function withPublishStages(stages: readonly FlowStage[]): FlowStage[] {
-  let flow: FlowStage[] = stages.map(asPublishStage);
+export function withPublishStages(stages: readonly GridStage[]): GridStage[] {
+  let flow: GridStage[] = stages.map(asPublishStage);
   const agentStages = flow.filter(
-    (stage): stage is FlowStage<AgentStage> => stage.kind === "agent",
+    (stage): stage is GridStage<AgentStage> => stage.kind === "agent",
   );
   const [firstAgentStage] = agentStages;
   // Of the Pipeline's own Agent Stages, never a Resolve drawn for an earlier Publish.
@@ -86,15 +86,15 @@ export function withPublishStages(stages: readonly FlowStage[]): FlowStage[] {
 
 /** Who works a drawn Resolve, and the largest budget its own is above. */
 interface ResolveWorker {
-  readonly person: FlowStage<AgentStage>;
+  readonly person: GridStage<AgentStage>;
   readonly largestBudget: number;
 }
 
-function isKeptPublishStage(stage: Stage): stage is KeptPublishStage & FlowStage {
+function isKeptPublishStage(stage: Stage): stage is KeptPublishStage & GridStage {
   return stage.kind === "script" && stage.command === PUBLISH_COMMAND;
 }
 
-function asPublishStage(stage: FlowStage): FlowStage {
+function asPublishStage(stage: GridStage): GridStage {
   if (!isKeptPublishStage(stage)) return stage;
   const {
     kind: _kind,
@@ -103,7 +103,7 @@ function asPublishStage(stage: FlowStage): FlowStage {
     afterConflict: _afterConflict,
     ...fields
   } = stage;
-  const publish: FlowStage<PublishStage> = {
+  const publish: GridStage<PublishStage> = {
     ...fields,
     kind: "publish",
     ...(publishTarget === undefined ? {} : { publishTarget }),
@@ -113,10 +113,10 @@ function asPublishStage(stage: FlowStage): FlowStage {
 
 /** `flow` with the conflict chain for the Publish `kept` drawn in. */
 function withConflictChain(
-  flow: readonly FlowStage[],
-  kept: KeptPublishStage & FlowStage,
+  flow: readonly GridStage[],
+  kept: KeptPublishStage & GridStage,
   worker: ResolveWorker,
-): FlowStage[] {
+): GridStage[] {
   const chain = chainStages(flow, kept, worker);
   const [resolve] = chain;
   if (!resolve) return [...flow];
@@ -124,7 +124,7 @@ function withConflictChain(
   const publishPlace = placed.find(({ key }) => key === kept.key)?.place ?? kept.place;
   const firstColumn = publishPlace.column - chain.length;
   const row = 1 + Math.max(...rowsIn(placed, firstColumn, publishPlace.column));
-  const drawn = chain.map((stage, index): FlowStage => ({
+  const drawn = chain.map((stage, index): GridStage => ({
     ...stage,
     place: { column: firstColumn + index, row },
   }));
@@ -136,7 +136,7 @@ function withConflictChain(
   };
   // The chain goes just before its Publish in the Pipeline's order too, as readers that keep
   // the stored order (the library, a Task's Stages) see it as the walk does.
-  return placed.flatMap((stage): FlowStage[] => {
+  return placed.flatMap((stage): GridStage[] => {
     if (stage.key !== kept.key) return [stage];
     const failureRoutes = stage.routes.filter((route) => isFailureRoute(route, stage.key)).length;
     return [
@@ -148,10 +148,10 @@ function withConflictChain(
 
 /** Resolve, Test after Resolve and, where the Publish asked for a review, the Gate, routed in a chain. */
 function chainStages(
-  flow: readonly FlowStage[],
-  publish: KeptPublishStage & FlowStage,
+  flow: readonly GridStage[],
+  publish: KeptPublishStage & GridStage,
   { person, largestBudget }: ResolveWorker,
-): readonly FlowStage[] {
+): readonly GridStage[] {
   const taken = new Set(flow.map(({ key }) => key));
   const keyOf = (key: string): string => freeKey(key, taken);
   const resolveKey = keyOf(RESOLVE_KEY);
@@ -162,7 +162,7 @@ function chainStages(
   const afterTest = gateKey ?? publish.key;
   // Each is placed as the chain is drawn.
   const unplaced: StagePlace = { column: 0, row: 0 };
-  const resolve: FlowStage<AgentStage> = {
+  const resolve: GridStage<AgentStage> = {
     kind: "agent",
     key: resolveKey,
     name: RESOLVE_TEMPLATE_NAME,
@@ -178,7 +178,7 @@ function chainStages(
     routes: [{ ...plainRoute(testKey), toName: testName }],
     place: unplaced,
   };
-  const test: FlowStage<ScriptStage> = {
+  const test: GridStage<ScriptStage> = {
     kind: "script",
     key: testKey,
     name: testName,
@@ -191,7 +191,7 @@ function chainStages(
     place: unplaced,
   };
   if (gateKey === undefined) return [resolve, test];
-  const gate: FlowStage<Gate> = {
+  const gate: GridStage<Gate> = {
     kind: "gate",
     key: gateKey,
     name: gateName,
@@ -214,7 +214,7 @@ function freeKey(key: string, taken: Set<string>): string {
  * `flow` with room for `count` columns before the Stage `key`: when it stands in a column lower
  * than `count`, it and every Stage from its column on move right by what is missing.
  */
-function withRoomBefore(flow: readonly FlowStage[], key: string, count: number): FlowStage[] {
+function withRoomBefore(flow: readonly GridStage[], key: string, count: number): GridStage[] {
   const column = flow.find((stage) => stage.key === key)?.place.column ?? 0;
   const missing = count - column;
   if (missing <= 0) return [...flow];
@@ -228,7 +228,7 @@ function moved(place: StagePlace, columns: number): StagePlace {
 }
 
 /** The rows the Stages of `flow` take in the columns `from` to `to`, both included. */
-function rowsIn(flow: readonly FlowStage[], from: number, to: number): number[] {
+function rowsIn(flow: readonly GridStage[], from: number, to: number): number[] {
   return flow
     .filter(({ place }) => place.column >= from && place.column <= to)
     .map(({ place }) => place.row);

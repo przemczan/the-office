@@ -157,6 +157,7 @@ export function PipelinesSection(): ReactNode {
               {open && onFlow.shown?.change.kind === "pipeline" ? (
                 <OfficeProposalOnFlow
                   proposal={onFlow.shown.proposal}
+                  endPosition={open.endPosition}
                   change={onFlow.shown.change}
                   pipelineName={open.name}
                   roles={roles.data}

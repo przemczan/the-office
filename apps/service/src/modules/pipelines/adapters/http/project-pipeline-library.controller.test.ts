@@ -6,8 +6,8 @@ import {
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PipelineAdded, PipelineRemoved } from "../../domain/pipeline-library-events.js";
-import { straightLineFlow, withGivenLimits } from "../../domain/flow.js";
-import { agentStage } from "../../domain/stage.fixtures.js";
+import { withGivenLimits } from "../../domain/flow.js";
+import { agentStage, straightLine } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
   type PipelinesApplication,
@@ -64,19 +64,19 @@ describe("Project Pipelines over HTTP", () => {
     const own = await send("PUT", `/project-pipelines/${projectPipeline.id}`, {
       name: projectPipeline.name,
       description: projectPipeline.description,
-      stages: straightLineFlow(withGivenLimits([...source.stages, LINUX_CHECK])),
+      stages: straightLine(withGivenLimits([...source.stages, LINUX_CHECK])),
     });
     expect(own.status).toBe(200);
     const saved = await send("PUT", `/pipelines/${source.id}`, {
       name: source.name,
       description: source.description,
-      stages: straightLineFlow([agentStage({ brief: "Implement it well." })]),
+      stages: straightLine([agentStage({ brief: "Implement it well." })]),
     });
     expect(saved.status).toBe(200);
 
     const read = await send("GET", `/project-pipelines/${projectPipeline.id}`);
     expect(projectPipelineSchema.parse(await read.json()).stages).toEqual(
-      straightLineFlow(withGivenLimits([...source.stages, LINUX_CHECK])),
+      straightLine(withGivenLimits([...source.stages, LINUX_CHECK])),
     );
     const list = await send("GET", `/project-pipelines?projectId=${projectId}`);
     expect(projectPipelineListSchema.parse(await list.json()).map(({ id }) => id)).toEqual([

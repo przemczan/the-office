@@ -1,4 +1,4 @@
-import type { FlowStage } from "./flow.js";
+import type { GridStage } from "./flow.js";
 import { ENDED_FAILED, ROUTE_LIMIT_MAX, type Route } from "./route.js";
 import type { Stage } from "./stage.js";
 
@@ -22,7 +22,7 @@ export type KeptStage<Of extends Stage = Stage> = Of & { readonly onFailure?: Ke
  * most its rounds (9 at most), and the setting dropped. A Stage without one is as it was, so reading twice
  * changes nothing. Only `asFlow` calls it, as the stored data stays as it is.
  */
-export function withRoutesBack(stages: readonly KeptStage<FlowStage>[]): FlowStage[] {
+export function withRoutesBack(stages: readonly KeptStage<GridStage>[]): GridStage[] {
   const names = new Map(stages.map(({ key, name }) => [key, name]));
   return stages.map((stage) => {
     const { onFailure, ...rest } = stage;
@@ -36,6 +36,6 @@ export function withRoutesBack(stages: readonly KeptStage<FlowStage>[]): FlowSta
       // route's limit can't be, so such a setting reads as the most a limit is.
       limit: Math.min(onFailure.rounds, ROUTE_LIMIT_MAX),
     };
-    return { ...rest, routes: [routeBack, ...rest.routes] } as FlowStage;
+    return { ...rest, routes: [routeBack, ...rest.routes] } as GridStage;
   });
 }

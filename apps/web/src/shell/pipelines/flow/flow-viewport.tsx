@@ -117,6 +117,10 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
       namesOnly,
       orientation,
       width: frameSize.width,
+      zoom: view.zoom,
+      fit,
+      shiftBy: (dx, dy) =>
+        setView((last) => ({ ...last, x: last.x + dx * last.zoom, y: last.y + dy * last.zoom })),
       showOverview: (next) =>
         setShape((last) => (JSON.stringify(last) === JSON.stringify(next) ? last : next)),
       bringIntoView: (box: FlowBox) =>
@@ -130,7 +134,7 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
           change((last) => pannedBy(last, dx, dy, sizes.current.frame, sizes.current.content));
       },
     }),
-    [namesOnly, orientation, frameSize.width, change],
+    [namesOnly, orientation, frameSize.width, view.zoom, fit, change],
   );
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>): void => {
@@ -207,8 +211,6 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
   const overviewFits = orientation === "across";
   const style = {
     height: fullScreen ? undefined : viewportHeight(fullHeight, window.innerHeight),
-    backgroundSize: `${16 * view.zoom}px ${16 * view.zoom}px`,
-    backgroundPosition: `${view.x}px ${view.y}px`,
   } satisfies CSSProperties;
   const contentStyle = {
     transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
