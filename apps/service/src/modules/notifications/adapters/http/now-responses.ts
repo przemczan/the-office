@@ -23,10 +23,11 @@ export function toNowResponse(now: Now): NowResponse {
     needsYou: now.needsYou.map(toNeedsYouResponse),
     waitingForYou: now.waitingForYou.map(toWaitingForYouResponse),
     running: now.running.map(toRunningResponse),
-    queue: now.queue.map(({ reasons, madeFor, ...queued }) => ({
+    queue: now.queue.map(({ reasons, shortReasons, madeFor, ...queued }) => ({
       ...queued,
       madeFor: toMadeForResponse(madeFor),
       reasons: [...reasons],
+      shortReasons: [...shortReasons],
     })),
     shaping: now.shaping.map(({ projectIds, shapedBy, since, ...initiative }) => ({
       ...initiative,

@@ -422,7 +422,8 @@ describe("Now's Off-board Tasks", () => {
           projectId: "p2",
           madeFor: "onboard",
           place: 1,
-          reasons: ["Project limit reached (1)."],
+          reasons: ["The Project limit is reached: 1 of its Tasks is running."],
+          shortReasons: ["Project limit reached (1)"],
         },
       ],
     });
@@ -432,5 +433,88 @@ describe("Now's Off-board Tasks", () => {
     await until(() => expect(badged("Running: Set up the run environment")).toBe(true));
     expect(badged("Running: Add offline sync")).toBe(false);
     expect(badged("Queued: Onboard")).toBe(true);
+  });
+});
+
+const QUEUED_TASK_ID = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
+
+function queuedRow(page: HTMLElement, title: string): HTMLElement | null {
+  return page.querySelector<HTMLElement>(`[aria-label='Queued: ${title}']`);
+}
+
+describe("Now's Queue", () => {
+  it("shows a queued Task as one row: place, title link, Project, short reasons and estimate", async () => {
+    stubService({
+      "GET /api/now": () => ({
+        status: 200,
+        body: {
+          ...NOW,
+          queue: [
+            {
+              taskId: QUEUED_TASK_ID,
+              title: "Add offline sync",
+              projectId: "p1",
+              madeFor: null,
+              place: 2,
+              reasons: [
+                "The Office-wide limit is reached: all 3 desks are in use.",
+                "The Project limit is reached: 1 of its Tasks is running.",
+              ],
+              shortReasons: ["Office-wide limit reached (3)"],
+            },
+          ],
+        },
+      }),
+      "GET /api/now/since-you-left": () => ({ status: 200, body: sinceYouLeftWith("Fix it") }),
+      "GET /api/usage-estimates": () => ({
+        status: 200,
+        body: [
+          {
+            taskId: QUEUED_TASK_ID,
+            usageEstimate: {
+              basis: { source: "planner" },
+              engines: [{ engineId: "claude-code", tokens: 60_000 }],
+            },
+          },
+        ],
+      }),
+    });
+    const { page } = await openPage("/now", { now: NowPage });
+
+    await until(() => expect(queuedRow(page, "Add offline sync")).not.toBeNull());
+    const row = queuedRow(page, "Add offline sync");
+    await until(() => expect(row?.querySelector("[aria-label='Usage estimate']")).not.toBeNull());
+    expect(row?.textContent).toContain("Place 2");
+    expect(row?.querySelector("a")?.getAttribute("href")).toBe(`/tasks/${QUEUED_TASK_ID}`);
+    expect(row?.querySelector("a")?.getAttribute("title")).toBe("Add offline sync");
+    // A missing short reason falls back to its full one.
+    expect(row?.querySelector(".now-queued-reasons")?.textContent).toBe(
+      "Office-wide limit reached (3) · The Project limit is reached: 1 of its Tasks is running.",
+    );
+    expect(row?.textContent).not.toContain("Queued");
+    expect(row?.textContent).not.toContain("Off-board Task");
+  });
+
+  it("shows no reasons nor separator for a queued Task with no reasons and no estimate", async () => {
+    const { page } = await openNowWith({
+      ...NOW,
+      queue: [
+        {
+          taskId: QUEUED_TASK_ID,
+          title: "Add offline sync",
+          projectId: "p1",
+          madeFor: null,
+          place: 1,
+          reasons: [],
+          shortReasons: [],
+        },
+      ],
+    });
+
+    await until(() => expect(queuedRow(page, "Add offline sync")).not.toBeNull());
+    const row = queuedRow(page, "Add offline sync");
+    expect(row?.querySelector(".now-queued-reasons")).toBeNull();
+    expect(row?.querySelector("[aria-label='Usage estimate']")).toBeNull();
+    expect(row?.textContent).not.toContain("·");
   });
 });

@@ -367,6 +367,8 @@ export interface FinishedTask {
 export interface QueuedOnNow {
   readonly taskId: string;
   readonly reasons: readonly string[];
+  /** One per reason, in the same order, as Work's queue words them for a card. */
+  readonly shortReasons: readonly string[];
 }
 
 /** A queued Task as Now shows it: its place, counted from 1, and why it waits. */
@@ -378,6 +380,7 @@ export interface QueuedTask {
   readonly madeFor: string | undefined;
   readonly place: number;
   readonly reasons: readonly string[];
+  readonly shortReasons: readonly string[];
 }
 
 /** A Task the fire alarm paused, with how it would go on at the all clear. */
@@ -605,7 +608,7 @@ function projectsOf(tasks: readonly InitiativeTask[] | undefined): string[] {
 const ENDED_INITIATIVE_STATES: readonly string[] = ["done", "dropped"];
 
 function queueOf(queued: readonly QueuedOnNow[], tasks: readonly OfficeTask[]): QueuedTask[] {
-  return queued.flatMap(({ taskId, reasons }, index) => {
+  return queued.flatMap(({ taskId, reasons, shortReasons }, index) => {
     const task = tasks.find(({ id }) => id === taskId);
     if (!task) return [];
     return [
@@ -616,6 +619,7 @@ function queueOf(queued: readonly QueuedOnNow[], tasks: readonly OfficeTask[]): 
         madeFor: task.madeFor,
         place: index + 1,
         reasons,
+        shortReasons,
       },
     ];
   });

@@ -85,7 +85,7 @@ export const SHAPING_OPENING = promptTemplate({
   description:
     "The Office's first message in the shaping Thread of an Initiative shaped from an Idea, after the Brief.",
   variables: {},
-  text: "Read the Initiative and the Idea it was shaped from, then ask the user what outcome they want. When the Idea was captured Office-wide, also ask which Projects it touches; when it was captured in a Project, ask only whether it reaches other Projects too. Keep it short: the user answers in this Thread.",
+  text: "Read the Initiative and the Idea it was shaped from, then ask the user what outcome they want. When the Idea was captured Office-wide, also ask which Projects it touches; when it was captured in a Project, the Initiative is for that Project: ask nothing about Projects, as the user names others if it reaches them. Keep it short: the user answers in this Thread.",
 });
 
 /** As `SHAPING_OPENING`, for an Initiative created with create_initiative, from no Idea. */
@@ -490,7 +490,13 @@ export const SHAPING_BRIEF = promptTemplate({
     createdBy: { kind: "text", description: "Who shaped or created it, such as the user Ann Lee." },
     ideaProjectId: {
       kind: "text",
-      description: "The Project its Idea was captured in; empty for one captured Office-wide.",
+      description:
+        "The id of the Project its Idea was captured in; empty for one captured Office-wide.",
+    },
+    ideaProjectName: {
+      kind: "text",
+      description:
+        "The name of the Project its Idea was captured in; empty for one captured Office-wide.",
     },
     shaping: { kind: "flag", description: "The Initiative is being shaped, not yet confirmed." },
     hasProjects: { kind: "flag", description: "The Initiative spans at least one Project." },
@@ -512,7 +518,7 @@ export const SHAPING_BRIEF = promptTemplate({
 The Initiative was {{#createdFromIdea}}shaped from its Idea{{/createdFromIdea}}{{^createdFromIdea}}created{{/createdFromIdea}} by {{createdBy}}.
 {{#ideaProjectId}}
 
-The Idea was captured in the Project {{ideaProjectId}}, so the Initiative's Tasks are in {{ideaProjectId}} unless the user names other Projects: don't ask which Project it is for.
+The Idea was captured in the Project {{ideaProjectName}} ({{ideaProjectId}}), so the Initiative is for that Project and its Tasks are in it: don't ask about Projects, neither which one it is for nor whether it reaches others. The user names other Projects if it reaches them.
 {{/ideaProjectId}}
 
 ## The Pipelines

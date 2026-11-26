@@ -392,7 +392,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, BranchCle
 - `saved-view-refused.ts`: SavedViewRefused
 - `saved-view.ts`: SAVED_VIEW_NAME_LENGTH, BoardFilters, SavedView, NewSavedView, keptBoardFilters, newSavedViewProblems, saveView
 - `search.ts`: MAX_SEARCH_WORDS, SEARCH_RESULT_LIMIT, SEARCHED_TEXT_LIMIT, searchWords, idPrefixOf, TaskMatch, taskMatchOf, searchedText
-- `shaping.ts`: SHAPING_THREAD_TITLE, shapingInstructions, shapingOpeningOf, ShapingProject, shapingBrief
+- `shaping.ts`: SHAPING_THREAD_TITLE, shapingInstructions, shapingOpeningOf, ShapingProject, IdeaProject, shapingBrief
 - `short-name.ts`: SHORT_NAME_MAX_LENGTH, initiativeBranchOf, derivedShortName, shortNameProblems
 - `stand-ins-at-start.fixtures.ts`: WORK_AND_PERSONAL, fiveHourAt, estimateOn, LAB, onWorkWithPersonal, onWorkWithStandIns
 - `stand-ins-at-start.ts`: EngineStandIn, StandInEngineAtStart, StandInsAtStart, EngineForcedBy, NO_STAND_INS, UsageOnStandIns, UsageCapsChoice, onStandIns, standInsWithStarted

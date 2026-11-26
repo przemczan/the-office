@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { distinctShortReasons, reasonsBesideBlockers, type QueueReason } from "./queue-reasons.ts";
+import {
+  distinctShortReasons,
+  queueReasonsOf,
+  reasonsBesideBlockers,
+  type QueueReason,
+} from "./queue-reasons.ts";
 
 function blocked(title: string): QueueReason {
   return { reason: `Blocked by "${title}", which must be Done first.`, short: "Blocked" };
@@ -50,6 +55,17 @@ describe("reasonsBesideBlockers", () => {
     expect(reasonsBesideBlockers({ reasons: [reason], shortReasons: [] })).toEqual([
       { reason, short: reason },
     ]);
+  });
+});
+
+describe("queueReasonsOf", () => {
+  it("keeps every wait, blockers too, each with its short reason or its full one in its place", () => {
+    const blocker = blocked("Name the import formats");
+    const reason = "The Office-wide limit is reached: the only desk is in use.";
+
+    expect(
+      queueReasonsOf({ reasons: [blocker.reason, reason], shortReasons: [blocker.short] }),
+    ).toEqual([blocker, { reason, short: reason }]);
   });
 });
 

@@ -148,6 +148,27 @@ function column(page: Page, name: string): Locator {
   return page.getByRole("region", { name, exact: true });
 }
 
+/** The words as a regular expression that matches them literally. */
+function literal(words: string): string {
+  return words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** A queued Task's row on Now, as its text reads: its place, its title, then its short reasons. */
+function queuedRowOnNow(place: number, title: string, shortReasons: string): RegExp {
+  return new RegExp(`^${place}Place ${place}${literal(title)}.*${literal(shortReasons)}`);
+}
+
+/**
+ * The full reasons of a queued Task's row on Now, in the tooltip of its short reasons, hovered
+ * afresh each time: the row reflows as its Usage estimate arrives, which can move them from under
+ * a pointer that stays.
+ */
+async function fullReasonsOnNow(page: Page, row: Locator): Promise<string> {
+  await page.mouse.move(0, 0);
+  await row.locator(".now-queued-reasons").hover();
+  return (await page.getByRole("tooltip").textContent()) ?? "";
+}
+
 /** Only this Project's cards, whatever an earlier test left on the board. */
 async function showOnly(page: Page, project: Project): Promise<void> {
   await page.getByRole("button", { name: /^Project filter:/ }).click();
@@ -184,10 +205,31 @@ test(
     await page.goto("/now");
     const queue = page.getByRole("article", { name: /^Queued: / });
     await expect(queue).toHaveText([
-      new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
-      new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
-      new RegExp(`Queued backup of the photos.*Place 3 · ${ONLY_DESK}`),
+      queuedRowOnNow(1, "Queued export as CSV", ONLY_DESK_SHORT),
+      queuedRowOnNow(2, "Queued sync of the inbox", ONLY_DESK_SHORT),
+      queuedRowOnNow(3, "Queued backup of the photos", ONLY_DESK_SHORT),
     ]);
+    await expect.poll(() => fullReasonsOnNow(page, queue.first())).toBe(ONLY_DESK);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-now-queue.png") });
+    // Each row is one line, its long Usage estimate cut rather than wrapped; a narrow window wraps
+    // a row, and nothing runs past it.
+    const rowLooks = () =>
+      queue.evaluateAll((rows) =>
+        rows.map((row) => ({
+          height: row.getBoundingClientRect().height,
+          overflows: [row, ...row.querySelectorAll("*")].some(
+            (part) => part.getBoundingClientRect().right > row.getBoundingClientRect().right + 1,
+          ),
+        })),
+      );
+    const wide = await rowLooks();
+    expect(new Set(wide.map(({ height }) => height)).size).toBe(1);
+    expect(wide.some(({ overflows }) => overflows)).toBe(false);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await rowLooks()).some(({ overflows }) => overflows)).toBe(false);
+    await queue.first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-390-now-queue.png") });
+    await page.setViewportSize({ width: 1600, height: 900 });
 
     await page.goto(`/tasks/${third.id}`);
     await expect(page.getByText(`Place 3 · ${ONLY_DESK}`)).toBeVisible();
@@ -212,9 +254,9 @@ test(
 
     await page.goto("/now");
     await expect(queue).toHaveText([
-      new RegExp(`Queued backup of the photos.*Place 1 · ${ONLY_DESK}`),
-      new RegExp(`Queued export as CSV.*Place 2 · ${ONLY_DESK}`),
-      new RegExp(`Queued sync of the inbox.*Place 3 · ${ONLY_DESK}`),
+      queuedRowOnNow(1, "Queued backup of the photos", ONLY_DESK_SHORT),
+      queuedRowOnNow(2, "Queued export as CSV", ONLY_DESK_SHORT),
+      queuedRowOnNow(3, "Queued sync of the inbox", ONLY_DESK_SHORT),
     ]);
 
     await page.goto(`/tasks/${third.id}`);
@@ -224,8 +266,8 @@ test(
 
     await page.goto("/now");
     await expect(queue).toHaveText([
-      new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
-      new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
+      queuedRowOnNow(1, "Queued export as CSV", ONLY_DESK_SHORT),
+      queuedRowOnNow(2, "Queued sync of the inbox", ONLY_DESK_SHORT),
     ]);
   },
 );
@@ -373,9 +415,9 @@ test("Start queues a Task its Project limit holds, with the limit as the reason 
     animations: "disabled",
   });
   await page.goto("/now");
-  await expect(page.getByRole("article", { name: `Queued: ${task.title}` })).toContainText(
-    projectLimit,
-  );
+  const queuedOnNow = page.getByRole("article", { name: `Queued: ${task.title}` });
+  await expect(queuedOnNow).toContainText("Project limit reached (1)");
+  await expect.poll(() => fullReasonsOnNow(page, queuedOnNow)).toBe(projectLimit);
 
   const raised = await page.request.put(`/api/projects/${project.id}/project-limit`, {
     data: { projectLimit: 2 },
@@ -589,7 +631,8 @@ test(
 
     await page.goto("/now");
     const queuedOnNow = page.getByRole("article", { name: `Queued: ${planned.title}` });
-    await expect(queuedOnNow).toContainText(CAP_WAIT);
+    await expect(queuedOnNow).toContainText(CAP_WAIT_SHORT);
+    await expect.poll(() => fullReasonsOnNow(page, queuedOnNow)).toBe(CAP_WAIT);
     await expect(queuedOnNow.getByRole("note", { name: "Usage estimate" })).toHaveText(
       PLANNER_WORDS,
     );
@@ -836,17 +879,18 @@ test(
     await expect(page.getByRole("tooltip")).toHaveText("Queued");
     await page.goto("/now");
     const queuedOnNow = page.getByRole("article", { name: `Queued: ${task.title}` });
-    await expect(queuedOnNow).toContainText(reason);
+    await expect(queuedOnNow).toContainText("Blocked");
+    const fullReasons = () => fullReasonsOnNow(page, queuedOnNow);
+    await expect.poll(fullReasons).toBe(reason);
 
     // Now hears of no dependency, only that the reasons of a queued Task changed.
     const lateBlocker = await readyTask(page, project, "Agree the export columns");
     await page.request.post(`/api/tasks/${task.id}/dependencies`, {
       data: { blockerId: lateBlocker.id },
     });
-    await expect(queuedOnNow).toContainText(lateBlocker.title);
+    await expect.poll(fullReasons).toContain(lateBlocker.title);
     await page.request.post(`/api/tasks/${lateBlocker.id}/drop`);
-    await expect(queuedOnNow).not.toContainText(lateBlocker.title);
-    await expect(queuedOnNow).toContainText(reason);
+    await expect.poll(fullReasons).toBe(reason);
 
     await page.goto(`/tasks/${task.id}`);
     expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).status()).toBe(200);

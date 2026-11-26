@@ -683,18 +683,18 @@ describe("what the CTO and read_initiative read of the Initiative's Pipelines", 
     expect(brief).toContain("Office-wide Pipelines:\n- full: Full (Implement). For most work.");
   });
 
-  it("tells the CTO the Initiative's Tasks are in the Project its Idea was captured in", () => {
+  it("tells the CTO the Initiative is for the Project its Idea was captured in, named, and to ask nothing about Projects", () => {
     const brief = shapingBrief(
       prompts,
       anInitiative(SYNC),
-      "app",
+      { id: "app", name: "App" },
       "The record.",
       projects,
       pipelines,
     );
 
     expect(brief).toContain(
-      "The Idea was captured in the Project app, so the Initiative's Tasks are in app unless the user names other Projects: don't ask which Project it is for.",
+      "The Idea was captured in the Project App (app), so the Initiative is for that Project and its Tasks are in it: don't ask about Projects, neither which one it is for nor whether it reaches others. The user names other Projects if it reaches them.",
     );
   });
 
@@ -709,15 +709,18 @@ describe("what the CTO and read_initiative read of the Initiative's Pipelines", 
     );
 
     expect(brief).not.toContain("The Idea was captured in the Project");
-    expect(brief).not.toContain("don't ask which Project");
+    expect(brief).not.toContain("don't ask about Projects");
   });
 
   it("opens shaping asking which Projects it touches only for an Idea captured Office-wide", () => {
-    expect(shapingOpeningOf(prompts, anInitiative())).toContain(
+    const opening = shapingOpeningOf(prompts, anInitiative());
+
+    expect(opening).toContain(
       "When the Idea was captured Office-wide, also ask which Projects it touches",
     );
-    expect(shapingOpeningOf(prompts, anInitiative())).toContain(
-      "when it was captured in a Project, ask only whether it reaches other Projects too",
+    expect(opening).toContain(
+      "when it was captured in a Project, the Initiative is for that Project: ask nothing about Projects",
     );
+    expect(opening).not.toContain("whether it reaches other Projects");
   });
 });

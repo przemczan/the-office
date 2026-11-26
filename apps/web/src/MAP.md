@@ -525,6 +525,7 @@
 - `needs-you-list.tsx`: NeedsYouList
 - `new-task-dialog.tsx`: NewTaskDraft, EMPTY_TASK_DRAFT, NewTaskForm, useNewTask, NewTaskDialog, NewTaskActions, NewTaskBody
 - `off-board-task-badge.tsx`: OFF_BOARD_TASK, OffBoardTaskBadge
+- `queue-reasons.ts`: QueueReason, queueReasonsOf, reasonsBesideBlockers, distinctShortReasons
 - `record-tab.ts`: RecordTab, RECORD_ELEMENT_ID, recordTabOf
 - `reopen-task-dialog.tsx`: ReopenTaskDialog
 - `restart-task-dialog.tsx`: RestartTaskDialog
@@ -542,7 +543,7 @@
 - `way-back-dialogs.fixtures.tsx`: TASK, aWaysBack, rendered, unmounted, button, choice, written
 - `way-back-parts.tsx`: useWayBack, ResetBranchField, EARLIER_RUNS_STAY
 - `work-words.ts`: TASK_STATE_NAMES, STOPPED, PausedHold, taskStateWords, Archived, isArchived, canBeArchived, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, KIND_NAMES, KIND_ICONS, KIND_PLURALS, kindDefaultWords, BUG_DESCRIPTION_OUTLINE, BUG_OUTLINE_CURSOR, descriptionForKind, authorName, creatorName, reportedMetCount, projectIdsOfIdea
-- Tests: create-dialog.test.tsx, drop-task-dialog.test.tsx, edit-idea-dialog.full.test.tsx, gate-card-words.full.test.ts, gate-words.full.test.ts, new-task-dialog.test.tsx, record-tab.test.ts, reopen-task-dialog.test.tsx, restart-task-dialog.test.tsx, start-over-dialog.test.tsx, tag-words.full.test.ts, usage-estimate-words.full.test.ts, waiting-on-you.full.test.ts, work-words.full.test.ts
+- Tests: create-dialog.test.tsx, drop-task-dialog.test.tsx, edit-idea-dialog.full.test.tsx, gate-card-words.full.test.ts, gate-words.full.test.ts, new-task-dialog.test.tsx, queue-reasons.full.test.ts, record-tab.test.ts, reopen-task-dialog.test.tsx, restart-task-dialog.test.tsx, start-over-dialog.test.tsx, tag-words.full.test.ts, usage-estimate-words.full.test.ts, waiting-on-you.full.test.ts, work-words.full.test.ts
 
 ### shell/workstation/
 

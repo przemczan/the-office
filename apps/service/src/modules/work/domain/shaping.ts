@@ -39,6 +39,12 @@ export interface ShapingProject {
   readonly ownPipelines: readonly PlanningPipeline[];
 }
 
+/** The Project an Initiative's Idea was captured in, named for the shaping Brief. */
+export interface IdeaProject {
+  readonly id: string;
+  readonly name: string;
+}
+
 /**
  * The shaping Brief: the Initiative's record, who shaped or created it, the Project its Idea was
  * captured in when it was, then the Pipelines each Project it spans may follow, with what each follows now.
@@ -46,7 +52,7 @@ export interface ShapingProject {
 export function shapingBrief(
   prompts: PromptTexts,
   initiative: Initiative,
-  ideaProjectId: string | undefined,
+  ideaProject: IdeaProject | undefined,
   record: string,
   projects: readonly ShapingProject[],
   officeWide: readonly PlanningPipeline[],
@@ -61,7 +67,8 @@ export function shapingBrief(
     record,
     createdFromIdea: initiative.originIdeaId !== undefined,
     createdBy: authorWords(initiative.createdBy),
-    ideaProjectId: ideaProjectId ?? "",
+    ideaProjectId: ideaProject?.id ?? "",
+    ideaProjectName: ideaProject?.name ?? "",
     shaping: initiative.state === "shaping",
     hasProjects: projects.length > 0,
     projects: projects.map(({ id, name }) => ({ id, name, pipeline: pipelineNameIn(id) })),

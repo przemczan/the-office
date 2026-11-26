@@ -64,7 +64,9 @@ Covers: Now (the home), Needs you (the Off-board Task failed card among it) and 
 
 - Shown only while a Task is queued; heading: list-ordered icon, **Queue**, the count.
 - A Task is queued for Start; it starts by itself once a desk and its person are free and its caps allow it.
-- One card per queued Task: a **Queued** badge, its title (link), the **Off-board Task** badge on an Off-board Task, its Project chip, then "Place N · <reasons>", then its Usage estimate line (from Work's `GET /usage-estimates`).
+- One compact row per queued Task, on one line: its place as a small muted figure (read as "Place N"), its title (link, cut with an ellipsis, the full title on hover), the **Off-board Task** badge on an Off-board Task, its Project chip, its short reasons joined with " · " (muted, the full reasons in their tooltip), then its Usage estimate (from Work's `GET /usage-estimates`).
+- A row has no Queued badge: the heading says Queue. It keeps the card's warning edge, with less padding and a smaller gap between rows than the cards above.
+- A row with no reasons or no Usage estimate leaves them out, with no separator; a narrow window wraps the row.
 - Empty (only in a narrowed view): "Nothing is queued in these Projects."
 - Note: "N more Tasks in other Projects."
 - See [2.1.5](../2.1.5-planning-and-start.md).

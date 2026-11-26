@@ -37,6 +37,69 @@
   color: var(--fg-3);
 }
 
+/* ---- Now's Queue: one compact row per queued Task, closer together than the cards above */
+.now-queue {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--gap-card) / 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-card.now-queued {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  color: var(--fg-2);
+}
+
+.now-queued-place {
+  flex: none;
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+}
+
+/*
+ * One line: the badges and the Project stay whole, while the Usage estimate gives way first, then
+ * the short reasons, and the title last, as it names the Task; each is cut with an ellipsis and
+ * whole on hover. The shrink factors weigh each part's own width, so they are far apart.
+ */
+.now-queued > * {
+  flex: none;
+}
+
+.now-queued > .now-queued-title,
+.now-queued > .tooltip-trigger {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.now-queued > .tooltip-trigger:has(> .now-queued-reasons) {
+  flex-shrink: 4;
+}
+
+.now-queued > .tooltip-trigger:has(> .usage-estimate) {
+  flex-shrink: 16;
+  margin-left: auto;
+}
+
+.now-queued-title,
+.now-queued-reasons {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-queued-reasons {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
 .now-tokens {
   margin: 4px 2px;
   font: 400 var(--text-body) / 1.45 var(--font-sans);
@@ -227,6 +290,11 @@
 }
 
 @container page (max-width: 664px) {
+  /* Too narrow for one line: the row wraps rather than cutting the title to nothing. */
+  .item-card.now-queued {
+    flex-wrap: wrap;
+  }
+
   .alarm-panel {
     margin: 14px 14px 0;
   }

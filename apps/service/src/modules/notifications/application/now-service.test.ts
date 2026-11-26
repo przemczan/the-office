@@ -219,7 +219,13 @@ describe("NowService", () => {
     app.get(OpenDecisionsForTests).open = [
       { id: decisionId, threadId: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
     ];
-    app.get(StartQueueForTests).queued = [{ taskId: queuedId, reasons: ["Project limit reached"] }];
+    app.get(StartQueueForTests).queued = [
+      {
+        taskId: queuedId,
+        reasons: ["The Project limit is reached: 1 of its Tasks is running."],
+        shortReasons: ["Project limit reached (1)"],
+      },
+    ];
     app.get(OfficeOffBoardTasksForTests).offBoardTasks.set(taskId, {
       taskId,
       kind: "run-environment-setup",
@@ -251,7 +257,12 @@ describe("NowService", () => {
       expect.objectContaining({ taskId, madeFor: "run-environment-setup" }),
     ]);
     expect(now.queue).toEqual([
-      expect.objectContaining({ taskId: queuedId, madeFor: "onboard", place: 1 }),
+      expect.objectContaining({
+        taskId: queuedId,
+        madeFor: "onboard",
+        place: 1,
+        shortReasons: ["Project limit reached (1)"],
+      }),
     ]);
   });
 

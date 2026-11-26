@@ -366,7 +366,7 @@ export function goldenCaseOutputs(
     "shaping Brief, shaping, the Idea's Project and Projects": shapingBrief(
       prompts,
       anInitiative({ pipelines: [{ projectId: "admin-panel", pipelineId: "admin-quick" }] }),
-      "admin-panel",
+      { id: "admin-panel", name: "Admin panel" },
       "## The Initiative\n\nUsage exports.",
       SHAPING_PROJECTS,
       OFFICE_WIDE,

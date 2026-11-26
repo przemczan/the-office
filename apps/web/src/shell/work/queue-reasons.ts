@@ -11,17 +11,24 @@ export interface QueueReason {
 }
 
 /**
- * The waits a queued Task waits for, but for its blockers, in their order: a board card names its
- * blockers in its own "Blocked by" line already. A Task queued before short reasons has none until
- * the queue's next release, so its full reason stands in.
+ * Every wait a queued Task waits for, in their order. A Task queued before short reasons has none
+ * until the queue's next release, so its full reason stands in.
  */
-export function reasonsBesideBlockers({
+export function queueReasonsOf({
   reasons,
   shortReasons,
 }: Pick<QueuedTask, "reasons" | "shortReasons">): readonly QueueReason[] {
-  return reasons
-    .map((reason, at) => ({ reason, short: shortReasons[at] ?? reason }))
-    .filter(({ reason }) => !reason.startsWith(BLOCKER_REASON_START));
+  return reasons.map((reason, at) => ({ reason, short: shortReasons[at] ?? reason }));
+}
+
+/**
+ * The waits a queued Task waits for, but for its blockers, in their order: a board card names its
+ * blockers in its own "Blocked by" line already.
+ */
+export function reasonsBesideBlockers(
+  queued: Pick<QueuedTask, "reasons" | "shortReasons">,
+): readonly QueueReason[] {
+  return queueReasonsOf(queued).filter(({ reason }) => !reason.startsWith(BLOCKER_REASON_START));
 }
 
 /** The short reasons, each once: the same cap on two engines reads the same. */

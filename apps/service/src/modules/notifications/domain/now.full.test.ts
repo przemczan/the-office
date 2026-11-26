@@ -303,20 +303,23 @@ describe("nowOf", () => {
   it("shows the queue in its order, each Task with its place and reasons", () => {
     const first = { ...TASK, id: "t2", title: "Fix the header", state: "ready" };
     const second = { ...TASK, id: "t3", projectId: "p2", state: "ready" };
-    const waits = ["The Office-wide limit is reached: all 3 desks are in use."];
+    const held = {
+      reasons: ["The Office-wide limit is reached: all 3 desks are in use."],
+      shortReasons: ["Office-wide limit reached (3)"],
+    };
     const now = nowOf({
       ...PARTS,
       tasks: [TASK, second, first],
       queued: [
-        { taskId: "t2", reasons: waits },
-        { taskId: "gone", reasons: waits },
-        { taskId: "t3", reasons: waits },
+        { taskId: "t2", ...held },
+        { taskId: "gone", ...held },
+        { taskId: "t3", ...held },
       ],
     });
 
     expect(now.queue).toEqual([
-      { taskId: "t2", title: "Fix the header", projectId: "p1", place: 1, reasons: waits },
-      { taskId: "t3", title: "Add a filter", projectId: "p2", place: 3, reasons: waits },
+      { taskId: "t2", title: "Fix the header", projectId: "p1", place: 1, ...held },
+      { taskId: "t3", title: "Add a filter", projectId: "p2", place: 3, ...held },
     ]);
   });
 
@@ -330,7 +333,7 @@ describe("nowOf", () => {
         { task: onboard, stages: undefined },
       ],
       tasks: [setUp],
-      queued: [{ taskId: "t3", reasons: [] }],
+      queued: [{ taskId: "t3", reasons: [], shortReasons: [] }],
     });
 
     expect(now.running.map(({ taskId, madeFor }) => ({ taskId, madeFor }))).toEqual([

@@ -6,7 +6,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { moveToTopOfQueue, moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
 import { counted } from "../../shell/pipelines/pipeline-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { distinctShortReasons, reasonsBesideBlockers } from "./queue-reasons.ts";
+import { distinctShortReasons, reasonsBesideBlockers } from "../../shell/work/queue-reasons.ts";
 import { RecordActionButton, type RecordAction } from "./record-actions.tsx";
 import { StartPastUsageCapsDialog } from "./start-past-usage-caps.tsx";
 

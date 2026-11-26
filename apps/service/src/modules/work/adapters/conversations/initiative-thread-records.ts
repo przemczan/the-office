@@ -26,7 +26,12 @@ import {
   type InitiativePlanningProject,
 } from "../../domain/initiative-planning.js";
 import { initiativeRecordText } from "../../domain/record-words.js";
-import { shapingBrief, shapingInstructions, type ShapingProject } from "../../domain/shaping.js";
+import {
+  shapingBrief,
+  shapingInstructions,
+  type IdeaProject,
+  type ShapingProject,
+} from "../../domain/shaping.js";
 import { TASK_KINDS, type Task, type TaskKind } from "../../domain/task.js";
 import {
   INITIATIVE_PLANNING_BRIEF,
@@ -165,11 +170,17 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     record: string,
     tasks: readonly Task[],
   ): Promise<string> {
-    const [officeWide, projects] = await Promise.all([
+    const [officeWide, projects, ideaProject] = await Promise.all([
       this.pipelines.list(),
       readEach(initiativeProjectIds(tasks), (id) => this.shapingProject(id)),
+      ideaProjectId === undefined ? undefined : this.ideaProject(ideaProjectId),
     ]);
-    return shapingBrief(prompts, initiative, ideaProjectId, record, projects, officeWide);
+    return shapingBrief(prompts, initiative, ideaProject, record, projects, officeWide);
+  }
+
+  /** Named by its id when the Project is gone. */
+  private async ideaProject(id: string): Promise<IdeaProject> {
+    return { id, name: (await this.projects.find(id))?.name ?? id };
   }
 
   private async shapingProject(id: string): Promise<ShapingProject> {

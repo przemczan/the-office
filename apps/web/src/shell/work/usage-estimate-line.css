@@ -6,3 +6,19 @@
   font: var(--type-caption);
   color: var(--fg-3);
 }
+
+.usage-estimate.compact {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.usage-estimate.compact > svg {
+  flex: none;
+}
+
+.usage-estimate.compact > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

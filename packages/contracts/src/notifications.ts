@@ -174,6 +174,8 @@ export const queuedOnNowSchema = z.object({
   madeFor: z.enum(TASK_MADE_FOR).nullable(),
   place: z.number().int().positive(),
   reasons: z.array(z.string()),
+  /** As `QueuedTask.shortReasons` in work.ts: one per reason, in the same order. */
+  shortReasons: z.array(z.string()),
 });
 export type QueuedOnNow = z.infer<typeof queuedOnNowSchema>;
 

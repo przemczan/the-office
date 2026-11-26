@@ -10,12 +10,11 @@ import type {
   ShapingOnNow,
   SinceYouLeft,
 } from "@the-office/contracts";
-import { Badge } from "@the-office/ui";
+import { Badge, Tooltip } from "@the-office/ui";
 import { Fragment, type ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
@@ -41,7 +40,8 @@ import { narrowed, type Narrowed } from "../../shell/project-filter/project-filt
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { durationWords, momentWords } from "../../shell/time.ts";
 import { useClock } from "../../shell/use-clock.ts";
-import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
+import { distinctShortReasons, queueReasonsOf } from "../../shell/work/queue-reasons.ts";
+import { UsageEstimateLine, useUsageEstimate } from "../../shell/work/usage-estimate-line.tsx";
 import { TASK_STATE_TONES, taskStateWords } from "../../shell/work/work-words.ts";
 import { AlarmPanel } from "./alarm-panel.tsx";
 import "./now.css";
@@ -210,7 +210,7 @@ function RunningCard({
 
 /**
  * The queue for Start, first place first: each Task starts by itself once a desk and its person are
- * free and its caps allow it; each with its Usage estimate, read from Work beside the `now` query.
+ * free and its caps allow it. A queued Task has little to say, so each is one compact row.
  */
 function QueueFeed({
   queue,
@@ -220,32 +220,60 @@ function QueueFeed({
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const { shown, elsewhere } = useNarrowedByProject(queue);
-  const usageEstimates = useQuery(taskQueries.usageEstimates()).data;
   return (
     <>
       {shown.length === 0 && <EmptyCard>Nothing is queued in these Projects.</EmptyCard>}
-      {shown.map((task) => (
-        <ItemCard key={task.taskId} edge="paused" label={`Queued: ${task.title}`}>
-          <div className="now-item">
-            <div className="now-item-heading">
-              <Badge tone="info">Queued</Badge>
-              <Link to="/tasks/$taskId" params={{ taskId: task.taskId }} className="now-item-title">
-                {task.title}
-              </Link>
-              <OffBoardTaskBadge madeFor={task.madeFor} />
-              <ProjectChip projectId={task.projectId} projects={projects} />
-            </div>
-            <div className="now-item-sub">
-              Place {task.place} · {task.reasons.join(" ")}
-            </div>
-            <UsageEstimateLine
-              estimate={usageEstimates?.find(({ taskId }) => taskId === task.taskId)?.usageEstimate}
-            />
-          </div>
-        </ItemCard>
-      ))}
+      {shown.length > 0 && (
+        <ol className="now-queue">
+          {shown.map((task) => (
+            <li key={task.taskId}>
+              <QueuedRow task={task} projects={projects} />
+            </li>
+          ))}
+        </ol>
+      )}
       <InOtherProjectsNote count={elsewhere} one="Task" many="Tasks" />
     </>
+  );
+}
+
+/**
+ * One queued Task on one line: its place, title, badge, Project, short reasons (the full ones on
+ * hover or focus, as the board card's Queued mark) and its Usage estimate, read from Work.
+ */
+function QueuedRow({
+  task,
+  projects,
+}: {
+  readonly task: QueuedOnNow;
+  readonly projects: readonly Project[] | undefined;
+}): ReactNode {
+  const estimate = useUsageEstimate(task.taskId);
+  const reasons = queueReasonsOf(task);
+  const shortReasons = distinctShortReasons(reasons);
+  return (
+    <ItemCard edge="paused" label={`Queued: ${task.title}`} className="now-queued">
+      <span className="now-queued-place">
+        <span aria-hidden="true">{task.place}</span>
+        <span className="visually-hidden">Place {task.place}</span>
+      </span>
+      <Link
+        to="/tasks/$taskId"
+        params={{ taskId: task.taskId }}
+        className="now-item-title now-queued-title"
+        title={task.title}
+      >
+        {task.title}
+      </Link>
+      <OffBoardTaskBadge madeFor={task.madeFor} />
+      <ProjectChip projectId={task.projectId} projects={projects} />
+      {shortReasons.length > 0 && (
+        <Tooltip content={reasons.map(({ reason }) => reason).join(" ")} focusable>
+          <span className="now-queued-reasons">{shortReasons.join(" · ")}</span>
+        </Tooltip>
+      )}
+      <UsageEstimateLine estimate={estimate} compact />
+    </ItemCard>
   );
 }
 
