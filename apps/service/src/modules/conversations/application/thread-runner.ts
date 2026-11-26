@@ -1579,7 +1579,7 @@ export class ThreadRunner implements OnModuleDestroy {
     thread: Thread,
     { id, engineId }: ThreadSession,
     {
-      role: { roleKey, card, mcpToolDefault },
+      role: { roleKey, card, hardSwitches, mcpToolDefault },
       officeInstructions,
       model,
       effort,
@@ -1616,7 +1616,7 @@ export class ThreadRunner implements OnModuleDestroy {
       refusalAdvice: place.refusalAdvice,
       officeTools: sessionOfficeTools(
         place.officeTools,
-        card,
+        { card, hardSwitches },
         place.callsCanWait,
         // A Consultation on a Task changes Project settings as an Agent Stage does (spec §6).
         thread.consultation !== undefined && thread.home.kind === "task",

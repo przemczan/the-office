@@ -17,7 +17,13 @@ import {
 } from "@the-office/contracts";
 import { vi } from "vitest";
 import type { ScriptedEngine, SessionScript } from "../../../engine/index.js";
-import { DUTIES, type DutyKey, type RoleCards, type SessionRole } from "../../../people/index.js";
+import {
+  DUTIES,
+  sessionRole,
+  type DutyKey,
+  type RoleCards,
+  type SessionRole,
+} from "../../../people/index.js";
 import { dutiesProvider } from "../../application/duties.fixtures.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
@@ -37,12 +43,10 @@ const TOOL_ANSWER_TIMEOUT_MS = 25_000;
 
 // Devops is hired from a preset under its fixed key, which only roles.controller.test may hire into
 // (apps/service/docs/testing.md): People's RoleCards stand in for Nina here.
-const NINA: SessionRole = {
-  roleKey: DEVOPS,
-  cardVersion: 1,
-  mcpToolDefault: { kind: "consult", role: "devops" },
-  card: aPlannerCard({ name: "Nina", title: "Devops" }),
-};
+const NINA: SessionRole = sessionRole(DEVOPS, 1, aPlannerCard({ name: "Nina", title: "Devops" }), {
+  kind: "consult",
+  role: "devops",
+});
 
 /** People's Role cards with Nina alone hired, as Devops. */
 export const NINA_ROLE_CARDS: Partial<RoleCards> = {

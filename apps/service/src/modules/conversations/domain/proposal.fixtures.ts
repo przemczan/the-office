@@ -11,10 +11,10 @@ export function aProposedCard(fields: Partial<RoleCard> = {}): RoleCard {
     engineSettings: {},
     capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },
-    hardSwitches: {
+    // Every Hard switch Never; Change Roles is already, as on any Role from scratch.
+    authority: {
       runInstalls: { kind: "never" },
       publishOutsideThePipeline: { kind: "never" },
-      changeRoles: { kind: "never" },
       changeProjectSettings: { kind: "never" },
     },
     taskLimit: 1,

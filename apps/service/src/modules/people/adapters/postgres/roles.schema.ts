@@ -1,5 +1,6 @@
 import { integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 import type { Avatar } from "../../domain/avatar.js";
+import type { Authority } from "../../domain/authority.js";
 import type { HardSwitches, HardSwitchValue } from "../../domain/hard-switches.js";
 import type { PersonEngineSettings, RoleCard } from "../../domain/role-card.js";
 import type { EarlierEngineFields } from "../../domain/role-changes.js";
@@ -21,9 +22,13 @@ export const roles = pgTable("roles", {
  * A card as kept: a version saved before `engineSettings` lacks it until the move-over gives the
  * Role a version with it, and every version keeps the earlier fields for a rollback to read. A
  * version the release before Change Project settings saved after a rollback lacks that switch.
+ * `hardSwitches` is written on every save, in step with `authority` (`hardSwitchesOf`), as the
+ * release before Authority reads them; a version it saved lacks `authority` until the Authority
+ * move-over gives the Role a version with it, and reads its Authority from its Hard switches.
  */
-export type StoredRoleCard = Omit<RoleCard, "engineSettings" | "hardSwitches"> & {
+export type StoredRoleCard = Omit<RoleCard, "engineSettings" | "authority"> & {
   readonly engineSettings?: PersonEngineSettings;
+  readonly authority?: Authority;
   readonly hardSwitches: Omit<HardSwitches, "changeProjectSettings"> & {
     readonly changeProjectSettings?: HardSwitchValue;
   };

@@ -49,11 +49,11 @@ import {
 } from "../project-words.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import {
+  authorityInEffect,
+  authoritySummaryLines,
   CAPABILITIES,
   fieldLabel,
   fieldValueText,
-  HARD_SWITCH_LABELS,
-  hardSwitchValueLabel,
   permissionProfileLines,
   proposedFieldChanges,
   SESSION_DEFAULTS,
@@ -150,7 +150,17 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
           proposalId={proposal.id}
           title={`New Role · ${change.card.name} · ${change.card.title}`}
         >
-          <ProposedCard card={change.card} roleTitles={roleTitles} />
+          <ProposedCard
+            card={change.card}
+            authority={
+              options &&
+              authoritySummaryLines(
+                options.authority,
+                authorityInEffect(options.fromScratchAuthority, change.card.authority),
+                roleTitles,
+              )
+            }
+          />
           <HireFoot proposal={proposal} change={change} />
         </ProposalFrame>
       );
@@ -160,7 +170,17 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       return (
         <ProposalFrame proposalId={proposal.id} title={`New Role · ${change.name} · ${title}`}>
           {preset && (
-            <ProposedCard card={presetCard(preset, change.name)} roleTitles={roleTitles} />
+            <ProposedCard
+              card={presetCard(preset, change.name)}
+              authority={
+                options &&
+                authoritySummaryLines(
+                  options.authority,
+                  authorityInEffect(preset.presetAuthority, preset.card.authority),
+                  roleTitles,
+                )
+              }
+            />
           )}
           <PresetHireFoot proposal={proposal} change={change} title={title} />
         </ProposalFrame>
@@ -612,10 +632,11 @@ function presetCard({ card }: Preset, name: string): RoleCard {
 /** The new Role's card, read-only, in the few lines a chat has room for. */
 function ProposedCard({
   card,
-  roleTitles,
+  authority,
 }: {
   readonly card: RoleCard;
-  readonly roleTitles: RoleTitles;
+  /** The Authority's lines; undefined until the Role card options are read. */
+  readonly authority: readonly string[] | undefined;
 }): ReactNode {
   const capabilities = CAPABILITIES.filter(({ key }) => card.capabilities[key]);
   return (
@@ -648,14 +669,15 @@ function ProposedCard({
       <ProposedField label="Permission profile">
         {permissionProfileLines(card.permissionProfile).join(" · ")}
       </ProposedField>
-      <ProposedField label="Hard switches">
-        {(Object.keys(HARD_SWITCH_LABELS) as (keyof typeof HARD_SWITCH_LABELS)[])
-          .map(
-            (key) =>
-              `${HARD_SWITCH_LABELS[key]}: ${hardSwitchValueLabel(card.hardSwitches[key], roleTitles)}`,
-          )
-          .join(" · ")}
-      </ProposedField>
+      {authority && (
+        <ProposedField label="Authority">
+          {authority.map((line) => (
+            <span key={line} className="proposal-line">
+              {line}
+            </span>
+          ))}
+        </ProposedField>
+      )}
     </dl>
   );
 }

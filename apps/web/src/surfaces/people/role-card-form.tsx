@@ -6,14 +6,14 @@ import {
   sessionDefaultSchema,
   type EngineKind,
   type EngineTypeSetting,
-  type HardSwitchKey,
-  type HardSwitchValue,
+  type AuthorityInEffect,
   type McpServer,
   type PermissionProfile,
   type Proposal,
   type Role,
   type RoleCard,
   type RoleCardOptions,
+  type SavedRoleCard,
   type Skill,
   type TaskLimit,
 } from "@the-office/contracts";
@@ -53,6 +53,7 @@ import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { blankRoleCard } from "./blank-role-card.ts";
+import { AuthorityFields } from "./role-card-authority.tsx";
 import { engineTypeRows, noEngineListedWords, type EngineTypeRow } from "./engine-type-rows.ts";
 import { FixedForTheCaretaker, RoleCardGroup } from "./role-card-layout.tsx";
 import { McpServerFields } from "./role-card-mcp-server-fields.tsx";
@@ -62,14 +63,8 @@ import {
   withoutServerToolSettings,
 } from "./role-mcp-servers.ts";
 import {
-  ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
-  ENFORCEMENT_LABELS,
   ENGINES_DEFAULT,
-  HARD_SWITCH_LABELS,
-  hardSwitchChoiceOf,
-  hardSwitchChoices,
-  hardSwitchValueOf,
   RUN_LABELS,
   SESSION_DEFAULTS,
 } from "../../shell/role-card-words.ts";
@@ -148,7 +143,7 @@ export function HireFromScratchPage(): ReactNode {
 type FormSubject =
   | { readonly kind: "role"; readonly role: Role }
   | { readonly kind: "new-role" }
-  | { readonly kind: "proposal"; readonly proposal: Proposal; readonly card: RoleCard };
+  | { readonly kind: "proposal"; readonly proposal: Proposal; readonly card: SavedRoleCard };
 
 /** Editing the card of a hired Role, or filling one to hire a person: blank, or as proposed. */
 function RoleCardForm({
@@ -167,6 +162,8 @@ function RoleCardForm({
   const formId = useId();
   const ownRoleKey = subject.kind === "role" ? subject.role.key : undefined;
   const saved = startingCard(subject, options);
+  // What each Authority row stands at when the card leaves it out: its preset's, or from scratch's.
+  const authorityDefaults = defaultAuthorityOf(subject, options);
   const [draft, setDraft] = useState(saved);
   // The MCP servers module keeps them, so they are saved beside the card, not in it.
   const [assigned, setAssigned] = useState(() =>
@@ -235,7 +232,7 @@ function RoleCardForm({
       }
     },
   });
-  const change = (fields: Partial<RoleCard>): void => setDraft({ ...draft, ...fields });
+  const change = (fields: Partial<SavedRoleCard>): void => setDraft({ ...draft, ...fields });
   const assign = (serverName: string, on: boolean): void => {
     const next = new Set(assigned);
     if (on) {
@@ -256,7 +253,7 @@ function RoleCardForm({
   const unsaved =
     cardUnsaved || (ownRoleKey !== undefined && assignmentsFor(ownRoleKey).length > 0);
   const editing = subject.kind === "role";
-  // The Caretaker's capabilities, permission profile, Hard switches and Task limit are fixed.
+  // The Caretaker's capabilities, permission profile, Authority and Task limit are fixed.
   const fixed = subject.kind === "role" && subject.role.builtIn;
   return (
     <form
@@ -279,10 +276,12 @@ function RoleCardForm({
           <WorkFields draft={draft} options={options} fixed={fixed} change={change} />
           <EngineFields draft={draft} options={options} change={change} />
           <CapabilityFields draft={draft} fixed={fixed} change={change} />
-          <PermissionFields
-            ownRoleKey={ownRoleKey}
+          <PermissionFields draft={draft} fixed={fixed} change={change} />
+          <AuthorityFields
             draft={draft}
+            defaults={authorityDefaults}
             options={options}
+            ownRoleKey={ownRoleKey}
             hiredRoles={hiredRoles}
             fixed={fixed}
             change={change}
@@ -325,7 +324,7 @@ function RoleCardForm({
   );
 }
 
-function startingCard(subject: FormSubject, options: RoleCardOptions): RoleCard {
+function startingCard(subject: FormSubject, options: RoleCardOptions): SavedRoleCard {
   switch (subject.kind) {
     case "role":
       return editOf(subject.role.card);
@@ -334,6 +333,11 @@ function startingCard(subject: FormSubject, options: RoleCardOptions): RoleCard 
     case "proposal":
       return subject.card;
   }
+}
+
+/** Where each Authority row starts: a hired Role's preset defaults, else a Role from scratch's. */
+function defaultAuthorityOf(subject: FormSubject, options: RoleCardOptions): AuthorityInEffect {
+  return subject.kind === "role" ? subject.role.presetAuthority : options.fromScratchAuthority;
 }
 
 interface FieldsProps {
@@ -382,7 +386,7 @@ function WorkFields({
     <RoleCardGroup group="work">
       <Textarea
         label="Instructions"
-        hint="What the Agent works from, with its authority as plain rules. Every session carries them, so keep them short."
+        hint="What the Agent works from: the job's guidance. What it may do is its Authority. Every session carries them, so keep them short."
         rows={10}
         value={draft.instructions}
         onChange={(event) => change({ instructions: event.target.value })}
@@ -529,23 +533,7 @@ function CapabilityFields({ draft, fixed, change }: FieldsProps & FixedProps): R
   );
 }
 
-function PermissionFields({
-  ownRoleKey,
-  draft,
-  options,
-  hiredRoles,
-  fixed,
-  change,
-}: FieldsProps &
-  FixedProps & {
-    /** Undefined while the Role is yet to be hired. */
-    readonly ownRoleKey: string | undefined;
-    readonly options: RoleCardOptions;
-    readonly hiredRoles: ReadonlySet<string>;
-  }): ReactNode {
-  const consultable = options.knownRoles.filter(({ key }) => key !== ownRoleKey);
-  const changeSwitch = (key: HardSwitchKey, value: HardSwitchValue): void =>
-    change({ hardSwitches: { ...draft.hardSwitches, [key]: value } });
+function PermissionFields({ draft, fixed, change }: FieldsProps & FixedProps): ReactNode {
   const changeProfile = (fields: Partial<PermissionProfile>): void =>
     change({ permissionProfile: { ...draft.permissionProfile, ...fields } });
   return (
@@ -579,24 +567,6 @@ function PermissionFields({
           />
         </div>
       </Field>
-      {options.hardSwitches.map(({ key, enforcement }) => {
-        const value = draft.hardSwitches[key];
-        const asksYou = value.kind === "consult" && !hiredRoles.has(value.role);
-        const hint = asksYou
-          ? `${ENFORCEMENT_LABELS[enforcement]}. ${ASKS_YOU_UNTIL_HIRED}.`
-          : `${ENFORCEMENT_LABELS[enforcement]}.`;
-        return (
-          <Select
-            key={key}
-            label={HARD_SWITCH_LABELS[key]}
-            hint={hint}
-            value={hardSwitchChoiceOf(value)}
-            options={hardSwitchChoices(consultable)}
-            disabled={fixed}
-            onChange={(choice) => changeSwitch(key, hardSwitchValueOf(choice))}
-          />
-        );
-      })}
       {fixed && <FixedForTheCaretaker />}
     </RoleCardGroup>
   );
@@ -664,7 +634,7 @@ function mcpToolConsultable(
 }
 
 /** The card as the user edits it, with the skills in name order. */
-function editOf(card: RoleCard): RoleCard {
+function editOf(card: SavedRoleCard): SavedRoleCard {
   return { ...card, skills: card.skills.toSorted() };
 }
 

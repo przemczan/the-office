@@ -10,7 +10,9 @@ The Role card's Engine group (spec §5.4.5 "The model and effort cascade") holds
 
 The Role card's MCP servers (`role-card-mcp-server-fields.tsx`, `role-mcp-servers.ts`): the form ticks the library's servers and sets each tool of a ticked server that is on, its names too long for sessions left out (the library's `toolsTooLong`); the view shows the Role's `mcpServers`, on with each tool's setting, or off.
 
-The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities, permission profile's edit, run and web, Hard switches and Task limit show disabled in the form and noted in the view (`FixedForTheCaretaker`), as the service refuses a change to them; its MCP servers and their tool settings stay editable.
+The Role card's Authority (spec §6 › Authority, `role-card-authority.tsx`) replaces the four Hard switches: `/role-card-options`' `authority` gives the areas and rows in the card's order (each row's values, its cap, whether it is a record's own-and-others row, followed, and what enforces it), and the card keeps only its set rows (`card.authority`), a row left out standing at `role.presetAuthority` (a new Role's `options.fromScratchAuthority`). The view (`AuthorityView`) shows each area's value (the one most of its groups share, a tie to its first, `areaSetting` in `shell/role-card-words.ts`), inside it the rows that differ or are capped, then the followed rows and the approvals row; a value at the default reads muted "Preset default (…)". The form (`AuthorityFields`) has a select per row (Own and Others' for a record's row), Reset beside a set row; picking the default, or Reset, removes the row from `card.authority`, and a pair picked equal is kept as one value. A Proposal's card always comes with its Authority: the service makes it from the Hard switches of one drafted before Authority. The card still carries `hardSwitches` as it has them; the service ignores them once `authority` is sent.
+
+The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities, permission profile's edit, run and web, Authority and Task limit show disabled in the form and noted in the view (`FixedForTheCaretaker`), as the service refuses a change to them (its Authority reads plainly, as no preset gives it); its MCP servers and their tool settings stay editable.
 
 **Traps:** the MCP servers module keeps a Role's servers, so Save sends the card (only when it changed, as an unchanged one would add an empty version) and then `PUT /mcp-servers/:name/roles` for each server whose tick changed, with the library's Roles plus or minus this one; hiring assigns after, with the new key. The card keeps only the tool settings the user set: choosing the options' `mcpToolDefault` removes the key, and unticking a server drops its tools' keys. An MCP tool may consult the card's own Role only when the default names it (Devops' card).
 
@@ -34,6 +36,7 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `people-page.tsx`: PeoplePage
 - `person-page.tsx`: PersonPage
 - `person-tasks.ts`: WORK_FILTERS
+- `role-card-authority.tsx`: AuthorityView, AuthorityFields
 - `role-card-form.tsx`: RoleCardEditPage, HireFromScratchPage, EngineFields
 - `role-card-layout.tsx`: ROLE_CARD_GROUPS, RoleCardGroup, RoleCardValue, FixedForTheCaretaker, PersonBlock
 - `role-card-mcp-server-fields.tsx`: McpServerFields
@@ -42,4 +45,4 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `role-mcp-servers.ts`: assignedMcpServersOf, mcpServerAssignments, sessionToolsOf, mcpToolSettingOf, withMcpToolSetting, withoutServerToolSettings
 - `session-skills.ts`: sessionSkillsOf
 - `work-tab.tsx`: WorkTab
-- Tests: conversations-tab.full.test.tsx, memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, role-card-engine.full.test.tsx, role-mcp-servers.full.test.ts
+- Tests: conversations-tab.full.test.tsx, memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, role-card-authority.full.test.tsx, role-card-engine.full.test.tsx, role-mcp-servers.full.test.ts

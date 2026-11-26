@@ -1,10 +1,11 @@
-import type { RoleCard, RoleCardOptions } from "@the-office/contracts";
+import type { RoleCardOptions, SavedRoleCard } from "@the-office/contracts";
 
 /**
  * The card a Role hired from scratch starts from: the most cautious choices, so the user widens
- * what the person may do instead of narrowing it. It works with each engine's default model and effort.
+ * what the person may do instead of narrowing it. It works with each engine's default model and
+ * effort, and every Authority row stands at from scratch's default (`fromScratchAuthority`).
  */
-export function blankRoleCard({ taskLimits }: RoleCardOptions): RoleCard {
+export function blankRoleCard({ taskLimits }: RoleCardOptions): SavedRoleCard {
   return {
     name: "",
     title: "",
@@ -19,6 +20,7 @@ export function blankRoleCard({ taskLimits }: RoleCardOptions): RoleCard {
       changeRoles: { kind: "never" },
       changeProjectSettings: { kind: "ask-me" },
     },
+    authority: {},
     taskLimit: taskLimits.lowest,
     sessionDefault: "context-policy",
     skills: [],

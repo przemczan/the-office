@@ -3,6 +3,7 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import type { Duties } from "../../application/duties.js";
 import { PersonRecords } from "../../application/person-records.js";
 import type { RoleService } from "../../application/role-service.js";
+import { CARETAKER } from "../../domain/known-roles.js";
 import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
 import { LIST_PEOPLE, PeopleOfficeTools, READ_ROLE } from "./people-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
@@ -47,11 +48,13 @@ describe("read_role", () => {
           web: false,
           mcpTools: { "github/create_issue": { kind: "allowed" } },
         },
-        hardSwitches: {
-          runInstalls: { kind: "consult", role: "devops" },
+        authority: {
           publishOutsideThePipeline: { kind: "ask-me" },
-          changeRoles: { kind: "never" },
-          changeProjectSettings: { kind: "never" },
+          taskRecords: {
+            kind: "own-and-others",
+            own: { kind: "allowed" },
+            others: { kind: "never" },
+          },
         },
         taskLimit: 2,
         sessionDefault: "prefer-to-continue",
@@ -72,9 +75,10 @@ describe("read_role", () => {
     const result = await tool.run({ role: " developer " }, anOfficeToolCall("s-1"));
 
     expect(tool.name).toBe(READ_ROLE);
-    expect(result).toEqual({
-      isError: false,
-      text: [
+    expect(result.isError).toBe(false);
+    const [whole, authorityInWords] = result.text.split("\n\nAuthority in effect");
+    expect(whole).toEqual(
+      [
         "Ada · Developer (Role developer), card version 4, saved 2026-11-01T10:00:00.000Z.",
         `responsibilities: ${ada.card.responsibilities}`,
         `instructions:\n${instructions}`,
@@ -82,14 +86,42 @@ describe("read_role", () => {
           "engineSettings: Claude Code: claude-sonnet-5-5 · high; Codex: Engine's default · low",
           'capabilities: {"sharedMemory":true,"chat":false,"consultant":true,"runEnvironment":false}',
           'permissionProfile: {"edit":true,"run":"project-commands","web":false,"mcpTools":{"github/create_issue":{"kind":"allowed"}}}',
-          'hardSwitches: {"runInstalls":{"kind":"consult","role":"devops"},"publishOutsideThePipeline":{"kind":"ask-me"},"changeRoles":{"kind":"never"},"changeProjectSettings":{"kind":"never"}}',
+          'authority: {"publishOutsideThePipeline":{"kind":"ask-me"},"taskRecords":{"kind":"own-and-others","own":{"kind":"allowed"},"others":{"kind":"never"}}}',
           "taskLimit: 2",
           "sessionDefault: prefer-to-continue",
           "Skills: definition-of-done",
           "MCP servers: github (on): create_issue Allowed, list_issues Consult devops; linear (off)",
         ].join("\n"),
       ].join("\n\n"),
-    });
+    );
+    // Every row in effect, in the card's order, saying which the card sets.
+    const rows = `Authority in effect${authorityInWords ?? ""}`.split("\n");
+    expect(rows[0]).toBe(
+      "Authority in effect (a row not in authority above stands at the preset's default):",
+    );
+    expect(rows).toHaveLength(29);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        "- Work › Task records (taskRecords): Allowed on own · Never on others' (set)",
+        "- Ideas (ideas): Allowed on own · Ask me on others' (preset's default)",
+        "- Projects and settings › Change Project settings (changeProjectSettings): Consult devops (preset's default)",
+        "- Library › Skills (skills): Proposal (preset's default)",
+        "- Run installs (runInstalls): Consult devops (preset's default)",
+        "- Publish outside the Pipeline (publishOutsideThePipeline): Ask me (set)",
+      ]),
+    );
+  });
+
+  it("gives the Caretaker's Authority as fixed", async () => {
+    const sam = aRole({ key: CARETAKER, card: aRoleCard({ name: "Sam", title: "Caretaker" }) });
+    const result = await toolsOver([{ role: sam, skills: [], mcpServers: [] }])
+      .readRole()
+      .run({ role: CARETAKER }, anOfficeToolCall("s-1"));
+
+    expect(result.text).toContain(
+      "\n- People and Roles › Change Roles (changeRoles): Proposal (fixed)\n",
+    );
+    expect(result.text).toContain("\n- Run installs (runInstalls): Allowed (fixed)\n");
   });
 
   it("gives an MCP tool never set as Ask me while nobody holds the MCP duty", async () => {
@@ -113,7 +145,7 @@ describe("read_role", () => {
       "\nengineSettings: none set, so each engine's default model and effort\n",
     );
     expect(result.text).toContain("\nSkills: none besides the skills for everyone\n");
-    expect(result.text).toMatch(/\nMCP servers: none$/);
+    expect(result.text).toContain("\nMCP servers: none\n\nAuthority in effect");
   });
 
   it("says when the person was let go", async () => {

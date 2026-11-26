@@ -1,3 +1,5 @@
+import { hardSwitchesOf } from "./authority.js";
+import type { HardSwitches } from "./hard-switches.js";
 import { DEVOPS } from "./known-roles.js";
 import { consultableRoleKeys, presetFor } from "./presets.js";
 import type { Role } from "./role.js";
@@ -28,6 +30,28 @@ export function aRoleCard(fields: Partial<RoleCard> = {}): RoleCard {
   const preset = presetFor("developer");
   if (!preset) throw new Error("The Developer preset is missing.");
   return { ...preset.card, name: "Ada", ...fields };
+}
+
+/**
+ * The Developer preset's card named Ada as the web sends it: its Authority, and its Hard switches in
+ * step for the release before.
+ */
+export function aCardToSend(
+  fields: Partial<RoleCard> = {},
+): RoleCard & { readonly hardSwitches: HardSwitches } {
+  const card = aRoleCard(fields);
+  return { ...card, hardSwitches: hardSwitchesOf("developer", card.authority) };
+}
+
+/**
+ * The Developer preset's card named Ada as the release before Authority saved it: its Hard switches
+ * (the preset's by default), no Authority.
+ */
+export function aCardSavedBeforeAuthority(
+  fields: Partial<Omit<RoleCard, "authority">> & { hardSwitches?: HardSwitches } = {},
+): Omit<RoleCard, "authority"> & { readonly hardSwitches: HardSwitches } {
+  const { authority: _authority, ...card } = aRoleCard();
+  return { ...card, hardSwitches: hardSwitchesOf("developer", {}), ...fields };
 }
 
 export function aRole(fields: Partial<Role> = {}): Role {

@@ -458,7 +458,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
    */
   private async briefOf(
     { stage, run, stages, earlierRuns }: StageWork<"agent">,
-    { card, mcpToolDefault }: KnownPerson,
+    { card, hardSwitches, mcpToolDefault }: KnownPerson,
     task: TaskRecord,
     installProblem: string | undefined,
     // A fresh session's Handover section names the run's choice as it stands now instead.
@@ -489,7 +489,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       prompts,
       profile,
       commands,
-      record: await this.recordOf(prompts, run.taskId, card, commands, task, stages, earlierRuns),
+      record: await this.recordOf(
+        prompts,
+        run.taskId,
+        hardSwitches,
+        commands,
+        task,
+        stages,
+        earlierRuns,
+      ),
       work: agentStageWork(prompts, stage, {
         carried: await this.carriedRound(stages, run.carriedFailure),
         sentBack: run.sentBack && {
@@ -596,7 +604,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       record: await this.recordOf(
         prompts,
         taskId,
-        person.card,
+        person.hardSwitches,
         commands,
         task,
         stages,
@@ -615,7 +623,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   private async recordOf(
     prompts: PromptTexts,
     taskId: string,
-    card: KnownPerson["card"],
+    hardSwitches: KnownPerson["hardSwitches"],
     commands: AllowedCommands,
     task: TaskRecord,
     stages: readonly Stage[],
@@ -642,7 +650,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       earlier: earlierResults(stages, earlierRuns),
       diffSummary: await this.git.changesSoFar(task.project.id, taskId),
       commands,
-      hardSwitches: this.followedHardSwitches(card.hardSwitches),
+      hardSwitches: this.followedHardSwitches(hardSwitches),
     });
   }
 
@@ -662,8 +670,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     return { ...carried, stageName, guide: name ? `${name} (${title})` : `the ${title}` };
   }
 
-  /** The card's followed Hard switches, with whom a Consult value names by its Role's title. */
-  private followedHardSwitches(onCard: KnownPerson["card"]["hardSwitches"]): FollowedHardSwitches {
+  /**
+   * The followed Hard switches, the Run installs and Publish outside the Pipeline groups of the
+   * person's Authority, with whom a Consult value names by its Role's title.
+   */
+  private followedHardSwitches(onCard: KnownPerson["hardSwitches"]): FollowedHardSwitches {
     const asTheAgentReadsIt = (value: HardSwitchOnCard): FollowedHardSwitchValue =>
       value.kind === "consult"
         ? { kind: "consult", person: this.people.roleTitle(value.role) }

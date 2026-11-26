@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
-import { RoleCards } from "../../people/index.js";
+import { sessionRole, RoleCards } from "../../people/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import type { MessageDraft } from "../domain/message.js";
 import { aProposedCard } from "../domain/proposal.fixtures.js";
@@ -45,12 +45,12 @@ beforeAll(async () => {
           find: (roleKey: string) =>
             Promise.resolve(
               roleKey === DEVELOPER
-                ? {
+                ? sessionRole(
                     roleKey,
-                    cardVersion: 1,
-                    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-                    card: aProposedCard({ name: "Jim", title: "Developer" }),
-                  }
+                    1,
+                    aProposedCard({ name: "Jim", title: "Developer" }),
+                    MCP_TOOL_DEFAULT_STAND_IN,
+                  )
                 : undefined,
             ),
           findLetGo: (roleKey: string) =>

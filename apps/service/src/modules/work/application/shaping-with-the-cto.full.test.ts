@@ -32,6 +32,7 @@ import {
   MemoryService,
   PeopleModule,
   RoleCards,
+  sessionRole,
   type SessionRole,
 } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
@@ -90,11 +91,10 @@ const PROJECT = "shaping-with-the-cto";
 const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 
 /** The CTO, whose key only roles.controller.test may hire into: People's RoleCards stand in. */
-const CTO_ROLE: SessionRole = {
-  roleKey: CTO,
-  cardVersion: 1,
-  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-  card: {
+const CTO_ROLE: SessionRole = sessionRole(
+  CTO,
+  1,
+  {
     name: "Bob",
     title: "CTO",
     responsibilities: "Shapes Initiatives across Projects with you.",
@@ -102,16 +102,13 @@ const CTO_ROLE: SessionRole = {
     engineSettings: { "claude-code": { model: null, effort: "low" } },
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
-    hardSwitches: {
-      runInstalls: { kind: "consult", role: "devops" },
-      publishOutsideThePipeline: { kind: "ask-me" },
-      changeRoles: { kind: "never" },
-      changeProjectSettings: { kind: "never" },
-    },
+    // The CTO preset's, but Change Project settings Never.
+    authority: { changeProjectSettings: { kind: "never" } },
     taskLimit: 2,
     sessionDefault: "context-policy",
   },
-};
+  MCP_TOOL_DEFAULT_STAND_IN,
+);
 
 @Injectable()
 class CtoOnly {

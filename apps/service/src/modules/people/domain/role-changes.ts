@@ -1,10 +1,13 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { DutyKey } from "./duties.js";
+import type { HardSwitches } from "./hard-switches.js";
 import {
   effortsTakenBy,
   type Engine,
   type EngineKind,
   type EngineModel,
 } from "../../engine/index.js";
+import { authorityMovedOver, instructionsMovedOver } from "./authority-move-over.js";
 import type { Avatar } from "./avatar.js";
 import { isBuiltIn } from "./caretaker.js";
 import { mcpToolDefault } from "./duties.js";
@@ -21,7 +24,11 @@ import {
   type RoleCard,
   type RoleCardContext,
 } from "./role-card.js";
-import { roleCardChanges, type RoleCardFieldChange } from "./role-card-changes.js";
+import {
+  authorityChanges,
+  roleCardChanges,
+  type RoleCardFieldChange,
+} from "./role-card-changes.js";
 import {
   RoleAvatarChanged,
   RoleCardChanged,
@@ -246,6 +253,40 @@ export function engineSettingsMovedOver(
   const changed: Role = {
     ...role,
     card: { ...role.card, engineSettings },
+    cardVersion: role.cardVersion + 1,
+    cardSavedAt: savedAt,
+    cardProposedBy: undefined,
+    cardSavedBy: null,
+  };
+  return { role: changed, event: new RoleCardChanged(changed, changes) };
+}
+
+/**
+ * Saves the card as its next version with its Authority made from `switches`, its Hard switches as
+ * kept, and `holds`, the duties the Role holds now (`authorityMovedOver`), and its instructions
+ * without the preset's earlier authority sentences when they are word for word
+ * (`instructionsMovedOver`), as the service starting after the update that brings Authority does, a
+ * let-go Role's and the Caretaker's too. Its Changes say the Authority moved over, first, then each
+ * row and the instructions changed. The version names no user and nobody proposed it.
+ */
+export function authorityMovedOverOf(
+  role: Role,
+  switches: HardSwitches,
+  holds: ReadonlySet<DutyKey>,
+  savedAt: Date,
+): RoleChange<RoleCardChanged> {
+  const authority = authorityMovedOver(role.key, switches, holds);
+  const instructions = instructionsMovedOver(role.key, role.card.instructions);
+  const changes: RoleCardFieldChange[] = [
+    { field: "authorityMovedOver", from: null, to: null },
+    ...authorityChanges(role.card.authority, authority),
+    ...(instructions === role.card.instructions
+      ? []
+      : [{ field: "instructions" as const, from: role.card.instructions, to: instructions }]),
+  ];
+  const changed: Role = {
+    ...role,
+    card: { ...role.card, authority, instructions },
     cardVersion: role.cardVersion + 1,
     cardSavedAt: savedAt,
     cardProposedBy: undefined,

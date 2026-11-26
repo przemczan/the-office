@@ -35,7 +35,7 @@ import {
   updateSystem,
   type OfficeCheckoutForTests,
 } from "../../../office-updates/index.fixtures.js";
-import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
+import { MemoryService, RoleCards, sessionRole, type SessionRole } from "../../../people/index.js";
 import { ownProjectsStartedTasks } from "../../../pipelines/index.fixtures.js";
 import { WorkSettingsForTests } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -370,15 +370,15 @@ const PLANNER = "planner";
  * The Planner, who holds Plans, and the test's own Developer, both hired, with no Memory in use.
  */
 function roleCardsOf(developerKey: string, taskLimit: number): Partial<RoleCards> {
-  const roleOf = (key: string): SessionRole => ({
-    roleKey: key,
-    cardVersion: 1,
-    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-    card:
+  const roleOf = (key: string): SessionRole =>
+    sessionRole(
+      key,
+      1,
       key === developerKey
         ? { ...DEVELOPER_CARD, taskLimit }
         : { ...DEVELOPER_CARD, name: "Jan", title: "Planner" },
-  });
+      MCP_TOOL_DEFAULT_STAND_IN,
+    );
   const hired = new Set([PLANNER, developerKey]);
   return {
     find: (key) => Promise.resolve(hired.has(key) ? roleOf(key) : undefined),
@@ -401,7 +401,7 @@ const DEVELOPER_CARD: SessionRole["card"] = {
   engineSettings: { "claude-code": { model: null, effort: "low" } },
   capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: true, run: "read-only-git", web: false, mcpTools: {} },
-  hardSwitches: {
+  authority: {
     runInstalls: { kind: "never" },
     publishOutsideThePipeline: { kind: "never" },
     changeRoles: { kind: "never" },

@@ -1,5 +1,10 @@
 import type { ApprovalCall } from "../../engine/index.js";
-import type { HardSwitchValue, RoleCards } from "../../people/index.js";
+import {
+  sessionRole,
+  type AuthorityValue,
+  type HardSwitchKey,
+  type RoleCards,
+} from "../../people/index.js";
 import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
 import { oneOptionAnswer, type Decision, type DecisionDraft } from "../domain/decision.js";
 import { aDecision } from "../domain/decision.fixtures.js";
@@ -20,18 +25,20 @@ import { aPlannerCard } from "./session-role.fixtures.js";
 
 export const SESSION = "session-1";
 
-export const CALL = "Change the Developer's instructions to: Write tests first.";
+export const CALL = "Set the Project's test command to: npm test.";
 
 export const request: HeldCallRequest = {
   sessionId: SESSION,
-  switchKey: "changeRoles",
+  switchKey: "changeProjectSettings",
   call: CALL,
-  context: "The Developer skips tests.",
+  context: "The Project has no test command.",
   why: "Tests keep regressions out.",
 };
 
 export interface Setup {
-  readonly changeRoles: HardSwitchValue;
+  /** The value of the caller's Authority row `switchKey`, Change Project settings when left out. */
+  readonly setting: AuthorityValue;
+  readonly switchKey?: HardSwitchKey;
   /** The Roles someone fills besides the caller's. */
   readonly hired?: readonly string[];
   /** The hired people who may be consulted, by the key of their Role. */
@@ -41,9 +48,10 @@ export interface Setup {
   readonly approvalHolds?: ApprovalHolds;
 }
 
-/** The held calls with a Planner whose Change Roles is as given, and the Decisions it opened. */
+/** The held calls with a Planner whose Authority row is as given, and the Decisions it opened. */
 export function heldCallsWith({
-  changeRoles,
+  setting,
+  switchKey = "changeProjectSettings",
   hired = [],
   consultants = [],
   answered = [],
@@ -53,11 +61,9 @@ export function heldCallsWith({
   const opened: DecisionDraft[] = [];
   const putTo: (string | undefined)[] = [];
   const spent = new Set<string>();
-  const card = aPlannerCard({
-    hardSwitches: { ...aPlannerCard().hardSwitches, changeRoles },
-  });
+  const card = aPlannerCard({ authority: { ...aPlannerCard().authority, [switchKey]: setting } });
   const roleCards = {
-    find: () => Promise.resolve({ roleKey: "planner", cardVersion: 1, card }),
+    find: () => Promise.resolve(sessionRole("planner", 1, card, { kind: "ask-me" })),
     hiredKeys: () => Promise.resolve(new Set(["planner", ...hired])),
     roleTitle: (roleKey: string) => (roleKey === "cto" ? "CTO" : roleKey),
     consultants: () =>

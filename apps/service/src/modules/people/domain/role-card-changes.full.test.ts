@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED, ASK_ME, consult } from "./hard-switches.js";
+import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { aRoleCard } from "./role.fixtures.js";
 import {
   roleCardChanges as changesWithDefault,
@@ -24,7 +24,7 @@ describe("roleCardChanges", () => {
       taskLimit: "none",
       capabilities: { ...before.capabilities, chat: true },
       permissionProfile: { ...before.permissionProfile, web: false },
-      hardSwitches: { ...before.hardSwitches, runInstalls: ALLOWED },
+      authority: { runInstalls: ALLOWED },
     });
 
     expect(roleCardChanges(before, after)).toEqual([
@@ -36,19 +36,36 @@ describe("roleCardChanges", () => {
         from: before.permissionProfile,
         to: after.permissionProfile,
       },
-      { field: "hardSwitches.runInstalls", from: consult("devops"), to: ALLOWED },
+      { field: "authority.runInstalls", from: null, to: ALLOWED },
     ]);
   });
 
   it("tells one consulted Role from another", () => {
-    const before = aRoleCard();
-    const after = aRoleCard({
-      hardSwitches: { ...before.hardSwitches, publishOutsideThePipeline: consult("planner") },
-    });
+    const before = aRoleCard({ authority: { publishOutsideThePipeline: consult("cto") } });
+    const after = aRoleCard({ authority: { publishOutsideThePipeline: consult("planner") } });
 
     expect(roleCardChanges(before, after).map((change) => change.field)).toEqual([
-      "hardSwitches.publishOutsideThePipeline",
+      "authority.publishOutsideThePipeline",
     ]);
+  });
+
+  it("names a row set, and a row put back to the preset's default, with null for the default", () => {
+    const before = aRoleCard({ authority: { taskRecords: ASK_ME } });
+    const after = aRoleCard({ authority: { movingWork: NEVER } });
+
+    expect(roleCardChanges(before, after)).toEqual([
+      { field: "authority.taskRecords", from: ASK_ME, to: null },
+      { field: "authority.movingWork", from: null, to: NEVER },
+    ]);
+  });
+
+  it("reads a pair of equal sides as its one value", () => {
+    const before = aRoleCard({ authority: { ideas: ASK_ME } });
+    const after = aRoleCard({
+      authority: { ideas: { kind: "own-and-others", own: ASK_ME, others: ASK_ME } },
+    });
+
+    expect(roleCardChanges(before, after)).toEqual([]);
   });
 
   it("names the engine settings changed, whole, from and to", () => {

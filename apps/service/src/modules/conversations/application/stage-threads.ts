@@ -924,6 +924,7 @@ export class StageThreads {
     {
       roleKey,
       card,
+      hardSwitches,
       mcpToolDefault,
       officeInstructions,
     }: SessionRole & Pick<SessionPerson, "officeInstructions">,
@@ -961,7 +962,7 @@ export class StageThreads {
           ...roleOfficeTools(held),
           ...stageCapabilityOfficeTools(card.capabilities),
         ],
-        card,
+        { card, hardSwitches },
         true,
         true,
       ),

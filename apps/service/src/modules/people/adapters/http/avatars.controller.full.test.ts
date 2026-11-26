@@ -16,7 +16,7 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { CARETAKER } from "../../domain/known-roles.js";
-import { aRoleCard } from "../../domain/role.fixtures.js";
+import { aCardToSend } from "../../domain/role.fixtures.js";
 import { PeopleModule } from "../../people.module.js";
 import { PNG, SVG_WITH_A_SCRIPT, expectRefused } from "./avatars.controller.fixtures.js";
 
@@ -57,7 +57,10 @@ afterEach(async () => {
 
 /** Someone in a Role of their own: every test file shares the database. */
 async function hire(name: string): Promise<Role> {
-  const card = { ...aRoleCard({ name, title: `Painter ${randomUUID().slice(0, 8)}` }), skills: [] };
+  const card = {
+    ...aCardToSend({ name, title: `Painter ${randomUUID().slice(0, 8)}` }),
+    skills: [],
+  };
   const response = await fetch(`${url}/api/roles`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

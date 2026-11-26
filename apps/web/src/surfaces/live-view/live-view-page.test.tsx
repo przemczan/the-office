@@ -12,6 +12,7 @@ import {
   stubService,
   until,
 } from "../../shell/page.fixtures.tsx";
+import { NEVER_EVERYWHERE } from "../../shell/authority.fixtures.ts";
 import { PageHeadingProvider } from "../../shell/page-heading.tsx";
 import { LiveViewPage } from "./live-view-page.tsx";
 import { doingWords, pickedDoingOf } from "./live-states.ts";
@@ -120,10 +121,12 @@ function roleOf(person: OfficePerson): Role {
         changeRoles: { kind: "never" },
         changeProjectSettings: { kind: "never" },
       },
+      authority: {},
       taskLimit: person.taskLimit,
       sessionDefault: "context-policy",
       skills: [],
     },
+    presetAuthority: NEVER_EVERYWHERE,
     cardVersion: 1,
     hiredAt: person.hiredAt,
     cardSavedAt: person.hiredAt,

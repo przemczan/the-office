@@ -53,7 +53,7 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
-import { EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
+import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
 import { BusyWorkModule } from "../../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../../people/index.fixtures.js";
 import { McpServersModule } from "../../../mcp-servers/index.js";
@@ -139,7 +139,7 @@ function aPerson(name: string, chat: boolean): string {
     name,
     capabilities: { sharedMemory: false, chat, consultant: true, runEnvironment: false },
   });
-  people.set(roleKey, { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN });
+  people.set(roleKey, sessionRole(roleKey, 1, card, MCP_TOOL_DEFAULT_STAND_IN));
   return roleKey;
 }
 

@@ -20,7 +20,7 @@ import { PostgresRoleRepository } from "../adapters/postgres/postgres-role-repos
 import { roleCardVersions, roles } from "../adapters/postgres/roles.schema.js";
 import { CARETAKER } from "../domain/known-roles.js";
 import type { Effort } from "../domain/role-card.js";
-import { aRoleCard } from "../domain/role.fixtures.js";
+import { aCardSavedBeforeAuthority } from "../domain/role.fixtures.js";
 import { RoleCardChanged } from "../domain/role-events.js";
 import { EngineSettingsMoveOver } from "./engine-settings-move-over.js";
 
@@ -73,7 +73,7 @@ async function aRoleSavedBefore(
   letGo = false,
 ): Promise<string> {
   const key = `role-${randomUUID()}`;
-  const { engineSettings: _engineSettings, ...card } = aRoleCard();
+  const { engineSettings: _engineSettings, ...card } = aCardSavedBeforeAuthority();
   const hiredAt = new Date("2026-10-01T09:00:00.000Z");
   await database.insert(roles).values({
     key,
@@ -180,6 +180,11 @@ describe("EngineSettingsMoveOver", () => {
     await moveOver.moveOver();
 
     expect(await storedCard(key, 3)).toMatchObject({ roleOverride: onClaudeCode, effort: "low" });
+    // Left for the Authority move-over, which runs apart, to find.
+    expect(await storedCard(key, 3)).not.toHaveProperty("authority");
+    expect((await storedCard(key, 3))?.hardSwitches).toEqual(
+      (await storedCard(key, 2))?.hardSwitches,
+    );
     expect((await repository.find(key))?.card).not.toHaveProperty("effort");
     expect((await repository.find(key))?.card).not.toHaveProperty("roleOverride");
   });
@@ -225,7 +230,7 @@ describe("migration 0202", () => {
     const threadId = randomUUID();
     const before = { roleOverride: null, effort: "high", taskLimit: 2 };
     // A whole card as the release before drafted it, stored as the Proposals store it.
-    const { engineSettings: _engineSettings, ...earlier } = aRoleCard();
+    const { engineSettings: _engineSettings, ...earlier } = aCardSavedBeforeAuthority();
     const cardBefore = { ...earlier, roleOverride: null, effort: "high" };
     const officeSetup = (hiredKeys?: readonly string[]) => ({
       kind: "office-setup",

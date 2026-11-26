@@ -15,6 +15,7 @@ import { Duties } from "../../application/duties.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import type { RoleHistoryEntry } from "../../application/role-history.js";
 import { RoleService } from "../../application/role-service.js";
+import { hardSwitchesOf, presetAuthority } from "../../domain/authority.js";
 import { dutiesSuitedTo, type Preset } from "../../domain/presets.js";
 import type { UserRef } from "../../domain/user.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
@@ -49,6 +50,21 @@ export class RolesController {
       })),
       knownRoles: options.knownRoles.map(({ key, title }) => ({ key, title })),
       hardSwitches: options.hardSwitches.map(({ key, enforcement }) => ({ key, enforcement })),
+      authority: options.authority.map(({ label, rows }) => ({
+        label,
+        rows: rows.map(
+          ({ group, label: rowLabel, cap, ownAndOthers, followed, enforcedOn, values }) => ({
+            group,
+            label: rowLabel,
+            cap,
+            ownAndOthers,
+            followed,
+            enforcedOn,
+            values: [...values],
+          }),
+        ),
+      })),
+      fromScratchAuthority: { ...options.fromScratchAuthority },
       mcpToolDefault: { ...options.mcpToolDefault },
       taskLimits: { ...options.taskLimits },
     };
@@ -120,7 +136,8 @@ function toPresetResponse(preset: Preset): PresetResponse {
   return {
     roleKey: preset.roleKey,
     suggestedName: preset.suggestedName,
-    card: preset.card,
+    card: { ...preset.card, hardSwitches: hardSwitchesOf(preset.roleKey, preset.card.authority) },
+    presetAuthority: presetAuthority(preset.roleKey),
     duties: dutiesSuitedTo(preset),
   };
 }

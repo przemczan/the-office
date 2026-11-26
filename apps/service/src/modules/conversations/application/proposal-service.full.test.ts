@@ -6,6 +6,7 @@ import { ThreadImages } from "./thread-images.js";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
+  sessionRole,
   CARETAKER,
   Duties,
   EngineCascade,
@@ -140,20 +141,20 @@ const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 // The Office Manager's chat is keyed by the preset's fixed key, which only roles.controller.test
 // may hire into (apps/service/docs/testing.md): here People's RoleCards stand in for them, while
 // the Roles they propose are hired and changed through the real People module, each test's own.
-const OFFICE_MANAGER_ROLE: SessionRole = {
-  roleKey: OFFICE_MANAGER,
-  cardVersion: 1,
-  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-  card: aPlannerCard({ name: "Marta", title: "Office Manager" }),
-};
+const OFFICE_MANAGER_ROLE: SessionRole = sessionRole(
+  OFFICE_MANAGER,
+  1,
+  aPlannerCard({ name: "Marta", title: "Office Manager" }),
+  MCP_TOOL_DEFAULT_STAND_IN,
+);
 
 // The Caretaker's card, as People's RoleCards stand in for it too.
-const CARETAKER_ROLE: SessionRole = {
-  roleKey: CARETAKER,
-  cardVersion: 1,
-  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-  card: aPlannerCard({ name: "Sam", title: "Caretaker" }),
-};
+const CARETAKER_ROLE: SessionRole = sessionRole(
+  CARETAKER,
+  1,
+  aPlannerCard({ name: "Sam", title: "Caretaker" }),
+  MCP_TOOL_DEFAULT_STAND_IN,
+);
 
 let app: INestApplication;
 

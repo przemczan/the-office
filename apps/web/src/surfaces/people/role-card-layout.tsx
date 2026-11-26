@@ -16,7 +16,11 @@ export const ROLE_CARD_GROUPS = {
   },
   permissions: {
     title: "Permissions",
-    description: "What the Agent may do, and who has a say in the few calls that need one.",
+    description: "What the Agent may do in a Stage.",
+  },
+  authority: {
+    title: "Authority",
+    description: "What the person may do with Office tools, and when.",
   },
   skills: {
     title: "Skills",
@@ -25,7 +29,7 @@ export const ROLE_CARD_GROUPS = {
   mcpServers: {
     title: "MCP servers",
     description:
-      "From the library in Settings. Each tool has its own setting, as a Hard switch; a Stage may narrow it.",
+      "From the library in Settings. Each tool has its own authority setting; a Stage may narrow it.",
   },
 } as const;
 
@@ -71,7 +75,7 @@ export function RoleCardValue({
   );
 }
 
-/** Under what the Caretaker's card fixes: capabilities, permission profile, Hard switches, Task limit. */
+/** Under what the Caretaker's card fixes: capabilities, permission profile, Authority, Task limit. */
 export function FixedForTheCaretaker(): ReactNode {
   return (
     <p className="role-card-fixed">

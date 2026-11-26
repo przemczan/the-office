@@ -1,5 +1,13 @@
 import { isDeepStrictEqual } from "node:util";
-import type { DutyKey, RoleCard, SetUpDuty, SetUpHire } from "../../people/index.js";
+import {
+  authorityWithHardSwitches,
+  type Authority,
+  type DutyKey,
+  type HardSwitches,
+  type RoleCard,
+  type SetUpDuty,
+  type SetUpHire,
+} from "../../people/index.js";
 import type {
   NewProject,
   ProjectFeatureSwitches,
@@ -46,6 +54,30 @@ export type ProposedChange = ProposedChanges[ProposedChangeKind];
 
 /** The fields of a Role card a change rewrites, each one given whole. */
 export type RoleCardFields = Partial<RoleCard>;
+
+/**
+ * A card's fields as a contract or an Agent gives them: with an Authority, or, from an earlier
+ * release or an open Proposal's draft, only the Hard switches, its four named groups.
+ */
+export type IncomingCardFields = Omit<RoleCardFields, "authority"> & {
+  readonly authority?: Authority | undefined;
+  readonly hardSwitches?: Partial<HardSwitches> | undefined;
+};
+
+/**
+ * The fields of the Role keyed `roleKey` as the domain reads them: the Authority given, else one
+ * made from the Hard switches given over `base` (the Role's Authority now on a change, none on a
+ * hire); with neither, no Authority field.
+ */
+export function fieldsWithAuthority(
+  roleKey: string,
+  { hardSwitches, authority, ...fields }: IncomingCardFields,
+  base: Authority,
+): RoleCardFields {
+  if (authority !== undefined) return { ...fields, authority };
+  if (hardSwitches === undefined) return fields;
+  return { ...fields, authority: authorityWithHardSwitches(roleKey, base, hardSwitches) };
+}
 
 /** A new Role: its whole card and the library skills it has besides the skills for everyone. */
 export interface ProposedHire {

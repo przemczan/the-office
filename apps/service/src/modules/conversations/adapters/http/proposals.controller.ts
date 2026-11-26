@@ -16,6 +16,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
+import { cardWithAuthority, hiredKeyOf } from "../../../people/index.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import type { EditedHire, Proposal } from "../../domain/proposal.js";
 import { toProposalResponse } from "./conversation-responses.js";
@@ -66,12 +67,14 @@ export class ProposalsController {
 
 /**
  * The new Role as the user edited it: a card, split into the Role card and the skills as hiring
- * takes them, or a name for a preset's Role; undefined when they edited nothing.
+ * takes them, its Authority as given or made from its Hard switches, or a name for a preset's Role;
+ * undefined when they edited nothing.
  */
 function editedHire({ card, name }: ProposalApplication): EditedHire | undefined {
   if (card) {
-    const { skills, ...roleCard } = card;
-    return { kind: "hire", card: roleCard, skills };
+    const { skills, ...given } = card;
+    const roleKey = hiredKeyOf({ kind: "hire", card: { ...given, authority: {} }, skills });
+    return { kind: "hire", card: cardWithAuthority(roleKey, given, {}), skills };
   }
   return name === undefined ? undefined : { kind: "hire-from-preset", name };
 }

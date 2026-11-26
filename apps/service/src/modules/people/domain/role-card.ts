@@ -1,6 +1,12 @@
 import { ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.js";
 import { builtInCardProblems } from "./caretaker.js";
-import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
+import {
+  authorityProblems,
+  authorityWithHardSwitches,
+  keptAuthority,
+  type Authority,
+} from "./authority.js";
+import type { HardSwitches } from "./hard-switches.js";
 import { mcpToolSettingsProblems } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import { taskLimitProblem, type TaskLimit } from "./task-limit.js";
@@ -36,8 +42,8 @@ export interface Capabilities {
 }
 
 /**
- * Everything a session of the Role's person needs. Its authority is plain rules in the
- * instructions; its Skills are assigned by the Skills module, keyed by the Role.
+ * Everything a session of the Role's person needs. Its Skills are assigned by the Skills module,
+ * keyed by the Role.
  */
 export interface RoleCard {
   /** The person's name, as in "Ada · Developer". */
@@ -51,9 +57,44 @@ export interface RoleCard {
   readonly engineSettings: PersonEngineSettings;
   readonly capabilities: Capabilities;
   readonly permissionProfile: PermissionProfile;
-  readonly hardSwitches: HardSwitches;
+  /**
+   * The rows the card sets (spec §6 › Authority); any other is at the preset's default. Its four
+   * named groups are the Hard switches (`hardSwitchesOf`).
+   */
+  readonly authority: Authority;
   readonly taskLimit: TaskLimit;
   readonly sessionDefault: SessionDefault;
+}
+
+/**
+ * A card as it comes in: with its Authority, or, from an earlier release or an open Proposal's
+ * draft, with only its Hard switches (and both on a card the service answered).
+ */
+export type IncomingRoleCard = Omit<RoleCard, "authority"> & {
+  readonly authority?: Authority;
+  readonly hardSwitches?: Partial<HardSwitches>;
+};
+
+/**
+ * The domain card of an incoming one for the Role `roleKey`: its Authority as given, each pair of
+ * equal sides as one value (a value equal to the preset's default stays set), else its Hard switches
+ * over `base`, the stored card's Authority on a change and none on a hire
+ * (`authorityWithHardSwitches`); with neither, `base`.
+ */
+export function cardWithAuthority(
+  roleKey: string,
+  { authority, hardSwitches, ...card }: IncomingRoleCard,
+  base: Authority,
+): RoleCard {
+  return {
+    ...card,
+    authority:
+      authority !== undefined
+        ? keptAuthority(authority)
+        : hardSwitches !== undefined
+          ? authorityWithHardSwitches(roleKey, base, hardSwitches)
+          : base,
+  };
 }
 
 export const NAME_LENGTH = 40;
@@ -98,8 +139,8 @@ export interface EngineTypeOffer {
 export type EngineTypesOffered = (type: EngineKind) => EngineTypeOffer;
 
 /**
- * What a card is checked against beyond itself: what each engine type offers, the Roles a Hard
- * switch or an MCP tool may consult (`consultableRoleKeys`), and who holds Default Consultant for
+ * What a card is checked against beyond itself: what each engine type offers, the Roles an
+ * Authority row or an MCP tool may consult (`consultableRoleKeys`), and who holds Default Consultant for
  * MCP tool hard switches, if anyone.
  */
 export interface RoleCardContext {
@@ -140,7 +181,7 @@ export function roleCardProblems(
   problems.push(...engineSettingsProblems(card.engineSettings, engineTypes, storedEngineSettings));
   const limitProblem = taskLimitProblem(card.taskLimit);
   if (limitProblem) problems.push(limitProblem);
-  problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches, consultable));
+  problems.push(...authorityProblems(roleKey, card.authority, consultable));
   problems.push(
     ...mcpToolSettingsProblems(
       roleKey,

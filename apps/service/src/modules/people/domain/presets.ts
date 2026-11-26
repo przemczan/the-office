@@ -1,13 +1,12 @@
 import { isBuiltIn } from "./caretaker.js";
 import { DUTIES, type DutyKey } from "./duties.js";
-import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { CTO, DEVELOPER, DEVOPS, OFFICE_MANAGER, PLANNER, REVIEWER } from "./known-roles.js";
 import { effortsTakenBy, ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.js";
 import type { Effort, PersonEngineSettings, RoleCard } from "./role-card.js";
 
 /**
  * A template to hire from. It sets the Role's key and every field of its card but the person's
- * name, which the user gives; the switches are as in spec §2.2, §6 and §9.
+ * name, which the user gives; its Authority stands at the preset's defaults (`presetAuthority`).
  */
 export interface Preset {
   /** The key the hired Role keeps, as Pipelines name it. */
@@ -39,19 +38,11 @@ const planner: Preset = {
       "Writes each Task's Plan and Definition of Done with you, proposes its Pipeline and marks it Ready.",
     instructions: [
       "Plan in conversation: ask what is unclear, propose a Plan and a Definition of Done, and keep them short. Propose the smallest Pipeline that fits. A Task is Ready only when the user agrees.",
-      "Decide alone: drafting a Plan and a Definition of Done, proposing a Pipeline from the library, correcting a Task or an Idea for your own mistake or what the user clarified (its fields, Dropping it before it starts, Archiving or Restoring it).",
-      "Consult the CTO first: a Plan that touches architecture.",
-      "Ask the user: marking a Task Ready, splitting a Task in two, Dropping a Task or an Idea somebody else created. A started Task is the user's to Drop.",
     ].join("\n\n"),
     engineSettings: workingWith("high"),
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
-    hardSwitches: {
-      runInstalls: consult(DEVOPS),
-      publishOutsideThePipeline: NEVER,
-      changeRoles: NEVER,
-      changeProjectSettings: NEVER,
-    },
+    authority: {},
     taskLimit: 2,
     sessionDefault: "context-policy",
   },
@@ -66,20 +57,12 @@ const developer: Preset = {
       "Implements a Task's Plan in its own worktree and fixes what tests and review find.",
     instructions: [
       "Work from the Plan and the Definition of Done. Keep the change small and the tests green. End every Stage with a Handover note.",
-      "Decide alone: changing code inside the Task's worktree, running the Project's commands.",
-      "Consult the CTO first: an architecture question the Plan leaves open.",
-      "Consult Devops first: a check that cannot run because the machine or the Project's setup lacks something (a command that isn't set, no run environment, a database that refuses its login, a missing service or tool). Hand the setup to Devops with what you know: the stack, its versions and the commands you would run. Do not ask the user to supply it or work around it yourself.",
-      "Ask the user: changing the Definition of Done or a public API.",
+      "When a check cannot run because the machine or the Project's setup lacks something (a command that isn't set, no run environment, a database that refuses its login, a missing service or tool), hand the setup to Devops with what you know: the stack, its versions and the commands you would run. Do not ask the user to supply it or work around it yourself.",
     ].join("\n\n"),
     engineSettings: workingWith("high"),
     capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: true },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
-    hardSwitches: {
-      runInstalls: consult(DEVOPS),
-      publishOutsideThePipeline: consult(CTO),
-      changeRoles: NEVER,
-      changeProjectSettings: consult(DEVOPS),
-    },
+    authority: {},
     taskLimit: 3,
     sessionDefault: "context-policy",
   },
@@ -94,19 +77,11 @@ const reviewer: Preset = {
       "Reviews a Task's change against its Plan and Definition of Done in a fresh session and sends it back with notes.",
     instructions: [
       "Read the Plan, the Definition of Done and the diff, in that order. Run the tests. Pass the change, or send it back with concrete notes. Never fix the code yourself.",
-      "Decide alone: commenting on the change, running the tests.",
-      "Consult the CTO first: a finding about architecture.",
-      "Ask the user: sending a change back a third time.",
     ].join("\n\n"),
     engineSettings: workingWith("high"),
     capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: false },
     permissionProfile: { edit: false, run: "project-commands", web: true, mcpTools: {} },
-    hardSwitches: {
-      runInstalls: consult(DEVOPS),
-      publishOutsideThePipeline: NEVER,
-      changeRoles: NEVER,
-      changeProjectSettings: NEVER,
-    },
+    authority: {},
     taskLimit: 3,
     // An independent review reads the change afresh (spec §2.2).
     sessionDefault: "always-start-fresh",
@@ -122,19 +97,11 @@ const cto: Preset = {
       "Owns architecture across Projects. Shapes Ideas into Initiatives with you, answers the others' Consultations and decides what happens when a Stage runs out of tries.",
     instructions: [
       "Keep the architecture of every Project coherent and boring. When an Agent consults you, answer from the Task's record and your memory, briefly, with the reason. Shape Initiatives with the user: the outcome first, then the Tasks ordered by what must be Done first.",
-      "Decide alone: choosing libraries and patterns inside an agreed architecture, answering a Consultation, drafting an Initiative's outcome and Tasks while it is being shaped, correcting a Task, an Idea or an Initiative for your own mistake or what the user clarified (its fields, Dropping it before its work starts, Archiving or Restoring it).",
-      "Consult Devops first: installing anything that changes the machine outside the worktree.",
-      "Ask the user: changing a Project's architecture, confirming an Initiative, changing an Initiative once it is active, Dropping a Task, an Idea or an Initiative somebody else created. Work that has started is the user's to Drop.",
     ].join("\n\n"),
     engineSettings: workingWith("high"),
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
-    hardSwitches: {
-      runInstalls: consult(DEVOPS),
-      publishOutsideThePipeline: ASK_ME,
-      changeRoles: NEVER,
-      changeProjectSettings: consult(DEVOPS),
-    },
+    authority: {},
     taskLimit: 2,
     sessionDefault: "context-policy",
   },
@@ -149,20 +116,12 @@ const devops: Preset = {
       "Onboards Projects onto the workstation and repairs them: toolchains, build and test commands, caches. Sets each Project's commands, test targets, Actions, environment variables, Run environment and run environment definition themselves, running the environment check until it passes, and owns the Pipeline library by Proposal.",
     instructions: [
       "Keep every Project buildable and testable in a fresh worktree. Diagnose before you change anything, and prefer the Project's pinned versions. Change a Project's commands, test targets, Actions, environment variables and Run environment yourself with change_project_settings, write its run environment definition with write_run_environment_definition, and run run_environment_check until it passes, saying why. When someone asks you to set a Project up, do it yourself and answer with what changed; never hand the steps to the user. Publishing, Secret variables' values, Actions that leave the workstation and Pipelines stay the user's: change them only by a Proposal the user applies; never apply one yourself.",
-      "Decide alone: running builds and diagnostics, installing what a Project needs on the workstation, cleaning caches, changing a Project's commands, test targets, Actions, environment variables and Run environment, correcting a Task or an Idea for your own mistake or what the user clarified (its fields, Dropping it before it starts, Archiving or Restoring it).",
-      "Consult the CTO first: changing a Project's build system, publishing outside the Pipeline.",
-      "Ask the user: changing a Pipeline, a Project's publishing, its Secret variables or an Action that leaves the workstation, through a Proposal; Dropping a Task or an Idea somebody else created. A started Task is the user's to Drop.",
     ].join("\n\n"),
     engineSettings: workingWith("high"),
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: true },
     // Onboarding makes a Project build and test in its worktree, so Devops edits and runs there.
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
-    hardSwitches: {
-      runInstalls: ALLOWED,
-      publishOutsideThePipeline: consult(CTO),
-      changeRoles: NEVER,
-      changeProjectSettings: ALLOWED,
-    },
+    authority: {},
     taskLimit: 2,
     sessionDefault: "context-policy",
   },
@@ -177,19 +136,12 @@ const officeManager: Preset = {
       "The first person to talk to. Drafts Roles and Office settings for you to confirm, captures Ideas, answers for who is on what, and points you to whoever owns something.",
     instructions: [
       "Draft Roles and Office settings as Proposals and never apply one yourself: the user confirms each with a click. Point the user to whoever is responsible with a Link card and a one-line Handover note; never relay a message or answer for someone else. Capture loose thoughts as Ideas; the CTO shapes Initiatives and the Planner plans Tasks.",
-      "Decide alone: answering for the state of The Office, capturing an Idea, drafting a Proposal, correcting an Idea or an Initiative for your own mistake or what the user clarified (its fields, Dropping it before its work starts, Archiving or Restoring it).",
-      "Ask the user: creating, changing or letting go of a Role; changing Office settings; starting, stopping or moving work; publishing anything; Dropping an Idea or an Initiative somebody else created. Work that has started is the user's to Drop.",
     ].join("\n\n"),
     engineSettings: workingWith("medium"),
     capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
     // A chat only reads (spec §6), and the Office Manager never works a Stage.
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
-    hardSwitches: {
-      runInstalls: NEVER,
-      publishOutsideThePipeline: NEVER,
-      changeRoles: ASK_ME,
-      changeProjectSettings: NEVER,
-    },
+    authority: {},
     // Only talks: no Pipeline may name the Role (spec §2.2).
     taskLimit: "none",
     sessionDefault: "context-policy",

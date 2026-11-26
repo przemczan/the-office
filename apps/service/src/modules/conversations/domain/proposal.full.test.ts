@@ -80,12 +80,11 @@ describe("a change to a Role", () => {
       proposedRoleChange("tester", card, {
         name: "Tess",
         engineSettings: { "claude-code": { model: null, effort: "high" } },
-        // The same switches, in another order, as a stored card may have them.
-        hardSwitches: {
-          changeRoles: { kind: "never" },
+        // The same Authority, in another order, as a stored card may have it.
+        authority: {
           changeProjectSettings: { kind: "never" },
-          runInstalls: { kind: "never" },
           publishOutsideThePipeline: { kind: "never" },
+          runInstalls: { kind: "never" },
         },
         capabilities,
       }),

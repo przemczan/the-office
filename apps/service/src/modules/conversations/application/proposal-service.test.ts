@@ -5,6 +5,7 @@ import { MessageImages } from "./message-images.js";
 import { ThreadImages } from "./thread-images.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
+  sessionRole,
   RoleNotFound,
   EngineCascade,
   PeopleModule,
@@ -111,12 +112,12 @@ const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 // The Office Manager's chat is keyed by the preset's fixed key, which only roles.controller.test
 // may hire into (apps/service/docs/testing.md): here People's RoleCards stand in for them, while
 // the Roles they propose are hired and changed through the real People module, each test's own.
-const OFFICE_MANAGER_ROLE: SessionRole = {
-  roleKey: OFFICE_MANAGER,
-  cardVersion: 1,
-  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-  card: aPlannerCard({ name: "Marta", title: "Office Manager" }),
-};
+const OFFICE_MANAGER_ROLE: SessionRole = sessionRole(
+  OFFICE_MANAGER,
+  1,
+  aPlannerCard({ name: "Marta", title: "Office Manager" }),
+  MCP_TOOL_DEFAULT_STAND_IN,
+);
 
 let app: INestApplication;
 

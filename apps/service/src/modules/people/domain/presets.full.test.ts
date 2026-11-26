@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
+import { presetAuthority } from "./authority.js";
 import { DUTIES } from "./duties.js";
 import { dutiesSuitedTo, PRESETS, presetFor } from "./presets.js";
 import { CARD_CONTEXT } from "./role.fixtures.js";
@@ -36,60 +36,13 @@ describe("PRESETS", () => {
     },
   );
 
-  // Spec §6's Hard switches table.
-  it.each([
-    [
-      "planner",
-      {
-        runInstalls: consult("devops"),
-        publishOutsideThePipeline: NEVER,
-        changeProjectSettings: NEVER,
-      },
-    ],
-    [
-      "developer",
-      {
-        runInstalls: consult("devops"),
-        publishOutsideThePipeline: consult("cto"),
-        changeProjectSettings: consult("devops"),
-      },
-    ],
-    [
-      "reviewer",
-      {
-        runInstalls: consult("devops"),
-        publishOutsideThePipeline: NEVER,
-        changeProjectSettings: NEVER,
-      },
-    ],
-    [
-      "cto",
-      {
-        runInstalls: consult("devops"),
-        publishOutsideThePipeline: ASK_ME,
-        changeProjectSettings: consult("devops"),
-      },
-    ],
-    [
-      "devops",
-      {
-        runInstalls: ALLOWED,
-        publishOutsideThePipeline: consult("cto"),
-        changeProjectSettings: ALLOWED,
-      },
-    ],
-  ])("give the %s the Hard switches %o, and Change Roles Never", (roleKey, switches) => {
-    expect(presetFor(roleKey)?.card.hardSwitches).toEqual({ ...switches, changeRoles: NEVER });
-  });
-
-  it("let the Office Manager change Roles only by asking the user, and never Project settings", () => {
-    expect(presetFor("office-manager")?.card.hardSwitches).toEqual({
-      runInstalls: NEVER,
-      publishOutsideThePipeline: NEVER,
-      changeRoles: ASK_ME,
-      changeProjectSettings: NEVER,
-    });
-  });
+  // Spec §6 › Defaults: a preset's card stands at its defaults (`presetAuthority`), setting no row.
+  it.each(PRESETS.map((preset) => [preset.roleKey, preset]))(
+    "give the %s no Authority row of its own",
+    (_roleKey, preset) => {
+      expect(preset.card.authority).toEqual({});
+    },
+  );
 
   // Spec §6's default profiles, every MCP tool at its default; a chat only reads.
   it.each([
@@ -112,15 +65,27 @@ describe("PRESETS", () => {
     expect(roleCardProblems(preset.roleKey, card, CARD_CONTEXT)).toEqual([]);
   });
 
-  // Spec §2.2, "Authority and Hard switches": the records a person creates in a chat.
-  it.each(["planner", "cto", "devops", "office-manager"])(
-    "let the %s correct the records they create, asking the user before Dropping another's",
-    (roleKey) => {
-      const instructions = presetFor(roleKey)?.card.instructions ?? "";
+  // Spec §6 › Authority: who may do what is the card's Authority, no longer words in the instructions.
+  it.each(PRESETS)("leave who may do what to the Authority ($roleKey)", (preset) => {
+    expect(preset.card.instructions).not.toMatch(
+      /Decide alone:|Ask the user:|Consult [^\n]* first:/,
+    );
+  });
 
-      expect(instructions).toMatch(/Decide alone: [^\n]*correcting [^\n]*your own mistake/);
-      expect(instructions).toMatch(/Ask the user: [^\n]*somebody else created/);
-      expect(instructions).toMatch(/started is the user's to Drop|started Task is the user's/);
+  // The records a person creates in a chat: theirs to correct, another's only by asking the user.
+  it.each([
+    ["planner", "taskRecords"],
+    ["cto", "initiativeRecords"],
+    ["devops", "taskRecords"],
+    ["office-manager", "initiativeRecords"],
+  ] as const)(
+    "let the %s correct their own %s, asking the user about another's",
+    (roleKey, group) => {
+      expect(presetAuthority(roleKey)[group]).toEqual({
+        kind: "own-and-others",
+        own: { kind: "allowed" },
+        others: { kind: "ask-me" },
+      });
     },
   );
 

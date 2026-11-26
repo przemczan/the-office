@@ -17,6 +17,7 @@ import { PostgresMemoryRepository } from "./adapters/postgres/postgres-memory-re
 import { PostgresOfficeSetupRepository } from "./adapters/postgres/postgres-office-setup-repository.js";
 import { PostgresRoleRepository } from "./adapters/postgres/postgres-role-repository.js";
 import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
+import { AuthorityMoveOver } from "./application/authority-move-over.js";
 import { Duties } from "./application/duties.js";
 import { DutyChangeChecks } from "./application/duty-change-checks.js";
 import { EngineSettingsMoveOver } from "./application/engine-settings-move-over.js";
@@ -62,6 +63,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     PersonRecords,
     PeopleEarlierRecords,
     EngineSettingsMoveOver,
+    AuthorityMoveOver,
   ],
   exports: [
     RoleCards,

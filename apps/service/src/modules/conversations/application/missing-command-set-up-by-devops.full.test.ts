@@ -29,6 +29,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import {
+  sessionRole,
   DUTIES,
   MemoryService,
   RoleCards,
@@ -441,17 +442,17 @@ async function aRepository(): Promise<string> {
  * hired.
  */
 function roleCardsOf(developer: string): Partial<RoleCards> {
-  const roleOf = (key: string): SessionRole => ({
-    roleKey: key,
-    cardVersion: 1,
-    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-    card:
+  const roleOf = (key: string): SessionRole =>
+    sessionRole(
+      key,
+      1,
       key === DEVOPS
         ? DEVOPS_CARD
         : key === PLANNER
           ? { ...DEVELOPER_CARD, name: "Jan", title: "Planner" }
           : DEVELOPER_CARD,
-  });
+      MCP_TOOL_DEFAULT_STAND_IN,
+    );
   const hired = new Set([developer, DEVOPS, PLANNER]);
   const holderOf = (duty: DutyKey): string | undefined =>
     duty === "plans"
@@ -489,7 +490,7 @@ const DEVELOPER_CARD: SessionRole["card"] = {
   engineSettings: { "claude-code": { model: null, effort: "low" } },
   capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: true, run: "read-only-git", web: false, mcpTools: {} },
-  hardSwitches: {
+  authority: {
     runInstalls: { kind: "never" },
     publishOutsideThePipeline: { kind: "never" },
     changeRoles: { kind: "never" },
@@ -506,7 +507,7 @@ const DEVOPS_CARD: SessionRole["card"] = {
   title: "Devops",
   responsibilities: "Onboards and repairs Projects.",
   capabilities: { sharedMemory: false, chat: true, consultant: true, runEnvironment: true },
-  hardSwitches: {
+  authority: {
     runInstalls: { kind: "allowed" },
     publishOutsideThePipeline: { kind: "never" },
     changeRoles: { kind: "never" },

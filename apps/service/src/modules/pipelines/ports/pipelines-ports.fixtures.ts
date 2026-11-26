@@ -551,10 +551,10 @@ export function aPerson(name = "Ada"): KnownPerson {
       name,
       taskLimit: 2,
       permissionProfile: { edit: true, run: "project-commands", web: false, mcpTools: {} },
-      hardSwitches: {
-        runInstalls: { kind: "consult", role: "devops" },
-        publishOutsideThePipeline: { kind: "never" },
-      },
+    },
+    hardSwitches: {
+      runInstalls: { kind: "consult", role: "devops" },
+      publishOutsideThePipeline: { kind: "never" },
     },
     mcpToolDefault: { kind: "consult", role: "devops" },
   };

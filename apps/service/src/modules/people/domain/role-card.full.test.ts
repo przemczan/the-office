@@ -34,7 +34,7 @@ describe("roleCardProblems", () => {
       engineSettings: { "claude-code": { model: "claude-opus-4", effort: "high" } },
       capabilities: { sharedMemory: true, chat: false, consultant: false, runEnvironment: false },
       taskLimit: 7,
-      hardSwitches: { ...aRoleCard().hardSwitches, runInstalls: consult("developer") },
+      authority: { runInstalls: consult("developer") },
       permissionProfile: {
         ...aRoleCard().permissionProfile,
         mcpTools: { "github/merge": consult("janitor") },

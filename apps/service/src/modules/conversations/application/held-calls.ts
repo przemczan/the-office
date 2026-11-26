@@ -40,8 +40,9 @@ export interface HeldCallRequest {
 type HeldCall = Omit<HeldCallRequest, "switchKey">;
 
 /**
- * Holds the calls behind the enforced Hard switches and the MCP tools' settings, which are set the
- * same way (spec §6). The setting decides: Allowed runs, Never refuses, Ask me and Consult open an
+ * Holds the calls behind the enforced Hard switches, each its named group of the caller's Authority
+ * (Proposal read as Never), and the MCP tools' settings, which are set the same way (spec §6). The
+ * setting decides: Allowed runs, Never refuses, Ask me and Consult open an
  * approval for the call, of the Consultant a Consult names, or of the user. Nothing waits in the
  * tool call: the answer comes as the Agent's next message, and its repeat of the call then runs
  * once if the answer was "Allow once". In a person's chat the user's approval waits inline there
@@ -60,7 +61,7 @@ export class HeldCalls implements OnModuleInit {
     this.approvalHolds.holdWith((sessionId, call) => this.holdMcpToolCall(sessionId, call));
   }
 
-  /** A call behind the switch on the calling person's card as it is now. */
+  /** A call behind the named group of the calling person's Authority as it is now. */
   async hold(request: HeldCallRequest): Promise<HeldCallOutcome> {
     const thread = await this.threads.findBySession(request.sessionId);
     if (!thread) return refused("The Office doesn't know this session's Thread.");
@@ -70,7 +71,7 @@ export class HeldCalls implements OnModuleInit {
       thread,
       request,
       HARD_SWITCH_LABELS[request.switchKey],
-      session.card.hardSwitches[request.switchKey],
+      session.hardSwitches[request.switchKey],
     );
   }
 

@@ -65,6 +65,14 @@ class RolesInMemory extends RoleRepository {
     throw new Error("A set-up moves no card over.");
   }
 
+  rolesToMoveAuthorityOver(): never {
+    throw new Error("A set-up moves no card over.");
+  }
+
+  moveAuthorityOver(): never {
+    throw new Error("A set-up moves no card over.");
+  }
+
   changeStanding(): never {
     throw new Error("A set-up lets nobody go.");
   }

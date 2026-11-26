@@ -484,6 +484,99 @@
   color: var(--fg-2);
 }
 
+/* ---- Authority: a tool area's row, then its groups indented under it */
+.role-card-authority {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-card-authority li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.role-card-authority-area-name {
+  font-weight: 500;
+  color: var(--fg-1);
+}
+
+.role-card-authority-inside .role-card-switch-name {
+  padding-left: 16px;
+}
+
+.role-card-authority-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.role-card-authority-followed {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-card-authority-followed .role-card-note {
+  display: inline;
+}
+
+/* A capped row's reason: its words show on hover and focus. */
+.role-card-cap-reason {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.role-card-authority-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.role-card-authority-fields + .role-card-authority-fields {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.role-card-authority-area-title {
+  margin: 0;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.role-card-authority-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.role-card-authority-row-name {
+  font: var(--type-label);
+  color: var(--fg-2);
+}
+
+.role-card-authority-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font: var(--type-caption);
+}
+
+.role-card-authority-status .role-card-note {
+  display: inline;
+}
+
 .role-card-mcp-servers {
   display: flex;
   flex-direction: column;

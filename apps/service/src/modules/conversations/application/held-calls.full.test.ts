@@ -3,10 +3,10 @@ import { approvalQuestion } from "../domain/consult.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { SESSION, request, heldCallsWith, anApproval, call } from "./held-calls.fixtures.js";
 
-describe("a call behind Change Roles", () => {
+describe("a call behind Change Project settings", () => {
   it("waits on the Consultant in a Consultation when the switch is Consult", async () => {
     const { heldCalls, opened, putTo } = heldCallsWith({
-      changeRoles: { kind: "consult", role: "cto" },
+      setting: { kind: "consult", role: "cto" },
       hired: ["cto"],
       consultants: ["cto"],
     });
@@ -21,7 +21,7 @@ describe("a call behind Change Roles", () => {
 
   it("waits on the user in place of a hired person who is not a Consultant", async () => {
     const { heldCalls, opened, putTo } = heldCallsWith({
-      changeRoles: { kind: "consult", role: "cto" },
+      setting: { kind: "consult", role: "cto" },
       hired: ["cto"],
     });
 
@@ -34,7 +34,7 @@ describe("a call behind Change Roles", () => {
   });
 
   it("falls back to the user when nobody fills the Role to consult", async () => {
-    const { heldCalls, opened } = heldCallsWith({ changeRoles: { kind: "consult", role: "cto" } });
+    const { heldCalls, opened } = heldCallsWith({ setting: { kind: "consult", role: "cto" } });
 
     await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "held", waitingOn: "the user" });
     expect(opened[0]?.context).not.toContain("For CTO:");
@@ -42,7 +42,7 @@ describe("a call behind Change Roles", () => {
 
   it('waits again after "Deny"', async () => {
     const { heldCalls, opened } = heldCallsWith({
-      changeRoles: { kind: "ask-me" },
+      setting: { kind: "ask-me" },
       answered: [anApproval(1)],
     });
 
@@ -52,7 +52,7 @@ describe("a call behind Change Roles", () => {
 
   it("is refused with the reason when the Thread can't hold a Decision", async () => {
     const { heldCalls } = heldCallsWith({
-      changeRoles: { kind: "ask-me" },
+      setting: { kind: "ask-me" },
       openRefusal: "A chat has no Decisions.",
     });
 
@@ -65,7 +65,7 @@ describe("a call behind Change Roles", () => {
 
 describe("a call of an MCP tool waiting on approval", () => {
   it("opens an approval of the call, input and all, and tells the Agent to end its turn", async () => {
-    const { heldCalls, opened } = heldCallsWith({ changeRoles: { kind: "never" } });
+    const { heldCalls, opened } = heldCallsWith({ setting: { kind: "never" } });
 
     const words = await heldCalls.holdMcpToolCall(SESSION, call({ title: "Bug", body: "x" }));
 
@@ -78,7 +78,7 @@ describe("a call of an MCP tool waiting on approval", () => {
 
   it("asks the Consultant its setting names, in their Consultation", async () => {
     const { heldCalls, putTo } = heldCallsWith({
-      changeRoles: { kind: "never" },
+      setting: { kind: "never" },
       hired: ["cto"],
       consultants: ["cto"],
     });
@@ -97,7 +97,7 @@ describe("a call of an MCP tool waiting on approval", () => {
       0,
       'Call the github/create_issue MCP tool with {"body":"x","title":"Bug"}',
     );
-    const { heldCalls } = heldCallsWith({ changeRoles: { kind: "never" }, answered: [approval] });
+    const { heldCalls } = heldCallsWith({ setting: { kind: "never" }, answered: [approval] });
 
     await expect(
       heldCalls.holdMcpToolCall(SESSION, call({ title: "Bug", body: "x" })),
@@ -109,7 +109,7 @@ describe("a call of an MCP tool waiting on approval", () => {
 
   it("is refused where no Decision opens, in the refusal's words", async () => {
     const { heldCalls } = heldCallsWith({
-      changeRoles: { kind: "never" },
+      setting: { kind: "never" },
       openRefusal: "A Consultation opens no Decision of its own: answer in words.",
     });
 
@@ -120,7 +120,7 @@ describe("a call of an MCP tool waiting on approval", () => {
 
   it("is what the sessions' approval hold asks once the module has started", async () => {
     const approvalHolds = new ApprovalHolds();
-    const { heldCalls } = heldCallsWith({ changeRoles: { kind: "never" }, approvalHolds });
+    const { heldCalls } = heldCallsWith({ setting: { kind: "never" }, approvalHolds });
 
     await expect(approvalHolds.of(SESSION)(call({}))).resolves.toContain(
       "can't ask for approval yet",

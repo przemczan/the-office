@@ -2,8 +2,8 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
-import { CARETAKER_FIXED_PARTS, isBuiltIn } from "../../domain/caretaker.js";
-import { ASK_ME, type HardSwitchValue } from "../../domain/hard-switches.js";
+import { authorityWithHardSwitches, hardSwitchesOf } from "../../domain/authority.js";
+import { ASK_ME, type HardSwitches } from "../../domain/hard-switches.js";
 import type { Role, RoleCardVersion } from "../../domain/role.js";
 import type { RoleCard } from "../../domain/role-card.js";
 import type { EarlierEngineFields, RoleChange } from "../../domain/role-changes.js";
@@ -82,6 +82,39 @@ export class PostgresRoleRepository extends RoleRepository {
     );
   }
 
+  rolesToMoveAuthorityOver(): Promise<readonly string[]> {
+    return readOnce(readKey("roles.toMoveAuthorityOver"), async () => {
+      const rows = await this.database
+        .select({ key: roles.key })
+        .from(roles)
+        .innerJoin(roleCardVersions, currentCard)
+        .where(sql`${roleCardVersions.card} -> 'authority' is null`)
+        .orderBy(asc(roles.hiredAt), asc(roles.key));
+      return rows.map((row) => row.key);
+    });
+  }
+
+  async moveAuthorityOver(
+    key: string,
+    change: (role: Role, switches: HardSwitches) => RoleChange<RoleCardChanged>,
+  ): Promise<RoleUpdate> {
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const { role, stored } = await heldRole(transaction, key);
+        // Moved over meanwhile, by another start of the service.
+        if (stored.authority !== undefined) return { role, event: undefined };
+        const changed = change(role, {
+          ...stored.hardSwitches,
+          changeProjectSettings: stored.hardSwitches.changeProjectSettings ?? ASK_ME,
+        });
+        await saveVersion(transaction, changed, earlierFieldsOf(stored), {
+          engineSettingsMissing: stored.engineSettings === undefined,
+        });
+        return changed;
+      }),
+    );
+  }
+
   rolesToMoveOver(): Promise<readonly string[]> {
     return readOnce(readKey("roles.toMoveOver"), async () => {
       const rows = await this.database
@@ -105,7 +138,13 @@ export class PostgresRoleRepository extends RoleRepository {
         if (stored.engineSettings !== undefined) return { role, event: undefined };
         const earlier = earlierFieldsOf(stored);
         const changed = change(role, earlier);
-        await saveVersion(transaction, changed, earlier);
+        // The Authority move-over, apart, still finds the card without one, and its switches as kept.
+        await saveVersion(
+          transaction,
+          changed,
+          earlier,
+          stored.authority === undefined ? { authorityMissing: stored.hardSwitches } : {},
+        );
         return changed;
       }),
     );
@@ -184,16 +223,26 @@ export async function addRole(transaction: Transaction, role: Role): Promise<boo
   return true;
 }
 
+/**
+ * What a move-over keeps missing from the card it saves, so the other move-over, which runs apart,
+ * still finds it to move: `engineSettings`, or `authority` with the Hard switches as kept.
+ */
+interface StillMissing {
+  readonly engineSettingsMissing?: boolean;
+  readonly authorityMissing?: StoredRoleCard["hardSwitches"];
+}
+
 /** Saves the changed Role's row and its card's new version, keeping the `earlier` fields. */
 async function saveVersion(
   transaction: Transaction,
   { role, event }: RoleChange<RoleCardChanged>,
   earlier: EarlierEngineFields,
+  missing: StillMissing = {},
 ): Promise<void> {
   await transaction.update(roles).set(toRow(role)).where(eq(roles.key, role.key));
   await transaction
     .insert(roleCardVersions)
-    .values({ ...currentVersionRow(role, earlier), changes: [...event.changes] });
+    .values({ ...currentVersionRow(role, earlier, missing), changes: [...event.changes] });
 }
 
 /** The Role as stored, with its current card as kept, locked until `transaction` ends. */
@@ -230,19 +279,37 @@ function toRow(role: Role): RoleRow {
 
 /**
  * The Role's current card version as kept, carrying `earlier` forward unread so a rollback to the
- * release before finds them as they were (spec §5.4.5, "Moving the earlier engine settings over").
+ * release before finds them as they were (spec §5.4.5, "Moving the earlier engine settings over"),
+ * and the Hard switches in step with the Authority, as the release before Authority reads them.
  */
 function currentVersionRow(
   role: Role,
   earlier: EarlierEngineFields,
+  missing: StillMissing = {},
 ): Omit<RoleCardVersionRow, "changes"> {
   return {
     roleKey: role.key,
     version: role.cardVersion,
-    card: { ...role.card, ...earlier },
+    card: storedCardOf(role, earlier, missing),
     savedAt: role.cardSavedAt,
     proposedBy: role.cardProposedBy ?? null,
     savedBy: role.cardSavedBy,
+  };
+}
+
+function storedCardOf(
+  { key, card }: Role,
+  earlier: EarlierEngineFields,
+  { engineSettingsMissing = false, authorityMissing }: StillMissing,
+): StoredRoleCard {
+  const { authority, engineSettings, ...rest } = card;
+  return {
+    ...rest,
+    ...(!engineSettingsMissing && { engineSettings }),
+    ...(authorityMissing
+      ? { hardSwitches: authorityMissing }
+      : { authority, hardSwitches: hardSwitchesOf(key, authority) }),
+    ...earlier,
   };
 }
 
@@ -256,30 +323,30 @@ function earlierFieldsOf({ roleOverride, effort }: StoredRoleCard): EarlierEngin
 
 /**
  * The card as the domain reads it: the earlier fields left out, no engine settings read as none,
- * and no Change Project settings read as Ask me.
+ * and its Authority with its Hard switches over it (`authorityWithHardSwitches`).
  *
- * Migration 0212 gave every stored card Change Project settings, but the release before reads a
- * card through its own request schema, which drops the switch it doesn't know: a card it saves
- * after a rollback lacks it. Such a card asks the user, as a Role hired from scratch starts; the
- * Caretaker's stays at its fixed Never, so its next save isn't refused for a fixed part changed.
+ * A card the release before Authority saved has Hard switches only, whose values that differ from
+ * the preset's defaults are set rows; one it saved after a rollback lost `authority` through its own
+ * request schema, or changed switches the Authority doesn't say, and reads the same way. Migration
+ * 0212 gave every stored card Change Project settings, but the release before it drops the switch on
+ * any save after a rollback: a missing one reads as Ask me, as a Role hired from scratch starts. The
+ * Caretaker's reads as its fixed Authority, whatever it keeps.
  */
 function cardOf(
   roleKey: string,
-  { roleOverride: _roleOverride, effort: _effort, ...card }: StoredRoleCard,
+  {
+    roleOverride: _roleOverride,
+    effort: _effort,
+    hardSwitches,
+    authority,
+    ...card
+  }: StoredRoleCard,
 ): RoleCard {
-  const { changeProjectSettings, ...hardSwitches } = card.hardSwitches;
   return {
     ...card,
     engineSettings: card.engineSettings ?? {},
-    hardSwitches: {
-      ...hardSwitches,
-      changeProjectSettings: changeProjectSettings ?? changeProjectSettingsMissing(roleKey),
-    },
+    authority: authorityWithHardSwitches(roleKey, authority ?? {}, hardSwitches),
   };
-}
-
-function changeProjectSettingsMissing(roleKey: string): HardSwitchValue {
-  return isBuiltIn(roleKey) ? CARETAKER_FIXED_PARTS.hardSwitches.changeProjectSettings : ASK_ME;
 }
 
 function toRole(row: RoleRow, version: RoleCardVersionRow): Role {

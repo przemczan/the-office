@@ -17,7 +17,7 @@ import {
   ScriptedEngineModule,
   type Engine,
 } from "../../engine/index.js";
-import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { BusyWorkModule } from "../../office-updates/index.js";
 import { type PreparedMcpServers, SessionMcpServers } from "../../mcp-servers/index.js";
 import { TokensCounted, DecisionAnswered } from "../domain/conversation-events.js";
@@ -240,12 +240,15 @@ async function startOn(
 
 function aPerson(name: string): string {
   const roleKey = `role-${randomUUID()}`;
-  people.set(roleKey, {
+  people.set(
     roleKey,
-    cardVersion: 1,
-    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-    card: aPlannerCard({ name, title: "Developer", sessionDefault: "always-start-fresh" }),
-  });
+    sessionRole(
+      roleKey,
+      1,
+      aPlannerCard({ name, title: "Developer", sessionDefault: "always-start-fresh" }),
+      MCP_TOOL_DEFAULT_STAND_IN,
+    ),
+  );
   return roleKey;
 }
 
@@ -759,12 +762,15 @@ describe("StageThreads", () => {
 
   it("gives Devops' Stage their own Office tools besides the Stage's, as in their chat", async () => {
     await startWith(started(...aTurn({ status: "done" })));
-    people.set(DEVOPS, {
-      roleKey: DEVOPS,
-      cardVersion: 1,
-      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-      card: aPlannerCard({ name: "Nina", title: "Devops", sessionDefault: "always-start-fresh" }),
-    });
+    people.set(
+      DEVOPS,
+      sessionRole(
+        DEVOPS,
+        1,
+        aPlannerCard({ name: "Nina", title: "Devops", sessionDefault: "always-start-fresh" }),
+        MCP_TOOL_DEFAULT_STAND_IN,
+      ),
+    );
     // Pipelines and Projects register these in the service.
     const registry = app.get(OfficeToolRegistry);
     for (const name of roleOfficeTools(["onboards-projects"])) {

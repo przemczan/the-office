@@ -5,7 +5,7 @@ import { webEventSchema } from "./events.js";
 import { messageImageSchema } from "./message-images.js";
 import { openPageSchema } from "./open-page.js";
 import { pageSchemaOf } from "./paging.js";
-import { dutyKeySchema, roleCardSchema } from "./people.js";
+import { dutyKeySchema, roleCardSchema, savedRoleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { proposedTestTargetsSchema } from "./test-targets.js";
 import { pinnedVersionSchema } from "./skills.js";
@@ -653,7 +653,7 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   /** A new Role, hired from scratch on this card (with its skills) when the user applies it. */
   z.object({
     kind: z.literal("hire"),
-    card: roleCardSchema,
+    card: savedRoleCardSchema,
     /** The Role the person was hired into; null until the user applied it. */
     roleKey: z.string().nullable(),
   }),
@@ -702,7 +702,7 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
       z.discriminatedUnion("kind", [
         z.object({ kind: z.literal("hire-from-preset"), roleKey: z.string(), name: z.string() }),
         /** `roleKey` is the key the card's title makes, which a duty of the same set-up names. */
-        z.object({ kind: z.literal("hire"), card: roleCardSchema, roleKey: z.string() }),
+        z.object({ kind: z.literal("hire"), card: savedRoleCardSchema, roleKey: z.string() }),
       ]),
     ),
     duties: z.array(

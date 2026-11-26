@@ -319,10 +319,11 @@ test(
     await expect(page.getByRole("button", { name: "Let go" })).toHaveCount(0);
 
     await page.getByRole("tab", { name: "Role card" }).click();
-    for (const group of ["Work", "Capabilities", "Permissions"]) {
+    for (const group of ["Work", "Capabilities", "Permissions", "Authority"]) {
       await expect(roleCardGroup(page, group)).toContainText("Built in: fixed for the Caretaker.");
     }
-    await expect(roleCardGroup(page, "Permissions")).toContainText("Change RolesNever");
+    // The Caretaker's Authority is fixed rather than a preset's, so it reads plainly.
+    await expect(roleCardGroup(page, "Authority")).toContainText("Change RolesProposal");
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-caretaker-role-card.png"),
       fullPage: true,
@@ -331,7 +332,7 @@ test(
     // The form shows the fixed parts but doesn't change them; the rest stays editable.
     await page.getByRole("button", { name: "Edit Role" }).click();
     await expect(page.getByLabel("Task limit")).toBeDisabled();
-    await expect(page.getByLabel("Runs")).toBeDisabled();
+    await expect(page.getByLabel("Runs", { exact: true })).toBeDisabled();
     await roleCardGroup(page, "Capabilities").getByText("Chat", { exact: true }).click();
     await expect(page.getByText("You have unsaved changes.")).toHaveCount(0);
     await expect(page.getByLabel("Title")).toBeEditable();
@@ -395,11 +396,13 @@ test(
     await page.goto("/people/developer");
     await page.getByRole("tab", { name: "Role card" }).click();
     await expect(page).toHaveURL(/\/people\/developer\/role$/);
-    const permissions = roleCardGroup(page, "Permissions");
-    await expect(permissions).toContainText("Run installsConsult Devops");
-    await expect(permissions).toContainText("Publish outside the PipelineConsult CTO");
-    await expect(permissions).toContainText("Asks you until someone is hired");
-    await expect(permissions).toContainText("Change RolesNever");
+    const authority = roleCardGroup(page, "Authority");
+    await expect(authority).toContainText("Run installsPreset default (Consult Devops)");
+    await expect(authority).toContainText(
+      "Publish outside the PipelinePreset default (Consult CTO)",
+    );
+    await expect(authority).toContainText("Asks you until the Role is hired");
+    await expect(authority).toContainText("Change RolesPreset default (Never)");
     await expect(roleCardGroup(page, "Work")).toContainText("3 at once");
     const worksWith = roleCardGroup(page, "Engine").getByRole("table");
     await expect(worksWith.getByRole("row", { name: /Claude Code/ })).toContainText(
@@ -417,13 +420,15 @@ test(
     // The Office Manager only talks, and changes a Role only when the user says so.
     await page.goto("/people/office-manager/role");
     await expect(roleCardGroup(page, "Work")).toContainText("talks only and never works a Stage");
-    await expect(roleCardGroup(page, "Permissions")).toContainText("Change RolesAsk me");
+    await expect(roleCardGroup(page, "Authority")).toContainText(
+      "Change RolesPreset default (Proposal)",
+    );
 
     // The CTO works Stages too, and publishes outside the Pipeline only when the user says so.
     await page.goto("/people/cto/role");
     await expect(roleCardGroup(page, "Work")).toContainText("2 at once");
-    await expect(roleCardGroup(page, "Permissions")).toContainText(
-      "Publish outside the PipelineAsk me",
+    await expect(roleCardGroup(page, "Authority")).toContainText(
+      "Publish outside the PipelinePreset default (Ask me)",
     );
   },
 );
@@ -457,7 +462,7 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByLabel("Run installs").selectOption("ask-me");
   await form.getByLabel("Publish outside the Pipeline").selectOption("never");
   await form.getByLabel("Change Project settings").selectOption("ask-me");
-  await form.getByLabel("Runs").selectOption("project-commands");
+  await form.getByLabel("Runs", { exact: true }).selectOption("project-commands");
   await form.getByText("Searches and fetches the web", { exact: true }).click();
   await form.getByText(SKILL, { exact: true }).click();
   await expect(
@@ -493,11 +498,12 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(capabilities.filter({ hasText: "Consultant" })).toHaveClass("on");
   // The Developer preset has Run environment on.
   await expect(capabilities.filter({ hasText: "Run environment" })).not.toHaveClass("on");
+  const authority = roleCardGroup(page, "Authority");
+  await expect(authority).toContainText("Run installsAsk me");
+  await expect(authority).toContainText("Publish outside the PipelineNever");
+  await expect(authority).toContainText("Change Project settingsAsk me");
+  await expect(authority).not.toContainText("Asks you until the Role is hired");
   const permissions = roleCardGroup(page, "Permissions");
-  await expect(permissions).toContainText("Run installsAsk me");
-  await expect(permissions).toContainText("Publish outside the PipelineNever");
-  await expect(permissions).toContainText("Change Project settingsAsk me");
-  await expect(permissions).not.toContainText("Asks you until someone is hired");
   await expect(permissions).toContainText("Edits files in its worktree");
   await expect(permissions).toContainText("Runs the Project's commands and read-only git");
   await expect(permissions).toContainText("No web");
@@ -516,6 +522,62 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   // The Overview's Works with names the type's model and effort.
   await page.goto("/people/developer");
   await expect(page.getByText("Claude Code: Sonnet 5.5 · effort max")).toBeVisible();
+});
+
+test("the user sets an Authority row on a Role card, then resets it to the preset's default", async ({
+  page,
+}) => {
+  await page.goto("/people/developer/role/edit");
+  const form = page.locator("form.role-card-form");
+  const movingWork = form.getByLabel("Moving work", { exact: true });
+  const movingWorkRow = form
+    .locator(".role-card-authority-field")
+    .filter({ has: page.getByLabel("Moving work", { exact: true }) });
+  // The Developer preset never moves work; a row at its default says so, muted.
+  await expect(movingWork).toHaveValue("never");
+  await expect(movingWorkRow).toContainText("Preset default (Never)");
+
+  // A capped row takes only Proposal, Ask me and Never: no Allowed, no Consult.
+  await expect(form.getByLabel("Change Roles", { exact: true }).locator("option")).toHaveText([
+    "Proposal",
+    "Ask me",
+    "Never",
+  ]);
+  await expect(
+    form.locator(".role-card-authority-field").filter({
+      has: page.getByLabel("Change Roles", { exact: true }),
+    }),
+  ).toContainText("Proposal, Ask me or Never only: the trust anchor");
+  // A record's row has Own and Others'.
+  const taskRecords = form.getByRole("group", { name: "Task records" });
+  await expect(taskRecords.getByLabel("Own", { exact: true })).toHaveValue("allowed");
+  await expect(taskRecords.getByLabel("Others'", { exact: true })).toHaveValue("ask-me");
+
+  await movingWork.selectOption("ask-me");
+  await expect(
+    movingWorkRow.getByRole("button", { name: "Reset to the preset's default" }),
+  ).toBeVisible();
+  await screenshotScenario(page, "role-card-authority-form", { inView: movingWorkRow });
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/\/people\/developer\/role$/);
+
+  // Set, it shows plainly inside its area, which still reads the preset's Never.
+  const work = roleCardGroup(page, "Authority").getByRole("list", { name: "Work", exact: true });
+  await expect(work.getByRole("listitem").first()).toHaveText("WorkPreset default (Never)");
+  await expect(work.getByRole("listitem").filter({ hasText: "Moving work" })).toHaveText(
+    "Moving workAsk me",
+  );
+  await expect(page.getByText("Authority › Moving work Preset default → Ask me")).toBeVisible();
+  await screenshotScenario(page, "role-card-authority-view", { inView: work });
+
+  // Reset puts it back at the preset's default, so the area holds it again.
+  await page.getByRole("button", { name: "Edit Role" }).click();
+  await movingWorkRow.getByRole("button", { name: "Reset to the preset's default" }).click();
+  await expect(movingWorkRow).toContainText("Preset default (Never)");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/\/people\/developer\/role$/);
+  await expect(work.getByRole("listitem").first()).toHaveText("WorkPreset default (Never)");
+  await expect(work.getByRole("listitem").filter({ hasText: "Moving work" })).toHaveCount(0);
 });
 
 test(
@@ -600,7 +662,7 @@ test(
 
     await form.getByLabel("Responsibilities").fill("Answers questions with the Project's data.");
     await form.getByLabel("Instructions").fill("Query read-only; report what the numbers show.");
-    await form.getByLabel("Runs").selectOption("project-commands");
+    await form.getByLabel("Runs", { exact: true }).selectOption("project-commands");
     await page.getByRole("button", { name: "Hire Mia" }).click();
 
     await expect(page.getByRole("heading", { name: "Mia · Data Analyst" })).toBeVisible();
@@ -1403,12 +1465,14 @@ test(
     for (const capability of ["Shared memory", "Chat", "Consultant", "Run environment"]) {
       await expect(capabilities.filter({ hasText: capability })).toHaveClass("on");
     }
-    const permissions = roleCardGroup(page, "Permissions");
-    await expect(permissions).toContainText("Run installsAllowed");
-    await expect(permissions).toContainText("Publish outside the PipelineConsult CTO");
-    await expect(permissions).toContainText("Change RolesNever");
+    const authority = roleCardGroup(page, "Authority");
+    await expect(authority).toContainText("Run installsPreset default (Allowed)");
+    await expect(authority).toContainText(
+      "Publish outside the PipelinePreset default (Consult CTO)",
+    );
+    await expect(authority).toContainText("Change RolesPreset default (Never)");
     // Bob fills the CTO's Role, so the consult goes to him rather than the user.
-    await expect(permissions).not.toContainText("Asks you until someone is hired");
+    await expect(authority).not.toContainText("Asks you until the Role is hired");
 
     // Every preset is filled, so only hiring from scratch is left.
     await page.goto("/people");

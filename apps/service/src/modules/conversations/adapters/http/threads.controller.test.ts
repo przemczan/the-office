@@ -20,7 +20,14 @@ import {
 import type { Pool } from "pg";
 import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
 import { DATABASE_POOL } from "../../../../platform/database/database-pool.js";
-import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
+import {
+  CARETAKER,
+  EngineCascade,
+  hardSwitchesOf,
+  RoleCards,
+  sessionRole,
+  type SessionRole,
+} from "../../../people/index.js";
 import { BusyWorkModule } from "../../../office-updates/index.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
@@ -152,7 +159,7 @@ function aPerson(name: string, chat: boolean): string {
     name,
     capabilities: { sharedMemory: false, chat, consultant: true, runEnvironment: false },
   });
-  people.set(roleKey, { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN });
+  people.set(roleKey, sessionRole(roleKey, 1, card, MCP_TOOL_DEFAULT_STAND_IN));
   return roleKey;
 }
 
@@ -695,14 +702,22 @@ describe("a Thread", () => {
     );
 
     const empty = await send("POST", `/threads/${thread.id}/messages`, { text: "  " });
-    people.set(roleKey, {
+    people.set(
       roleKey,
-      cardVersion: 2,
-      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-      card: aPlannerCard({
-        capabilities: { sharedMemory: false, chat: false, consultant: true, runEnvironment: false },
-      }),
-    });
+      sessionRole(
+        roleKey,
+        2,
+        aPlannerCard({
+          capabilities: {
+            sharedMemory: false,
+            chat: false,
+            consultant: true,
+            runEnvironment: false,
+          },
+        }),
+        MCP_TOOL_DEFAULT_STAND_IN,
+      ),
+    );
     const chatOff = await send("POST", `/threads/${thread.id}/messages`, { text: "Hello." });
 
     expect(empty.status).toBe(422);
@@ -1044,7 +1059,13 @@ describe("a Proposal", () => {
     );
     const read = proposalSchema.parse(await (await get(`/proposals/${proposalId}`)).json());
     const applying = await send("POST", `/proposals/${proposalId}/apply`, {
-      card: { ...aProposedCard(), name: "Tom", skills: [] },
+      // As the web sends it: the Hard switches beside the Authority.
+      card: {
+        ...aProposedCard(),
+        hardSwitches: hardSwitchesOf("tester", aProposedCard().authority),
+        name: "Tom",
+        skills: [],
+      },
     });
 
     expect(messages).toEqual([
@@ -1160,12 +1181,15 @@ describe("what each signed-in user does", () => {
 
 describe("Allow changes", () => {
   it("is switched on and off in the Caretaker's chat, with a line each time, and refused elsewhere", async () => {
-    people.set(CARETAKER, {
-      roleKey: CARETAKER,
-      cardVersion: 1,
-      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-      card: aPlannerCard({ name: "Sam", title: "Caretaker" }),
-    });
+    people.set(
+      CARETAKER,
+      sessionRole(
+        CARETAKER,
+        1,
+        aPlannerCard({ name: "Sam", title: "Caretaker" }),
+        MCP_TOOL_DEFAULT_STAND_IN,
+      ),
+    );
     const thread = threadSchema.parse(
       await (await send("POST", `/chats/${CARETAKER}/threads`)).json(),
     );

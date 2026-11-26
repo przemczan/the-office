@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CARETAKER_FIXED_PARTS } from "./caretaker.js";
-import { ALLOWED, ASK_ME, NEVER } from "./hard-switches.js";
+import { ASK_ME } from "./hard-switches.js";
 import { CARETAKER } from "./known-roles.js";
 import { aRole, aRoleCard, CARD_CONTEXT } from "./role.fixtures.js";
 import { changeRoleCard, hireFromScratch, letGo } from "./role-changes.js";
@@ -15,7 +15,6 @@ const caretakerCard = aRoleCard({
   instructions: "Diagnose before you change anything.",
   ...CARETAKER_FIXED_PARTS,
   permissionProfile: { ...CARETAKER_FIXED_PARTS.permissionProfile, mcpTools: {} },
-  hardSwitches: { ...CARETAKER_FIXED_PARTS.hardSwitches },
   capabilities: { ...CARETAKER_FIXED_PARTS.capabilities },
 });
 const caretaker = aRole({ key: CARETAKER, card: caretakerCard });
@@ -32,16 +31,10 @@ function refusal(change: () => unknown): readonly string[] {
 
 describe("the Caretaker's fixed parts", () => {
   // Spec §2.2: setting up The Office gives the Caretaker a tool, never other capabilities or switches.
-  it("stay a chat with Memory, the profile Allow changes grants, Change Roles Never and no Task limit", () => {
+  it("stay a chat with Memory, the profile Allow changes grants and no Task limit", () => {
     expect(CARETAKER_FIXED_PARTS).toEqual({
       capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
       permissionProfile: { edit: true, run: "anything", web: true },
-      hardSwitches: {
-        runInstalls: ALLOWED,
-        publishOutsideThePipeline: ALLOWED,
-        changeRoles: NEVER,
-        changeProjectSettings: NEVER,
-      },
       taskLimit: "none",
     });
   });
@@ -78,7 +71,7 @@ describe("the Caretaker's card", () => {
       "permission profile",
       { permissionProfile: { ...caretakerCard.permissionProfile, run: "read-only-git" as const } },
     ],
-    ["Hard switches", { hardSwitches: { ...caretakerCard.hardSwitches, runInstalls: ASK_ME } }],
+    ["Authority", { authority: { runInstalls: ASK_ME } }],
     ["Task limit", { taskLimit: 2 }],
   ])("refuses a change to its %s", (part, fields) => {
     expect(

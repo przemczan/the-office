@@ -1,5 +1,6 @@
 export {
   RoleCards,
+  sessionRole,
   type Consultant,
   type HiredPerson,
   type SessionRole,
@@ -54,9 +55,20 @@ export { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./domain/r
 export {
   hardSwitchInEffect,
   HARD_SWITCH_LABELS,
+  type HardSwitches,
   type HardSwitchKey,
   type HardSwitchValue,
 } from "./domain/hard-switches.js";
+export {
+  authorityInEffect,
+  authorityWithHardSwitches,
+  hardSwitchesOf,
+  type Authority,
+  type AuthorityGroup,
+  type AuthorityInEffect,
+  type AuthoritySetting,
+  type AuthorityValue,
+} from "./domain/authority.js";
 export { CARETAKER } from "./domain/known-roles.js";
 export {
   mcpToolSettingsFor,
@@ -68,7 +80,13 @@ export {
   permissionNarrowingProblems,
   type PermissionNarrowing,
 } from "./domain/permission-profile.js";
-export type { EngineTypeSetting, PersonEngineSettings, RoleCard } from "./domain/role-card.js";
+export {
+  cardWithAuthority,
+  type EngineTypeSetting,
+  type IncomingRoleCard,
+  type PersonEngineSettings,
+  type RoleCard,
+} from "./domain/role-card.js";
 export { RoleNotFound } from "./domain/role-not-found.js";
 export { RoleRefused } from "./domain/role-refused.js";
 export { PeopleModule } from "./people.module.js";

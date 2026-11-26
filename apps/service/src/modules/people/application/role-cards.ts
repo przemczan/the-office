@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { DutyKey } from "../domain/duties.js";
-import type { HardSwitchValue } from "../domain/hard-switches.js";
+import { authorityInEffect, hardSwitchesOf, type AuthorityInEffect } from "../domain/authority.js";
+import type { HardSwitches, HardSwitchValue } from "../domain/hard-switches.js";
 import {
   permissionNarrowingProblems,
   type PermissionNarrowing,
@@ -14,13 +15,33 @@ import { Duties } from "./duties.js";
 
 /**
  * The card a session of the Role runs with, at the version it records, with where its MCP tools the
- * card leaves unset stand, as read now.
+ * card leaves unset stand, as read now. `authority` is the card's Authority in effect, and
+ * `hardSwitches` its four named groups as held calls read them (`hardSwitchesOf`).
  */
 export interface SessionRole {
   readonly roleKey: string;
   readonly cardVersion: number;
   readonly card: RoleCard;
+  readonly authority: AuthorityInEffect;
+  readonly hardSwitches: HardSwitches;
   readonly mcpToolDefault: HardSwitchValue;
+}
+
+/** The session's view of `card`: its Authority in effect and its Hard switches. */
+export function sessionRole(
+  roleKey: string,
+  cardVersion: number,
+  card: RoleCard,
+  mcpToolDefault: HardSwitchValue,
+): SessionRole {
+  return {
+    roleKey,
+    cardVersion,
+    card,
+    authority: authorityInEffect(roleKey, card.authority),
+    hardSwitches: hardSwitchesOf(roleKey, card.authority),
+    mcpToolDefault,
+  };
 }
 
 /** A hired person other people may consult (spec §2.2): their Consultant capability is on. */
@@ -61,12 +82,7 @@ export class RoleCards {
   async find(roleKey: string): Promise<SessionRole | undefined> {
     const role = await this.repository.find(roleKey);
     if (!role || role.letGoAt) return undefined;
-    return {
-      roleKey,
-      cardVersion: role.cardVersion,
-      card: role.card,
-      mcpToolDefault: await this.duties.mcpToolDefault(),
-    };
+    return sessionRole(roleKey, role.cardVersion, role.card, await this.duties.mcpToolDefault());
   }
 
   /** The keys of the Roles someone fills now. */
@@ -155,11 +171,6 @@ export class RoleCards {
     if (!(await this.find(roleKey))) throw new RoleNotFound(roleKey);
     const version = await this.repository.version(roleKey, cardVersion);
     if (!version) throw new RoleCardVersionNotFound(roleKey, cardVersion);
-    return {
-      roleKey,
-      cardVersion,
-      card: version.card,
-      mcpToolDefault: await this.duties.mcpToolDefault(),
-    };
+    return sessionRole(roleKey, cardVersion, version.card, await this.duties.mcpToolDefault());
   }
 }

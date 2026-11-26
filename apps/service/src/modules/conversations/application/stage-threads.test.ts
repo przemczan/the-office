@@ -48,7 +48,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { ScheduleModule } from "../../../platform/schedule/schedule.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
-import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { BusyWorkModule } from "../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
@@ -269,12 +269,15 @@ async function startOn(
 
 function aPerson(name: string): string {
   const roleKey = `role-${randomUUID()}`;
-  people.set(roleKey, {
+  people.set(
     roleKey,
-    cardVersion: 1,
-    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-    card: aPlannerCard({ name, title: "Developer", sessionDefault: "always-start-fresh" }),
-  });
+    sessionRole(
+      roleKey,
+      1,
+      aPlannerCard({ name, title: "Developer", sessionDefault: "always-start-fresh" }),
+      MCP_TOOL_DEFAULT_STAND_IN,
+    ),
+  );
   return roleKey;
 }
 

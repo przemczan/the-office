@@ -1,7 +1,16 @@
 import type { Role, RoleChange } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { AUTHORITY_AREAS, NEVER_EVERYWHERE } from "./authority.fixtures.ts";
 import {
+  areaSetting,
+  authorityChoices,
+  authoritySettingLabel,
+  authoritySummaryLines,
+  authorityValueLabel,
+  authorityValueOf,
   changeLine,
+  followedWords,
+  presetDefaultWords,
   engineInCascadeText,
   hardSwitchValueLabel,
   missingCapabilitiesWords,
@@ -97,6 +106,101 @@ describe("the Role card's words", () => {
       "Consult Devops",
     );
     expect(hardSwitchValueLabel({ kind: "ask-me" }, roleTitles)).toBe("Ask me");
+  });
+
+  it("says an Authority value and setting, a pair as its own and others' values", () => {
+    expect(authorityValueLabel({ kind: "consult", role: "devops" }, roleTitles)).toBe(
+      "Consult Devops",
+    );
+    expect(authorityValueLabel({ kind: "proposal" }, roleTitles)).toBe("Proposal");
+    expect(
+      authoritySettingLabel(
+        { kind: "own-and-others", own: { kind: "allowed" }, others: { kind: "ask-me" } },
+        roleTitles,
+      ),
+    ).toBe("Own: Allowed · Others': Ask me");
+    expect(
+      authoritySettingLabel(
+        { kind: "own-and-others", own: { kind: "never" }, others: { kind: "never" } },
+        roleTitles,
+      ),
+    ).toBe("Never");
+    expect(presetDefaultWords("Ask me")).toBe("Preset default (Ask me)");
+    expect(followedWords({ enforcedOn: "run_environment_check" })).toBe(
+      "Followed by the Agent, enforced on run_environment_check",
+    );
+    expect(followedWords({ enforcedOn: null })).toBe("Followed by the Agent");
+  });
+
+  it("gives an area the value most of its groups share, a tie going to its first group", () => {
+    const work = AUTHORITY_AREAS[0];
+    if (!work) throw new Error("No Work area.");
+    const pair = {
+      kind: "own-and-others",
+      own: { kind: "allowed" },
+      others: { kind: "ask-me" },
+    } as const;
+    expect(areaSetting(work, { ...NEVER_EVERYWHERE, taskRecords: pair })).toEqual({
+      kind: "never",
+    });
+    expect(
+      areaSetting(work, {
+        ...NEVER_EVERYWHERE,
+        taskRecords: pair,
+        movingWork: pair,
+      }),
+    ).toEqual(pair);
+    expect(authoritySummaryLines(AUTHORITY_AREAS.slice(1), NEVER_EVERYWHERE, roleTitles)).toEqual([
+      "People and Roles: Never",
+      "Run installs: Never",
+      "Publish outside the Pipeline: Never",
+      "Approve held calls and apply Proposals: Never",
+    ]);
+  });
+
+  it("offers a row's values as choices, Consult once per Role", () => {
+    const choices = authorityChoices(
+      ["allowed", "consult", "ask-me", "never"],
+      [{ key: "devops", title: "Devops" }],
+      { kind: "consult", role: "gone" },
+    );
+    expect(choices).toEqual([
+      { value: "allowed", label: "Allowed" },
+      { value: "consult:devops", label: "Consult Devops" },
+      { value: "consult:gone", label: "Consult gone" },
+      { value: "ask-me", label: "Ask me" },
+      { value: "never", label: "Never" },
+    ]);
+    expect(authorityValueOf("consult:devops")).toEqual({ kind: "consult", role: "devops" });
+    expect(authorityValueOf("proposal")).toEqual({ kind: "proposal" });
+  });
+
+  it("writes an Authority change by its row, a row at the default as the preset's", () => {
+    expect(
+      changeLine({ field: "authority.movingWork", from: null, to: { kind: "ask-me" } }, names),
+    ).toBe("Authority › Moving work Preset default → Ask me");
+    expect(
+      changeLine(
+        {
+          field: "authority.taskRecords",
+          from: { kind: "own-and-others", own: { kind: "allowed" }, others: { kind: "never" } },
+          to: null,
+        },
+        names,
+      ),
+    ).toBe("Authority › Task records Own: Allowed · Others': Never → Preset default");
+    expect(changeLine({ field: "authorityMovedOver", from: null, to: null }, names)).toBe(
+      "Authority from the Hard switches and duties",
+    );
+    expect(
+      proposedFieldChanges(
+        { authority: { movingWork: { kind: "ask-me" } } },
+        { authority: { changeRoles: { kind: "proposal" } } },
+      ),
+    ).toEqual([
+      { field: "authority.movingWork", from: { kind: "ask-me" }, to: null },
+      { field: "authority.changeRoles", from: null, to: { kind: "proposal" } },
+    ]);
   });
 
   it("writes each change of the history in the card's words", () => {

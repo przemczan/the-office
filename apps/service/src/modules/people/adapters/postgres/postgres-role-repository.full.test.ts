@@ -4,7 +4,9 @@ import { asc, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { PROPOSAL } from "../../domain/authority.js";
 import { CARETAKER_FIXED_PARTS } from "../../domain/caretaker.js";
+import { ALLOWED, ASK_ME, consult, NEVER } from "../../domain/hard-switches.js";
 import { CARETAKER } from "../../domain/known-roles.js";
 import { roleCardProblems } from "../../domain/role-card.js";
 import { aRole, aRoleCard, CARD_CONTEXT } from "../../domain/role.fixtures.js";
@@ -46,7 +48,7 @@ describe("PostgresRoleRepository", () => {
         title: "Caretaker",
         capabilities: CARETAKER_FIXED_PARTS.capabilities,
         permissionProfile: { ...CARETAKER_FIXED_PARTS.permissionProfile, mcpTools: {} },
-        hardSwitches: CARETAKER_FIXED_PARTS.hardSwitches,
+        authority: {},
         taskLimit: "none",
       },
     });
@@ -193,28 +195,98 @@ describe("PostgresRoleRepository", () => {
     expect(await repository.find(role.key)).not.toHaveProperty("card.roleOverride");
   });
 
-  it("reads Change Project settings as Ask me on a card the release before saved after a rollback", async () => {
+  it("reads the Authority of a card the release before saved from its Hard switches, Change Project settings missing as Ask me", async () => {
+    const role = aRoleOfItsOwn();
+    await repository.add(role);
+    // The release before keeps no Authority, and the one before Change Project settings drops it.
+    await database()
+      .update(roleCardVersions)
+      .set({
+        card: sql`(${roleCardVersions.card} - 'authority') || ${JSON.stringify({
+          hardSwitches: {
+            runInstalls: consult("devops"),
+            publishOutsideThePipeline: NEVER,
+            changeRoles: ALLOWED,
+          },
+        })}::jsonb`,
+      })
+      .where(eq(roleCardVersions.roleKey, role.key));
+
+    // A Role from scratch starts at Ask me, Change Roles at Never; Allowed there is held to Ask me.
+    const authority = {
+      runInstalls: consult("devops"),
+      publishOutsideThePipeline: NEVER,
+      changeRoles: ASK_ME,
+    };
+    expect((await repository.find(role.key))?.card.authority).toEqual(authority);
+    expect((await repository.version(role.key, 1))?.card.authority).toEqual(authority);
+  });
+
+  it("reads changed Hard switches over the Authority, as a save after a rollback leaves them", async () => {
+    const role = aRoleOfItsOwn({ card: aRoleCard({ authority: { runInstalls: ALLOWED } }) });
+    await repository.add(role);
+    await database()
+      .update(roleCardVersions)
+      .set({
+        card: sql`jsonb_set(${roleCardVersions.card}, '{hardSwitches,publishOutsideThePipeline}', '{"kind":"never"}')`,
+      })
+      .where(eq(roleCardVersions.roleKey, role.key));
+
+    expect((await repository.find(role.key))?.card.authority).toEqual({
+      runInstalls: ALLOWED,
+      publishOutsideThePipeline: NEVER,
+    });
+  });
+
+  it("writes the Hard switches in step with the Authority on every save, for the release before", async () => {
     const role = aRoleOfItsOwn({
       card: aRoleCard({
-        hardSwitches: { ...aRoleCard().hardSwitches, changeProjectSettings: { kind: "allowed" } },
+        authority: { runInstalls: ALLOWED, changeRoles: PROPOSAL, changeProjectSettings: PROPOSAL },
       }),
     });
     await repository.add(role);
-    // The release before reads a card through its own request schema, which drops the switch.
-    await app
-      .get<Database>(DATABASE)
-      .update(roleCardVersions)
-      .set({ card: sql`${roleCardVersions.card} #- '{hardSwitches,changeProjectSettings}'` })
-      .where(eq(roleCardVersions.roleKey, role.key));
+    await repository.update(role.key, (stored) =>
+      changeRoleCard(
+        stored,
+        { ...stored.card, authority: { publishOutsideThePipeline: consult("cto") } },
+        CARD_CONTEXT,
+        new Date(),
+        null,
+      ),
+    );
 
-    const read = await repository.find(role.key);
+    const kept = await database()
+      .select({ card: roleCardVersions.card })
+      .from(roleCardVersions)
+      .where(eq(roleCardVersions.roleKey, role.key))
+      .orderBy(asc(roleCardVersions.version));
 
-    expect(read?.card.hardSwitches).toEqual({
-      ...role.card.hardSwitches,
-      changeProjectSettings: { kind: "ask-me" },
-    });
-    expect(
-      (await repository.version(role.key, 1))?.card.hardSwitches.changeProjectSettings,
-    ).toEqual({ kind: "ask-me" });
+    // Proposal reads as Never to the release before, which offers no drafting tool for it.
+    expect(kept.map(({ card }) => [card.authority, card.hardSwitches])).toEqual([
+      [
+        { runInstalls: ALLOWED, changeRoles: PROPOSAL, changeProjectSettings: PROPOSAL },
+        {
+          runInstalls: ALLOWED,
+          publishOutsideThePipeline: ASK_ME,
+          changeRoles: NEVER,
+          changeProjectSettings: NEVER,
+        },
+      ],
+      [
+        { publishOutsideThePipeline: consult("cto") },
+        {
+          runInstalls: ASK_ME,
+          publishOutsideThePipeline: consult("cto"),
+          changeRoles: NEVER,
+          changeProjectSettings: ASK_ME,
+        },
+      ],
+    ]);
+    // And each reads back as saved.
+    expect((await repository.version(role.key, 1))?.card.authority).toEqual(role.card.authority);
   });
 });
+
+function database(): Database {
+  return app.get<Database>(DATABASE);
+}

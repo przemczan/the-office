@@ -27,7 +27,7 @@ import { ScheduleModule } from "../../../platform/schedule/schedule.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { BusyWorkModule } from "../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
@@ -135,7 +135,7 @@ function roleOf(roleKey: string): SessionRole {
               },
             },
   );
-  return { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN };
+  return sessionRole(roleKey, 1, card, MCP_TOOL_DEFAULT_STAND_IN);
 }
 
 /** Boots the conversations on a scripted engine that replays `scripts`, one per session opened. */

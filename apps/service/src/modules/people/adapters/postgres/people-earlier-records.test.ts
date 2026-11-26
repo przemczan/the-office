@@ -6,6 +6,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { freshTestDatabase, type FreshTestDatabase } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { EarlierRecords } from "../../../../platform/earlier-records/earlier-records.js";
+import { hardSwitchesOf } from "../../domain/authority.js";
 import { CARETAKER } from "../../domain/known-roles.js";
 import type { MemoryNote } from "../../domain/memory-note.js";
 import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
@@ -67,7 +68,10 @@ async function earlierRecords() {
   ) => ({
     roleKey: role.key,
     version: number,
-    card: aRoleCard({ taskLimit: number }),
+    card: {
+      ...aRoleCard({ taskLimit: number }),
+      hardSwitches: hardSwitchesOf(role.key, {}),
+    },
     changes: [],
     savedAt: AT,
     ...fields,

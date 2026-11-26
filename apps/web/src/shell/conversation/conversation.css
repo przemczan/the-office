@@ -1898,6 +1898,11 @@
   color: var(--fg-3);
 }
 
+/* A new Role's Authority: one tool area, or a row in no area, per line. */
+.proposal-line {
+  display: block;
+}
+
 /* The name of a preset's person, edited before hiring, on a line of its own above the buttons. */
 .proposal-name {
   flex-basis: 100%;

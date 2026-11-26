@@ -6,7 +6,13 @@ import { aRole } from "../../../people/index.fixtures.js";
 import type { DecisionAnswer, DecisionQuestion } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
 import type { Thread, ThreadSession } from "../../domain/thread.js";
-import { logMessages, openDecision, recordDecisionAnswer } from "../../domain/thread-changes.js";
+import type { ProposedChange } from "../../domain/proposal.js";
+import {
+  draftProposal,
+  logMessages,
+  openDecision,
+  recordDecisionAnswer,
+} from "../../domain/thread-changes.js";
 import type { LoggedMessagesRange } from "../../ports/thread-repository.js";
 import { aUserMessage } from "../../domain/thread.fixtures.js";
 import { BEN_ITO } from "../../domain/user.fixtures.js";
@@ -710,12 +716,16 @@ describe("PostgresThreadRepository's Proposals", () => {
     });
   });
 
-  it("reads a card saved by the release before Change Project settings as Ask me, the Caretaker's as Never", async () => {
+  it("reads a card an earlier release drafted by its Hard switches, a missing Change Project settings as Ask me", async () => {
     const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
     await repository.add(thread);
-    const { changeProjectSettings: _left, ...hardSwitches } = aRole().card.hardSwitches;
-    // As the release before kept a card after a rollback: without the switch it didn't know.
-    const card = { ...aRole().card, hardSwitches };
+    const { authority: _none, ...card } = aRole().card;
+    // As the release before Authority drafted it, and the one before Change Project settings left it.
+    const hardSwitches = {
+      runInstalls: { kind: "never" },
+      publishOutsideThePipeline: { kind: "never" },
+      changeRoles: { kind: "never" },
+    };
     const saved = async (change: unknown): Promise<string> => {
       const id = randomUUID();
       await database()
@@ -731,12 +741,17 @@ describe("PostgresThreadRepository's Proposals", () => {
         });
       return id;
     };
-    const askMe = { ...hardSwitches, changeProjectSettings: { kind: "ask-me" } };
+    // Each switch that differs from the Developer preset's, the missing one as Ask me.
+    const authority = {
+      runInstalls: { kind: "never" },
+      publishOutsideThePipeline: { kind: "never" },
+      changeProjectSettings: { kind: "ask-me" },
+    };
 
-    const hire = await saved({ kind: "hire", card, skills: [] });
+    const hire = await saved({ kind: "hire", card: { ...card, hardSwitches }, skills: [] });
     const setup = await saved({
       kind: "office-setup",
-      hires: [{ kind: "hire", card, skills: [] }],
+      hires: [{ kind: "hire", card: { ...card, hardSwitches }, skills: [] }],
       duties: [],
     });
     const change = await saved({
@@ -753,21 +768,71 @@ describe("PostgresThreadRepository's Proposals", () => {
     });
 
     await expect(repository.proposal(hire)).resolves.toMatchObject({
-      change: { card: { hardSwitches: askMe } },
+      change: { card: { ...card, authority } },
     });
+    expect((await repository.proposal(hire))?.change).not.toHaveProperty("card.hardSwitches");
     await expect(repository.proposal(setup)).resolves.toMatchObject({
-      change: { hires: [{ card: { hardSwitches: askMe } }] },
+      change: { hires: [{ card: { ...card, authority } }] },
     });
     const changed = await repository.proposal(change);
     expect(changed?.change).toEqual({
       kind: "change",
       roleKey: "developer",
-      from: { hardSwitches: askMe },
+      from: { authority },
       to: { name: "Ada" },
     });
-    const never = { ...hardSwitches, changeProjectSettings: { kind: "never" } };
+    // The Caretaker's Authority is fixed.
     await expect(repository.proposal(caretaker)).resolves.toMatchObject({
-      change: { from: { hardSwitches: never }, to: { hardSwitches: never } },
+      change: { from: { authority: {} }, to: { authority: {} } },
+    });
+  });
+
+  it("keeps each Role card's Hard switches beside its Authority, for the release before Authority", async () => {
+    const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
+    await repository.add(thread);
+    const card = { ...aRole().card, authority: { runInstalls: { kind: "never" } } } as const;
+    const stored = async (change: ProposedChange): Promise<unknown> => {
+      const id = randomUUID();
+      await repository.update(thread.id, (current) =>
+        draftProposal(current, { id, draftedAt: AT, change }),
+      );
+      const [row] = await database().select().from(proposals).where(eq(proposals.id, id));
+      return row?.change;
+    };
+    // The Developer preset's switches, but Run installs as the card sets it.
+    const hardSwitches = {
+      runInstalls: { kind: "never" },
+      publishOutsideThePipeline: { kind: "consult", role: "cto" },
+      changeRoles: { kind: "never" },
+      changeProjectSettings: { kind: "consult", role: "devops" },
+    };
+
+    await expect(
+      stored({ kind: "hire", card, skills: [], roleKey: undefined }),
+    ).resolves.toMatchObject({ card: { authority: card.authority, hardSwitches } });
+    await expect(
+      stored({
+        kind: "office-setup",
+        hires: [{ kind: "hire", card, skills: [] }],
+        duties: [],
+        hiredKeys: undefined,
+      }),
+    ).resolves.toMatchObject({ hires: [{ card: { authority: card.authority, hardSwitches } }] });
+    await expect(
+      stored({
+        kind: "change",
+        roleKey: "developer",
+        from: { authority: {} },
+        to: { authority: card.authority, name: "Ada" },
+      }),
+    ).resolves.toEqual({
+      kind: "change",
+      roleKey: "developer",
+      from: {
+        authority: {},
+        hardSwitches: { ...hardSwitches, runInstalls: { kind: "consult", role: "devops" } },
+      },
+      to: { authority: card.authority, name: "Ada", hardSwitches },
     });
   });
 });

@@ -1,6 +1,6 @@
 import { dutyFor, type DutyAssignments, type DutyKey } from "./duties.js";
 import { presetTitle } from "./presets.js";
-import type { RoleCard } from "./role-card.js";
+import type { IncomingRoleCard } from "./role-card.js";
 import { roleKeyFor } from "./role-key.js";
 
 /**
@@ -9,7 +9,7 @@ import { roleKeyFor } from "./role-key.js";
  */
 export type SetUpHire =
   | { readonly kind: "hire-from-preset"; readonly roleKey: string; readonly name: string }
-  | { readonly kind: "hire"; readonly card: RoleCard; readonly skills: readonly string[] };
+  | { readonly kind: "hire"; readonly card: IncomingRoleCard; readonly skills: readonly string[] };
 
 /** A duty an Office set-up gives to another Role: the Role key it named when drafted, and the new. */
 export interface SetUpDuty {

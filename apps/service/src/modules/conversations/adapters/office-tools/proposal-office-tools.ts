@@ -14,15 +14,18 @@ import {
   DUTIES,
   Duties,
   dutiesSuitedTo,
+  hiredKeyOf,
   RoleNotFound,
   RoleService,
   type DutyKey,
   type SetUpDuty,
   type SetUpHire,
+  cardWithAuthority,
 } from "../../../people/index.js";
 import { OfficeInstructions } from "../../application/office-instructions.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import {
+  fieldsWithAuthority,
   OFFICE_SETTINGS,
   proposedRoleChange,
   type DutyHolders,
@@ -30,8 +33,8 @@ import {
   type ProposedChange,
   type ProposedHire,
   type ProposedPresetHire,
+  type IncomingCardFields,
   type ProposedSettingValue,
-  type RoleCardFields,
 } from "../../domain/proposal.js";
 import {
   READ_OFFICE_INSTRUCTIONS_TOOL,
@@ -45,6 +48,14 @@ const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).extend({
     .describe(
       "The person's first name, apart from the Role's title: a person is never named by it.",
     ),
+  hardSwitches: roleCardSchema.shape.hardSwitches
+    .optional()
+    .describe(
+      "The four named groups of authority as an earlier release gave them: runInstalls, publishOutsideThePipeline, changeRoles and changeProjectSettings. Ignored when authority is given; give authority instead.",
+    ),
+  authority: roleCardSchema.shape.authority.describe(
+    "The rows of the card's Authority to set, by group, each Allowed, Consult a person (by the Role's key), Ask me, Proposal or Never; a record row may take an own and an others' value. A row left out stays at the preset's default; for a change, give the whole Authority the card will set.",
+  ),
   engineSettings: roleCardSchema.shape.engineSettings
     .optional()
     .describe(
@@ -304,12 +315,13 @@ export class ProposalOfficeTools implements OnModuleInit {
 
   private async changeOf(
     roleKey: string,
-    fields: RoleCardFields,
+    given: IncomingCardFields,
     skills: readonly string[] | undefined,
   ): Promise<ProposedChange | string> {
     if (skills !== undefined) return "A change to a Role leaves its skills as they are.";
     try {
       const { role } = await this.roles.read(roleKey);
+      const fields = fieldsWithAuthority(roleKey, given, role.card.authority);
       const { name, title } = { ...role.card, ...fields };
       const renamed = fields.name !== undefined || fields.title !== undefined;
       return (
@@ -326,7 +338,7 @@ export class ProposalOfficeTools implements OnModuleInit {
   private presetRole(
     roleKey: string,
     role: string | undefined,
-    { name = "", ...fields }: RoleCardFields,
+    { name = "", ...fields }: IncomingCardFields,
     skills: readonly string[] | undefined,
   ): ProposedPresetHire | string {
     if (role !== undefined) return "Give a preset to hire from or a Role to change, not both.";
@@ -351,7 +363,7 @@ const DUTY_LIST = DUTIES.map(({ key, label }) => `${key} (${label})`).join(", ")
 interface HireInput {
   readonly preset?: string | undefined;
   readonly name?: string | undefined;
-  readonly card?: RoleCardFields | undefined;
+  readonly card?: IncomingCardFields | undefined;
   readonly skills?: readonly string[] | undefined;
 }
 
@@ -411,7 +423,7 @@ function isDutyKey(key: string): key is DutyKey {
 
 /** A new Role on the card given, or what is missing from it, in words the Agent acts on. */
 function newRole(
-  fields: RoleCardFields,
+  fields: IncomingCardFields,
   skills: readonly string[] | undefined,
 ): ProposedHire | string {
   const card = roleCardFieldsSchema.safeParse(fields);
@@ -419,10 +431,13 @@ function newRole(
     const named = [...new Set(card.error.issues.map((issue) => issue.path.join(".")))];
     return `A new Role needs its whole Role card; give ${named.join(", ")}.`;
   }
+  const given = { ...card.data, engineSettings: card.data.engineSettings ?? {} };
+  // Its key comes from its title, as hiring makes it.
+  const roleKey = hiredKeyOf({ kind: "hire", card: { ...given, authority: {} }, skills: [] });
   return (
     nameProblem(card.data.name, card.data.title) ?? {
       kind: "hire",
-      card: { ...card.data, engineSettings: card.data.engineSettings ?? {} },
+      card: cardWithAuthority(roleKey, given, {}),
       skills: skills ?? [],
       roleKey: undefined,
     }

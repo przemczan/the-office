@@ -9,6 +9,15 @@ import {
 import { Duties } from "../../application/duties.js";
 import { PersonRecords } from "../../application/person-records.js";
 import { RoleService, type RoleWithAssignments } from "../../application/role-service.js";
+import {
+  AUTHORITY_AREAS,
+  authorityInEffect,
+  type Authority,
+  type AuthorityGroup,
+  type AuthoritySetting,
+  type AuthorityValue,
+} from "../../domain/authority.js";
+import { isBuiltIn } from "../../domain/caretaker.js";
 import type { HardSwitchValue } from "../../domain/hard-switches.js";
 import { mcpToolSetting, type McpToolSettings } from "../../domain/mcp-tool-settings.js";
 import type { PersonEngineSettings } from "../../domain/role-card.js";
@@ -91,13 +100,47 @@ function wholeCard(
       `engineSettings: ${engineSettingsInWords(card.engineSettings)}`,
       `capabilities: ${JSON.stringify(card.capabilities)}`,
       `permissionProfile: ${JSON.stringify(card.permissionProfile)}`,
-      `hardSwitches: ${JSON.stringify(card.hardSwitches)}`,
+      `authority: ${JSON.stringify(card.authority)}`,
       `taskLimit: ${card.taskLimit}`,
       `sessionDefault: ${card.sessionDefault}`,
       `Skills: ${skills.length > 0 ? skills.join(", ") : "none besides the skills for everyone"}`,
       `MCP servers: ${mcpServers.length > 0 ? mcpServers.map((server) => mcpServerRecord(server, card.permissionProfile.mcpTools, mcpToolDefault)).join("; ") : "none"}`,
     ].join("\n"),
+    authorityInWords(role.key, card.authority),
   ].join("\n\n");
+}
+
+/**
+ * Every Authority row in effect, by area, each saying whether the card sets it or it stands at the
+ * preset's default; `authority` above gives the set rows, as a change takes them.
+ */
+function authorityInWords(roleKey: string, authority: Authority): string {
+  const inEffect = authorityInEffect(roleKey, authority);
+  const lines = AUTHORITY_AREAS.flatMap(({ label, rows }) =>
+    rows.map(
+      (row) =>
+        `- ${label && label !== row.label ? `${label} › ` : ""}${row.label} (${row.group}): ${authoritySettingInWords(inEffect[row.group])}${standing(roleKey, authority, row.group)}`,
+    ),
+  );
+  return [
+    "Authority in effect (a row not in authority above stands at the preset's default):",
+    ...lines,
+  ].join("\n");
+}
+
+function standing(roleKey: string, authority: Authority, group: AuthorityGroup): string {
+  if (isBuiltIn(roleKey)) return " (fixed)";
+  return authority[group] !== undefined ? " (set)" : " (preset's default)";
+}
+
+function authoritySettingInWords(setting: AuthoritySetting): string {
+  return setting.kind === "own-and-others"
+    ? `${authorityValueInWords(setting.own)} on own · ${authorityValueInWords(setting.others)} on others'`
+    : authorityValueInWords(setting);
+}
+
+function authorityValueInWords(value: AuthorityValue): string {
+  return value.kind === "proposal" ? "Proposal" : settingInWords(value);
 }
 
 const ENGINE_DEFAULT = "Engine's default";

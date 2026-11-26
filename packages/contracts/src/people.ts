@@ -6,6 +6,13 @@ import {
   engineModelSchema,
   engineTypeSchema,
 } from "./engines.js";
+import {
+  authorityAreaSchema,
+  authorityGroupSchema,
+  authorityInEffectSchema,
+  authoritySchema,
+  authoritySettingSchema,
+} from "./authority.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
 import { userRefSchema } from "./users.js";
@@ -87,7 +94,11 @@ export const personEngineSettingsSchema = z.partialRecord(
 );
 export type PersonEngineSettings = z.infer<typeof personEngineSettingsSchema>;
 
-/** A Role card, as PUT /roles/:key/card saves it and POST /roles hires from scratch with it. */
+/**
+ * A Role card, as PUT /roles/:key/card saves it and POST /roles hires from scratch with it.
+ * `authority`, when given, is the card's Authority and `hardSwitches` is ignored; a card without it
+ * (an earlier release's, an open Proposal's) takes its Authority from its Hard switches.
+ */
 export const roleCardSchema = z.object({
   name: z.string(),
   title: z.string(),
@@ -97,13 +108,20 @@ export const roleCardSchema = z.object({
   engineSettings: personEngineSettingsSchema,
   capabilities: capabilitiesSchema,
   permissionProfile: permissionProfileSchema,
+  /** The four named groups of `authority` as the release before it reads them. */
   hardSwitches: hardSwitchesSchema,
+  /** The rows the card sets (spec §6 › Authority); a row left out is at the preset's default. */
+  authority: authoritySchema.optional(),
   taskLimit: taskLimitSchema,
   sessionDefault: sessionDefaultSchema,
   /** The library skills the Role has besides the skills for everyone, by name. */
   skills: z.array(z.string()),
 });
 export type RoleCard = z.infer<typeof roleCardSchema>;
+
+/** A Role card as the service answers it, its Authority always given. */
+export const savedRoleCardSchema = roleCardSchema.extend({ authority: authoritySchema });
+export type SavedRoleCard = z.infer<typeof savedRoleCardSchema>;
 
 /**
  * An MCP server the Role has (PUT /mcp-servers/:name/roles assigns it): whether it is on, and each
@@ -119,7 +137,9 @@ export type RoleMcpServer = z.infer<typeof roleMcpServerSchema>;
 /** A Role someone fills, by the key Pipelines and Consult values name it by. */
 export const roleSchema = z.object({
   key: z.string().min(1),
-  card: roleCardSchema,
+  card: savedRoleCardSchema,
+  /** Where each row of the card's Authority stands at the preset's default, which Reset puts back. */
+  presetAuthority: authorityInEffectSchema,
   /** The version sessions start with now, from 1. */
   cardVersion: z.number().int().positive(),
   hiredAt: z.iso.datetime(),
@@ -130,11 +150,11 @@ export const roleSchema = z.object({
   avatar: imageSchema.nullable(),
   /**
    * The built-in Caretaker (spec §2.2): never hired or let go; their capabilities, permission
-   * profile, Hard switches and Task limit are fixed.
+   * profile, Authority and Task limit are fixed.
    */
   builtIn: z.boolean(),
-  /** The switches whose Consult value names a Role nobody fills, so they ask the user for now. */
-  askingYouUntilHired: z.array(hardSwitchKeySchema),
+  /** The Authority rows whose Consult value names a Role nobody fills, so they ask the user for now. */
+  askingYouUntilHired: z.array(authorityGroupSchema),
   /** In name order. */
   mcpServers: z.array(roleMcpServerSchema),
 });
@@ -173,7 +193,9 @@ export type DutyKey = z.infer<typeof dutyKeySchema>;
 export const presetSchema = z.object({
   roleKey: z.string(),
   suggestedName: z.string(),
-  card: roleCardSchema.omit({ name: true, skills: true }),
+  card: savedRoleCardSchema.omit({ name: true, skills: true }),
+  /** Where each Authority row of a card hired from the preset starts. */
+  presetAuthority: authorityInEffectSchema,
   duties: z.array(dutyKeySchema),
 });
 export type Preset = z.infer<typeof presetSchema>;
@@ -208,6 +230,10 @@ export const roleCardOptionsSchema = z.object({
   hardSwitches: z.array(
     z.object({ key: hardSwitchKeySchema, enforcement: z.enum(["enforced", "followed"]) }),
   ),
+  /** The Authority section's areas and rows, in the card's order. */
+  authority: z.array(authorityAreaSchema),
+  /** Where each Authority row of a Role hired from scratch starts. */
+  fromScratchAuthority: authorityInEffectSchema,
   /** Where an MCP tool's setting starts, until the user sets it on the card. */
   mcpToolDefault: hardSwitchValueSchema,
   taskLimits: z.object({ lowest: z.number().int(), highest: z.number().int() }),
@@ -310,6 +336,9 @@ export type RoleEngineCascade = z.infer<typeof roleEngineCascadeSchema>;
  * `roleOverride` and `effort` only by entries saved before it had `engineSettings`.
  * `engineSettingsMovedOver` says a card moved over to `engineSettings`: from its Role override, or
  * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
+ * `authorityMovedOver` says the card's Authority was made from its Hard switches and duties; each
+ * `authority.<group>` goes from a setting, or null at the preset's default, to another. The
+ * `hardSwitches.*` fields are named only by entries saved before the card had an Authority.
  */
 export const roleCardFieldSchema = z.enum([
   "name",
@@ -333,6 +362,8 @@ export const roleCardFieldSchema = z.enum([
   "hardSwitches.publishOutsideThePipeline",
   "hardSwitches.changeRoles",
   "hardSwitches.changeProjectSettings",
+  "authorityMovedOver",
+  ...authorityGroupSchema.options.map((group) => `authority.${group}` as const),
 ]);
 export type RoleCardField = z.infer<typeof roleCardFieldSchema>;
 
@@ -341,7 +372,7 @@ const roleCardValueSchema = z.union([
   z.number(),
   z.boolean(),
   permissionProfileSchema,
-  hardSwitchValueSchema,
+  authoritySettingSchema,
   engineModelSchema,
   personEngineSettingsSchema,
   z.null(),

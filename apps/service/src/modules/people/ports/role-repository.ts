@@ -1,3 +1,4 @@
+import type { HardSwitches } from "../domain/hard-switches.js";
 import type { Role, RoleCardVersion } from "../domain/role.js";
 import type { EarlierEngineFields, RoleChange } from "../domain/role-changes.js";
 import type {
@@ -51,6 +52,23 @@ export abstract class RoleRepository {
   abstract moveOver(
     key: string,
     change: (role: Role, earlier: EarlierEngineFields) => RoleChange<RoleCardChanged>,
+  ): Promise<RoleUpdate>;
+
+  /**
+   * The keys of every Role whose current card version is from before Authority, saved with Hard
+   * switches only, people let go and the Caretaker included, in the order they were hired.
+   */
+  abstract rolesToMoveAuthorityOver(): Promise<readonly string[]>;
+
+  /**
+   * Applies `change` to the Role as stored with the Hard switches its current card version keeps (a
+   * missing Change Project settings read as Ask me), holding it against other changes, and saves
+   * the new card version. Saves nothing when the version already has an Authority, moved over
+   * meanwhile; throws RoleNotFound when the Role was never hired.
+   */
+  abstract moveAuthorityOver(
+    key: string,
+    change: (role: Role, switches: HardSwitches) => RoleChange<RoleCardChanged>,
   ): Promise<RoleUpdate>;
 
   /**

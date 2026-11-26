@@ -17,6 +17,14 @@ import {
   type HardSwitchKey,
   type HardSwitchValue,
 } from "../domain/hard-switches.js";
+import {
+  AUTHORITY_AREAS,
+  FROM_SCRATCH_AUTHORITY,
+  valuesTakenBy,
+  type AuthorityInEffect,
+  type AuthorityRow,
+  type AuthorityValueKind,
+} from "../domain/authority.js";
 import { mcpToolDefault } from "../domain/duties.js";
 import {
   engineTypeOptions,
@@ -27,8 +35,10 @@ import type { SetUpHire } from "../domain/office-setup.js";
 import { consultableRoleKeys, PRESETS, presetTitle, type Preset } from "../domain/presets.js";
 import type { Role } from "../domain/role.js";
 import {
+  cardWithAuthority,
   roleCardProblems,
   trimmedRoleCard,
+  type IncomingRoleCard,
   type RoleCard,
   type RoleCardContext,
 } from "../domain/role-card.js";
@@ -76,6 +86,13 @@ export interface RoleCardOptions {
     readonly key: HardSwitchKey;
     readonly enforcement: HardSwitchEnforcement;
   }[];
+  /** The Authority section's areas, each row with the values it takes, in the card's order. */
+  readonly authority: readonly {
+    readonly label: string | null;
+    readonly rows: readonly (AuthorityRow & { readonly values: readonly AuthorityValueKind[] })[];
+  }[];
+  /** Where each Authority row of a Role hired from scratch starts. */
+  readonly fromScratchAuthority: AuthorityInEffect;
   /**
    * Where an MCP tool's setting starts, until the user sets it: consulting the holder of Default
    * Consultant for MCP tool hard switches, or Ask me while nobody holds it.
@@ -178,7 +195,7 @@ export class RoleService {
    * names one.
    */
   async hireFromScratch(
-    card: RoleCard,
+    card: IncomingRoleCard,
     skills: readonly string[],
     savedBy: UserRef,
     proposedBy?: string,
@@ -190,7 +207,8 @@ export class RoleService {
       if (!(await this.repository.add(hiring.role))) {
         // Someone was hired into the Role meanwhile: refuse as if they had been there before.
         const context = await this.cardContext();
-        hireFromScratch(key, card, context, await this.repository.find(key), hiredAt, savedBy);
+        const hired = cardWithAuthority(key, card, {});
+        hireFromScratch(key, hired, context, await this.repository.find(key), hiredAt, savedBy);
         throw new Error(`The Role "${key}" was filled and emptied again while hiring.`);
       }
       return hiring;
@@ -204,12 +222,15 @@ export class RoleService {
   }
 
   /** Every reason hiring from scratch would be refused now, saving nothing; empty when it wouldn't. */
-  async hiringProblems(card: RoleCard, skills: readonly string[]): Promise<readonly string[]> {
+  async hiringProblems(
+    card: IncomingRoleCard,
+    skills: readonly string[],
+  ): Promise<readonly string[]> {
     return refusalReasons(() => this.hiringFromScratch(card, skills, new Date(), null));
   }
 
   private async hiringFromScratch(
-    card: RoleCard,
+    card: IncomingRoleCard,
     skills: readonly string[],
     hiredAt: Date,
     savedBy: UserRef | null,
@@ -219,8 +240,10 @@ export class RoleService {
     const context = await this.cardContext();
     const filledBy = await this.repository.find(roleKey);
     const problems = await this.roleSkills.problemsWith(skills);
+    // A hire's Hard switches, as an earlier draft gives them, set what differs from the defaults.
+    const hired = cardWithAuthority(roleKey, card, {});
     return refusingAlso(problems, () =>
-      hireFromScratch(roleKey, card, context, filledBy, hiredAt, savedBy, proposedBy),
+      hireFromScratch(roleKey, hired, context, filledBy, hiredAt, savedBy, proposedBy),
     );
   }
 
@@ -263,6 +286,11 @@ export class RoleService {
         key,
         enforcement: HARD_SWITCH_ENFORCEMENT[key],
       })),
+      authority: AUTHORITY_AREAS.map(({ label, rows }) => ({
+        label,
+        rows: rows.map((row) => ({ ...row, values: valuesTakenBy(row.group) })),
+      })),
+      fromScratchAuthority: FROM_SCRATCH_AUTHORITY,
       mcpToolDefault: mcpToolDefault(mcpConsultant),
       taskLimits: { lowest: LOWEST_TASK_LIMIT, highest: HIGHEST_TASK_LIMIT },
     };
@@ -301,7 +329,7 @@ export class RoleService {
    */
   async changeCard(
     key: string,
-    edit: RoleCard,
+    edit: IncomingRoleCard,
     skills: readonly string[],
     savedBy: UserRef,
     proposedBy?: string,
@@ -315,7 +343,7 @@ export class RoleService {
   /** Saves the card as `changeCard` describes; the caller holds the `EngineReferenceLock`. */
   private async savedCard(
     key: string,
-    edit: RoleCard,
+    edit: IncomingRoleCard,
     skills: readonly string[],
     savedBy: UserRef | null,
     proposedBy?: string,
@@ -323,12 +351,24 @@ export class RoleService {
     const context = await this.cardContext();
     const filledBy = await this.repository.find(key);
     const problems = [
-      ...roleCardProblems(key, trimmedRoleCard(edit), withStored(context, filledBy)),
+      ...roleCardProblems(
+        key,
+        trimmedRoleCard(cardWithAuthority(key, edit, filledBy?.card.authority ?? {})),
+        withStored(context, filledBy),
+      ),
       ...(await this.roleSkills.problemsWith(skills)),
     ];
     if (problems.length > 0) throw new RoleRefused(problems);
+    // Hard switches without an Authority, as an earlier draft gives them, go over the stored card's.
     return this.repository.update(key, (stored) =>
-      changeRoleCard(stored, edit, withStored(context, stored), new Date(), savedBy, proposedBy),
+      changeRoleCard(
+        stored,
+        cardWithAuthority(key, edit, stored.card.authority),
+        withStored(context, stored),
+        new Date(),
+        savedBy,
+        proposedBy,
+      ),
     );
   }
 
@@ -353,11 +393,12 @@ export class RoleService {
    * Every reason saving `edit` as the Role's card would be refused now, saving nothing; empty when
    * it wouldn't. Throws RoleNotFound when there is no such Role.
    */
-  async cardChangeProblems(key: string, edit: RoleCard): Promise<readonly string[]> {
+  async cardChangeProblems(key: string, edit: IncomingRoleCard): Promise<readonly string[]> {
     const { role } = await this.read(key);
     const context = await this.cardContext();
+    const card = cardWithAuthority(key, edit, role.card.authority);
     const reasons = await refusalReasons(() =>
-      Promise.resolve(changeRoleCard(role, edit, withStored(context, role), new Date(), null)),
+      Promise.resolve(changeRoleCard(role, card, withStored(context, role), new Date(), null)),
     );
     return [...new Set(reasons)];
   }

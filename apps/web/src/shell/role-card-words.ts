@@ -1,7 +1,16 @@
 import {
   ENGINE_TYPE_EFFORTS,
+  authorityGroupSchema,
   effortSchema,
   sessionDefaultSchema,
+  type Authority,
+  type AuthorityArea,
+  type AuthorityCap,
+  type AuthorityGroup,
+  type AuthorityInEffect,
+  type AuthorityRow,
+  type AuthoritySetting,
+  type AuthorityValue,
   type Capabilities,
   type Effort,
   type EngineCascadeLevel,
@@ -112,13 +121,214 @@ export const ENFORCEMENT_LABELS = {
 } as const;
 
 /** What a Consult value naming a Role nobody fills does for now. */
-export const ASKS_YOU_UNTIL_HIRED = "Asks you until someone is hired";
+export const ASKS_YOU_UNTIL_HIRED = "Asks you until the Role is hired";
 
 export const RUN_LABELS: Readonly<Record<RunPermission, string>> = {
   "read-only-git": "Runs read-only git only",
   "project-commands": "Runs the Project's commands and read-only git",
   anything: "Runs any command; git read-only",
 };
+
+/**
+ * Each Authority row's name (spec §6 › Tool areas), as `/role-card-options` names them too: the
+ * change history names a row by it, with no options at hand.
+ */
+export const AUTHORITY_ROW_LABELS: Readonly<Record<AuthorityGroup, string>> = {
+  taskRecords: "Task records",
+  movingWork: "Moving work",
+  gatesAndRuns: "Gates and runs",
+  continueAtGateOnOwnWork: "Continue at a Gate on own work",
+  initiativeRecords: "Initiative records",
+  runningAnInitiative: "Running an Initiative",
+  ideas: "Ideas",
+  captureIdea: "capture_idea",
+  changeProjectSettings: "Change Project settings",
+  publishingSettings: "Publishing settings",
+  projectSettings: "Project settings",
+  projectUpkeep: "Project upkeep",
+  secretValues: "Secret values",
+  changeRoles: "Change Roles",
+  memoryAndAvatar: "Memory and Avatar",
+  skills: "Skills",
+  mcpServers: "MCP servers",
+  pipelinesAndStageTemplates: "Pipelines and Stage templates",
+  promptTemplates: "Prompt templates",
+  officeSettings: "Office settings",
+  testInstances: "Test instances",
+  projectDevices: "Project devices",
+  fireAlarm: "Fire alarm",
+  checks: "Checks",
+  updatesAndRestarts: "Updates and restarts",
+  runInstalls: "Run installs",
+  publishOutsideThePipeline: "Publish outside the Pipeline",
+  approveHeldCallsAndApplyProposals: "Approve held calls and apply Proposals",
+};
+
+export const AUTHORITY_VALUE_LABELS: Readonly<Record<AuthorityValue["kind"], string>> = {
+  allowed: "Allowed",
+  consult: "Consult",
+  "ask-me": "Ask me",
+  proposal: "Proposal",
+  never: "Never",
+};
+
+/** What a capped row takes (spec §6 › The trust anchor). */
+export const CAPPED_NOTE = "Proposal, Ask me or Never only";
+
+/** Why a capped row takes only Proposal, Ask me or Never: its reason's name and what it says. */
+export const CAP_REASONS: Readonly<Record<AuthorityCap, { name: string; words: string }>> = {
+  "trust-anchor": {
+    name: "the trust anchor",
+    words:
+      "The trust anchor: the Office tools that change the rules binding Agents. A colleague's Allow once could let one Agent loosen the rules binding another, so they never take Allowed or Consult.",
+  },
+  "users-alone": {
+    name: "The user's alone",
+    words:
+      "The user's alone: how a Project publishes stays yours, so an Agent only proposes it or asks you.",
+  },
+};
+
+/** A followed row's badge, and what enforces it all the same, such as `run_environment_check`. */
+export function followedWords({ enforcedOn }: Pick<AuthorityRow, "enforcedOn">): string {
+  return enforcedOn === null
+    ? ENFORCEMENT_LABELS.followed
+    : `${ENFORCEMENT_LABELS.followed}, enforced on ${enforcedOn}`;
+}
+
+/** What a row at its preset's default reads as in the change history. */
+export const PRESET_DEFAULT = "Preset default";
+
+/** "Preset default (Ask me)": a row standing at its preset's default. */
+export function presetDefaultWords(valueWords: string): string {
+  return `${PRESET_DEFAULT} (${valueWords})`;
+}
+
+/** A value in words: "Allowed", "Consult Devops", "Ask me", "Proposal" or "Never". */
+export function authorityValueLabel(value: AuthorityValue, roleTitles: RoleTitles): string {
+  return value.kind === "consult"
+    ? `Consult ${roleTitles.get(value.role) ?? value.role}`
+    : AUTHORITY_VALUE_LABELS[value.kind];
+}
+
+/** A setting in words; a pair whose sides differ as "Own: Allowed · Others': Ask me". */
+export function authoritySettingLabel(setting: AuthoritySetting, roleTitles: RoleTitles): string {
+  if (setting.kind !== "own-and-others") return authorityValueLabel(setting, roleTitles);
+  if (sameAuthorityValue(setting.own, setting.others)) {
+    return authorityValueLabel(setting.own, roleTitles);
+  }
+  return `Own: ${authorityValueLabel(setting.own, roleTitles)} · Others': ${authorityValueLabel(setting.others, roleTitles)}`;
+}
+
+export function sameAuthorityValue(first: AuthorityValue, second: AuthorityValue): boolean {
+  if (first.kind === "consult" && second.kind === "consult") return first.role === second.role;
+  return first.kind === second.kind;
+}
+
+/** A setting's own and others' values; one value is both. */
+export function ownAndOthersOf(
+  setting: AuthoritySetting,
+): readonly [own: AuthorityValue, others: AuthorityValue] {
+  return setting.kind === "own-and-others" ? [setting.own, setting.others] : [setting, setting];
+}
+
+/** A pair with two equal sides is the same setting as its one value. */
+export function sameAuthoritySetting(first: AuthoritySetting, second: AuthoritySetting): boolean {
+  const [firstOwn, firstOthers] = ownAndOthersOf(first);
+  const [secondOwn, secondOthers] = ownAndOthersOf(second);
+  return sameAuthorityValue(firstOwn, secondOwn) && sameAuthorityValue(firstOthers, secondOthers);
+}
+
+/** The setting of an own and an others' value: one value when they are the same. */
+export function settingOf(own: AuthorityValue, others: AuthorityValue): AuthoritySetting {
+  return sameAuthorityValue(own, others) ? own : { kind: "own-and-others", own, others };
+}
+
+/**
+ * The value an area's row shows: the one most of its groups share, a tie going to the first group's
+ * (People › Role card tab); undefined for an area with no rows.
+ */
+export function areaSetting(
+  area: AuthorityArea,
+  inEffect: AuthorityInEffect,
+): AuthoritySetting | undefined {
+  const counts: { setting: AuthoritySetting; count: number }[] = [];
+  for (const { group } of area.rows) {
+    const setting = inEffect[group];
+    const counted = counts.find((each) => sameAuthoritySetting(each.setting, setting));
+    if (counted) counted.count += 1;
+    else counts.push({ setting, count: 1 });
+  }
+  let most: (typeof counts)[number] | undefined;
+  for (const each of counts) if (!most || each.count > most.count) most = each;
+  return most?.setting;
+}
+
+/**
+ * The Authority in a few lines, as a chat's Proposal card has room for: each tool area with the value
+ * most of its groups share, then each row in no area, such as "Work: Never" and "Run installs: Ask me".
+ */
+export function authoritySummaryLines(
+  areas: readonly AuthorityArea[],
+  inEffect: AuthorityInEffect,
+  roleTitles: RoleTitles,
+): string[] {
+  return areas.flatMap((area) => {
+    if (area.label === null) {
+      return area.rows.map(
+        ({ group, label }) => `${label}: ${authoritySettingLabel(inEffect[group], roleTitles)}`,
+      );
+    }
+    const setting = areaSetting(area, inEffect);
+    return setting ? [`${area.label}: ${authoritySettingLabel(setting, roleTitles)}`] : [];
+  });
+}
+
+/** Every row's setting: the card's set rows over the defaults. */
+export function authorityInEffect(
+  defaults: AuthorityInEffect,
+  authority: Authority,
+): AuthorityInEffect {
+  return { ...defaults, ...authority };
+}
+
+/** A value as one choice of a select: "consult:devops" for Consult Devops. */
+export function authorityChoiceOf(value: AuthorityValue): string {
+  return value.kind === "consult" ? `${CONSULT_CHOICE}${value.role}` : value.kind;
+}
+
+export function authorityValueOf(choice: string): AuthorityValue {
+  if (choice.startsWith(CONSULT_CHOICE)) {
+    return { kind: "consult", role: choice.slice(CONSULT_CHOICE.length) };
+  }
+  const kind = (["allowed", "ask-me", "proposal", "never"] as const).find(
+    (known) => known === choice,
+  );
+  if (kind === undefined) throw new Error(`No Authority value is chosen as ${choice}.`);
+  return { kind };
+}
+
+/**
+ * A row's choices, in its values' order, Consult as one choice per Role of `consultable`; a Consult
+ * of a Role not among them (one no longer known) stays offered while it is the row's value.
+ */
+export function authorityChoices(
+  values: AuthorityRow["values"],
+  consultable: readonly { readonly key: string; readonly title: string }[],
+  current: AuthorityValue,
+): { value: string; label: string }[] {
+  return values.flatMap((kind) => {
+    if (kind !== "consult") return [{ value: kind, label: AUTHORITY_VALUE_LABELS[kind] }];
+    const roles = consultable.map(({ key, title }) => ({ key, title }));
+    if (current.kind === "consult" && !roles.some(({ key }) => key === current.role)) {
+      roles.push({ key: current.role, title: current.role });
+    }
+    return roles.map(({ key, title }) => ({
+      value: authorityChoiceOf({ kind: "consult", role: key }),
+      label: `Consult ${title}`,
+    }));
+  });
+}
 
 const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   name: "Name",
@@ -142,6 +352,13 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   "hardSwitches.publishOutsideThePipeline": HARD_SWITCH_LABELS.publishOutsideThePipeline,
   "hardSwitches.changeRoles": HARD_SWITCH_LABELS.changeRoles,
   "hardSwitches.changeProjectSettings": HARD_SWITCH_LABELS.changeProjectSettings,
+  authorityMovedOver: "Authority from the Hard switches and duties",
+  ...(Object.fromEntries(
+    authorityGroupSchema.options.map((group) => [
+      `authority.${group}`,
+      `Authority › ${AUTHORITY_ROW_LABELS[group]}`,
+    ]),
+  ) as Record<`authority.${AuthorityGroup}`, string>),
 };
 
 /** Too long to show both versions in a line of the change history. */
@@ -350,6 +567,8 @@ export function changeLine(change: RoleCardFieldChange, names: FieldValueNames):
   const label = FIELD_LABELS[change.field];
   if (LONG_TEXT_FIELDS.has(change.field)) return `${label} edited`;
   if (change.field === "engineSettingsMovedOver") return movedOverLine(change, names);
+  // Made from the Hard switches and duties: the card's rows show what it came to.
+  if (change.field === "authorityMovedOver") return label;
   return `${label} ${fieldValueText(change.field, change.from, names)} → ${fieldValueText(change.field, change.to, names)}`;
 }
 
@@ -391,6 +610,17 @@ export function proposedFieldChanges(
         const after = to.hardSwitches?.[hardSwitch];
         if (before !== undefined && after !== undefined && !sameValue(before, after)) {
           changes.push({ field: `hardSwitches.${hardSwitch}`, from: before, to: after });
+        }
+      }
+    } else if (key === "authority") {
+      // A row left out stands at the preset's default, null in the change history.
+      const before = from.authority ?? {};
+      const after = to.authority ?? {};
+      for (const group of authorityGroupSchema.options) {
+        const was = before[group] ?? null;
+        const becomes = after[group] ?? null;
+        if (to.authority !== undefined && !sameValue(was, becomes)) {
+          changes.push({ field: `authority.${group}`, from: was, to: becomes });
         }
       }
     } else {
@@ -455,10 +685,10 @@ export function fieldValueText(
     const lines = engineSettingsLines(settings as PersonEngineSettings);
     return lines.length > 0 ? lines.join("; ") : EACH_ENGINES_DEFAULT;
   }
-  if (value === null) return "Office default";
+  if (value === null) return field.startsWith("authority.") ? PRESET_DEFAULT : "Office default";
   if (typeof value === "object") {
     if ("engineId" in value) return `${engineName(value.engineId)} · ${modelLabel(value.model)}`;
-    if ("kind" in value) return hardSwitchValueLabel(value, roleTitles);
+    if ("kind" in value) return authoritySettingLabel(value, roleTitles);
     if ("mcpTools" in value) {
       return [
         ...permissionProfileLines(value),

@@ -24,7 +24,7 @@ import {
   type WorkLevelsOf,
 } from "../ports/known-work-levels.js";
 import { EngineCascade } from "./engine-cascade.js";
-import { RoleCards, type SessionRole } from "./role-cards.js";
+import { RoleCards, sessionRole, type SessionRole } from "./role-cards.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../index.fixtures.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
@@ -106,12 +106,7 @@ async function cascadeWith(
   const roleCards: Pick<RoleCards, "forNewSession"> = {
     forNewSession: async (roleKey): Promise<SessionRole> => {
       if (roleKey !== "developer") throw new RoleNotFound(roleKey);
-      return {
-        roleKey,
-        cardVersion: 1,
-        card: aRoleCard({ engineSettings }),
-        mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
-      };
+      return sessionRole(roleKey, 1, aRoleCard({ engineSettings }), MCP_TOOL_DEFAULT_STAND_IN);
     },
   };
   const forcedProject: ProjectCascadeLevels = {

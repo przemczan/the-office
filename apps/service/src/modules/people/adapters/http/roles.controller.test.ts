@@ -170,7 +170,18 @@ describe("GET /api/presets", () => {
       { roleKey: "devops", suggestedName: "Nina" },
       { roleKey: "office-manager", suggestedName: "Marta" },
     ]);
-    expect(presets[1]?.card).toMatchObject({ title: "Developer", taskLimit: 3 });
+    expect(presets[1]?.card).toMatchObject({ title: "Developer", taskLimit: 3, authority: {} });
+    // Each card stands at its preset's defaults, its Hard switches in step for the release before.
+    expect(presets[1]?.presetAuthority).toMatchObject({
+      taskRecords: { kind: "own-and-others", own: { kind: "allowed" }, others: { kind: "ask-me" } },
+      runInstalls: { kind: "consult", role: "devops" },
+    });
+    expect(presets[1]?.card.hardSwitches).toEqual({
+      runInstalls: { kind: "consult", role: "devops" },
+      publishOutsideThePipeline: { kind: "consult", role: "cto" },
+      changeRoles: { kind: "never" },
+      changeProjectSettings: { kind: "consult", role: "devops" },
+    });
   });
 
   it("gives each preset the duties it holds by default", async () => {
@@ -219,6 +230,32 @@ describe("GET /api/role-card-options", () => {
       { key: "changeRoles", enforcement: "enforced" },
       { key: "changeProjectSettings", enforcement: "enforced" },
     ]);
+    expect(options.authority.map(({ label }) => label)).toEqual([
+      "Work",
+      "Initiatives",
+      "Ideas",
+      "Projects and settings",
+      "People and Roles",
+      "Library",
+      "Office settings",
+      "Test instances and devices",
+      "Operations",
+      null,
+    ]);
+    expect(options.authority.flatMap(({ rows }) => rows)).toContainEqual({
+      group: "changeRoles",
+      label: "Change Roles",
+      cap: "trust-anchor",
+      ownAndOthers: false,
+      followed: false,
+      enforcedOn: null,
+      values: ["proposal", "ask-me", "never"],
+    });
+    expect(options.fromScratchAuthority).toMatchObject({
+      taskRecords: { kind: "ask-me" },
+      skills: { kind: "proposal" },
+      secretValues: { kind: "never" },
+    });
     expect(options.mcpToolDefault).toEqual({ kind: "consult", role: "devops" });
     expect(options.taskLimits).toEqual({ lowest: 1, highest: 6 });
   });
@@ -276,7 +313,8 @@ describe("POST /api/roles", () => {
           changeProjectSettings: { kind: "consult", role: "devops" },
         },
       },
-      askingYouUntilHired: ["runInstalls", "publishOutsideThePipeline", "changeProjectSettings"],
+      presetAuthority: { testInstances: { kind: "allowed" } },
+      askingYouUntilHired: ["changeProjectSettings", "runInstalls", "publishOutsideThePipeline"],
     });
     expect(webEvents()).toEqual([{ type: "role.hired", roleKey: "developer" }]);
   });
@@ -291,8 +329,11 @@ describe("POST /api/roles", () => {
         title: "Office Manager",
         capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
         taskLimit: "none",
-        hardSwitches: { changeRoles: { kind: "ask-me" } },
+        // Proposal, which the release before reads as Never: it drafts Roles with propose_role.
+        authority: {},
+        hardSwitches: { changeRoles: { kind: "never" } },
       },
+      presetAuthority: { changeRoles: { kind: "proposal" } },
       askingYouUntilHired: [],
     });
   });
@@ -314,7 +355,7 @@ describe("POST /api/roles", () => {
           changeProjectSettings: { kind: "consult", role: "devops" },
         },
       },
-      askingYouUntilHired: ["runInstalls", "changeProjectSettings"],
+      askingYouUntilHired: ["changeProjectSettings", "runInstalls"],
     });
   });
 
@@ -341,7 +382,15 @@ describe("POST /api/roles", () => {
 
       expect(response.status).toBe(201);
       const role = roleSchema.parse(await response.json());
-      expect(role).toMatchObject({ key: roleKey, cardVersion: 1, card });
+      // Its Authority at a Role from scratch's defaults, which its Hard switches then read.
+      const { hardSwitches: _presets, ...sent } = card;
+      expect(role).toMatchObject({ key: roleKey, cardVersion: 1, card: sent });
+      expect(role.card.hardSwitches).toEqual({
+        runInstalls: { kind: "ask-me" },
+        publishOutsideThePipeline: { kind: "ask-me" },
+        changeRoles: { kind: "never" },
+        changeProjectSettings: { kind: "ask-me" },
+      });
       expect(roleSchema.parse(await get(`/roles/${roleKey}`)).card.skills).toEqual([skill]);
       expect(webEvents()).toContainEqual({ type: "role.hired", roleKey });
     } finally {
@@ -534,16 +583,77 @@ describe("PUT /api/roles/:key/card", () => {
     const response = await send("PUT", "/roles/developer/card", {
       ...editOf(hired),
       taskLimit: 7,
-      hardSwitches: {
-        ...hired.card.hardSwitches,
-        changeRoles: { kind: "consult", role: "janitor" },
+      authority: {
+        changeRoles: { kind: "allowed" },
+        publishOutsideThePipeline: { kind: "consult", role: "janitor" },
       },
     });
 
     expect(await reasonsOf(response)).toEqual([
       "A Task limit is 1 to 6 Tasks at once, or none.",
-      "Change Roles consults a Role The Office doesn't know.",
+      "Change Roles takes Proposal, Ask me or Never only.",
+      "Publish outside the Pipeline consults a Role The Office doesn't know.",
     ]);
+  });
+
+  it("sets an Authority row, keeps one set at its default, and Resets one by leaving it out", async () => {
+    const hired = await hire("developer", "Ada");
+    const ownAllowedOthersAskMe = {
+      kind: "own-and-others",
+      own: { kind: "allowed" },
+      others: { kind: "ask-me" },
+    };
+
+    const set = roleSchema.parse(
+      await (
+        await send("PUT", "/roles/developer/card", {
+          ...editOf(hired),
+          authority: { checks: { kind: "allowed" }, taskRecords: ownAllowedOthersAskMe },
+        })
+      ).json(),
+    );
+    const reset = roleSchema.parse(
+      await (
+        await send("PUT", "/roles/developer/card", {
+          ...editOf(set),
+          authority: { taskRecords: ownAllowedOthersAskMe },
+        })
+      ).json(),
+    );
+
+    expect(set.card.authority).toEqual({
+      checks: { kind: "allowed" },
+      taskRecords: ownAllowedOthersAskMe,
+    });
+    expect(reset.card.authority).toEqual({ taskRecords: ownAllowedOthersAskMe });
+    const [resetEntry] = roleChangeListSchema.parse(await get("/roles/developer/changes"));
+    expect(resetEntry).toMatchObject({
+      kind: "card-changed",
+      changes: [{ field: "authority.checks", from: { kind: "allowed" }, to: null }],
+    });
+  });
+
+  it("takes a card with Hard switches and no Authority, as the release before sends it, over the stored Authority", async () => {
+    const hired = await hire("developer", "Ada");
+    const withChecks = roleSchema.parse(
+      await (
+        await send("PUT", "/roles/developer/card", {
+          ...editOf(hired),
+          authority: { checks: { kind: "allowed" } },
+        })
+      ).json(),
+    );
+    const { authority: _authority, ...earlier } = editOf(withChecks);
+
+    const response = await send("PUT", "/roles/developer/card", {
+      ...earlier,
+      hardSwitches: { ...earlier.hardSwitches, runInstalls: { kind: "allowed" } },
+    });
+
+    expect(roleSchema.parse(await response.json()).card).toMatchObject({
+      authority: { checks: { kind: "allowed" }, runInstalls: { kind: "allowed" } },
+      hardSwitches: { runInstalls: { kind: "allowed" } },
+    });
   });
 
   it("saves the person's model and effort on an engine type and clears them back", async () => {

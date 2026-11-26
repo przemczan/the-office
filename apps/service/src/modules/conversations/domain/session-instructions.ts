@@ -595,16 +595,18 @@ export const CHANGE_PROJECT_SETTINGS_TOOL = "change_project_settings";
  * `change_role` on a Task, where a held call has a Thread to wait in (`callsCanWait`), unless its
  * Change Roles is Never, with `read_role` to start the change from; and `change_project_settings`
  * in an Agent Stage or a Consultation on a Task (`changesProjectSettings`), unless its Change
- * Project settings is Never. A chat, a Planning Thread and a person's Thread on a Task never get
- * them.
+ * Project settings is Never. Each reads the session's Hard switches, its Authority's named groups
+ * in effect, which read Proposal as Never: at Proposal the direct tool isn't offered and the
+ * person's drafting tools carry the change. A chat, a Planning Thread and a person's Thread on a
+ * Task never get them.
  */
 export function sessionOfficeTools(
   placeTools: readonly string[],
   {
-    capabilities,
+    card: { capabilities },
     hardSwitches,
   }: {
-    readonly capabilities: { readonly sharedMemory: boolean };
+    readonly card: { readonly capabilities: { readonly sharedMemory: boolean } };
     readonly hardSwitches: {
       readonly changeRoles: { readonly kind: string };
       readonly changeProjectSettings: { readonly kind: string };

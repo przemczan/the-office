@@ -1,10 +1,11 @@
 import type { EngineModel } from "../../engine/index.js";
 import {
-  HARD_SWITCH_KEYS,
-  sameHardSwitchValue,
-  type HardSwitchKey,
-  type HardSwitchValue,
-} from "./hard-switches.js";
+  AUTHORITY_GROUPS,
+  sameAuthoritySetting,
+  type AuthorityGroup,
+  type AuthoritySetting,
+} from "./authority.js";
+import { sameHardSwitchValue, type HardSwitchKey, type HardSwitchValue } from "./hard-switches.js";
 import type { McpToolSettings } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import type {
@@ -36,6 +37,9 @@ const CAPABILITY_KEYS = [
  * `roleOverride` and `effort` only by entries saved before it had `engineSettings`.
  * `engineSettingsMovedOver` says a card moved over to `engineSettings`: from its Role override, or
  * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
+ * `authorityMovedOver` says the card's Authority was made from its Hard switches and duties; each
+ * `authority.<group>` goes from a setting, or null at the preset's default, to another. The
+ * `hardSwitches.*` fields are named only by entries saved before the card had an Authority.
  */
 export type RoleCardField =
   | (typeof PLAIN_FIELDS)[number]
@@ -47,7 +51,9 @@ export type RoleCardField =
   | "engineSettingsMovedOver"
   | `capabilities.${keyof Capabilities}`
   | "permissionProfile"
-  | `hardSwitches.${HardSwitchKey}`;
+  | `hardSwitches.${HardSwitchKey}`
+  | "authorityMovedOver"
+  | `authority.${AuthorityGroup}`;
 
 /** A Role override of none read as the Office default. */
 export type RoleCardValue =
@@ -56,6 +62,7 @@ export type RoleCardValue =
   | boolean
   | PermissionProfile
   | HardSwitchValue
+  | AuthoritySetting
   | EngineModel
   | PersonEngineSettings
   | null;
@@ -101,12 +108,21 @@ export function roleCardChanges(
       to: after.permissionProfile,
     });
   }
-  for (const key of HARD_SWITCH_KEYS) {
-    const from = before.hardSwitches[key];
-    const to = after.hardSwitches[key];
-    if (!sameHardSwitchValue(from, to)) changes.push({ field: `hardSwitches.${key}`, from, to });
-  }
+  changes.push(...authorityChanges(before.authority, after.authority));
   return changes;
+}
+
+/** Each row set, changed or put back to the preset's default, from `before` to `after`. */
+export function authorityChanges(
+  before: RoleCard["authority"],
+  after: RoleCard["authority"],
+): RoleCardFieldChange[] {
+  return AUTHORITY_GROUPS.flatMap((group): RoleCardFieldChange[] => {
+    const from = before[group] ?? null;
+    const to = after[group] ?? null;
+    const same = from === null || to === null ? from === to : sameAuthoritySetting(from, to);
+    return same ? [] : [{ field: `authority.${group}`, from, to }];
+  });
 }
 
 /** A type left out and one set to the engine's default model and effort are the same setting. */

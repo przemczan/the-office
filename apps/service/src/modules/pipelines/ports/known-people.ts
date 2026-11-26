@@ -15,8 +15,12 @@ export interface KnownPerson {
       /** The MCP tools the user set, keyed `server/tool`; any other is at the default. */
       readonly mcpTools: Readonly<Record<string, HardSwitchOnCard>>;
     };
-    readonly hardSwitches: Readonly<Record<keyof FollowedHardSwitches, HardSwitchOnCard>>;
   };
+  /**
+   * The card's Hard switches as the named groups of its Authority read them: each group's value in
+   * effect, Proposal read as Never.
+   */
+  readonly hardSwitches: Readonly<Record<keyof FollowedHardSwitches, HardSwitchOnCard>>;
   /** Where an MCP tool the card leaves unset stands, as read now. */
   readonly mcpToolDefault: HardSwitchOnCard;
 }

@@ -16,15 +16,13 @@ import { dutiesHeldBy } from "../../shell/duty-words.ts";
 import { EFFORT_LABELS, ENGINE_KIND_ICONS, modelLabel } from "../../shell/engine-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { engineTypeRows, noEngineListedWords } from "./engine-type-rows.ts";
+import { AuthorityView } from "./role-card-authority.tsx";
 import { FixedForTheCaretaker, RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
-  ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
   EACH_ENGINES_DEFAULT,
-  ENFORCEMENT_LABELS,
   ENGINES_DEFAULT,
   engineInCascadeText,
-  HARD_SWITCH_LABELS,
   hardSwitchValueLabel,
   missingCapabilitiesWords,
   permissionProfileLines,
@@ -96,26 +94,9 @@ export function RoleCardView({
         <RoleCardValue label="Permission profile">
           {permissionProfileLines(card.permissionProfile).join(" · ")}
         </RoleCardValue>
-        <RoleCardValue label="Hard switches">
-          <ul className="role-card-switches">
-            {options.hardSwitches.map(({ key, enforcement }) => (
-              <li key={key}>
-                <span className="role-card-switch-name">{HARD_SWITCH_LABELS[key]}</span>
-                <span>
-                  {hardSwitchValueLabel(card.hardSwitches[key], roleTitles)}
-                  {role.askingYouUntilHired.includes(key) && (
-                    <span className="role-card-note">{ASKS_YOU_UNTIL_HIRED}</span>
-                  )}
-                </span>
-                <Badge size="sm" tone={enforcement === "enforced" ? "info" : "neutral"}>
-                  {ENFORCEMENT_LABELS[enforcement]}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </RoleCardValue>
         {role.builtIn && <FixedForTheCaretaker />}
       </RoleCardGroup>
+      <AuthorityView role={role} options={options} />
       <RoleCardGroup group="skills">
         {skills.length > 0 ? (
           <div className="person-skills">

@@ -1,24 +1,18 @@
 import { isDeepStrictEqual } from "node:util";
-import { ALLOWED, NEVER } from "./hard-switches.js";
 import { CARETAKER } from "./known-roles.js";
 import type { RoleCard } from "./role-card.js";
 
 /**
  * The parts of the Caretaker's card that are fixed (spec §2.2): a chat only, with Memory, no
- * Consultant, no Task limit, so no Pipeline names them, and the profile and Hard switches Allow
- * changes grants. The rest of the card is the user's to change.
+ * Consultant, no Task limit, so no Pipeline names them, and the profile Allow changes grants. Its
+ * Authority is fixed too (`CARETAKER_AUTHORITY`, kept as no set row; `authorityProblems` refuses
+ * any). The rest of the card is the user's to change.
  */
 export const CARETAKER_FIXED_PARTS = {
   capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: true, run: "anything", web: true },
-  hardSwitches: {
-    runInstalls: ALLOWED,
-    publishOutsideThePipeline: ALLOWED,
-    changeRoles: NEVER,
-    changeProjectSettings: NEVER,
-  },
   taskLimit: "none",
-} as const satisfies Pick<RoleCard, "capabilities" | "hardSwitches" | "taskLimit"> & {
+} as const satisfies Pick<RoleCard, "capabilities" | "taskLimit"> & {
   readonly permissionProfile: Omit<RoleCard["permissionProfile"], "mcpTools">;
 };
 
@@ -43,9 +37,6 @@ export function builtInCardProblems(roleKey: string, card: RoleCard): string[] {
       : [
           "The Caretaker's permission profile is fixed: Allow changes in a Thread gives everything but secrets.",
         ]),
-    ...(isDeepStrictEqual(card.hardSwitches, fixed.hardSwitches)
-      ? []
-      : ["The Caretaker's Hard switches are fixed."]),
     ...(card.taskLimit === fixed.taskLimit
       ? []
       : ["The Caretaker's Task limit is fixed at none: they only chat."]),

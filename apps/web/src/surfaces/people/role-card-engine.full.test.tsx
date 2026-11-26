@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { engineSettingsQuery } from "../../api/engine.ts";
 import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { AUTHORITY_AREAS, NEVER_EVERYWHERE } from "../../shell/authority.fixtures.ts";
 import { EngineFields } from "./role-card-form.tsx";
 import { RoleCardView } from "./role-card-view.tsx";
 
@@ -56,6 +57,8 @@ const OPTIONS = {
   ],
   knownRoles: [],
   hardSwitches: [],
+  authority: AUTHORITY_AREAS,
+  fromScratchAuthority: NEVER_EVERYWHERE,
 } as unknown as RoleCardOptions;
 
 const CARD = {
@@ -68,6 +71,7 @@ const CARD = {
   capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },
   hardSwitches: {},
+  authority: {},
   taskLimit: 1,
   sessionDefault: "context-policy",
   skills: [],
@@ -76,6 +80,7 @@ const CARD = {
 const ROLE = {
   key: "developer",
   card: CARD,
+  presetAuthority: NEVER_EVERYWHERE,
   builtIn: false,
   letGoAt: null,
   askingYouUntilHired: [],

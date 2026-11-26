@@ -591,6 +591,7 @@ describe("ProposalCard on the set-up of The Office", () => {
             changeRoles: { kind: "never" },
             changeProjectSettings: { kind: "never" },
           },
+          authority: {},
           taskLimit: "none",
           sessionDefault: "context-policy",
           skills: [],

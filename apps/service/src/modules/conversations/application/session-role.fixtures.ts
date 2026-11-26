@@ -10,7 +10,8 @@ export function aPlannerCard(fields: Partial<SessionRole["card"]> = {}): Session
     engineSettings: {},
     capabilities: { sharedMemory: false, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
-    hardSwitches: {
+    // Set, as tests give the card under keys of their own, whose other rows are from scratch's.
+    authority: {
       runInstalls: { kind: "consult", role: "devops" },
       publishOutsideThePipeline: { kind: "never" },
       changeRoles: { kind: "never" },

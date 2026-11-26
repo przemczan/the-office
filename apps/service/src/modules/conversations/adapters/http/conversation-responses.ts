@@ -39,7 +39,13 @@ import {
   type DecisionQuestion,
   type QuestionAnswer,
 } from "../../domain/decision.js";
-import { hiredKeyOf } from "../../../people/index.js";
+import {
+  cardWithAuthority,
+  hardSwitchesOf,
+  hiredKeyOf,
+  type IncomingRoleCard,
+  type RoleCard,
+} from "../../../people/index.js";
 import type {
   ActionFields,
   NewProject,
@@ -49,16 +55,16 @@ import type { Message } from "../../domain/message.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js";
 import { stageLimitsWithin } from "../../domain/stage-context-limits.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
-import type {
-  PipelineRoutes,
-  PipelineStage,
-  ProjectPipelineFields,
-  Proposal,
-  ProposedActionsChange,
-  ProposedChange,
-  ProposedFeatureSwitches,
-  ProposedProjectCommands,
-  ProposedTestTargetsChange,
+import {
+  type PipelineRoutes,
+  type PipelineStage,
+  type ProjectPipelineFields,
+  type Proposal,
+  type ProposedActionsChange,
+  type ProposedChange,
+  type ProposedFeatureSwitches,
+  type ProposedProjectCommands,
+  type ProposedTestTargetsChange,
 } from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
@@ -281,18 +287,39 @@ export function toProposalResponse({
   };
 }
 
+/** A card a Proposal holds, with its Hard switches as its Authority's named groups read them. */
+function cardResponse(given: IncomingRoleCard, roleKey: string) {
+  const card = cardWithAuthority(roleKey, given, {});
+  return { ...card, hardSwitches: hardSwitchesOf(roleKey, card.authority) };
+}
+
+/** A change's fields, with the Hard switches beside an Authority they rewrite. */
+function fieldsResponse(fields: Partial<RoleCard>, roleKey: string) {
+  return fields.authority === undefined
+    ? fields
+    : { ...fields, hardSwitches: hardSwitchesOf(roleKey, fields.authority) };
+}
+
 function toProposedChangeResponse(change: ProposedChange): ProposedChangeResponse {
   switch (change.kind) {
     case "hire":
       return {
         kind: "hire",
-        card: { ...change.card, skills: [...change.skills] },
+        card: {
+          ...cardResponse(change.card, change.roleKey ?? hiredKeyOf(change)),
+          skills: [...change.skills],
+        },
         roleKey: change.roleKey ?? null,
       };
     case "hire-from-preset":
       return { kind: "hire-from-preset", roleKey: change.roleKey, name: change.name };
     case "change":
-      return { kind: "change", roleKey: change.roleKey, from: change.from, to: change.to };
+      return {
+        kind: "change",
+        roleKey: change.roleKey,
+        from: fieldsResponse(change.from, change.roleKey),
+        to: fieldsResponse(change.to, change.roleKey),
+      };
     case "office-wide-limit":
     case "size-threshold":
       return { kind: change.kind, from: change.from, to: change.to };
@@ -315,7 +342,10 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
           hire.kind === "hire"
             ? {
                 kind: "hire",
-                card: { ...hire.card, skills: [...hire.skills] },
+                card: {
+                  ...cardResponse(hire.card, hiredKeyOf(hire)),
+                  skills: [...hire.skills],
+                },
                 roleKey: hiredKeyOf(hire),
               }
             : { kind: "hire-from-preset", roleKey: hire.roleKey, name: hire.name },

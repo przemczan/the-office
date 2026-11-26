@@ -45,7 +45,13 @@ import {
   anOfficeToolCall,
 } from "../../engine/index.fixtures.js";
 import { BusyWork, BusyWorkModule } from "../../office-updates/index.js";
-import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import {
+  sessionRole as sessionRoleOf,
+  CARETAKER,
+  EngineCascade,
+  RoleCards,
+  type SessionRole,
+} from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
@@ -531,7 +537,7 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
 function sessionRole(version: number): SessionRole {
   const card = versions[version - 1];
   if (!card) throw new Error(`The Planner's card has no version ${version}.`);
-  return { roleKey, cardVersion: version, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN };
+  return sessionRoleOf(roleKey, version, card, MCP_TOOL_DEFAULT_STAND_IN);
 }
 
 /** A session's turn: what the person writes, then its end, with the context it leaves. */

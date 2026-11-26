@@ -19,7 +19,14 @@ import { alias, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
-import { CARETAKER, type RoleCard } from "../../../people/index.js";
+import {
+  authorityWithHardSwitches,
+  hardSwitchesOf,
+  hiredKeyOf,
+  type Authority,
+  type HardSwitches,
+  type RoleCard,
+} from "../../../people/index.js";
 import {
   DEFAULT_PORT_VARIABLE,
   type ActionFields,
@@ -799,9 +806,10 @@ function toGivenAnswer(
   };
 }
 
-function toProposalRow({ status, ...proposal }: Proposal): ProposalRow {
+function toProposalRow({ status, change, ...proposal }: Proposal): ProposalRow {
   return {
     ...proposal,
+    change: toStoredChange(change),
     status: status.kind,
     statusAt: status.kind === "open" ? null : status.at,
     statusBy: status.kind === "open" ? null : status.by,
@@ -827,25 +835,31 @@ function toProposal({
 function toProposedChange(change: Proposal["change"]): Proposal["change"] {
   switch (change.kind) {
     // A hire not applied yet has no Role key, which its JSON leaves out.
-    case "hire":
+    case "hire": {
+      const roleKey = change.roleKey ?? undefined;
       return {
         ...change,
-        card: withChangeProjectSettings(change.card),
-        roleKey: change.roleKey ?? undefined,
+        card: cardFromStored(change.card, roleKey ?? hiredKeyOf(change)),
+        roleKey,
       };
+    }
     case "office-setup":
       return {
         ...change,
         hires: change.hires.map((hire) =>
-          hire.kind === "hire" ? { ...hire, card: withChangeProjectSettings(hire.card) } : hire,
+          hire.kind === "hire"
+            ? { ...hire, card: cardFromStored(hire.card, hiredKeyOf(hire)) }
+            : hire,
         ),
       };
-    case "change":
+    case "change": {
+      const from = fieldsFromStored(change.from, change.roleKey, {});
       return {
         ...change,
-        from: withChangeProjectSettings(change.from, change.roleKey),
-        to: withChangeProjectSettings(change.to, change.roleKey),
+        from,
+        to: fieldsFromStored(change.to, change.roleKey, from.authority ?? {}),
       };
+    }
     // A Proposal of commands drafted before re-run commands has none, read as blank.
     case "project-commands":
       return {
@@ -901,24 +915,81 @@ function withActionDefaults(fields: ActionFields): ActionFields {
   };
 }
 
+/** A card, or a change's fields, as a Proposal's JSON holds them: Hard switches beside Authority. */
+type StoredCardFields = RoleCardFields & { readonly hardSwitches?: Partial<HardSwitches> };
+
+/** A whole card as a Proposal's JSON holds it, which may lack the Authority whatever the type says. */
+type StoredCard = Omit<RoleCard, "authority"> & {
+  readonly authority?: Authority;
+  readonly hardSwitches?: Partial<HardSwitches>;
+};
+
 /**
- * A card, or a change's fields, saved by the release before Change Project settings after a
- * rollback lacks the switch, which the web's schema needs: read as Ask me, as a Role hired from
- * scratch starts, and the Caretaker's as its fixed Never.
+ * The change as it is stored: each Role card it holds, or change's fields with an Authority, carries
+ * its Hard switches as well (`hardSwitchesOf`), so the release before Authority reads an open
+ * Proposal as it reads it.
  */
-function withChangeProjectSettings<Card extends RoleCardFields>(
-  card: Card,
-  roleKey?: string,
-): Card {
-  const hardSwitches: Partial<RoleCard["hardSwitches"]> | undefined = card.hardSwitches;
-  if (hardSwitches === undefined || hardSwitches.changeProjectSettings !== undefined) return card;
-  return {
+function toStoredChange(change: Proposal["change"]): Proposal["change"] {
+  switch (change.kind) {
+    case "hire":
+      return {
+        ...change,
+        card: withHardSwitches(change.card, change.roleKey ?? hiredKeyOf(change)),
+      };
+    case "office-setup":
+      return {
+        ...change,
+        hires: change.hires.map((hire) =>
+          hire.kind === "hire"
+            ? { ...hire, card: withHardSwitches(hire.card, hiredKeyOf(hire)) }
+            : hire,
+        ),
+      };
+    case "change":
+      return {
+        ...change,
+        from: withHardSwitches(change.from, change.roleKey),
+        to: withHardSwitches(change.to, change.roleKey),
+      };
+    default:
+      return change;
+  }
+}
+
+function withHardSwitches<Card extends StoredCardFields>(card: Card, roleKey: string): Card {
+  if (card.authority === undefined) return card;
+  const stored: Card & StoredCardFields = {
     ...card,
-    hardSwitches: {
-      ...hardSwitches,
-      changeProjectSettings: roleKey === CARETAKER ? { kind: "never" } : { kind: "ask-me" },
-    },
+    hardSwitches: hardSwitchesOf(roleKey, card.authority),
   };
+  return stored;
+}
+
+/**
+ * A card a Proposal holds, as the domain reads it: its Authority, or one made from the Hard switches
+ * an earlier release drafted it with, a missing switch read as Ask me (`authorityWithHardSwitches`).
+ */
+function cardFromStored(card: StoredCard, roleKey: string): RoleCard {
+  const { hardSwitches, authority, ...rest } = card;
+  return {
+    ...rest,
+    authority: authority ?? authorityWithHardSwitches(roleKey, {}, hardSwitches ?? {}),
+  };
+}
+
+/**
+ * A change's fields as the domain reads them: an Authority made from the Hard switches an earlier
+ * release drafted them with, over `base`, when they rewrote the switches and give no Authority.
+ */
+function fieldsFromStored(
+  fields: RoleCardFields,
+  roleKey: string,
+  base: Authority,
+): RoleCardFields {
+  const stored: StoredCardFields = fields;
+  const { hardSwitches, ...rest } = stored;
+  if (stored.authority !== undefined || hardSwitches === undefined) return rest;
+  return { ...rest, authority: authorityWithHardSwitches(roleKey, base, hardSwitches) };
 }
 
 function withTargetDefaults(fields: ProposedTestTargetFields): ProposedTestTargetFields {

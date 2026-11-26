@@ -59,13 +59,17 @@ describe("the Office tools of a session", () => {
     ]);
   });
 
-  it.each([{ kind: "allowed" }, { kind: "ask-me" }, { kind: "consult", role: "cto" }] as const)(
-    "offer change_role on a Task when Change Roles is %o, with read_role to start from",
+  it("offer change_role on a Task when Change Roles is Ask me, with read_role to start from", () => {
+    expect(sessionOfficeTools(["read_task"], card(false, { kind: "ask-me" }), true, false)).toEqual(
+      ["read_task", CHANGE_ROLE_TOOL, READ_ROLE_TOOL],
+    );
+  });
+
+  it.each([{ kind: "proposal" }, { kind: "never" }] as const)(
+    "keep change_role when Change Roles is %o, which the view reads as Never",
     (changeRoles) => {
       expect(sessionOfficeTools(["read_task"], card(false, changeRoles), true, false)).toEqual([
         "read_task",
-        CHANGE_ROLE_TOOL,
-        READ_ROLE_TOOL,
       ]);
     },
   );
@@ -79,9 +83,15 @@ describe("the Office tools of a session", () => {
     },
   );
 
+  it("keep the Project setting tools when Change Project settings is Proposal", () => {
+    expect(
+      sessionOfficeTools(["read_task"], card(false, NEVER, { kind: "proposal" }), false, true),
+    ).toEqual(["read_task"]);
+  });
+
   it("offer read_role once when the place already has it", () => {
     expect(
-      sessionOfficeTools([READ_ROLE_TOOL], card(false, { kind: "allowed" }), true, false),
+      sessionOfficeTools([READ_ROLE_TOOL], card(false, { kind: "ask-me" }), true, false),
     ).toEqual([READ_ROLE_TOOL, CHANGE_ROLE_TOOL]);
   });
 });
