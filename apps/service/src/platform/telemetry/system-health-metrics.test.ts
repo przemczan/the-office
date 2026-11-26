@@ -60,6 +60,34 @@ describe("observeSystemHealth", () => {
     ]);
   });
 
+  it("observes each route's and table's exact longest duration since the last read", async () => {
+    const { recorder } = recorderForTests();
+    const reader = new CollectingMetricReader();
+    observeSystemHealth(new MeterProvider({ readers: [reader] }).getMeter("test"), recorder);
+    recorder.recordRequest("GET", "/api/tasks", 1234);
+    recorder.recordRequest("GET", "/api/tasks", 87);
+    recorder.recordQuery('select * from "stage_runs" where "id" = $1', 40, 0);
+    recorder.recordQuery('select * from "stage_runs" where "id" = $1', 6789, 0);
+
+    const first = await collected(reader);
+
+    expect(first.get("office.http.server.request.duration.max")?.dataPoints).toEqual([
+      expect.objectContaining({
+        attributes: { "http.request.method": "GET", "http.route": "/api/tasks" },
+        value: 1.234,
+      }),
+    ]);
+    expect(first.get("office.db.query.duration.max")?.dataPoints).toEqual([
+      expect.objectContaining({ value: 6.789 }),
+    ]);
+
+    const second = await collected(reader);
+
+    expect(second.get("office.http.server.request.duration.max")?.dataPoints).toEqual([
+      expect.objectContaining({ value: 0 }),
+    ]);
+  });
+
   it("observes nothing before the first reading", async () => {
     const { recorder } = recorderForTests();
     const reader = new CollectingMetricReader();

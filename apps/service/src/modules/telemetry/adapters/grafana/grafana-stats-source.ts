@@ -249,6 +249,7 @@ function requestsOf(results: QueryResults, range: SteppedRange): RequestsSeries 
   const rows = slowestRowsOf(results, labels, buckets, {
     count: REF.routeCount,
     total: REF.routeTotal,
+    max: REF.routeMax,
   });
   return {
     perMinute: stepsOfRef(results, REF.requestsPerMinute, range),
@@ -269,6 +270,7 @@ function databaseOf(results: QueryResults, range: SteppedRange): DatabaseSeries 
   const rows = slowestRowsOf(results, labels, buckets, {
     count: REF.tableCount,
     total: REF.tableTotal,
+    max: REF.tableMax,
   });
   return {
     perMinute: stepsOfRef(results, REF.queriesPerMinute, range),
@@ -296,8 +298,8 @@ interface BucketFigures {
 
 /**
  * The bucket query's answer (`bucketsQuery`) added up by step over every row, by row over the
- * steps, and over both for the range, each into its quantiles. A row's Max is its quantile 1: the
- * upper bound of the highest bucket that counted anything in the range.
+ * steps, and over both for the range, each into its quantiles. A row's quantile 1, the upper
+ * bound of the highest bucket that counted anything, only stands in for a Max the gauge lacks.
  */
 function bucketsOf(
   results: QueryResults,
@@ -351,19 +353,22 @@ function rowKeyOf(series: FrameSeries, labels: readonly string[]): string {
 
 /**
  * A slowest table's rows: each label set counted in the range, with its total time and, from the
- * buckets, its p95 and Max; one with nothing counted in the range is left out.
+ * buckets, its p95 and Max (the Max from its longest-duration gauge); one with nothing counted in the range is left out.
  */
 function slowestRowsOf(
   results: QueryResults,
   labels: readonly string[],
   buckets: BucketFigures,
-  refs: { readonly count: string; readonly total: string },
+  refs: { readonly count: string; readonly total: string; readonly max: string },
 ): { readonly labels: readonly string[]; readonly figures: SlowestFigures }[] {
   const total = new Map(
     (results.get(refs.total) ?? []).map((series) => [
       rowKeyOf(series, labels),
       lastValueOf(series),
     ]),
+  );
+  const longest = new Map(
+    (results.get(refs.max) ?? []).map((series) => [rowKeyOf(series, labels), lastValueOf(series)]),
   );
   return (results.get(refs.count) ?? []).flatMap((series) => {
     const count = lastValueOf(series);
@@ -376,7 +381,8 @@ function slowestRowsOf(
         figures: {
           count,
           p95Ms: times?.p95Ms ?? 0,
-          maxMs: times?.maxMs ?? 0,
+          // Without a gauge reading (before the gauges existed) the buckets' bound stands in.
+          maxMs: longest.get(key) ?? times?.maxMs ?? 0,
           totalMs: total.get(key) ?? 0,
         },
       },

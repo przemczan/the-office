@@ -1,5 +1,11 @@
 import { Injectable, type OnApplicationBootstrap, type OnModuleDestroy } from "@nestjs/common";
-import { metrics, type BatchObservableResult, type Meter } from "@opentelemetry/api";
+import {
+  metrics,
+  type Attributes,
+  type BatchObservableResult,
+  type Meter,
+  type ObservableGauge,
+} from "@opentelemetry/api";
 import { SystemHealthRecorder } from "../system-health/system-health-recorder.js";
 import { RunningTelemetrySettings } from "./telemetry-in-effect.js";
 import { TELEMETRY_SCOPE } from "./telemetry.js";
@@ -74,8 +80,80 @@ export function observeSystemHealth(meter: Meter, recorder: SystemHealthRecorder
       "db.collection.name": table,
     });
   });
+  const stopLongest = observeLongestDurations(meter, recorder);
   return () => {
     meter.removeBatchObservableCallback(observe, observables);
+    stopQueries();
+    stopLongest();
+  };
+}
+
+/**
+ * The longest request of each route and the longest query of each operation and table since the
+ * meter last read, as gauges: a histogram's buckets only bound a longest duration, while System
+ * health's Max column shows it exactly. A route or table seen before with nothing since the last
+ * read observes 0, as the SDK would otherwise report its last value again.
+ */
+function observeLongestDurations(meter: Meter, recorder: SystemHealthRecorder): () => void {
+  const longestRequests = new Map<string, { attributes: Attributes; seconds: number }>();
+  const longestQueries = new Map<string, { attributes: Attributes; seconds: number }>();
+  const keep = (
+    longest: typeof longestRequests,
+    attributes: Attributes,
+    durationMs: number,
+  ): void => {
+    const key = JSON.stringify(attributes);
+    const seconds = durationMs / 1000;
+    const kept = longest.get(key);
+    if (!kept || seconds > kept.seconds) longest.set(key, { attributes, seconds });
+  };
+  const requestGauge = meter.createObservableGauge("office.http.server.request.duration.max", {
+    unit: "s",
+    description: "The longest request of each route since the last reading",
+  });
+  const queryGauge = meter.createObservableGauge("office.db.query.duration.max", {
+    unit: "s",
+    description: "The longest database query of each operation and table since the last reading",
+  });
+  const seenRequests = new Map<string, Attributes>();
+  const seenQueries = new Map<string, Attributes>();
+  const observeSince = (
+    result: BatchObservableResult,
+    gauge: ObservableGauge,
+    longest: typeof longestRequests,
+    seen: Map<string, Attributes>,
+  ): void => {
+    for (const [key, { attributes }] of longest) seen.set(key, attributes);
+    for (const [key, attributes] of seen) {
+      result.observe(gauge, longest.get(key)?.seconds ?? 0, attributes);
+    }
+    longest.clear();
+  };
+  const observeLongest = (result: BatchObservableResult): void => {
+    observeSince(result, requestGauge, longestRequests, seenRequests);
+    observeSince(result, queryGauge, longestQueries, seenQueries);
+  };
+  const observables = [requestGauge, queryGauge];
+  meter.addBatchObservableCallback(observeLongest, observables);
+  const stopRequests = recorder.onRequest((method, template, durationMs) => {
+    keep(
+      longestRequests,
+      template === null
+        ? { "http.request.method": method }
+        : { "http.request.method": method, "http.route": template },
+      durationMs,
+    );
+  });
+  const stopQueries = recorder.onQuery((operation, table, durationMs) => {
+    keep(
+      longestQueries,
+      { "db.operation.name": operation, "db.collection.name": table },
+      durationMs,
+    );
+  });
+  return () => {
+    meter.removeBatchObservableCallback(observeLongest, observables);
+    stopRequests();
     stopQueries();
   };
 }

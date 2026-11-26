@@ -56,6 +56,10 @@ const HEALTH_METRICS = {
   waiting: 'db_client_connection_pending_requests{db_client_connection_pool_name=""}',
   requests: "http_server_request_duration_seconds",
   queries: "office_db_query_duration_seconds",
+  // The longest of each route's requests and of each table's queries, observed as gauges, since
+  // buckets only bound a longest duration.
+  longestRequest: "office_http_server_request_duration_max_seconds",
+  longestQuery: "office_db_query_duration_max_seconds",
 } as const;
 
 /** The labels the answers are read by. */
@@ -107,12 +111,14 @@ export const REF = {
   requestsTotal: "requestsTotal",
   routeCount: "routeCount",
   routeTotal: "routeTotal",
+  routeMax: "routeMax",
   queriesPerMinute: "queriesPerMinute",
   queryBuckets: "queryBuckets",
   waiting: "waiting",
   queriesTotal: "queriesTotal",
   tableCount: "tableCount",
   tableTotal: "tableTotal",
+  tableMax: "tableMax",
 } as const;
 
 export interface DataSourceRef {
@@ -245,7 +251,8 @@ export function costliestBreakdownQueryBody(
  * The totals, and each route's or table's count and total time, are instant queries over the
  * whole range, read at its end from the histograms' `_count` and `_sum`, a few series each.
  *
- * Every p95 and Max is read by one query of the block's histogram buckets (`bucketsQuery`), each
+ * Each route's and table's Max is the longest duration its gauge (`HEALTH_METRICS.longestRequest`,
+ * `longestQuery`) saw in the range, exact. Every p95 is read by one query of the block's histogram buckets (`bucketsQuery`), each
  * step's increase by bound and by route or table, which the adapter adds up by step, by row and
  * over the range before taking the quantiles itself (`histogram-quantile.ts`). The buckets are by
  * far the most series (each label set times each bound), sampled every few seconds: every query
@@ -294,6 +301,10 @@ export function systemHealthQueryBodies(
         once(REF.requestsTotal, `sum(increase(${requests}_count${whole}))`),
         once(REF.routeCount, `sum by (${routes}) (increase(${requests}_count${whole}))`),
         once(REF.routeTotal, `sum by (${routes}) (increase(${requests}_sum${whole})) * 1000`),
+        once(
+          REF.routeMax,
+          `max by (${routes}) (max_over_time(${HEALTH_METRICS.longestRequest}${whole})) * 1000`,
+        ),
       ],
       ...timeRange(range),
     },
@@ -305,6 +316,10 @@ export function systemHealthQueryBodies(
         once(REF.queriesTotal, `sum(increase(${queries}_count${whole}))`),
         once(REF.tableCount, `sum by (${tables}) (increase(${queries}_count${whole}))`),
         once(REF.tableTotal, `sum by (${tables}) (increase(${queries}_sum${whole})) * 1000`),
+        once(
+          REF.tableMax,
+          `max by (${tables}) (max_over_time(${HEALTH_METRICS.longestQuery}${whole})) * 1000`,
+        ),
       ],
       ...timeRange(range),
     },

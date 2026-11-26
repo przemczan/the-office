@@ -101,6 +101,9 @@ export interface SystemHealthLastHour {
 /** Told each query's duration, by its operation and table, as it is recorded. */
 export type QueryListener = (operation: string, table: string, durationMs: number) => void;
 
+/** A route's request as told to a listener; `template` is null for an unmatched request. */
+export type RequestListener = (method: string, template: string | null, durationMs: number) => void;
+
 type RouteLabel = SlowestRoute["route"];
 /** A statement shape's row, with the call sites found while the row is kept. */
 interface QueryLabel extends Pick<StatementShape, "operation" | "table" | "shape"> {
@@ -139,6 +142,7 @@ export class SystemHealthRecorder implements OnApplicationBootstrap, OnModuleDes
   private readonly shapes = new LastHourTable<QueryLabel>(SYSTEM_HEALTH_KEPT_ROWS);
   private readonly shapesMade = new Map<string, StatementShape>();
   private readonly queryListeners = new Set<QueryListener>();
+  private readonly requestListeners = new Set<RequestListener>();
   private readonly cores: number;
   private since: Date;
   private last: {
@@ -225,6 +229,13 @@ export class SystemHealthRecorder implements OnApplicationBootstrap, OnModuleDes
     const route = template === null ? null : { method, template };
     const key = route === null ? "" : `${method} ${template}`;
     this.routes.record(key, route, durationMs, this.schedule.now().getTime());
+    for (const listener of this.requestListeners) listener(method, template, durationMs);
+  }
+
+  /** Tells `listener` each request from now on; the returned function stops it. */
+  onRequest(listener: RequestListener): () => void {
+    this.requestListeners.add(listener);
+    return () => void this.requestListeners.delete(listener);
   }
 
   /**

@@ -87,6 +87,13 @@ describe("GrafanaStatsSource, System health", () => {
     expect(queries.routeTotal?.expr).toBe(
       "sum by (http_route, http_request_method) (increase(http_server_request_duration_seconds_sum[3600s])) * 1000",
     );
+    // Max is the longest duration the gauges saw, not a bucket's bound.
+    expect(queries.routeMax?.expr).toBe(
+      "max by (http_route, http_request_method) (max_over_time(office_http_server_request_duration_max_seconds[3600s])) * 1000",
+    );
+    expect(queries.tableMax?.expr).toBe(
+      "max by (db_operation_name, db_collection_name) (max_over_time(office_db_query_duration_max_seconds[3600s])) * 1000",
+    );
     expect(queries.waiting?.expr).toBe(
       'max(max_over_time(db_client_connection_pending_requests{db_client_connection_pool_name=""}[300s]))',
     );
