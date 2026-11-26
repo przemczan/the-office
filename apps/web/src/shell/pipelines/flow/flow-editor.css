@@ -73,6 +73,17 @@
   min-width: 0;
 }
 
+/* The Route drawing switch: beside the title, and under it in a narrow editor (narrower than
+   560px), where the title takes the whole line. */
+.flow-editor-route-drawing {
+  display: flex;
+  max-width: 100%;
+}
+
+.flow-editor--narrow .flow-editor-title {
+  flex-basis: 100%;
+}
+
 .flow-editor-title span {
   color: var(--fg-3);
   font: var(--type-caption);

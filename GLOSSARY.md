@@ -493,6 +493,10 @@ _Avoid_: Edge, arrow, transition, branch (a branch is git's)
 A route to its own Stage or one before it in the Pipeline's order, how the work goes round again: test-fix and review-fix rounds, repair after a failed Stage, Resolve after a conflict. It starts with a route limit of 3 and is drawn as any route, its limit marked on its line.
 _Avoid_: Loop, On failure, retry, loop-back
 
+**Route drawing**:
+How the flow editor draws its routes, this browser's choice from the head's switch: **Right angles** (the default; level and upright stretches around Stages, lines side by side kept apart), **Curves** (one smooth curve per route) or **Straight lines** (the direct line from Stage to Stage). It changes only the picture, never the Pipeline.
+_Avoid_: Edge style, line style, routing mode, connector
+
 **Route limit**:
 How many times the walk may follow one route in a walk, "at most N times" from 1 to 9, or No limit; a route back starts at 3, a route on at No limit, and every loop of routes needs one route with a limit. When the walk would follow a route past it, the holder of Asked first when a Stage runs out of tries, then the user, chooses: follow it once more, go on by another route, or drop the Task.
 _Avoid_: Rounds, retries, loop, max attempts

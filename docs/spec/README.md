@@ -238,6 +238,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Resolve**: [2.3.4 The Resolve Stage](2.3.4-publish.md#the-resolve-stage); [2.3.4 Resolve conflicts](2.3.4-publish.md#resolve-conflicts); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
 - **Role, Role card**: [2.2 Role](2.2-people.md#role); [2.2 Role card](2.2-people.md#role-card); screen: [People › Role card tab](screens/people.md#role-card-tab)
 - **Route back, Route limit, When a limit runs out**: [2.3.2 A route's limit](2.3.2-flows.md#a-routes-limit); [2.3.2 When a limit runs out](2.3.2-flows.md#when-a-limit-runs-out); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
+- **Route drawing (Right angles, Curves, Straight lines)**: screen: [Pipeline flow editor › Route drawing](screens/pipeline-flow-editor.md#route-drawing)
 - **Run environment (On or Off), Set up run environment, a Task's run environment from its own branch**: [2.3.1 Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment); [2.1.3 Setting up the run environment](2.1.3-tasks.md#setting-up-the-run-environment); [5.5 Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition); screen: [Project page › Run environment](screens/project-page.md#run-environment)
 
 ### S
@@ -537,6 +538,7 @@ Where each default lives, by page:
 - Pipeline flow editor (screen)
   - [Moving a Stage](screens/pipeline-flow-editor.md#moving-a-stage): the 16-unit snapping grid, snapping to other Stages within 8 screen pixels
   - [Narrow view](screens/pipeline-flow-editor.md#narrow-view): bands under 560px
+  - [Route drawing](screens/pipeline-flow-editor.md#route-drawing): Right angles, kept per browser; Right angles draws in full up to 8 Stages and 16 lines
 - 2.4.1 Threads
   - [Thread titles](2.4.1-threads.md#thread-titles)
 - 2.4.2 Decisions

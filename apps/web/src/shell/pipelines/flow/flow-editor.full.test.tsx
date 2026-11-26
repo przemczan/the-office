@@ -6,6 +6,7 @@ import ELK from "elkjs/lib/elk.bundled.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../toasts.tsx";
 import type { StageCommandSource } from "../stage-commands.ts";
+import { FlowEditor, useFlowEditorControls } from "./flow-editor.tsx";
 import { OfficeFlowEditor } from "./office-flow-editor.tsx";
 import { TaskFlowEditor } from "./task-flow-editor.tsx";
 
@@ -521,7 +522,9 @@ describe("the flow editor's routes and their limits", () => {
       mark.getAttribute("data-flow-limit-mark"),
       mark.textContent,
     ]);
-    expect(marks).toEqual([["tests:0", "≤2×"]]);
+    // jsdom measures every card 0 by 0, where a mark finds no room on its line: the canvas draws
+    // only the marks that fit, and the row always shows its own.
+    expect(marks.filter(([id]) => id !== "tests:0")).toEqual([]);
     const row = buttonNamed("Route from Tests to Implement, at most 2 times");
     expect(row.textContent).toContain("≤2×");
     expect(document.querySelector('[aria-label="What the lines mean"]')?.textContent).toContain(
@@ -1096,7 +1099,7 @@ describe("the flow editor's free placement", () => {
     const xs = laid.map(([, x]) => x as number);
     expect(xs[0]! < xs[1]! && xs[1]! < xs[2]!).toBe(true);
     expect(hint()).toContain(
-      "Auto-align laid out the 3 Stages from left to right in the Pipeline's order, with routes back in their own lanes.",
+      "Auto-align laid out the 3 Stages from left to right in the Pipeline's order.",
     );
     await press("Undo");
     expect(positionsOf(seen.stages)).toEqual(positionsOf(scattered));
@@ -1130,5 +1133,117 @@ describe("the flow editor's free placement", () => {
     await rendered();
     expect(hint()).toContain("Drag a Stage anywhere: it snaps to the grid and to other Stages");
     expect(hint()).not.toMatch(/between|below it|new column/);
+  });
+});
+
+/** A Proposal's flow: shown read-only. */
+function ReadOnlyHost(): ReactNode {
+  const controls = useFlowEditorControls();
+  return (
+    <FlowEditor
+      title="Stages and routes"
+      summary="3 Stages"
+      stages={[IMPLEMENT, TESTS, PUBLISH]}
+      problems={[]}
+      warnings={[]}
+      whoWorks={() => "Developer"}
+      readOnly
+      controls={controls}
+      panel={null}
+    />
+  );
+}
+
+function routeDrawing(): HTMLElement {
+  const group = document.querySelector<HTMLElement>('[role="group"][aria-label="Route drawing"]');
+  if (!group) throw new Error("No Route drawing switch.");
+  return group;
+}
+
+/** How the canvas draws its routes. */
+function drawnAs(): string | null | undefined {
+  return document.querySelector('[aria-label="Flow"]')?.getAttribute("data-route-drawing");
+}
+
+describe("the flow editor's Route drawing switch", () => {
+  const KEY = "the-office.flow-route-drawing";
+
+  /** Clears the stored choice, and tells the page's store, as another tab clearing it would. */
+  function forget(): void {
+    localStorage.removeItem(KEY);
+    window.dispatchEvent(new StorageEvent("storage", { key: KEY }));
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json([]))),
+    );
+    act(forget);
+  });
+
+  afterEach(() => {
+    // Before the stubs go: the editors mounted so far follow the store, and draw again.
+    act(forget);
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("offers Right angles, Curves and Straight lines in the head, Right angles chosen", async () => {
+    await rendered();
+    const choices = [...routeDrawing().querySelectorAll("button")];
+    expect(choices.map(wordsOf)).toEqual(["Right angles", "Curves", "Straight lines"]);
+    expect(choices.map((choice) => choice.getAttribute("aria-selected"))).toEqual([
+      "true",
+      "false",
+      "false",
+    ]);
+    expect(drawnAs()).toBe("right-angles");
+    // Before Auto-align.
+    const head = document.querySelector(".flow-editor-head");
+    const order = [...(head?.querySelectorAll("button") ?? [])].map(wordsOf);
+    expect(order.indexOf("Straight lines")).toBeLessThan(order.indexOf("Auto-align"));
+  });
+
+  it("redraws the canvas by the choice, keeps it in this browser and reads it back", async () => {
+    await rendered();
+    const before = seen.stages;
+    await press("Curves", routeDrawing());
+    expect(drawnAs()).toBe("curves");
+    await press("Straight lines", routeDrawing());
+    expect(drawnAs()).toBe("straight-lines");
+    expect(localStorage.getItem(KEY)).toBe("straight-lines");
+    // Nothing about the Pipeline changes: it isn't edited.
+    expect(seen.stages).toBe(before);
+
+    document.body.replaceChildren();
+    await rendered();
+    expect(drawnAs()).toBe("straight-lines");
+    expect(buttonNamed("Straight lines", routeDrawing()).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+  });
+
+  it("draws Right angles for a stored value that isn't one of the three", async () => {
+    await rendered();
+    await press("Curves", routeDrawing());
+    act(() => {
+      localStorage.setItem(KEY, "zigzag");
+      window.dispatchEvent(new StorageEvent("storage", { key: KEY }));
+    });
+    expect(drawnAs()).toBe("right-angles");
+  });
+
+  it("is shown on a read-only flow too", async () => {
+    await mounted(<ReadOnlyHost />);
+    expect(routeDrawing().querySelectorAll("button")).toHaveLength(3);
   });
 });

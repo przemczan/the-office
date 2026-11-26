@@ -1,0 +1,2537 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Route drawing in the Pipeline flow editor · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, light palette) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-700: #865b05;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-quiet: var(--gray-25);
+        --code-bg: var(--gray-100);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.35 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono: 400 var(--text-xs) / 1.55 var(--font-mono);
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+        --control-sm: 28px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+      }
+      /* Dark: the design system's [data-theme="dark"] aliases, scoped to the mock frames */
+      .pal-dark {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-sunken: #161615;
+        --surface-quiet: #1a1a19;
+        --code-bg: #262624;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 20%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        color: var(--fg-1);
+        color-scheme: dark;
+      }
+
+      /* ---------- Page ---------- */
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      html {
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        margin: 0;
+      }
+      .doc {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 40px 28px 96px;
+      }
+      .doc-head {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 28px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-2);
+      }
+      h1 {
+        margin: 0;
+        font: 600 28px / 1.2 var(--font-sans);
+        letter-spacing: -0.015em;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font: 600 20px / 1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        margin: 18px 0 6px;
+        font: var(--type-section-title);
+      }
+      h4 {
+        margin: 0 0 4px;
+        font: var(--type-card-title);
+      }
+      p {
+        margin: 0 0 10px;
+      }
+      .lead {
+        max-width: 760px;
+        color: var(--fg-2);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .chip.review {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      code,
+      .mono {
+        font: var(--type-mono);
+      }
+      code {
+        padding: 1px 4px;
+        border-radius: var(--radius-sm);
+        background: var(--code-bg);
+      }
+      pre {
+        margin: 8px 0 12px;
+        padding: 12px 14px;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-quiet);
+        font: var(--type-mono);
+        white-space: pre;
+      }
+      pre code {
+        padding: 0;
+        background: none;
+      }
+      .toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        font: var(--type-body-sm);
+      }
+      .toc a {
+        color: var(--fg-2);
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: var(--accent-subtle-fg);
+        text-decoration: underline;
+      }
+      section {
+        margin-top: 44px;
+        scroll-margin-top: 16px;
+      }
+      ul.facts,
+      ol.facts {
+        margin: 6px 0 12px;
+        padding-left: 20px;
+      }
+      .facts li {
+        margin: 3px 0;
+      }
+      .card {
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .decisions {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .decision {
+        display: grid;
+        gap: 6px;
+        align-content: start;
+      }
+      .decision .overline {
+        color: var(--accent-subtle-fg);
+      }
+      .decision p {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .decision a {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      table.spec {
+        width: 100%;
+        margin: 8px 0 14px;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      table.spec th,
+      table.spec td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      table.spec th {
+        font: var(--type-label);
+        color: var(--fg-2);
+        background: var(--surface-quiet);
+      }
+      table.spec td:first-child {
+        width: 24%;
+        font-weight: 500;
+      }
+      table.spec td.count {
+        font: var(--type-mono);
+        white-space: nowrap;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .table-wrap table.spec {
+        margin: 0;
+        min-width: 620px;
+      }
+      .table-wrap tr:last-child td {
+        border-bottom: 0;
+      }
+      .callout {
+        display: flex;
+        gap: 10px;
+        margin: 10px 0 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-lg);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        font: var(--type-body-sm);
+      }
+      .callout.rec {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .callout.ask {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .callout svg {
+        flex: none;
+        margin-top: 2px;
+      }
+      .callout p {
+        margin: 0;
+      }
+      .callout .facts {
+        margin-top: 0;
+      }
+      .callout .facts li:first-child {
+        margin-top: 0;
+      }
+      .figure-caption {
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      /* ---------- Controls (packages/ui Button / SegmentedControl) ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+        font: var(--type-label);
+        white-space: nowrap;
+      }
+      .seg {
+        display: inline-flex;
+        padding: 2px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .seg button {
+        height: 22px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+      }
+      .seg button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .demo-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 18px;
+        margin: 14px 0 10px;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .demo-bar .field {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* ---------- The flow editor mock (flow-editor.css / flow-canvas.css) ---------- */
+      .stage {
+        padding: 16px;
+        border-radius: var(--radius-xl);
+        background: var(--bg);
+        border: 1px solid var(--border);
+      }
+      .ed {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+      }
+      .ed.narrow {
+        width: 390px;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+      .ed-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px 16px;
+        padding: 16px 18px 10px;
+      }
+      .ed-title {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .ed-summary {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .ed-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .ed-legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 16px;
+        padding: 0 18px 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .ed-legend .sample {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .ed-legend .limit {
+        padding: 0 5px;
+        border: 1px solid var(--fg-3);
+        border-radius: var(--radius-full);
+        font: 600 10px / 14px var(--font-mono);
+        color: var(--fg-1);
+      }
+      .ed-canvas {
+        padding: 6px;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-sunken);
+      }
+      .ed-status {
+        min-height: 38px;
+        padding: 9px 18px 10px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .dia {
+        overflow-x: auto;
+      }
+      .dia svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+      }
+      .dia.is-wide svg {
+        min-width: 900px;
+      }
+      .fl-card {
+        fill: var(--surface);
+        stroke: var(--border-strong);
+      }
+      .fl-sep {
+        stroke: var(--border-subtle);
+      }
+      .fl-name {
+        fill: var(--fg-1);
+        font: 600 13px var(--font-sans);
+      }
+      .fl-who {
+        fill: var(--fg-3);
+        font: 400 12px var(--font-sans);
+      }
+      .fl-icon {
+        fill: var(--surface);
+        stroke: var(--border-strong);
+        stroke-width: 2;
+      }
+      .fl-glyph {
+        fill: none;
+        stroke: var(--fg-2);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .fl-row-bg {
+        fill: transparent;
+        cursor: pointer;
+      }
+      .fl-row-bg:hover {
+        fill: var(--control-hover);
+      }
+      .fl-row-bg.is-picked {
+        fill: var(--accent-subtle);
+      }
+      .fl-row-bg:focus-visible {
+        outline: none;
+        stroke: var(--accent);
+        stroke-width: 2;
+      }
+      .fl-row-to {
+        fill: var(--fg-1);
+        font: 500 12px var(--font-sans);
+        pointer-events: none;
+      }
+      .fl-row-when {
+        fill: var(--fg-2);
+        font: 400 12px var(--font-sans);
+        pointer-events: none;
+      }
+      .fl-row-when.is-small {
+        font-size: 11px;
+      }
+      .fl-chip {
+        fill: var(--surface);
+        stroke: var(--border-strong);
+        pointer-events: none;
+      }
+      .fl-chip-text,
+      .fl-mark-text {
+        fill: var(--fg-1);
+        font: 600 10px var(--font-mono);
+        pointer-events: none;
+      }
+      .fl-port {
+        fill: var(--surface);
+        stroke: var(--fg-3);
+        stroke-width: 1.5;
+        pointer-events: none;
+      }
+      .fl-line {
+        fill: none;
+        stroke: var(--fg-3);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+      .fl-arrow {
+        fill: var(--fg-3);
+      }
+      .fl-hit {
+        fill: none;
+        stroke: transparent;
+        stroke-width: 12;
+        pointer-events: stroke;
+        cursor: pointer;
+      }
+      .fl-hit:focus-visible {
+        outline: none;
+        stroke: color-mix(in oklab, var(--accent) 40%, transparent);
+      }
+      .fl-route.is-picked .fl-line {
+        stroke: var(--accent);
+        stroke-width: 2.25;
+      }
+      .fl-route.is-picked .fl-arrow {
+        fill: var(--accent);
+      }
+      .fl-mark {
+        cursor: pointer;
+      }
+      .fl-mark rect {
+        fill: var(--surface);
+        stroke: var(--fg-3);
+      }
+      .fl-mark.is-picked rect {
+        stroke: var(--accent);
+        stroke-width: 1.5;
+      }
+      .fl-start {
+        fill: var(--fg-2);
+      }
+      .fl-start-line {
+        fill: none;
+        stroke: var(--fg-2);
+        stroke-width: 1.5;
+      }
+      .fl-end {
+        fill: var(--surface);
+        stroke: var(--fg-2);
+        stroke-width: 2;
+      }
+      .fl-end-text {
+        fill: var(--fg-1);
+        font: 600 11px var(--font-sans);
+      }
+
+      /* ---------- Pictures ---------- */
+      .cmp {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .cmp.is-narrow {
+        grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
+      }
+      .pic {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface-sunken);
+      }
+      .pic-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 4px 12px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--fg-1);
+      }
+      .pic-head b {
+        font: var(--type-label);
+      }
+      .pic-head span {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .pic .dia {
+        padding: 6px;
+      }
+      .pics {
+        display: grid;
+        gap: 12px;
+        margin: 12px 0 6px;
+      }
+      .pics.trio {
+        grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
+      }
+
+      @media (max-width: 720px) {
+        .doc {
+          padding: 24px 14px 64px;
+        }
+        .stage {
+          padding: 8px;
+        }
+        table.spec td:first-child {
+          width: 30%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="doc">
+      <header class="doc-head">
+        <div class="overline">Design proposal · Pipelines view · the flow editor</div>
+        <h1>Route drawing: Right angles, Curves and Straight lines</h1>
+        <p class="lead">
+          The routes between Stages are drawn in one of three ways, switched in the editor’s head so the difference is
+          plain to see. In every one of them a route with a limit is drawn by the same rules as any other route, no line
+          runs through a Stage, a loop’s arrow sits on the Stage it goes back to, and nobody arranges a line by hand.
+        </p>
+        <div class="chips">
+          <span class="chip review">For review before implementation</span>
+          <span class="chip">Screen page: docs/spec/screens/pipeline-flow-editor.md</span>
+          <span class="chip">Builds on: pipeline-free-placement.html</span>
+          <span class="chip">Next: the Task page’s read-only diagram uses the same drawers</span>
+        </div>
+        <ul class="toc" aria-label="Contents">
+          <li><a href="#short">In short</a></li>
+          <li><a href="#review">For the review</a></li>
+          <li><a href="#compare">Compare</a></li>
+          <li><a href="#today">Today</a></li>
+          <li><a href="#boundary">The drawer boundary</a></li>
+          <li><a href="#rules">In every mode</a></li>
+          <li><a href="#right-angles">Right angles</a></li>
+          <li><a href="#curves">Curves</a></li>
+          <li><a href="#straight-lines">Straight lines</a></li>
+          <li><a href="#marks">Marks and pressing</a></li>
+          <li><a href="#switch">The switch</a></li>
+          <li><a href="#narrow">Narrow view</a></li>
+          <li><a href="#performance">Performance</a></li>
+          <li><a href="#proposals">Proposals</a></li>
+          <li><a href="#fixtures">The test Pipelines</a></li>
+          <li><a href="#spec">Spec changes</a></li>
+          <li><a href="#build">Building it</a></li>
+        </ul>
+      </header>
+
+      <!-- ================= In short ================= -->
+      <section id="short">
+        <h2>In short</h2>
+        <p class="lead">Eight decisions. Each one is worked out further down the page.</p>
+        <div class="decisions">
+          <div class="card decision">
+            <div class="overline">The modes</div>
+            <h4>Right angles, Curves, Straight lines</h4>
+            <p>
+              <b>Right angles</b> is the orthogonal mode: lines go around Stages and stand apart where they share a
+              side or a corridor. <b>Curves</b> draws one smooth curve per route. <b>Straight lines</b> draws the
+              direct line from Stage to Stage.
+            </p>
+            <a href="#compare">Compare →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">The default</div>
+            <h4>Right angles</h4>
+            <p>
+              It is the only mode that keeps lines in a shared corridor apart. It draws the test Pipelines with no
+              crossing (as Curves does, but Curves lets lines run close), its lines leave from their own rows, and it
+              is the closest to what the editor draws today.
+            </p>
+            <a href="#switch">The switch →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">One rule for every route</div>
+            <h4>A limit only adds the ≤N× mark</h4>
+            <p>
+              Routes on and routes back are drawn in one pass by the same rules. The lanes above the Stages, which
+              put every route back over the others, are gone.
+            </p>
+            <a href="#rules">In every mode →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Loops</div>
+            <h4>The arrow sits on the Stage the route goes back to</h4>
+            <p>
+              A route’s arrow is always on its target’s edge, pointing in; in Right angles and Curves its last 12 run
+              straight into the edge. A route to its own Stage is a small loop on the Stage’s top edge (its left edge
+              when narrow).
+            </p>
+            <a href="#rules">In every mode →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Right angles: the router</div>
+            <h4>Our own code, not a library</h4>
+            <p>
+              A grid search with nudging, about 600 lines, on the main thread: no loading, no waiting. libavoid-js loads
+              a WASM file before the first line can be drawn, and ELK routes lines only while it also moves the
+              Stages.
+            </p>
+            <a href="#right-angles">Right angles →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">One boundary</div>
+            <h4>A route drawer per mode, same input and output</h4>
+            <p>
+              Measured boxes and lines in; a path, an arrow, a mark spot and a hit path per line out, with the bounds
+              of the whole drawing. The Task page’s diagram will call the same functions.
+            </p>
+            <a href="#boundary">The drawer boundary →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">The switch</div>
+            <h4>In the editor’s head, kept per browser</h4>
+            <p>
+              A segmented control named <b>Route drawing</b>, after the title. The choice is a local preference of the
+              browser, so no service or contract changes, and every flow on the page follows it at once.
+            </p>
+            <a href="#switch">The switch →</a>
+          </div>
+          <div class="card decision">
+            <div class="overline">Marks</div>
+            <h4>≤N× is pressable, and never covers a card or a line</h4>
+            <p>
+              A press anywhere on a mark picks its route. A mark sits on its own line at the nearest free spot; a line
+              with no room for one leaves the mark to its row.
+            </p>
+            <a href="#marks">Marks and pressing →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= For the review ================= -->
+      <section id="review">
+        <h2>For the review</h2>
+        <p class="lead">Six choices that are yours to change, and two facts that were not checked.</p>
+        <div class="callout ask">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.25" />
+            <path d="M8 4.75v4M8 11v.25" stroke-linecap="round" />
+          </svg>
+          <div>
+            <ol class="facts">
+              <li>
+                <b>The words.</b> The switch says <b>Right angles</b>, <b>Curves</b>, <b>Straight lines</b>, in plain
+                language. The other choice is Orthogonal, Curved, Straight, as the Task names them.
+              </li>
+              <li>
+                <b>Own router.</b> Right angles is our own code rather than libavoid-js or ELK
+                (<a href="#library">the comparison</a>).
+              </li>
+              <li>
+                <b>Sides by where the target stands.</b> A line leaves its row’s port only when its target is ahead; a
+                route back or down leaves the top or bottom edge. So a row shows its port dot only when its line leaves
+                there.
+              </li>
+              <li>
+                <b>A mark with no room.</b> A line too short or too crowded for its ≤N× mark draws none; the route’s row
+                still shows it.
+              </li>
+              <li>
+                <b>Narrow view.</b> Two Stages side by side in a band stand 24 apart instead of 14, so an arrow fits
+                between them.
+              </li>
+              <li>
+                <b>Tab.</b> A ≤N× mark takes a press but is not a Tab stop of its own: Tab reaches the route at its row
+                (or at its line, with no row), as today. A second Tab stop per route would say the same thing twice.
+              </li>
+            </ol>
+            <p>
+              Not checked on the web while this was written: libavoid-js’s size and licence, and that ELK’s
+              fixed-position layout draws no routes. Both are from memory; the reasons against each library (an
+              asynchronous load, and Stages that move) don’t depend on them.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Compare ================= -->
+      <section id="compare">
+        <h2>Compare</h2>
+        <p class="lead">
+          The same three Pipelines in each mode. The switch in the editor’s head works; press a line, a ≤N× mark or a
+          row to pick its route.
+        </p>
+        <div class="demo-bar">
+          <span class="field">
+            <span class="overline" id="lbl-fixture">Pipeline</span>
+            <span class="seg" data-state="fixture" role="group" aria-labelledby="lbl-fixture">
+              <button type="button" data-value="straight">Straight</button>
+              <button type="button" data-value="loops">Loops and limits</button>
+              <button type="button" data-value="branching">Branching</button>
+            </span>
+          </span>
+          <span class="field">
+            <span class="overline" id="lbl-palette">Palette</span>
+            <span class="seg" data-state="palette" role="group" aria-labelledby="lbl-palette">
+              <button type="button" data-value="light">Light</button>
+              <button type="button" data-value="dark">Dark</button>
+            </span>
+          </span>
+          <span class="field">
+            <span class="overline" id="lbl-width">Width</span>
+            <span class="seg" data-state="width" role="group" aria-labelledby="lbl-width">
+              <button type="button" data-value="wide">Wide</button>
+              <button type="button" data-value="narrow">Narrow (under 560px)</button>
+            </span>
+          </span>
+        </div>
+
+        <div class="stage" id="cmp-stage">
+          <div class="ed" id="ed">
+            <div class="ed-head">
+              <div>
+                <h3 class="ed-title">Stages and routes</h3>
+                <div class="ed-summary" id="ed-summary"></div>
+              </div>
+              <div class="ed-actions">
+                <span class="seg" data-state="drawing" role="group" aria-label="Route drawing">
+                  <button type="button" data-value="right-angles" title="Around Stages, lines side by side kept apart">
+                    Right angles
+                  </button>
+                  <button type="button" data-value="curves" title="One smooth curve per route">Curves</button>
+                  <button type="button" data-value="straight-lines" title="The direct line from Stage to Stage">
+                    Straight lines
+                  </button>
+                </span>
+                <span class="btn" id="ed-auto">Auto-align</span>
+                <span class="btn">Add a Stage ▾</span>
+              </div>
+            </div>
+            <div class="ed-legend" role="group" aria-label="What the lines mean">
+              <span class="sample">
+                <svg width="28" height="8" viewBox="0 0 28 8" aria-hidden="true">
+                  <path class="fl-line" d="M1 4H21" />
+                  <path class="fl-arrow" d="M27 4l-7-3.5v7z" />
+                </svg>
+                Route
+              </span>
+              <span class="sample"><span class="limit">≤N×</span> at most N times</span>
+            </div>
+            <div class="ed-canvas"><div class="dia" id="ed-canvas"></div></div>
+            <div class="ed-status" id="ed-status" role="status"></div>
+          </div>
+
+          <div class="cmp" id="cmp-grid">
+            <div class="pic" id="cmp-right-angles">
+              <div class="pic-head"><b>Right angles</b><span class="cmp-count"></span></div>
+              <div class="dia"></div>
+            </div>
+            <div class="pic" id="cmp-curves">
+              <div class="pic-head"><b>Curves</b><span class="cmp-count"></span></div>
+              <div class="dia"></div>
+            </div>
+            <div class="pic" id="cmp-straight-lines">
+              <div class="pic-head"><b>Straight lines</b><span class="cmp-count"></span></div>
+              <div class="dia"></div>
+            </div>
+          </div>
+        </div>
+        <p class="figure-caption">
+          How these were drawn: no router ran. The Right angles lines follow points worked out by hand from the rules
+          below; this page then draws Curves from the same ends, and Straight lines between the cards’ centres. The
+          count beside each name is counted by this page from the lines it drew.
+        </p>
+      </section>
+
+      <!-- ================= Today ================= -->
+      <section id="today">
+        <h2>Today</h2>
+        <ul class="facts">
+          <li>
+            <code>flow-layout.ts</code> draws routes on and routes back by two different sets of rules. Routes back,
+            which are most often the ones with limits, run in lanes above the Stages between their ends (or under
+            them), so they cross and cover the other lines.
+          </li>
+          <li>
+            A route on that can’t go straight takes a lane below the Stages. Those lanes stack in the lines’ order, not
+            by where the lines lead, so they tangle.
+          </li>
+          <li>Nothing counts crossings, so nothing avoids them.</li>
+          <li>
+            The marks layer takes no presses (<code>pointer-events: none</code>): a press on a ≤N× mark only works
+            where it happens to land on the 12-wide hit line under it.
+          </li>
+          <li>
+            The room the canvas keeps for lines (<code>flowRoom</code>) comes from counting lanes, not from what is
+            drawn.
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= The drawer boundary ================= -->
+      <section id="boundary">
+        <h2>The drawer boundary</h2>
+        <p class="lead">
+          One function per mode, with the same input and output. It is pure: no React, no DOM, nothing asynchronous. The
+          editor calls it today; the Task page’s read-only diagram calls it next.
+        </p>
+        <pre><code>// apps/web/src/shell/pipelines/flow/flow-routes/route-drawer.ts
+export type RouteDrawing = "right-angles" | "curves" | "straight-lines";
+
+export interface RouteScene {
+  readonly orientation: FlowOrientation;               // "across" | "down"
+  readonly stages: ReadonlyMap&lt;string, MeasuredStage&gt;; // each card's box and its rows' ports
+  readonly end: FlowBox | undefined;                   // undefined until End is measured: no line to End is drawn
+  readonly start: string | undefined;                  // the first Stage's key: the start marker keeps its place
+  readonly lines: readonly FlowLine[];                 // routes on and back alike, then a Proposal's; a line's
+                                                       // limit is its only extra: on or back makes no difference
+  readonly mark: { readonly width: number; readonly height: number }; // the ≤N× mark's box: 40 × 18 today
+}
+
+export interface DrawnRoute {
+  readonly line: FlowLine;
+  readonly d: string;                    // the line's SVG path
+  readonly hit: string;                  // the 12-wide path that takes the press
+  readonly arrow: string;                // the arrow head, on the target's edge
+  readonly mark: FlowPoint | undefined;  // where ≤N× sits; undefined with no limit, or no room
+  readonly fromPort: boolean;            // the line leaves its row's port, so the row shows its dot
+}
+
+export interface DrawnRoutes {
+  readonly routes: readonly DrawnRoute[]; // in the lines' order
+  readonly bounds: FlowBox;               // around every path and mark
+}
+
+export interface RoughDrawing {
+  readonly previous: DrawnRoutes;         // the last full drawing
+  readonly moved: string | null;          // the Stage being dragged, by its key; null for End
+}
+
+export type RouteDrawer = (scene: RouteScene, rough?: RoughDrawing) =&gt; DrawnRoutes;
+
+export const ROUTE_DRAWERS: Record&lt;RouteDrawing, RouteDrawer&gt;;</code></pre>
+        <ul class="facts">
+          <li>
+            <code>flow-canvas.tsx</code> draws whatever the chosen drawer returns: the paths, the arrows, the hit lines
+            and the marks.
+          </li>
+          <li>
+            <code>flowRoom</code> is worked out from <code>bounds</code>, so the canvas keeps exactly the room the lines
+            take.
+          </li>
+          <li>
+            Narrow, that room narrows the cards, which changes what the lines were drawn from. It settles in two steps:
+            the room is taken from a first drawing, the cards are measured again, and the lines are drawn once more
+            for them; the room then stays until the Pipeline or the width changes.
+          </li>
+          <li>
+            The mark’s box, 40 × 18 as today’s <code>MARK_WIDTH</code> and <code>MARK_HEIGHT</code>, is part of the
+            scene, so the drawers and the canvas agree on it.
+          </li>
+          <li>
+            <code>flowLines</code> stops leaving routes back out: every line reaches the drawer, in the Pipeline’s
+            order.
+          </li>
+          <li>
+            Removed from <code>flow-layout.ts</code>: <code>loopLanes</code>, <code>LaidLoop</code>,
+            <code>FlowLoopPath</code>, <code>needsDetour</code>, <code>lineDetours</code>, <code>routePaths</code>,
+            <code>loopPaths</code>, the anchors, <code>markSpot</code> and <code>markSpots</code>.
+          </li>
+          <li>
+            Stay shared: <code>startPath</code>, <code>orthogonalPath</code>, <code>arrowHead</code>,
+            <code>narrowBands</code> / <code>narrowLayout</code> and <code>drawingStart</code>.
+          </li>
+          <li>
+            <code>rough</code> is only for dragging on a large Pipeline (<a href="#performance">Performance</a>); a
+            drawer may ignore it and draw in full.
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= In every mode ================= -->
+      <section id="rules">
+        <h2>In every mode</h2>
+        <ol class="facts">
+          <li>
+            <b>One pass, one set of rules.</b> Routes on and routes back are drawn together; a limit only adds the ≤N×
+            mark. No route is drawn over another for having one.
+          </li>
+          <li><b>No line through a card.</b> Every Stage card and End is an obstacle.</li>
+          <li>
+            <b>The arrow is on the target’s edge</b>, pointing in. In Right angles and Curves the last 12 of the line
+            run straight into the edge, so the arrow never lies along it.
+          </li>
+          <li>
+            <b>A route to its own Stage</b> is a loop on the Stage’s top edge (its left edge, narrow): 56 wide and 24
+            out. It enters at the middle of the edge and leaves 56 to the right of that (below it, narrow); the other
+            lines on that edge keep 16 clear of both its ends. With a card less than 40 over the edge, the loop takes
+            the bottom edge (the right edge, narrow) instead.
+          </li>
+          <li>
+            <b>No words on lines.</b> A route’s words are its row in the card; the line carries only its ≤N× mark.
+          </li>
+          <li>
+            <b>The start marker keeps its place</b>, the middle of the first Stage’s left edge (its top edge, narrow);
+            lines that enter that edge spread round it.
+          </li>
+          <li>
+            <b>The same Pipeline draws the same way every time.</b> Ties go by the Pipeline’s order. Stages never move.
+          </li>
+          <li>
+            <b>One layer.</b> All lines are drawn in one SVG layer under the cards, in the Pipeline’s order; only the
+            picked route is raised.
+          </li>
+        </ol>
+      </section>
+
+      <!-- ================= Right angles ================= -->
+      <section id="right-angles">
+        <h2>Right angles</h2>
+        <p class="lead">
+          Level and upright stretches with rounded corners. Lines go around Stages, and lines that share a side or a
+          corridor stand apart. This is the approach of libavoid and ELK, in our own code.
+        </p>
+        <div class="pics">
+          <div class="pic">
+            <div class="pic-head"><b>Loops and limits</b><span>Right angles · Light</span></div>
+            <div class="dia is-wide" data-dia="loops wide right-angles"></div>
+          </div>
+          <div class="pic pal-dark">
+            <div class="pic-head"><b>Branching</b><span>Right angles · Dark</span></div>
+            <div class="dia is-wide" data-dia="branching wide right-angles"></div>
+          </div>
+        </div>
+
+        <h3>Which sides a line uses</h3>
+        <p>Decided by where the target stands, the first row that fits:</p>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead>
+              <tr>
+                <th>Where the target stands</th>
+                <th>The line leaves</th>
+                <th>The line enters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Ahead: its left edge is at least 24 right of the Stage’s right edge</td>
+                <td>the right edge, at the route’s row (the middle of the edge with no row)</td>
+                <td>the left edge</td>
+              </tr>
+              <tr>
+                <td>Below or above: its top is at least 24 under the Stage’s bottom, or its bottom at least 24 over the top</td>
+                <td>the edge facing the target</td>
+                <td>the edge facing the Stage</td>
+              </tr>
+              <tr>
+                <td>Otherwise: behind and level, or closer than 24 on every side</td>
+                <td>the top edge</td>
+                <td>
+                  the top edge. Both use the bottom edges instead when fewer cards stand over the span between them
+                  there; the top on a tie
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="facts">
+          <li>Wide, a line never leaves a left edge and never enters a right edge.</li>
+          <li>
+            Narrow, the same rules hold with left-to-right and top-to-bottom swapped: ahead is below, lines leave a
+            bottom edge and enter a top edge; a target in another column, beside or higher up, takes the facing left
+            and right edges; a route back in the same column uses the left edges; a line never leaves a top edge or
+            enters a bottom edge; and cards have no ports.
+          </li>
+          <li>
+            <b>A full side:</b> when a side can’t take one more point at 8 apart (End, 44 high, takes three), the line
+            that comes last in the Pipeline’s order enters the nearest other side that is free, for End its top or
+            bottom edge.
+          </li>
+        </ul>
+
+        <h3>On a side</h3>
+        <ul class="facts">
+          <li>One line takes the middle of the side.</li>
+          <li>
+            Several stand 16 apart round the middle, in the order of where their other ends stand, so they don’t cross
+            on the way out.
+          </li>
+          <li>Points keep 12 clear of the card’s corners; a crowded side shrinks the gap evenly, never under 8.</li>
+          <li>On a right edge, a route’s point is fixed at its row.</li>
+          <li>An entering point slides along its side when that makes the line straight.</li>
+        </ul>
+
+        <h3>Finding the way</h3>
+        <ul class="facts">
+          <li>
+            Tracks run along each card’s edges grown by 16, through every port, down the middle of each gap between
+            neighbouring cards, and once outside each outer edge.
+          </li>
+          <li>
+            Each line takes the cheapest way over the tracks (an A* search): its length, plus 48 for each bend, plus
+            192 for each crossing of a line already drawn.
+          </li>
+          <li>The shortest lines are routed first; ties go by the Pipeline’s order.</li>
+        </ul>
+
+        <h3>Keeping lines apart (nudging)</h3>
+        <ul class="facts">
+          <li>Stretches that would share a track stand 16 apart, centred in their corridor.</li>
+          <li>They nest: the line that turns off first lies on the outside, so they don’t cross where they part.</li>
+          <li>An upright stretch that carries a mark gets 24 to the stretch beside it.</li>
+          <li>A narrow corridor shrinks the gap evenly, never under 6 and never to an overlap.</li>
+          <li>
+            A corridor that can’t take one more line at 6 apart is closed to the next line, which takes its next
+            cheapest way round.
+          </li>
+          <li>A line alone in a corridor runs down its middle, and 16 off the cards it passes where there is room.</li>
+          <li>Corners are rounded by 6. Lines cross only at right angles and never share a stretch.</li>
+        </ul>
+
+        <h3>The mark</h3>
+        <ul class="facts">
+          <li>
+            On its own line: on a level stretch first, the longest one, at the free spot nearest its middle, where the
+            mark with 4 around it touches no card, no other line and no other mark.
+          </li>
+          <li>With no level stretch that fits, an upright one, by the same rule; with none at all, no mark on the line.</li>
+        </ul>
+
+        <h3 id="library">Our own code, or a library</h3>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead>
+              <tr>
+                <th>What matters</th>
+                <th>Own router</th>
+                <th>libavoid-js</th>
+                <th>ELK (elkjs, already here for Auto-align)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Keeps Stages where they are</td>
+                <td>Yes</td>
+                <td>Yes</td>
+                <td>
+                  No: it routes lines only as part of a layout that also places the Stages; its fixed-position layout
+                  draws no routes
+                </td>
+              </tr>
+              <tr>
+                <td>First drawing</td>
+                <td>At once, in the same frame as the cards</td>
+                <td>After its WASM file loads; until then, no lines or a second drawer</td>
+                <td>After the worker answers</td>
+              </tr>
+              <tr>
+                <td>Size</td>
+                <td>About 600 lines of TypeScript</td>
+                <td>A WASM file of a few hundred kB (not measured)</td>
+                <td>A dependency already (elkjs 0.12.2), loaded on the first Auto-align; nothing new to ship</td>
+              </tr>
+              <tr>
+                <td>Licence</td>
+                <td>The Office’s own (GPL-3.0-only)</td>
+                <td>LGPL-2.1-or-later, which fits</td>
+                <td>EPL-2.0, in use already</td>
+              </tr>
+              <tr>
+                <td>Where it runs</td>
+                <td>The main thread, synchronous</td>
+                <td>The main thread or a worker, asynchronous, with objects freed by hand</td>
+                <td>The existing worker (<code>elk-in-worker.ts</code>), asynchronous</td>
+              </tr>
+              <tr>
+                <td>Tests</td>
+                <td>Plain unit tests, same output every run</td>
+                <td>Need the WASM file in the test run</td>
+                <td>Need the worker or a stand-in</td>
+              </tr>
+              <tr>
+                <td>The Task page’s diagram</td>
+                <td>Calls the same function</td>
+                <td>Needs the loader again</td>
+                <td>Would move the Stages there too</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout rec">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.25" />
+            <path d="M5.25 8.25l1.9 1.9 3.6-4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <p>
+            <b>Recommended: our own router.</b> A Pipeline is small (a handful of Stages, a dozen lines), so a grid
+            search is fast enough to run on every frame, and a synchronous, pure function is what the drawer boundary
+            and its tests need. ELK is ruled out because it can’t leave the Stages in place.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= Curves ================= -->
+      <section id="curves">
+        <h2>Curves</h2>
+        <p class="lead">One smooth curve per route, using the same sides and points as Right angles.</p>
+        <div class="pics">
+          <div class="pic">
+            <div class="pic-head"><b>Loops and limits</b><span>Curves · Light</span></div>
+            <div class="dia is-wide" data-dia="loops wide curves"></div>
+          </div>
+          <div class="pic pal-dark">
+            <div class="pic-head"><b>Branching</b><span>Curves · Dark</span></div>
+            <div class="dia is-wide" data-dia="branching wide curves"></div>
+          </div>
+        </div>
+        <ul class="facts">
+          <li>
+            <b>Ends:</b> the sides and points of Right angles, so a line still leaves its row’s port and a route back
+            still enters the same edge. The curve leaves and enters square to the edge.
+          </li>
+          <li>
+            <b>The shape:</b> a cubic curve. Its reach is how far each of its two control points stands from its end,
+            straight out from the edge.
+          </li>
+          <li>
+            <b>Between facing sides</b> (right edge to left edge, bottom to top): the curve’s reach at each end is half
+            the gap between the two edges, at least 24 and at most half the distance between the points.
+          </li>
+          <li>
+            <b>Back over one side</b> (top edge to top edge): the reach is 0.3 of the distance between the points, from
+            40 to 160 (to 64, narrow). A longer span arcs higher, so the arcs over one edge nest instead of crossing.
+          </li>
+          <li>
+            <b>When a card is in the way</b> (the curve would pass within 8 of it): the route takes the shortest way
+            round through the corners of the cards grown by 16, with the same 192 for a crossing, and is drawn as one
+            smooth curve through those corners: a cubic piece per stretch, its direction at a corner along the line
+            between the corner’s two neighbours, its control points a third of the stretch from each end.
+          </li>
+          <li>
+            Each further line round the same corner goes 16 further out, so two curves never run on top of each other.
+          </li>
+          <li>
+            If that curve still comes within 8 of a card, its reach is halved, twice at most; then it falls back to
+            straight stretches with corners rounded by 12.
+          </li>
+          <li>
+            <b>No spreading in corridors:</b> two curves may run close to each other. They never share an end point.
+          </li>
+          <li><b>The mark:</b> at the middle of the curve by length, slid along it to the nearest free spot.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Straight lines ================= -->
+      <section id="straight-lines">
+        <h2>Straight lines</h2>
+        <p class="lead">
+          The direct line from Stage to Stage: the plainest picture of what leads where, and the one that crosses most.
+        </p>
+        <div class="pics">
+          <div class="pic">
+            <div class="pic-head"><b>Loops and limits</b><span>Straight lines · Light</span></div>
+            <div class="dia is-wide" data-dia="loops wide straight-lines"></div>
+          </div>
+          <div class="pic pal-dark">
+            <div class="pic-head"><b>Branching</b><span>Straight lines · Dark</span></div>
+            <div class="dia is-wide" data-dia="branching wide straight-lines"></div>
+          </div>
+        </div>
+        <ul class="facts">
+          <li>
+            <b>Ends float:</b> a line runs between the two cards’ centres and is cut at their edges. No line leaves
+            from a row, so no row shows a port dot.
+          </li>
+          <li>
+            <b>A pair</b> (A to B and B to A): each line moves 8 to its own right-hand side, so the two run 16 apart;
+            12 each (24 apart) when one carries its mark on a stretch steeper than 45°.
+          </li>
+          <li>Ends less than 12 apart on one edge are pushed to 12, in the order of their angles.</li>
+          <li>
+            <b>When a card is in the way</b> (the line would pass within 8 of it): the shortest way round through the
+            corners of the cards grown by 16 (by 24 where the line carries its mark), choosing among the ways round by
+            their crossings. The line bends sharply, and only at those corners. Each further line round the same corner
+            goes 16 further out.
+          </li>
+          <li>
+            A line that is clear is never bent to dodge a crossing: in this mode crossings are the price of directness.
+          </li>
+          <li><b>A route to its own Stage:</b> the same squared loop, with sharp corners.</li>
+          <li><b>The mark:</b> at the middle of the line’s longest stretch, slid along the line to the nearest free spot.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Marks ================= -->
+      <section id="marks">
+        <h2>Marks and pressing</h2>
+        <ul class="facts">
+          <li>
+            <b>Readable:</b> a ≤N× mark, a box of 40 × 18, sits on its own line, with 4 clear around it of every card,
+            every other line and every other mark. Its background hides only its own line.
+          </li>
+          <li>
+            <b>Pressable:</b> a press anywhere on a mark picks its route. Today only the line under it takes the press.
+          </li>
+          <li>
+            <b>A line with no room</b> (for example an arrow across a 24 gap) draws no mark; the route’s row shows the
+            same ≤N×, as it always does.
+          </li>
+          <li>
+            <b>Lines:</b> each line keeps its 12-wide hit line along the drawn path, in every mode.
+          </li>
+          <li>
+            <b>Tab:</b> unchanged. A route with a row is reached at its row; a route with no row at its line. The mark
+            itself is not a Tab stop and stays hidden from screen readers, as the row or the line already says “Route
+            from Tests to Implement, at most 3 times”.
+          </li>
+          <li>
+            <b>Port dots:</b> a row shows its dot only when its line leaves from it. Rows whose line leaves the top or
+            bottom edge show none; Straight lines and the narrow view show none at all.
+          </li>
+          <li>The picked route is highlighted on its line, its mark and its row together.</li>
+        </ul>
+      </section>
+
+      <!-- ================= The switch ================= -->
+      <section id="switch">
+        <h2>The switch</h2>
+        <ul class="facts">
+          <li>
+            <b>Where:</b> in the editor’s head, after the title and before <b>Auto-align</b>. A
+            <code>SegmentedControl</code> (packages/ui, small) named “Route drawing”.
+          </li>
+          <li>
+            <b>Its words:</b> <b>Right angles</b>, <b>Curves</b>, <b>Straight lines</b>, with the tooltips “Around
+            Stages, lines side by side kept apart”, “One smooth curve per route” and “The direct line from Stage to
+            Stage”.
+          </li>
+          <li>
+            <b>Shown</b> in every host of the editor: Settings › Pipelines, a Project’s Pipelines, read-only flows and
+            a Proposal on the flow. Under 560px it wraps under the title.
+          </li>
+          <li>
+            The Proposal card’s small drawing of route changes (<code>proposed-route-changes.tsx</code>) follows the
+            choice and has no switch of its own.
+          </li>
+          <li>
+            <b>Kept per browser</b>, as a local preference: <code>localStorage</code> key
+            <code>the-office.flow-route-drawing</code>, in a small store like <code>shell/rail-store.ts</code>, so every
+            flow on the page follows a change at once. No service or contract change. The Task page’s diagram reads
+            the same choice.
+          </li>
+          <li>A stored value that isn’t one of the three counts as the default.</li>
+          <li>Switching redraws the lines only: no Stage moves, nothing is saved, and the pick stays.</li>
+        </ul>
+        <div class="callout rec">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.25" />
+            <path d="M5.25 8.25l1.9 1.9 3.6-4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <p>
+            <b>The default is Right angles.</b> It is the only mode that keeps lines apart in a shared corridor; it
+            draws all three test Pipelines with no crossing, which Straight lines doesn’t; its lines leave from their
+            own rows, so a row and its line
+            read as one; its marks sit on level stretches, where they read best; and it is the closest to today’s
+            drawing and to what Auto-align lays out.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= Narrow view ================= -->
+      <section id="narrow">
+        <h2>Narrow view</h2>
+        <p class="lead">
+          Under 560px the Stages stand in bands from top to bottom, as today. Every mode draws there, by its own rules
+          with left-to-right and top-to-bottom swapped.
+        </p>
+        <div class="pics trio">
+          <div class="pic">
+            <div class="pic-head"><b>Right angles</b><span>Branching · Light</span></div>
+            <div class="dia" data-dia="branching narrow right-angles"></div>
+          </div>
+          <div class="pic">
+            <div class="pic-head"><b>Curves</b><span>Branching · Light</span></div>
+            <div class="dia" data-dia="branching narrow curves"></div>
+          </div>
+          <div class="pic">
+            <div class="pic-head"><b>Straight lines</b><span>Branching · Light</span></div>
+            <div class="dia" data-dia="branching narrow straight-lines"></div>
+          </div>
+        </div>
+        <div class="pics trio">
+          <div class="pic pal-dark">
+            <div class="pic-head"><b>Right angles</b><span>Loops and limits · Dark</span></div>
+            <div class="dia" data-dia="loops narrow right-angles"></div>
+          </div>
+          <div class="pic pal-dark">
+            <div class="pic-head"><b>Curves</b><span>Loops and limits · Dark</span></div>
+            <div class="dia" data-dia="loops narrow curves"></div>
+          </div>
+          <div class="pic pal-dark">
+            <div class="pic-head"><b>Straight lines</b><span>Loops and limits · Dark</span></div>
+            <div class="dia" data-dia="loops narrow straight-lines"></div>
+          </div>
+        </div>
+        <ul class="facts">
+          <li>
+            <b>Right angles and Curves:</b> a line to a Stage below leaves the bottom edge and enters the top edge. A
+            line to a Stage in another column, beside it in the band or higher up (Publish back to Implement, above),
+            leaves and enters the facing edges. A route back up the same column
+            leaves and enters the left edges and runs beside the Stages, nested with the others there.
+          </li>
+          <li>
+            Lines that leave a bottom edge spread in the order of where they lead, not in their rows’ order, so they
+            don’t cross under the card.
+          </li>
+          <li><b>Straight lines:</b> centre to centre, as wide.</li>
+          <li>
+            <b>The gap between two Stages in a band grows from 14 to 24</b>, so a line and its arrow fit between them.
+            A mark doesn’t fit there, so such a line leaves its mark to its row (Implement to Design, above).
+          </li>
+          <li>A route to its own Stage loops on the left edge.</li>
+          <li>The start marker comes down into the middle of the first Stage’s top edge.</li>
+          <li>Cards show no port dots, as today.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Performance ================= -->
+      <section id="performance">
+        <h2>Performance</h2>
+        <ul class="facts">
+          <li><b>The budget:</b> drawing the routes takes at most 4 ms of a frame while a Stage is dragged.</li>
+          <li>
+            The drawing is remembered for the scene it was made from, so panning, zooming and picking redraw nothing.
+          </li>
+          <li><b>Curves and Straight lines</b> always draw in full: they are a few sums per line.</li>
+          <li>
+            <b>Right angles</b> draws in full on every frame up to 24 Stages and 40 lines. The first step of building
+            it measures a 24-Stage test Pipeline to confirm that this fits the budget, and lowers the numbers if not.
+          </li>
+          <li>
+            Over that, dragging draws roughly: only the lines of the Stage being moved, and the lines its card now
+            blocks, are routed again; the others keep their paths. The drop draws in full.
+          </li>
+          <li>Everything runs on the main thread; nothing waits for a worker.</li>
+        </ul>
+      </section>
+
+      <!-- ================= Proposals ================= -->
+      <section id="proposals">
+        <h2>Proposals</h2>
+        <ul class="facts">
+          <li>
+            A Proposal’s proposed lines and taken-away lines are lines like any other: they go through the same pass
+            and follow the same rules, in every mode.
+          </li>
+          <li>They keep today’s looks: a proposed line dashed in the accent colour, a taken-away line dotted.</li>
+          <li>
+            The line being drawn while you drag from a Stage’s + stays a straight dashed line in every mode; it takes
+            its mode’s shape once it is dropped.
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= The test Pipelines ================= -->
+      <section id="fixtures">
+        <h2>The test Pipelines</h2>
+        <p class="lead">
+          The three Pipelines drawn on this page are the fixed Pipelines the tests use. A mode passes when it draws each
+          with no more crossings than this table says.
+        </p>
+        <div class="table-wrap">
+          <table class="spec">
+            <thead>
+              <tr>
+                <th>Pipeline</th>
+                <th>What it checks</th>
+                <th>Right angles</th>
+                <th>Curves</th>
+                <th>Straight lines</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Straight</td>
+                <td>4 Stages in a line, one of them set lower; 4 routes, none back</td>
+                <td class="count">0 wide · 0 narrow</td>
+                <td class="count">0 wide · 0 narrow</td>
+                <td class="count">0 wide · 0 narrow</td>
+              </tr>
+              <tr>
+                <td>Loops and limits</td>
+                <td>
+                  4 Stages, 8 routes, 4 of them back with limits: three into one Stage, one of those from a Stage
+                  standing under another, and one to its own Stage
+                </td>
+                <td class="count">0 wide · 0 narrow</td>
+                <td class="count">0 wide · 0 narrow</td>
+                <td class="count">0 wide · 0 narrow</td>
+              </tr>
+              <tr>
+                <td>Branching</td>
+                <td>
+                  4 Stages, 8 routes: three out of one Stage, one past a Stage in the way, a pair between two Stages
+                  standing one over the other, one back across the whole Pipeline
+                </td>
+                <td class="count">0 wide · 0 narrow</td>
+                <td class="count">0 wide · 0 narrow</td>
+                <td class="count">4 wide · 0 narrow</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="figure-caption">
+          The 4 are the two lines between Triage and Review crossing the two between Design and Implement, which only a
+          bend could avoid.
+        </p>
+      </section>
+
+      <!-- ================= Spec changes ================= -->
+      <section id="spec">
+        <h2>Spec changes</h2>
+        <ul class="facts">
+          <li>
+            <b>Screen page</b> (<code>docs/spec/screens/pipeline-flow-editor.md</code>), Head: the Route drawing
+            switch, its three choices and where the choice is kept.
+          </li>
+          <li>
+            Screen page, Flow view: a “Route drawing” part replaces the “Routes back” bullets (the lanes): the rules of
+            every mode, then each mode’s rules in short; the row’s port dot shown only when its line leaves there; a
+            press on a mark picks its route.
+          </li>
+          <li>
+            Screen page, Narrow view: what the lines do there, and the 24 gap. Auto-align’s words “with routes back in
+            their own lanes” lose the lanes.
+          </li>
+          <li>
+            <b>README:</b> a Defaults line (Route drawing: Right angles) and a topic map line for route drawing.
+          </li>
+          <li><b>GLOSSARY:</b> “Route drawing”, with its three choices by their names.</li>
+          <li>
+            <b>Web map</b> (<code>apps/web/src/MAP.md</code> and the flow folder’s part): the drawer boundary and the
+            stored choice; <code>npm run maps</code> for the generated part.
+          </li>
+          <li>
+            <b>This folder’s README:</b> where this page differs from pipeline-flow.html and pipeline-free-placement.html,
+            it wins for how routes are drawn.
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= Building it ================= -->
+      <section id="build">
+        <h2>Building it</h2>
+        <h3>Files</h3>
+        <ul class="facts">
+          <li>
+            <code>flow/flow-routes/route-drawer.ts</code>: the types above and <code>ROUTE_DRAWERS</code>.
+          </li>
+          <li>
+            <code>flow/flow-routes/right-angles.ts</code>, <code>curves.ts</code>, <code>straight-lines.ts</code>: one
+            drawer each. What two of them share (the sides and points, the way round a card, the free spot for a mark)
+            sits beside them, each in a file of its own.
+          </li>
+          <li>
+            <code>flow/use-route-drawing.ts</code>: the stored choice, beside <code>use-overview-choice.ts</code>.
+          </li>
+          <li>
+            <code>flow-layout.ts</code> keeps the shared geometry and loses the lane code;
+            <code>flow-canvas.tsx</code> draws the chosen drawer’s result and makes the marks pressable;
+            <code>flow-editor.tsx</code> gets the switch; <code>flow-canvas.css</code> gets the 24 gap and
+            <code>data-route-drawing</code> on the canvas.
+          </li>
+        </ul>
+        <h3>Tests</h3>
+        <ul class="facts">
+          <li>
+            Per mode, on the three test Pipelines, wide and narrow: no line through a card; ends on one side stand
+            apart; a loop’s arrow is on its target’s edge; no mark touches a card, another line or another mark; the
+            crossings are at most the table’s; the same input gives the same output.
+          </li>
+          <li>Right angles only: no two lines share a stretch.</li>
+          <li>
+            <code>flow-editor.full.test.tsx</code>: the switch changes the drawing, the choice is stored and read back,
+            and an unknown stored value gives Right angles.
+          </li>
+          <li>An e2e that switches through the three modes and presses a ≤N× mark to pick its route.</li>
+          <li>A timing check of Right angles on a 24-Stage Pipeline against the 4 ms budget.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      (() => {
+        "use strict";
+
+        const MODES = [
+          { key: "right-angles", name: "Right angles" },
+          { key: "curves", name: "Curves" },
+          { key: "straight-lines", name: "Straight lines" },
+        ];
+        const MARK_WIDTH = 40;
+        const MARK_HEIGHT = 18;
+        const MARK_AIR = 4;
+        const ARROW_TRIM = 5;
+
+        /*
+         * The three test Pipelines. Per line and width: `o` the Right angles points (worked out by hand
+         * from the rules), `m` its mark; `c` what Curves adds (`via` corners where a card is in the way,
+         * `mark`); `s` what Straight lines adds (`shift` to the right-hand side for a pair, `via`, `mark`).
+         */
+        const FIXTURES = {
+          straight: {
+            name: "Straight",
+            stages: [
+              { key: "implement", name: "Implement", kind: "agent", who: "Developer", rows: [] },
+              { key: "tests", name: "Tests", kind: "script", who: "npm test", rows: [] },
+              { key: "review", name: "Review", kind: "gate", who: "waits for you", rows: [] },
+              { key: "publish", name: "Publish", kind: "publish", who: "publishes by pull request", rows: [] },
+            ],
+            lines: [
+              { id: "a1", from: "implement", to: "tests" },
+              { id: "a2", from: "tests", to: "review" },
+              { id: "a3", from: "review", to: "publish" },
+              { id: "a4", from: "publish", to: null },
+            ],
+            wide: {
+              cardWidth: 232,
+              at: { implement: [48, 80], tests: [356, 128], review: [664, 80], publish: [972, 80] },
+              end: { x: 1280, y: 88, w: 44, h: 44 },
+              routes: {
+                a1: { o: [[280, 110], [318, 110], [318, 158], [356, 158]] },
+                a2: { o: [[588, 158], [626, 158], [626, 110], [664, 110]] },
+                a3: { o: [[896, 110], [972, 110]] },
+                a4: { o: [[1204, 110], [1280, 110]] },
+              },
+            },
+            narrow: {
+              cardWidth: 360,
+              at: { implement: [16, 34], tests: [16, 128], review: [16, 222], publish: [16, 316] },
+              end: { x: 16, y: 410, w: 360, h: 28 },
+              routes: {
+                a1: { o: [[196, 94], [196, 128]] },
+                a2: { o: [[196, 188], [196, 222]] },
+                a3: { o: [[196, 282], [196, 316]] },
+                a4: { o: [[196, 376], [196, 410]] },
+              },
+            },
+          },
+          loops: {
+            name: "Loops and limits",
+            stages: [
+              { key: "implement", name: "Implement", kind: "agent", who: "Developer", rows: [] },
+              {
+                key: "tests",
+                name: "Tests",
+                kind: "script",
+                who: "npm test",
+                rows: [
+                  { line: "b2", when: "when it passes" },
+                  { line: "b3", when: "when it fails" },
+                ],
+              },
+              {
+                key: "review",
+                name: "Review",
+                kind: "agent",
+                who: "Reviewer",
+                rows: [
+                  { line: "b4", when: "if approved" },
+                  { line: "b5", when: "if rejected" },
+                  { line: "b6", when: "if unsure" },
+                ],
+              },
+              {
+                key: "publish",
+                name: "Publish",
+                kind: "publish",
+                who: "publishes by merging",
+                rows: [
+                  { line: "b7", when: "when it publishes" },
+                  { line: "b8", when: "on Conflict" },
+                ],
+              },
+            ],
+            lines: [
+              { id: "b1", from: "implement", to: "tests" },
+              { id: "b2", from: "tests", to: "review" },
+              { id: "b3", from: "tests", to: "implement", limit: 3 },
+              { id: "b4", from: "review", to: "publish" },
+              { id: "b5", from: "review", to: "implement", limit: 2 },
+              { id: "b6", from: "review", to: "review", limit: 1 },
+              { id: "b7", from: "publish", to: null },
+              { id: "b8", from: "publish", to: "implement", limit: 2 },
+            ],
+            wide: {
+              cardWidth: 232,
+              at: { implement: [48, 96], tests: [356, 72], review: [664, 72], publish: [664, 300] },
+              end: { x: 972, y: 342, w: 44, h: 44 },
+              routes: {
+                b1: { o: [[280, 126], [356, 126]], s: { shift: 8 } },
+                b2: { o: [[588, 136], [664, 136]] },
+                b3: { o: [[472, 72], [472, 56], [172, 56], [172, 96]], m: [322, 56], s: { shift: 8 } },
+                b4: { o: [[788, 204], [788, 300]] },
+                b5: {
+                  o: [[732, 72], [732, 40], [156, 40], [156, 96]],
+                  m: [560, 40],
+                  s: { via: [[604, 56], [340, 56]] },
+                },
+                b6: { o: [[836, 72], [836, 48], [780, 48], [780, 72]], m: [808, 48] },
+                b7: { o: [[896, 364], [972, 364]] },
+                b8: { o: [[772, 300], [772, 252], [164, 252], [164, 156]], m: [468, 252] },
+              },
+            },
+            narrow: {
+              cardWidth: 136,
+              at: { implement: [80, 34], tests: [80, 128], review: [80, 290], publish: [240, 290] },
+              end: { x: 80, y: 486, w: 296, h: 28 },
+              routes: {
+                b1: { o: [[148, 94], [148, 128]], s: { shift: 12 } },
+                b2: { o: [[148, 256], [148, 290]] },
+                b3: { o: [[80, 192], [56, 192], [56, 72], [80, 72]], m: [56, 132], s: { shift: 12 } },
+                b4: { o: [[216, 371], [240, 371]] },
+                b5: {
+                  o: [[80, 322], [32, 322], [32, 56], [80, 56]],
+                  m: [32, 213],
+                  s: { via: [[56, 272], [56, 112]] },
+                },
+                b6: { o: [[80, 427], [56, 427], [56, 371], [80, 371]], m: [56, 399] },
+                b7: { o: [[308, 418], [308, 486]] },
+                b8: {
+                  o: [[240, 330], [228, 330], [228, 64], [216, 64]],
+                  m: [228, 273],
+                  c: { via: [[228, 306], [228, 88]], mark: [228, 273] },
+                  s: { via: [[232, 112]] },
+                },
+              },
+            },
+          },
+          branching: {
+            name: "Branching",
+            stages: [
+              {
+                key: "triage",
+                name: "Triage",
+                kind: "agent",
+                who: "CTO",
+                rows: [
+                  { line: "c1", when: "if it needs a design" },
+                  { line: "c2", when: "if it changes code" },
+                  { line: "c3", when: "otherwise" },
+                ],
+              },
+              { key: "design", name: "Design", kind: "agent", who: "UI/UX Designer", rows: [] },
+              {
+                key: "implement",
+                name: "Implement",
+                kind: "agent",
+                who: "Developer",
+                rows: [
+                  { line: "c5", when: "when it is done" },
+                  { line: "c6", when: "on a design gap" },
+                ],
+              },
+              {
+                key: "review",
+                name: "Review",
+                kind: "gate",
+                who: "waits for you",
+                rows: [
+                  { line: "c7", when: "if approved" },
+                  { line: "c8", when: "if sent back" },
+                ],
+              },
+            ],
+            lines: [
+              { id: "c1", from: "triage", to: "design" },
+              { id: "c2", from: "triage", to: "implement" },
+              { id: "c3", from: "triage", to: "review" },
+              { id: "c4", from: "design", to: "implement" },
+              { id: "c5", from: "implement", to: "review" },
+              { id: "c6", from: "implement", to: "design", limit: 2 },
+              { id: "c7", from: "review", to: null },
+              { id: "c8", from: "review", to: "triage", limit: 2 },
+            ],
+            wide: {
+              cardWidth: 232,
+              at: { triage: [48, 120], design: [356, 48], implement: [356, 200], review: [664, 120] },
+              end: { x: 972, y: 162, w: 44, h: 44 },
+              routes: {
+                c1: { o: [[280, 184], [318, 184], [318, 78], [356, 78]] },
+                c2: { o: [[280, 208], [326, 208], [326, 254], [356, 254]] },
+                c3: {
+                  o: [[280, 232], [310, 232], [310, 324], [634, 324], [634, 182], [664, 182]],
+                  c: { via: [[340, 324], [604, 324]] },
+                  s: { shift: 8 },
+                },
+                c4: { o: [[460, 108], [460, 200]], s: { shift: 12 } },
+                c5: { o: [[588, 264], [618, 264], [618, 166], [664, 166]] },
+                c6: { o: [[484, 200], [484, 108]], m: [484, 154], s: { shift: 12 } },
+                c7: { o: [[896, 184], [972, 184]] },
+                c8: {
+                  o: [[780, 120], [780, 32], [164, 32], [164, 120]],
+                  m: [472, 32],
+                  s: { shift: 8, mark: [432, 172.8] },
+                },
+              },
+            },
+            narrow: {
+              cardWidth: 146,
+              at: { triage: [60, 34], design: [60, 230], implement: [230, 230], review: [60, 392] },
+              end: { x: 60, y: 554, w: 316, h: 28 },
+              routes: {
+                c1: { o: [[133, 196], [133, 230]] },
+                c2: { o: [[149, 196], [149, 213], [303, 213], [303, 230]] },
+                c3: {
+                  o: [[117, 196], [117, 213], [44, 213], [44, 341], [125, 341], [125, 392]],
+                  c: { via: [[44, 214], [44, 306]] },
+                  s: { via: [[44, 214], [44, 306]] },
+                },
+                c4: { o: [[206, 252], [230, 252]], s: { shift: 8 } },
+                c5: { o: [[303, 358], [303, 375], [141, 375], [141, 392]] },
+                c6: { o: [[230, 268], [206, 268]], s: { shift: 8 } },
+                c7: { o: [[133, 520], [133, 554]] },
+                c8: {
+                  o: [[60, 456], [20, 456], [20, 115], [60, 115]],
+                  m: [20, 285],
+                  s: { via: [[20, 312], [20, 214]], mark: [20, 260] },
+                },
+              },
+            },
+          },
+        };
+
+        /* ---------- Small geometry ---------- */
+        const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+        const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+        const mul = (a, k) => [a[0] * k, a[1] * k];
+        const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+        const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+        const unit = (a) => {
+          const length = Math.hypot(a[0], a[1]) || 1;
+          return [a[0] / length, a[1] / length];
+        };
+        const num = (value) => String(Math.round(value * 10) / 10);
+        const pt = (p) => `${num(p[0])} ${num(p[1])}`;
+        const centreOf = (box) => [box.x + box.w / 2, box.y + box.h / 2];
+        const boxesTouch = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+        const inBox = (p, box) => p[0] > box.x && p[0] < box.x + box.w && p[1] > box.y && p[1] < box.y + box.h;
+        const markBox = (spot, air) => ({
+          x: spot[0] - MARK_WIDTH / 2 - air,
+          y: spot[1] - MARK_HEIGHT / 2 - air,
+          w: MARK_WIDTH + air * 2,
+          h: MARK_HEIGHT + air * 2,
+        });
+        const esc = (text) => String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+        const byId = (id) => document.getElementById(id);
+
+        /** Where the stretch from `inside` (in the box) to `outside` leaves the box. */
+        function exitPoint(box, inside, outside) {
+          const dx = outside[0] - inside[0];
+          const dy = outside[1] - inside[1];
+          let t = 1;
+          if (dx > 0) t = Math.min(t, (box.x + box.w - inside[0]) / dx);
+          if (dx < 0) t = Math.min(t, (box.x - inside[0]) / dx);
+          if (dy > 0) t = Math.min(t, (box.y + box.h - inside[1]) / dy);
+          if (dy < 0) t = Math.min(t, (box.y - inside[1]) / dy);
+          return [inside[0] + dx * t, inside[1] + dy * t];
+        }
+
+        function densify(points, step) {
+          const out = [points[0]];
+          for (let i = 1; i < points.length; i++) {
+            const from = points[i - 1];
+            const to = points[i];
+            const pieces = Math.max(1, Math.ceil(dist(from, to) / step));
+            for (let k = 1; k <= pieces; k++) out.push(add(from, mul(sub(to, from), k / pieces)));
+          }
+          return out;
+        }
+
+        function middleByLength(points) {
+          let total = 0;
+          for (let i = 1; i < points.length; i++) total += dist(points[i - 1], points[i]);
+          let left = total / 2;
+          for (let i = 1; i < points.length; i++) {
+            const length = dist(points[i - 1], points[i]);
+            if (length > 0 && length >= left) return add(points[i - 1], mul(sub(points[i], points[i - 1]), left / length));
+            left -= length;
+          }
+          return points[points.length - 1];
+        }
+
+        function longestStretchMiddle(points) {
+          let longest = -1;
+          let middle = points[0];
+          for (let i = 1; i < points.length; i++) {
+            const length = dist(points[i - 1], points[i]);
+            if (length > longest) {
+              longest = length;
+              middle = mul(add(points[i - 1], points[i]), 0.5);
+            }
+          }
+          return middle;
+        }
+
+        function bezierPoints(piece, steps) {
+          const out = [];
+          for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const u = 1 - t;
+            const k0 = u * u * u;
+            const k1 = 3 * u * u * t;
+            const k2 = 3 * u * t * t;
+            const k3 = t * t * t;
+            out.push([
+              k0 * piece[0][0] + k1 * piece[1][0] + k2 * piece[2][0] + k3 * piece[3][0],
+              k0 * piece[0][1] + k1 * piece[1][1] + k2 * piece[2][1] + k3 * piece[3][1],
+            ]);
+          }
+          return out;
+        }
+
+        /* ---------- The three ways to draw one line ---------- */
+
+        /** Straight stretches through the points, corners rounded by `radius` (0: sharp). */
+        function cornered(points, radius) {
+          const last = points[points.length - 1];
+          const dir = unit(sub(last, points[points.length - 2]));
+          const shown = points.slice(0, -1).concat([sub(last, mul(dir, ARROW_TRIM))]);
+          let d = `M${pt(shown[0])}`;
+          for (let i = 1; i < shown.length - 1; i++) {
+            const before = shown[i - 1];
+            const corner = shown[i];
+            const after = shown[i + 1];
+            const reach = Math.min(radius, dist(before, corner) / 2, dist(corner, after) / 2);
+            if (reach <= 0) {
+              d += ` L${pt(corner)}`;
+            } else {
+              const into = add(corner, mul(unit(sub(before, corner)), reach));
+              const out = add(corner, mul(unit(sub(after, corner)), reach));
+              d += ` L${pt(into)} Q${pt(corner)} ${pt(out)}`;
+            }
+          }
+          d += ` L${pt(shown[shown.length - 1])}`;
+          return { d, samples: points, tip: last, dir };
+        }
+
+        /** One smooth curve between the ends of the Right angles points, through `via` when given. */
+        function curved(points, via, own, down) {
+          const from = points[0];
+          const to = points[points.length - 1];
+          const leave = unit(sub(points[1], from));
+          const enter = unit(sub(to, points[points.length - 2]));
+          let pieces;
+          if (via) {
+            const through = [from].concat(via, [to]);
+            const tangent = through.map((p, i) => {
+              if (i === 0) return leave;
+              if (i === through.length - 1) return enter;
+              return unit(sub(through[i + 1], through[i - 1]));
+            });
+            pieces = through.slice(1).map((next, i) => {
+              const reach = dist(through[i], next) / 3;
+              return [through[i], add(through[i], mul(tangent[i], reach)), sub(next, mul(tangent[i + 1], reach)), next];
+            });
+          } else {
+            const span = dist(from, to);
+            let reach;
+            if (own) reach = 32;
+            else if (dot(leave, enter) > 0) reach = Math.min(Math.max(Math.abs(dot(sub(to, from), leave)) / 2, 24), span / 2);
+            else reach = Math.min(Math.max(span * 0.3, 40), down ? 64 : 160);
+            pieces = [[from, add(from, mul(leave, reach)), sub(to, mul(enter, reach)), to]];
+          }
+          const samples = pieces.flatMap((piece) => bezierPoints(piece, 24));
+          const lastPiece = pieces[pieces.length - 1];
+          const back = mul(enter, ARROW_TRIM);
+          const shown = pieces
+            .slice(0, -1)
+            .concat([[lastPiece[0], lastPiece[1], sub(lastPiece[2], back), sub(lastPiece[3], back)]]);
+          const d =
+            `M${pt(shown[0][0])}` + shown.map((piece) => ` C${pt(piece[1])} ${pt(piece[2])} ${pt(piece[3])}`).join("");
+          return { d, samples, tip: to, dir: enter };
+        }
+
+        /** The direct line between the two cards' centres, cut at their edges. */
+        function straightPoints(fromBox, toBox, extra) {
+          let from = centreOf(fromBox);
+          let to = centreOf(toBox);
+          if (extra.shift) {
+            const along = unit(sub(to, from));
+            const rightHand = [-along[1], along[0]];
+            from = add(from, mul(rightHand, extra.shift));
+            to = add(to, mul(rightHand, extra.shift));
+          }
+          const via = extra.via || [];
+          const through = [from].concat(via, [to]);
+          const first = exitPoint(fromBox, through[0], through[1]);
+          const before = through[through.length - 2];
+          const middle = centreOf(toBox);
+          const last = toBox.round
+            ? add(middle, mul(unit(sub(before, middle)), toBox.w / 2))
+            : exitPoint(toBox, to, before);
+          return [first].concat(via, [last]);
+        }
+
+        /* ---------- A whole drawing ---------- */
+        const layouts = new Map();
+        function layoutOf(fixtureKey, widthKey) {
+          const id = `${fixtureKey} ${widthKey}`;
+          if (layouts.has(id)) return layouts.get(id);
+          const fixture = FIXTURES[fixtureKey];
+          const placed = fixture[widthKey];
+          const down = widthKey === "narrow";
+          const rowHeight = down ? 34 : 24;
+          const boxes = new Map();
+          fixture.stages.forEach((stage) => {
+            const at = placed.at[stage.key];
+            const rows = stage.rows.length;
+            boxes.set(stage.key, {
+              x: at[0],
+              y: at[1],
+              w: placed.cardWidth,
+              h: rows === 0 ? 60 : 52 + rowHeight * rows + 8,
+            });
+          });
+          const end = { x: placed.end.x, y: placed.end.y, w: placed.end.w, h: placed.end.h, round: !down };
+          const layout = { down, rowHeight, boxes, end, routes: placed.routes };
+          layouts.set(id, layout);
+          return layout;
+        }
+
+        function drawRoute(fixture, layout, line, mode) {
+          const given = layout.routes[line.id];
+          const own = line.from === line.to;
+          const fromBox = layout.boxes.get(line.from);
+          const toBox = line.to === null ? layout.end : layout.boxes.get(line.to);
+          let shape;
+          let spot;
+          if (mode === "right-angles") {
+            shape = cornered(given.o, 6);
+            spot = given.m;
+          } else if (mode === "curves") {
+            const extra = given.c || {};
+            shape = curved(given.o, extra.via, own, layout.down);
+            spot = extra.mark;
+          } else {
+            const extra = given.s || {};
+            shape = cornered(own ? given.o : straightPoints(fromBox, toBox, extra), 0);
+            spot = extra.mark || (own ? given.m : undefined);
+          }
+          const stage = fixture.stages.find((candidate) => candidate.key === line.from);
+          const row = stage.rows.findIndex((candidate) => candidate.line === line.id);
+          const fromPort =
+            !layout.down &&
+            mode !== "straight-lines" &&
+            row >= 0 &&
+            Math.abs(shape.samples[0][0] - (fromBox.x + fromBox.w)) < 0.5;
+          return { line, d: shape.d, samples: shape.samples, tip: shape.tip, dir: shape.dir, given: spot, mark: null, fromPort };
+        }
+
+        /** The spot on the line nearest `prefer` where the mark, with its air, touches nothing. */
+        function freeSpot(candidates, prefer, cards, otherPoints, placed) {
+          let start = 0;
+          let nearest = Infinity;
+          candidates.forEach((p, i) => {
+            const away = dist(p, prefer);
+            if (away < nearest) {
+              nearest = away;
+              start = i;
+            }
+          });
+          for (let step = 0; step < candidates.length; step++) {
+            const tries = step === 0 ? [start] : [start - step, start + step];
+            for (const i of tries) {
+              if (i < 0 || i >= candidates.length) continue;
+              const box = markBox(candidates[i], MARK_AIR);
+              if (cards.some((card) => boxesTouch(box, card))) continue;
+              if (placed.some((other) => boxesTouch(box, other))) continue;
+              if (otherPoints.some((p) => inBox(p, box))) continue;
+              return candidates[i];
+            }
+          }
+          return null;
+        }
+
+        function placeMarks(routes, layout, mode) {
+          const cards = Array.from(layout.boxes.values()).concat([layout.end]);
+          const dense = routes.map((route) => densify(route.samples, 3));
+          const placed = [];
+          routes.forEach((route, index) => {
+            if (!route.line.limit) return;
+            let spot = route.given || null;
+            if (!spot) {
+              const otherPoints = dense.filter((points, i) => i !== index).flat();
+              const prefer =
+                mode === "straight-lines" ? longestStretchMiddle(route.samples) : middleByLength(route.samples);
+              spot = freeSpot(dense[index], prefer, cards, otherPoints, placed);
+            }
+            if (spot) {
+              route.mark = spot;
+              placed.push(markBox(spot, 0));
+            }
+          });
+        }
+
+        function side(a, b, c) {
+          return Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+        }
+        function crosses(a, b, c, d) {
+          return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+        }
+        function countCrossings(routes) {
+          let count = 0;
+          for (let i = 0; i < routes.length; i++) {
+            for (let j = i + 1; j < routes.length; j++) {
+              const first = routes[i].samples;
+              const second = routes[j].samples;
+              for (let m = 1; m < first.length; m++) {
+                for (let n = 1; n < second.length; n++) {
+                  if (crosses(first[m - 1], first[m], second[n - 1], second[n])) count++;
+                }
+              }
+            }
+          }
+          return count;
+        }
+
+        const drawings = new Map();
+        function drawnFor(fixtureKey, widthKey, mode) {
+          const id = `${fixtureKey} ${widthKey} ${mode}`;
+          if (drawings.has(id)) return drawings.get(id);
+          const fixture = FIXTURES[fixtureKey];
+          const layout = layoutOf(fixtureKey, widthKey);
+          const routes = fixture.lines.map((line) => drawRoute(fixture, layout, line, mode));
+          placeMarks(routes, layout, mode);
+          const drawn = { routes, crossings: countCrossings(routes) };
+          drawings.set(id, drawn);
+          return drawn;
+        }
+
+        function startOf(fixtureKey, widthKey) {
+          const layout = layoutOf(fixtureKey, widthKey);
+          const first = layout.boxes.get(FIXTURES[fixtureKey].stages[0].key);
+          if (layout.down) {
+            const x = first.x + first.w / 2;
+            return { dot: [x, first.y - 22], tip: [x, first.y], dir: [0, 1] };
+          }
+          const y = first.y + first.h / 2;
+          return { dot: [first.x - 28, y], tip: [first.x, y], dir: [1, 0] };
+        }
+
+        /** One frame per Pipeline and width, around all three modes, so they compare like for like. */
+        const frames = new Map();
+        function frameOf(fixtureKey, widthKey) {
+          const id = `${fixtureKey} ${widthKey}`;
+          if (frames.has(id)) return frames.get(id);
+          const layout = layoutOf(fixtureKey, widthKey);
+          let left = Infinity;
+          let top = Infinity;
+          let right = -Infinity;
+          let bottom = -Infinity;
+          const grow = (x, y) => {
+            left = Math.min(left, x);
+            top = Math.min(top, y);
+            right = Math.max(right, x);
+            bottom = Math.max(bottom, y);
+          };
+          const growBox = (box) => {
+            grow(box.x, box.y);
+            grow(box.x + box.w, box.y + box.h);
+          };
+          layout.boxes.forEach((box) => growBox(box));
+          growBox(layout.end);
+          const start = startOf(fixtureKey, widthKey);
+          grow(start.dot[0] - 6, start.dot[1] - 6);
+          MODES.forEach((mode) => {
+            drawnFor(fixtureKey, widthKey, mode.key).routes.forEach((route) => {
+              route.samples.forEach((p) => grow(p[0], p[1]));
+              if (route.mark) growBox(markBox(route.mark, 0));
+            });
+          });
+          const pad = 14;
+          const frame = {
+            x: Math.floor(left - pad),
+            y: Math.floor(top - pad),
+            w: Math.ceil(right - left + pad * 2),
+            h: Math.ceil(bottom - top + pad * 2),
+          };
+          frames.set(id, frame);
+          return frame;
+        }
+
+        /* ---------- Markup ---------- */
+        function stageName(fixture, key) {
+          if (key === null) return "End";
+          return fixture.stages.find((stage) => stage.key === key).name;
+        }
+
+        function routeName(fixture, line) {
+          const limit = line.limit ? `, at most ${line.limit} ${line.limit === 1 ? "time" : "times"}` : "";
+          return `Route from ${stageName(fixture, line.from)} to ${stageName(fixture, line.to)}${limit}`;
+        }
+
+        function fit(text, width, charWidth) {
+          const most = Math.max(4, Math.floor(width / charWidth));
+          return text.length > most ? `${text.slice(0, most - 1)}…` : text;
+        }
+
+        function arrowMarkup(tip, dir, className) {
+          const back = sub(tip, mul(dir, 8));
+          const across = [-dir[1], dir[0]];
+          const one = add(back, mul(across, 4));
+          const two = sub(back, mul(across, 4));
+          const points = [tip, one, two].map((p) => `${num(p[0])},${num(p[1])}`).join(" ");
+          return `<polygon class="${className}" points="${points}"/>`;
+        }
+
+        function startMarkup(fixtureKey, widthKey) {
+          const start = startOf(fixtureKey, widthKey);
+          const lineEnd = sub(start.tip, mul(start.dir, ARROW_TRIM));
+          return (
+            `<circle class="fl-start" cx="${num(start.dot[0])}" cy="${num(start.dot[1])}" r="4"/>` +
+            `<path class="fl-start-line" d="M${pt(start.dot)} L${pt(lineEnd)}"/>` +
+            arrowMarkup(start.tip, start.dir, "fl-start")
+          );
+        }
+
+        function routeMarkup(fixture, route, hasRow) {
+          const label = esc(routeName(fixture, route.line));
+          const reach = hasRow ? "" : ` tabindex="0" role="button" aria-label="${label}"`;
+          return (
+            `<g class="fl-route" data-route="${route.line.id}">` +
+            `<path class="fl-line" d="${route.d}"/>` +
+            arrowMarkup(route.tip, route.dir, "fl-arrow") +
+            `<path class="fl-hit" d="${route.d}"${reach}><title>${label}</title></path>` +
+            `</g>`
+          );
+        }
+
+        function iconMarkup(kind, cx, cy) {
+          if (kind === "gate") {
+            return (
+              `<rect class="fl-icon" x="${cx - 8}" y="${cy - 8}" width="16" height="16" rx="3" transform="rotate(45 ${cx} ${cy})"/>` +
+              `<path class="fl-glyph" d="M${cx - 2} ${cy - 3}V${cy + 3}M${cx + 2} ${cy - 3}V${cy + 3}"/>`
+            );
+          }
+          if (kind === "publish") {
+            return (
+              `<rect class="fl-icon" x="${cx - 10}" y="${cy - 10}" width="20" height="20" rx="6"/>` +
+              `<path class="fl-glyph" d="M${cx} ${cy + 4}V${cy - 4}M${cx - 3} ${cy - 1}L${cx} ${cy - 4}L${cx + 3} ${cy - 1}"/>`
+            );
+          }
+          if (kind === "script") {
+            return (
+              `<circle class="fl-icon" cx="${cx}" cy="${cy}" r="10"/>` +
+              `<path class="fl-glyph" d="M${cx - 4} ${cy - 3}L${cx - 1} ${cy}L${cx - 4} ${cy + 3}M${cx + 1} ${cy + 3}H${cx + 4}"/>`
+            );
+          }
+          return (
+            `<circle class="fl-icon" cx="${cx}" cy="${cy}" r="10"/>` +
+            `<circle class="fl-glyph" cx="${cx}" cy="${cy - 2.5}" r="2.2"/>` +
+            `<path class="fl-glyph" d="M${cx - 4.5} ${cy + 5}Q${cx} ${cy - 1.5} ${cx + 4.5} ${cy + 5}"/>`
+          );
+        }
+
+        function chipMarkup(limit, x, y) {
+          return (
+            `<rect class="fl-chip" x="${x}" y="${y}" width="26" height="15" rx="4"/>` +
+            `<text class="fl-chip-text" x="${x + 13}" y="${y + 11}" text-anchor="middle">≤${limit}×</text>`
+          );
+        }
+
+        function rowMarkup(fixture, layout, box, row, index, route) {
+          const line = route.line;
+          const label = esc(routeName(fixture, line));
+          const target = `→ ${stageName(fixture, line.to)}`;
+          const reach = `data-route="${line.id}" tabindex="0" role="button" aria-label="${label}"`;
+          const chipX = box.x + box.w - 12 - 26;
+          if (layout.down) {
+            const top = box.y + 52 + layout.rowHeight * index;
+            const when = fit(row.when, box.w - 20, 5.8);
+            return (
+              `<rect class="fl-row-bg" x="${box.x + 4}" y="${top + 1}" width="${box.w - 8}" height="${layout.rowHeight - 2}" rx="4" ${reach}><title>${label}</title></rect>` +
+              `<text class="fl-row-to" x="${box.x + 10}" y="${top + 14}">${esc(target)}</text>` +
+              `<text class="fl-row-when is-small" x="${box.x + 10}" y="${top + 28}">${esc(when)}</text>` +
+              (line.limit ? chipMarkup(line.limit, chipX + 2, top + 3) : "")
+            );
+          }
+          const middle = box.y + 64 + layout.rowHeight * index;
+          const room = box.w - 24 - (line.limit ? 46 : 14);
+          const most = Math.floor(room / 6.4);
+          const when = most > target.length + 2 ? fit(row.when, (most - target.length - 1) * 6.4, 6.4) : "";
+          return (
+            `<rect class="fl-row-bg" x="${box.x + 4}" y="${middle - 11}" width="${box.w - 8}" height="22" rx="4" ${reach}><title>${label}</title></rect>` +
+            `<text class="fl-row-to" x="${box.x + 12}" y="${middle + 4}">${esc(target)}<tspan class="fl-row-when"> ${esc(when)}</tspan></text>` +
+            (line.limit ? chipMarkup(line.limit, chipX - 4, middle - 7.5) : "") +
+            (route.fromPort ? `<circle class="fl-port" cx="${box.x + box.w}" cy="${middle}" r="4"/>` : "")
+          );
+        }
+
+        function cardMarkup(fixture, layout, stage, drawn) {
+          const box = layout.boxes.get(stage.key);
+          const who = fit(stage.who, box.w - 43 - 10, 6.3);
+          let markup =
+            `<rect class="fl-card" x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8"/>` +
+            iconMarkup(stage.kind, box.x + 23, box.y + (stage.rows.length ? 26 : 30)) +
+            `<text class="fl-name" x="${box.x + 43}" y="${box.y + (stage.rows.length ? 24 : 28)}">${esc(stage.name)}</text>` +
+            `<text class="fl-who" x="${box.x + 43}" y="${box.y + (stage.rows.length ? 41 : 45)}">${esc(who)}<title>${esc(stage.who)}</title></text>`;
+          if (stage.rows.length) {
+            markup += `<path class="fl-sep" d="M${box.x} ${box.y + 52}H${box.x + box.w}"/>`;
+            stage.rows.forEach((row, index) => {
+              const route = drawn.routes.find((candidate) => candidate.line.id === row.line);
+              markup += rowMarkup(fixture, layout, box, row, index, route);
+            });
+          }
+          return markup;
+        }
+
+        function endMarkup(layout) {
+          const end = layout.end;
+          const centre = centreOf(end);
+          const shape = end.round
+            ? `<circle class="fl-end" cx="${centre[0]}" cy="${centre[1]}" r="${end.w / 2 - 1}"/>`
+            : `<rect class="fl-end" x="${end.x + 1}" y="${end.y + 1}" width="${end.w - 2}" height="${end.h - 2}" rx="${end.h / 2 - 1}"/>`;
+          return `${shape}<text class="fl-end-text" x="${centre[0]}" y="${centre[1] + 4}" text-anchor="middle">End</text>`;
+        }
+
+        function markMarkup(route) {
+          const box = markBox(route.mark, 0);
+          return (
+            `<g class="fl-mark" data-route="${route.line.id}">` +
+            `<rect x="${num(box.x)}" y="${num(box.y)}" width="${box.w}" height="${box.h}" rx="9"/>` +
+            `<text class="fl-mark-text" x="${num(route.mark[0])}" y="${num(route.mark[1] + 3.5)}" text-anchor="middle">≤${route.line.limit}×</text>` +
+            `</g>`
+          );
+        }
+
+        function diagram(fixtureKey, widthKey, mode) {
+          const fixture = FIXTURES[fixtureKey];
+          const layout = layoutOf(fixtureKey, widthKey);
+          const drawn = drawnFor(fixtureKey, widthKey, mode);
+          const frame = frameOf(fixtureKey, widthKey);
+          const modeName = MODES.find((candidate) => candidate.key === mode).name;
+          const rowLines = new Set(fixture.stages.flatMap((stage) => stage.rows.map((row) => row.line)));
+          const parts = [startMarkup(fixtureKey, widthKey)];
+          drawn.routes.forEach((route) => parts.push(routeMarkup(fixture, route, rowLines.has(route.line.id))));
+          fixture.stages.forEach((stage) => parts.push(cardMarkup(fixture, layout, stage, drawn)));
+          parts.push(endMarkup(layout));
+          drawn.routes.forEach((route) => {
+            if (route.mark) parts.push(markMarkup(route));
+          });
+          return (
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${frame.x} ${frame.y} ${frame.w} ${frame.h}" width="${frame.w}" height="${frame.h}" role="group" aria-label="${esc(fixture.name)}, drawn with ${esc(modeName)}">` +
+            parts.join("") +
+            `</svg>`
+          );
+        }
+
+        /* ---------- The page ---------- */
+        const state = { fixture: "loops", palette: "light", width: "wide", drawing: "right-angles", picked: null };
+
+        function summaryOf(fixture) {
+          const order = fixture.stages.map((stage) => stage.key);
+          const back = fixture.lines.filter(
+            (line) => line.to !== null && order.indexOf(line.to) <= order.indexOf(line.from),
+          ).length;
+          const counted = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+          return [
+            counted(fixture.stages.length, "Stage", "Stages"),
+            counted(fixture.lines.length, "route", "routes"),
+            counted(back, "route back", "routes back"),
+          ].join(" · ");
+        }
+
+        function crossingWords(count) {
+          if (count === 0) return "No crossings";
+          return count === 1 ? "1 crossing" : `${count} crossings`;
+        }
+
+        function findRoute(id) {
+          for (const fixture of Object.values(FIXTURES)) {
+            const line = fixture.lines.find((candidate) => candidate.id === id);
+            if (line) return { fixture, line };
+          }
+          return undefined;
+        }
+
+        function showPicked() {
+          document.querySelectorAll("[data-route]").forEach((element) => {
+            element.classList.toggle("is-picked", element.getAttribute("data-route") === state.picked);
+          });
+          const found = state.picked ? findRoute(state.picked) : undefined;
+          byId("ed-status").textContent = found
+            ? `Picked: ${routeName(found.fixture, found.line)}.`
+            : "Press a line, a ≤N× mark or a row to pick its route.";
+        }
+
+        function pick(id) {
+          state.picked = id;
+          showPicked();
+        }
+
+        function render() {
+          document.querySelectorAll(".seg[data-state]").forEach((group) => {
+            const chosen = state[group.getAttribute("data-state")];
+            group.querySelectorAll("button").forEach((button) => {
+              button.setAttribute("aria-pressed", String(button.getAttribute("data-value") === chosen));
+            });
+          });
+          const narrow = state.width === "narrow";
+          byId("cmp-stage").classList.toggle("pal-dark", state.palette === "dark");
+          byId("ed").classList.toggle("narrow", narrow);
+          byId("ed-auto").hidden = narrow;
+          byId("ed-summary").textContent = summaryOf(FIXTURES[state.fixture]);
+          const canvas = byId("ed-canvas");
+          canvas.classList.toggle("is-wide", !narrow);
+          canvas.innerHTML = diagram(state.fixture, state.width, state.drawing);
+          byId("cmp-grid").classList.toggle("is-narrow", narrow);
+          MODES.forEach((mode) => {
+            const panel = byId(`cmp-${mode.key}`);
+            const holder = panel.querySelector(".dia");
+            holder.classList.toggle("is-wide", !narrow);
+            holder.innerHTML = diagram(state.fixture, state.width, mode.key);
+            panel.querySelector(".cmp-count").textContent = crossingWords(
+              drawnFor(state.fixture, state.width, mode.key).crossings,
+            );
+          });
+          showPicked();
+        }
+
+        document.addEventListener("click", (event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          if (!target) return;
+          const button = target.closest(".seg[data-state] button");
+          if (button) {
+            const name = button.closest(".seg").getAttribute("data-state");
+            state[name] = button.getAttribute("data-value");
+            if (name === "fixture") state.picked = null;
+            render();
+            return;
+          }
+          const route = target.closest("[data-route]");
+          if (route) {
+            pick(route.getAttribute("data-route"));
+            return;
+          }
+          if (target.closest(".dia")) pick(null);
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          const route = event.target instanceof Element ? event.target.closest("[data-route]") : null;
+          if (!route) return;
+          event.preventDefault();
+          pick(route.getAttribute("data-route"));
+        });
+
+        document.querySelectorAll("[data-dia]").forEach((holder) => {
+          const parts = holder.getAttribute("data-dia").split(" ");
+          holder.innerHTML = diagram(parts[0], parts[1], parts[2]);
+        });
+        render();
+      })();
+    </script>
+  </body>
+</html>

@@ -276,11 +276,15 @@ function followAlong(at: number, start: number, end: number): number {
   return 0;
 }
 
-/** A press there moves the view rather than picking or dragging something. */
+/**
+ * A press there moves the view rather than picking or dragging something. A pressable ≤N× mark
+ * picks its route, so it is no empty canvas; a mark that isn't pressable is.
+ */
 function onEmptyCanvas(target: Element): boolean {
   return (
-    target.closest("[data-flow-stage], [data-flow-route], [data-flow-end], button, a, input") ===
-    null
+    target.closest(
+      "[data-flow-stage], [data-flow-route], [data-flow-end], .flow-canvas-limit-mark--pressable, button, a, input",
+    ) === null
   );
 }
 

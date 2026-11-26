@@ -1,21 +1,25 @@
 /* The flow canvas: see flow-canvas.tsx, docs/design/pipeline-flow.html and
    docs/design/pipeline-editor.html, docs/design/pipeline-free-placement.html. Each Stage stands where
-   it is placed, absolutely in the box around every card; the routes and loops are drawn in one SVG
-   under the cards, and the empty canvas lets a press through to the lines. A card keeps its size, so a
+   it is placed, absolutely in the box around every card; the routes are drawn in one SVG under the
+   cards, the padding growing on each side by the room the lines take there (--flow-room-*), and the empty canvas lets a press through to the lines. A card keeps its size, so a
    large Pipeline grows past the viewport (flow-viewport.css), which moves and zooms it. Under 560px of
    viewport (flow-layout.ts's NARROW_FLOW_WIDTH) it runs down in bands and fills its width. */
 .flow-canvas {
-  --flow-loop-room: 0px;
-  --flow-detour-room: 0px;
+  --flow-room-top: 0px;
+  --flow-room-right: 0px;
+  --flow-room-bottom: 0px;
+  --flow-room-left: 0px;
   --flow-card-width: 232px;
   position: relative;
   isolation: isolate;
   width: max-content;
-  padding: calc(18px + var(--flow-loop-room)) 14px calc(18px + var(--flow-detour-room)) 34px;
+  padding: calc(18px + var(--flow-room-top)) calc(14px + var(--flow-room-right))
+    calc(18px + var(--flow-room-bottom)) calc(34px + var(--flow-room-left));
 }
 
 .flow-canvas[data-orientation="down"] {
-  padding: 34px calc(16px + var(--flow-detour-room)) 16px calc(14px + var(--flow-loop-room));
+  padding: calc(34px + var(--flow-room-top)) calc(16px + var(--flow-room-right))
+    calc(16px + var(--flow-room-bottom)) calc(14px + var(--flow-room-left));
 }
 
 .flow-canvas-stages {
@@ -41,7 +45,8 @@
   display: grid;
   grid-template-columns: repeat(var(--flow-band-columns, 1), minmax(0, 1fr));
   grid-auto-rows: auto;
-  gap: 34px 14px;
+  /* Wide enough between two Stages of a band for a line and its arrow. */
+  gap: 34px 24px;
 }
 
 /* While a Stage is dragged, the snapping grid's dots, 16 apart on the canvas's own positions */
@@ -529,6 +534,12 @@
 .flow-canvas-limit-mark {
   position: absolute;
   transform: translate(-50%, -50%);
+}
+
+/* A press on a mark picks its route, as its line does. */
+.flow-canvas-limit-mark--pressable {
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .flow-canvas-limit-mark--problem {

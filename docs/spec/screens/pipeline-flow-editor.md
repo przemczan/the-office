@@ -1,6 +1,6 @@
 # Pipeline flow editor
 
-Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's Project Pipelines and a Task's "Edit for this Task" (head, Auto-align and its Undo, legend, the canvas, routes back and their limit marks, moving a Stage and snapping, moving a Stage in the order, the narrow view, moving and zooming, full screen, the hint, the Stage panel, the linked-template line, Routes out and the route forms, the route panel, the condition builder, the check's problems and warnings, Stage templates, locks), the Proposal on the flow, the moved-flow note.
+Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's Project Pipelines and a Task's "Edit for this Task" (head, the Route drawing switch, Auto-align and its Undo, legend, the canvas, route drawing and the limit marks, moving a Stage and snapping, moving a Stage in the order, the narrow view, moving and zooming, full screen, the hint, the Stage panel, the linked-template line, Routes out and the route forms, the route panel, the condition builder, the check's problems and warnings, Stage templates, locks), the Proposal on the flow, the moved-flow note.
 
 ## Where it is
 
@@ -14,7 +14,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 ## Layout
 
-- The head: title and summary, **Auto-align**, the host's menu (Add a Stage).
+- The head: title and summary, the **Route drawing** switch, **Auto-align**, the host's menu (Add a Stage).
 - The legend line.
 - The hint line.
 - The canvas.
@@ -27,6 +27,10 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - Title **Stages and routes** in every host, with the summary under it.
 - Summary: "N Stages · N routes · N routes back" (singular forms at 1: "1 Stage", "1 route", "1 route back").
   - A route back is one to its own Stage or one before it in the Pipeline's order.
+- The **Route drawing** switch, a small segmented control named "Route drawing" after the title and before Auto-align ([Route drawing](#route-drawing)).
+  - Its choices: **Right angles** (tooltip "Around Stages, lines side by side kept apart"), **Curves** ("One smooth curve per route") and **Straight lines** ("The direct line from Stage to Stage").
+  - Shown in every host, read-only flows and a Proposal on the flow included.
+  - Under 560px it wraps under the title.
 - **Auto-align**, a secondary button before the host's menu ([Auto-align](#auto-align)).
 - The host's menu **Add a Stage**: **Agent Stage**, **Script Stage**, **Gate**, **Publish Stage**, then **From a template** ([Stage templates](#stage-templates)).
 - The host's menu is hidden on a read-only flow.
@@ -46,7 +50,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
   - Stage added: "<name> was added after <Stage> in the Pipeline's order (or: as the last Stage), beside it on the canvas. Drag it where it goes, then draw its routes: drag from a Stage's + to another Stage or to End. Without dragging: Move and Routes out, below."
   - Dropped clear of a card: "<name> was put beside <Stage>, so it doesn't cover it."
   - Moved earlier or later: "<name> is now N of M in the Pipeline's order; it stays where it is on the canvas.", then for each route that changed "The route from <Stage> to <target> now leads back." or "… now leads on.", and when the first Stage changed "Walks now start at <name>."
-  - Auto-align done: "Auto-align laid out the N Stages from left to right in the Pipeline's order, with routes back in their own lanes." with **Undo** ([Auto-align](#auto-align)).
+  - Auto-align done: "Auto-align laid out the N Stages from left to right in the Pipeline's order." with **Undo** ([Auto-align](#auto-align)).
   - Undo: "The Stages are back where they were before Auto-align."
   - Auto-align failed: "Auto-align couldn't load its layout code, so nothing moved. Check the connection, then press Auto-align again."
   - Stage removed: "<name> was removed. Each route that led into it now leads where its one route out led, so a straight line stays one."
@@ -70,25 +74,87 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
   - On a started Stage, a lock ([Locks](#locks)).
   - A **+** handle named "Draw a route from <Stage>" (hidden on a read-only flow and on locked Stages).
   - Pressing the card picks the Stage.
-- **Route rows**: a Stage with several routes, or one with a condition or a limit, lists them inside its card, each row "→ <target> <when> ≤N×", with a port the line leaves from.
+- **Route rows**: a Stage with several routes, or one with a condition or a limit, lists them inside its card, each row "→ <target> <when> ≤N×".
+  - A row shows its port dot only when its line leaves from it ([Route drawing](#route-drawing)).
   - The when: "when it fails", "if the Agent chooses: <words>", "when <condition in words>", "when it ends Conflict" (a Publish Stage's results, joined by "or"), "otherwise", "always".
   - The mark ≤N× only on a route with a limit.
   - A Stage with one route, with no condition and No limit, lists none, and the line leaves its edge.
   - A row or line named "Route from <Stage> to <target>" (", at most N times" on one with a limit); pressing picks the route; a route with no row is reached by Tab on its line.
   - A card with only routes that have conditions shows "When none holds, you're asked" (a warning icon; its tooltip the check's warnings).
   - A picked route is highlighted; a route with a problem is red.
-- **Routes back** are drawn as ordinary solid routes, curving back above the Stages (beside them, down), with the ≤N× mark on the line.
-  - A route on with a limit shows its mark on its line too.
-  - A route to its own Stage leaves and enters its top edge (its left edge, down).
-  - Each route back runs in a lane of its own above the Stages between its ends; lanes sit a mark's height apart and clear of the cards, and routes back whose spans only meet at a Stage share one.
-  - Routes back that leave or enter the same Stage each take a point of their own, spread across its top edge (its left edge, down).
-  - A route back whose either end has another card above it (beside it, down) runs in a lane under the Stages instead (on their other side, down), entering and leaving the bottom edges.
-  - With cards on both sides of an end, it leaves that Stage's side and runs along the gap beside its Stage, never through a card.
-  - The mark sits on its route's own run, at the free spot nearest the middle where no other line crosses and clear of the marks on the lanes beside it; with none free, in the middle of the run's widest stretch between crossings.
+- **Routes back** are drawn as ordinary solid routes, by the same rules as routes on ([Route drawing](#route-drawing)).
+- A press on a route's ≤N× mark on its line picks the route, as its line and its row do.
 - **Keyboard**:
   - Arrows (Left/Right/Up/Down across; Up/Down for the order and Left/Right within a band when narrow) pick the previous or next Stage in the Pipeline's order.
   - Shift + an arrow moves the focused Stage one grid step, 16, past any card in the way (focus stays on it).
   - Delete or Backspace on a route's line, or with a route picked, removes it.
+
+## Route drawing
+
+- How the routes are drawn is this browser's choice, from the [Route drawing](#head) switch: **Right angles** (the default), **Curves** or **Straight lines**.
+- Kept in this browser's local storage (`the-office.flow-route-drawing`), never sent to the service; every flow on the page and in the browser's other tabs follows a change at once.
+- A stored value that isn't one of the three counts as Right angles.
+- Right angles is the default: it alone keeps lines apart in a shared corridor, it draws the test Pipelines with no crossing, its lines leave from their own rows so a row and its line read as one, its marks sit on level stretches, and it is closest to what Auto-align lays out.
+- Switching redraws the lines only: no Stage moves, nothing is saved, and what is picked stays.
+- The Proposal card's small drawing of route changes follows the choice and has no switch of its own.
+
+### In every mode
+
+- Routes on and routes back are drawn together in one pass by the same rules; a limit only adds its ≤N× mark.
+- No line runs through a Stage card or End.
+- The arrow is on the target's edge, pointing in.
+- A route to its own Stage is a loop, 56 wide and 24 out, on the Stage's top edge (left edge, narrow), or its bottom edge (right edge, narrow) when another card stands less than 40 over that edge.
+- Lines carry no words, only a route's ≤N× mark; a route's words are its row in the card.
+- The start marker keeps its place, the middle of the first Stage's left edge (top edge, narrow).
+- The same Pipeline draws the same way every time; Stages never move for a line.
+- All lines are in one layer under the cards, in the Pipeline's order; only the picked route is raised.
+
+### Right angles
+
+- Level and upright stretches with corners rounded by 6, going around Stages.
+- The sides: to a Stage ahead the line leaves the right edge at its route's row and enters the left edge; to one clearly above or below, the facing edges; otherwise (behind, or close on every side) the top edges, or the bottom edges where fewer cards stand over the span there.
+- Wide, a line never leaves a left edge and never enters a right edge.
+- Several lines on one side stand 16 apart round its middle, in the order of where their other ends stand, 12 clear of the corners (never under 8 on a crowded side); beside a line with a ≤N× mark they stand 24 apart where the side has room, so the mark fits by its neighbour.
+- Each line takes the cheapest way over tracks along the cards and down the middle of the gaps: its length, plus 48 a bend, plus 192 a crossing; the shortest lines go first.
+- Lines that share a corridor stand 16 apart (24 beside a stretch with a mark), never under 6, nested so they don't cross where they part; lines cross only at right angles and never share a stretch.
+- The mark sits on the longest level stretch with room, else an upright one, else nowhere on the line.
+
+### Curves
+
+- One smooth curve per route, using the sides and points of Right angles, leaving and entering square to the edge.
+- Between facing sides each end reaches half the gap between the edges (at least 24); back over one side the arc reaches 0.3 of the distance between its ends (40 to 160; 64 narrow), so longer arcs nest over shorter ones.
+- A curve that would pass within 8 of a card goes round through the corners of the cards grown by 16, as one smooth curve; with no room, it falls back to straight stretches with corners rounded by 12.
+- Curves may run close to each other but never share an end point.
+- The mark sits at the middle of the curve, slid along it to the nearest free spot.
+
+### Straight lines
+
+- The direct line from card centre to card centre, cut at their edges: the plainest picture of what leads where, and the one that crosses most.
+- No line leaves from a row, so no row shows a port dot.
+- A pair of lines between two Stages each move 8 to their own right (12 when one carries its mark on a steep stretch).
+- A line that would pass within 8 of a card bends sharply round the corners of the cards grown by 16; a clear line never bends to dodge a crossing.
+- A route to its own Stage is the same loop with sharp corners.
+- The mark sits at the middle of the longest stretch, slid to the nearest free spot.
+
+### Marks and ports
+
+- A ≤N× mark, 40 × 18, sits on its own line with 4 clear of every card, every other line and every other mark; a line with no room draws none, and its row still shows ≤N×.
+- A press on a mark picks its route; the mark is no Tab stop and is hidden from screen readers, as its row or line names the limit.
+- Each line keeps its 12-wide hit line along its path in every mode.
+- A row shows its port dot only when its line leaves from it; none in Straight lines or the narrow view.
+- The picked route is highlighted on its line, its mark and its row together.
+
+### Proposals
+
+- A Proposal's proposed and taken-away lines are drawn by the same rules as any line, in every mode: proposed dashed in the accent colour, taken away dotted.
+- The line drawn while dragging from a Stage's + is a straight dashed line in every mode; dropped, it takes its mode's shape.
+
+### Performance
+
+- The lines are drawn on the main thread, at once with the cards; panning, zooming and picking redraw nothing.
+- Curves and Straight lines always draw in full.
+- Right angles draws in full on every frame up to 8 Stages and 16 lines; over that, while a Stage is dragged, only the lines of the moved Stage and those its card now blocks are routed again, and the drop draws in full.
+- The budget: at most 4 ms of a frame for the lines while a Stage is dragged.
 
 ## Moving a Stage
 
@@ -117,7 +183,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 ## Auto-align
 
-- **Auto-align** in the head lays out the whole Pipeline as a layered diagram from left to right in the Pipeline's order: routes on lead to later layers, routes back run in their own lanes, the first Stage stands first and End last.
+- **Auto-align** in the head lays out the whole Pipeline as a layered diagram from left to right in the Pipeline's order: routes on lead to later layers, the first Stage stands first and End last; the lines are then drawn by the [Route drawing](#route-drawing) chosen.
 - Tooltip: "Lay out the whole Pipeline from left to right in its order".
 - Not shown on a read-only flow or under 560px; disabled with "Add a Stage first" on a Pipeline with no Stage.
 - On first use it loads its layout code, reading "Laying out…" meanwhile.
@@ -133,7 +199,11 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - Going through the Stages from left to right, a Stage joins the band before when its card overlaps it by at least half a card, and starts a new band otherwise.
 - Within a band Stages sit side by side, the highest first, at most 2 to a line.
 - End stands last, in a band of its own; the start marker comes down into the first Stage.
-- Routes leave a card's bottom edge and enter the top edge; a line going back up runs in a lane on the left.
+- Every way of [Route drawing](#route-drawing) draws there, by its own rules with left-to-right and top-to-bottom swapped.
+  - Right angles and Curves: a line to a Stage below leaves the bottom edge and enters the top edge; to a Stage in another column, beside it or higher up, the facing edges; a route back up the same column leaves and enters the left edges and runs beside the Stages.
+  - Straight lines: centre to centre, as wide.
+- Two Stages in a band stand 24 apart, so a line and its arrow fit between them; a mark doesn't fit there, so such a line leaves its ≤N× to its row.
+- Cards show no port dots.
 - Dragging a Stage, Shift + arrows and Auto-align are off; Move earlier, Move later, Routes out and drawing from the + work.
 
 ## Moving and zooming
@@ -290,6 +360,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 - Shown with `?proposal=<id>` naming an open Proposal of a Pipeline's routes, instead of the form: in Settings › Pipelines for an office-wide Pipeline, in a Project's Pipelines section for a Project Pipeline.
 - A banner (`role=status`) "<name>'s Proposal, shown on <Pipeline>: not applied yet": the sentences saying what each changed Stage's routes become, with their limits, "Dashed lines are what it proposes; dotted ones, what it takes away. Nothing changes until you apply it."; actions **Apply change**, **Not now** (the Proposal is left) and, when the chat isn't beside, **Back to the Thread**; a refusal **The change can't be applied yet**.
+- Its lines follow the browser's [Route drawing](#route-drawing), and the switch stays in the head.
 - Toasts on apply: "<Pipeline> changed. Tasks that haven't started follow it." (office-wide) and "<Pipeline> saved. Tasks that haven't started follow it." (Project Pipeline).
 - The editor is read-only: no menu, no Auto-align, no +, no dragging, no keyboard edits.
 - Each changed Stage keeps the routes it had; proposed routes are dashed, those taken away dotted.

@@ -17,15 +17,13 @@ import {
   type FlowGridCell,
   flowLines,
   type FlowMeasure,
+  type FlowLine,
   type FlowOrientation,
+  type FlowRoom,
   flowRoom,
-  type FlowRoutePath,
   listsRoutes,
-  loopLanes,
-  loopPaths,
   narrowBands,
   narrowLayout,
-  routePaths,
   startPath,
 } from "./flow-layout.ts";
 import { type FlowLocks, type FlowOverlay, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
@@ -41,6 +39,15 @@ import {
   GRID_STEP,
   steppedPast,
 } from "./flow-snap.ts";
+import {
+  type DrawnRoute,
+  type DrawnRoutes,
+  LIMIT_MARK,
+  type RoughDrawing,
+  type RouteDrawing,
+  type RouteScene,
+} from "./flow-routes/route-drawer.ts";
+import { ROUTE_DRAWERS } from "./flow-routes/route-drawers.ts";
 import { FlowStageCard } from "./flow-stage-card.tsx";
 import { limitMark } from "./condition-words.ts";
 import {
@@ -79,6 +86,8 @@ export interface FlowCanvasProps {
   readonly glide?: number;
   /** The cards' sizes at 100% as measured across, which Auto-align lays them out by. */
   readonly onCardSizes?: (sizes: ReadonlyMap<string, FlowCardSize>) => void;
+  /** How the routes are drawn: the browser's Route drawing choice (`useRouteDrawing`). */
+  readonly routeDrawing: RouteDrawing;
 }
 
 const NO_MARKS: FlowStageMarks = new Map();
@@ -89,11 +98,12 @@ const GLIDE_MS = 280;
 /**
  * The flow editor's canvas (docs/design/pipeline-flow.html, docs/design/pipeline-free-placement.html):
  * each Stage where it stands, End where it stands or right of the right-most Stage, and the routes,
- * on and back, drawn under them in one SVG from the boxes the canvas measured, each with a limit
- * marked ≤N× on its line. The canvas's box grows around every card, so a position left of or
- * above the others works. Under 560px the Stages stand in bands from their positions, top to
- * bottom. It asks the host for every edit through `onEdit`. A card keeps its size: the
- * FlowViewport around it (docs/design/pipeline-editor.html) moves and zooms it.
+ * on and back alike, drawn under them in one SVG by the chosen route drawer from the boxes the
+ * canvas measured, each with a limit marked ≤N× on its line. The canvas's box grows around every
+ * card, so a position left of or above the others works, and keeps the room the lines take. Under
+ * 560px the Stages stand in bands from their positions, top to bottom. It asks the host for every
+ * edit through `onEdit`. A card keeps its size: the FlowViewport around it
+ * (docs/design/pipeline-editor.html) moves and zooms it.
  */
 export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const { stages, readOnly = false, marks = NO_MARKS, locked = NO_LOCKS } = props;
@@ -128,22 +138,26 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const origin = moving?.origin ?? originOf(shownCards);
   const narrow = useMemo(() => narrowLayout(narrowBands(shown)), [shown]);
   const lines = useMemo(() => flowLines(shown, props.overlay), [shown, props.overlay]);
-  const loops = useMemo(
-    () =>
-      loopLanes(
-        shown,
-        across ? (stage) => stage.position?.x ?? 0 : (stage) => narrow.bands.get(stage.key) ?? 0,
-      ),
-    [shown, across, narrow],
+  const drawn = useDrawnRoutes(
+    props.routeDrawing,
+    orientation,
+    view,
+    shown[0]?.key,
+    lines,
+    moving ? moving.key : undefined,
   );
-  const room = flowRoom(lines, loops, view.measure, orientation);
-  const drawn: readonly FlowRoutePath[] = [
-    ...routePaths(lines, view.measure, orientation),
-    ...loopPaths(loops, view.measure, orientation),
-  ];
+  // While a card is dragged the room stays as it was; narrow, it only grows, as a room that takes
+  // width narrows the cards the lines were drawn from, until the Pipeline, width or mode changes.
+  const room = useLinesRoom(flowRoom(drawn.bounds, view.measure), moving !== undefined, !across, [
+    stages,
+    viewport?.width,
+    props.routeDrawing,
+  ]);
+  const routes = pickedLast(drawn.routes, props.picked);
+  const ports = portsOf(drawn.routes);
   const gliding = useGlide(props.glide, viewport?.fit);
   useOverviewAndPick(view, props.picked, viewport);
-  useKeptInPlace(origin, across, viewport?.shiftBy);
+  useKeptInPlace({ x: origin.x - room.left, y: origin.y - room.top }, across, viewport?.shiftBy);
   useCardSizes(view.measure, across && !namesOnly, props.onCardSizes);
   const focusAfter = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
@@ -177,8 +191,10 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const field = fieldBox(moving ? [...cards, ...shownCards] : shownCards, origin);
   const style = {
     ...(!across && viewport ? { width: viewport.width } : {}),
-    "--flow-loop-room": `${room.loops}px`,
-    "--flow-detour-room": `${room.detours}px`,
+    "--flow-room-top": `${room.top}px`,
+    "--flow-room-right": `${room.right}px`,
+    "--flow-room-bottom": `${room.bottom}px`,
+    "--flow-room-left": `${room.left}px`,
     "--flow-grid-x": `${modulo(-origin.x, GRID_STEP) - GRID_STEP / 2}px`,
     "--flow-grid-y": `${modulo(-origin.y, GRID_STEP) - GRID_STEP / 2}px`,
   } as CSSProperties;
@@ -195,6 +211,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
       aria-label="Flow"
       className={canvasClass(readOnly, namesOnly, dragging.drag, gliding)}
       data-orientation={orientation}
+      data-route-drawing={props.routeDrawing}
       style={style}
       onKeyDown={(event) => removeRouteByKey(event, props)}
       onPointerMove={dragging.onPointerMove}
@@ -223,6 +240,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
             mark={marks.get(stage.key)}
             lockedNote={locked.get(stage.key)}
             listsRoutes={!namesOnly && listsRoutes(stage, shown)}
+            ports={ports.get(stage.key) ?? NO_PORTS}
             showsHandle={canDraw(stage.key)}
             draggable={canDrag()}
             dragging={moving?.key === stage.key}
@@ -257,11 +275,17 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
         stages={shown}
         view={view}
         orientation={orientation}
-        routes={drawn}
+        routes={routes}
         drag={dragging.drag}
         onPick={pick}
       />
-      <LimitMarks routes={drawn} picked={props.picked} problems={props.problems} />
+      <LimitMarks
+        routes={routes}
+        stages={shown}
+        picked={props.picked}
+        problems={props.problems}
+        onPick={pick}
+      />
     </div>
   );
 }
@@ -269,6 +293,96 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
 /** The card being dragged, once it has moved. */
 function movingCard(drag: FlowDrag | undefined): CardDrag | undefined {
   return drag?.kind === "card" && drag.moved ? drag : undefined;
+}
+
+const NO_PORTS: ReadonlySet<number> = new Set();
+
+/**
+ * The routes as the chosen drawer draws them, remembered for the scene they were drawn from, so
+ * panning, zooming and picking redraw nothing. While a card is dragged the drawer is given the last
+ * full drawing, which it may redraw only roughly from (docs/design/pipeline-route-drawing.html,
+ * "Performance"); the drop draws in full.
+ */
+function useDrawnRoutes(
+  drawing: RouteDrawing,
+  orientation: FlowOrientation,
+  view: FlowView,
+  start: string | undefined,
+  lines: readonly FlowLine[],
+  moved: string | null | undefined,
+): DrawnRoutes {
+  const { measure } = view;
+  const scene = useMemo(
+    (): RouteScene => ({
+      orientation,
+      stages: measure.stages,
+      end: measure.end,
+      start,
+      lines,
+      mark: LIMIT_MARK,
+    }),
+    [orientation, measure, start, lines],
+  );
+  const [full, setFull] = useState<DrawnRoutes | undefined>(undefined);
+  const rough = useMemo(
+    (): RoughDrawing | undefined =>
+      moved !== undefined && full ? { previous: full, moved } : undefined,
+    [moved, full],
+  );
+  const drawn = useMemo(() => ROUTE_DRAWERS[drawing](scene, rough), [drawing, scene, rough]);
+  if (rough === undefined && drawn !== full) setFull(drawn);
+  return drawn;
+}
+
+/**
+ * The room kept around the cards for the lines: the room they take, kept as it was while `frozen`,
+ * and only growing while `growOnly`, until one of `resetOn` changes.
+ */
+function useLinesRoom(
+  wanted: FlowRoom,
+  frozen: boolean,
+  growOnly: boolean,
+  resetOn: readonly unknown[],
+): FlowRoom {
+  const [kept, setKept] = useState({ resetOn, room: wanted });
+  const fresh =
+    kept.resetOn.length !== resetOn.length ||
+    kept.resetOn.some((value, index) => value !== resetOn[index]);
+  const room = fresh ? wanted : frozen ? kept.room : growOnly ? grown(kept.room, wanted) : wanted;
+  if (fresh || !sameRoom(room, kept.room)) setKept({ resetOn, room });
+  return room;
+}
+
+const grown = (a: FlowRoom, b: FlowRoom): FlowRoom => ({
+  top: Math.max(a.top, b.top),
+  right: Math.max(a.right, b.right),
+  bottom: Math.max(a.bottom, b.bottom),
+  left: Math.max(a.left, b.left),
+});
+
+const sameRoom = (a: FlowRoom, b: FlowRoom): boolean =>
+  a.top === b.top && a.right === b.right && a.bottom === b.bottom && a.left === b.left;
+
+/** The routes in the lines' order, the picked one last, so it is drawn over the others. */
+function pickedLast(
+  routes: readonly DrawnRoute[],
+  picked: FlowPick | undefined,
+): readonly DrawnRoute[] {
+  const isPicked = ({ line }: DrawnRoute): boolean =>
+    line.routeIndex !== undefined && isPickedRoute(picked, line.fromKey, line.routeIndex);
+  return [...routes.filter((route) => !isPicked(route)), ...routes.filter(isPicked)];
+}
+
+/** Each Stage's routes, by their index, whose lines leave from their rows' ports. */
+function portsOf(routes: readonly DrawnRoute[]): ReadonlyMap<string, ReadonlySet<number>> {
+  const ports = new Map<string, Set<number>>();
+  for (const { line, fromPort } of routes) {
+    if (!fromPort || line.look !== "plain" || line.routeIndex === undefined) continue;
+    let own = ports.get(line.fromKey);
+    if (!own) ports.set(line.fromKey, (own = new Set()));
+    own.add(line.routeIndex);
+  }
+  return ports;
 }
 
 function endShown(end: StagePosition | undefined, moving: CardDrag): StagePosition | undefined {
@@ -534,8 +648,8 @@ function removeRouteByKey(event: KeyboardEvent<HTMLElement>, props: FlowCanvasPr
 interface FlowLinesProps extends Omit<FlowCanvasProps, "onPick"> {
   readonly view: FlowView;
   readonly orientation: FlowOrientation;
-  /** The routes on, then the routes back. */
-  readonly routes: readonly FlowRoutePath[];
+  /** In the lines' order, the picked one last. */
+  readonly routes: readonly DrawnRoute[];
   readonly drag: FlowDrag | undefined;
   readonly onPick: (pick: FlowPick) => void;
 }
@@ -571,7 +685,7 @@ function FlowLines(props: FlowLinesProps): ReactNode {
   );
 }
 
-function routeClass(props: FlowLinesProps, { line }: FlowRoutePath): string {
+function routeClass(props: FlowLinesProps, { line }: DrawnRoute): string {
   const { routeIndex, fromKey, look } = line;
   const picked = routeIndex !== undefined && isPickedRoute(props.picked, fromKey, routeIndex);
   const problem = routeIndex !== undefined && routeHasProblem(props.problems, fromKey, routeIndex);
@@ -606,7 +720,7 @@ function RouteHit({
   path,
   stages,
   onPick,
-}: FlowLinesProps & { readonly path: FlowRoutePath }): ReactNode {
+}: FlowLinesProps & { readonly path: DrawnRoute }): ReactNode {
   const { line } = path;
   const from = stages.find(({ key }) => key === line.fromKey);
   const route = line.routeIndex === undefined ? undefined : from?.routes?.[line.routeIndex];
@@ -634,22 +748,28 @@ function RouteHit({
 }
 
 interface LimitMarksProps {
-  readonly routes: readonly FlowRoutePath[];
+  readonly routes: readonly DrawnRoute[];
+  readonly stages: readonly Stage[];
   readonly picked: FlowPick | undefined;
   readonly problems: readonly StageProblem[];
+  readonly onPick: (pick: FlowPick) => void;
 }
 
 /**
- * Each route's ≤N× mark on its line, for a route with a limit: in the route's own colour, never
- * pressed itself, as its line and its row pick it, whose names say the limit too.
+ * Each route's ≤N× mark on its line, for a route with a limit and room for its mark: in the
+ * route's own colour. A press on it picks its route, as its line does; it is no Tab stop and stays
+ * hidden from screen readers, as its line or its row picks it too, whose names say the limit.
  */
-function LimitMarks({ routes, picked, problems }: LimitMarksProps): ReactNode {
+function LimitMarks({ routes, stages, picked, problems, onPick }: LimitMarksProps): ReactNode {
   return (
     <div className="flow-canvas-marks" aria-hidden="true">
       {routes.map(({ line, mark }) => {
         const words = limitMark(line.limit);
-        if (words === "") return null;
+        if (words === "" || !mark) return null;
         const { fromKey, routeIndex, look } = line;
+        const pressable =
+          routeIndex !== undefined &&
+          stages.some(({ key, routes: own }) => key === fromKey && own?.[routeIndex] !== undefined);
         const markClass = [
           "flow-canvas-limit-mark",
           `flow-canvas-limit-mark--${look}`,
@@ -659,6 +779,7 @@ function LimitMarks({ routes, picked, problems }: LimitMarksProps): ReactNode {
           routeIndex !== undefined &&
             isPickedRoute(picked, fromKey, routeIndex) &&
             "flow-canvas-limit-mark--picked",
+          pressable && "flow-canvas-limit-mark--pressable",
         ]
           .filter(Boolean)
           .join(" ");
@@ -668,6 +789,11 @@ function LimitMarks({ routes, picked, problems }: LimitMarksProps): ReactNode {
             className={markClass}
             data-flow-limit-mark={line.id}
             style={{ left: mark.x, top: mark.y }}
+            onClick={
+              pressable && routeIndex !== undefined
+                ? () => onPick({ kind: "route", key: fromKey, routeIndex })
+                : undefined
+            }
           >
             {words}
           </span>

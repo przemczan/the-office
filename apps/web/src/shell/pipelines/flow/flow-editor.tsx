@@ -1,5 +1,12 @@
 import type { Stage, StagePosition, StageProblem } from "@the-office/contracts";
-import { Button, Icon, TextButton, Tooltip, useCloseOnEscape } from "@the-office/ui";
+import {
+  Button,
+  Icon,
+  SegmentedControl,
+  TextButton,
+  Tooltip,
+  useCloseOnEscape,
+} from "@the-office/ui";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -22,6 +29,8 @@ import { type FlowPositions, positionsOf } from "./flow-model.ts";
 import { type FlowPick, pickOfProblem } from "./flow-pick.ts";
 import { FlowViewport } from "./flow-viewport.tsx";
 import type { FlowEdited } from "./office-flow-edits.ts";
+import { ROUTE_DRAWINGS, type RouteDrawing } from "./flow-routes/route-drawer.ts";
+import { ROUTE_DRAWING_WORDS, useRouteDrawing } from "./use-route-drawing.ts";
 import "./flow-editor.css";
 
 /**
@@ -146,6 +155,7 @@ function FlowEditorBody(
   const orientation = orientationFor(useWidth(root));
   const sizes = useRef<ReadonlyMap<string, FlowCardSize>>(new Map());
   const [glide, setGlide] = useState(0);
+  const [routeDrawing, chooseRouteDrawing] = useRouteDrawing();
   const undo = controls.undo;
   const undoAutoAlign = (): void => {
     if (undo) props.onEdit?.({ kind: "undo-auto-align", before: undo });
@@ -162,6 +172,7 @@ function FlowEditorBody(
     marks: props.marks,
     locked: props.locked,
     onEdit: props.onEdit,
+    routeDrawing,
   };
   const words = controls.hint ?? (props.howTo ?? defaultHowTo(readOnly))(orientation);
   // Ctrl/⌘ + Z undoes Auto-align while its Undo is offered, but never a field's own typing.
@@ -174,7 +185,9 @@ function FlowEditorBody(
   return (
     <div
       ref={root}
-      className={`flow-editor${fullScreen ? " flow-editor--full-screen" : ""}`}
+      className={`flow-editor${orientation === "down" ? " flow-editor--narrow" : ""}${
+        fullScreen ? " flow-editor--full-screen" : ""
+      }`}
       onKeyDown={onKeyDown}
     >
       <div className="flow-editor-head">
@@ -186,6 +199,7 @@ function FlowEditorBody(
           </b>
           <span>{props.summary}</span>
         </div>
+        <RouteDrawingSwitch drawing={routeDrawing} onChoose={chooseRouteDrawing} />
         {!readOnly && orientation === "across" && (
           <AutoAlignButton
             stages={stages}
@@ -303,6 +317,41 @@ function placeEditor(place: HTMLElement, slot: HTMLElement | null, fullScreen: b
 /** Whether focus is in a field, whose own Ctrl/⌘ + Z undoes its typing. */
 function isTyping(target: Element): boolean {
   return target.closest("input, textarea, select, [contenteditable]") !== null;
+}
+
+/** What each way of drawing does, as its choice's tooltip says. */
+const ROUTE_DRAWING_TIPS: Readonly<Record<RouteDrawing, string>> = {
+  "right-angles": "Around Stages, lines side by side kept apart",
+  curves: "One smooth curve per route",
+  "straight-lines": "The direct line from Stage to Stage",
+};
+
+/**
+ * The Route drawing switch, before Auto-align in every host, read-only ones too
+ * (docs/design/pipeline-route-drawing.html, "The switch"): this browser's choice, which redraws the
+ * lines only; no Stage moves and nothing is saved.
+ */
+function RouteDrawingSwitch(props: {
+  readonly drawing: RouteDrawing;
+  readonly onChoose: (next: RouteDrawing) => void;
+}): ReactNode {
+  return (
+    <div className="flow-editor-route-drawing" role="group" aria-label="Route drawing">
+      <SegmentedControl
+        size="sm"
+        value={props.drawing}
+        onChange={(value) => {
+          const next = ROUTE_DRAWINGS.find((drawing) => drawing === value);
+          if (next) props.onChoose(next);
+        }}
+        options={ROUTE_DRAWINGS.map((drawing) => ({
+          value: drawing,
+          label: ROUTE_DRAWING_WORDS[drawing],
+          title: ROUTE_DRAWING_TIPS[drawing],
+        }))}
+      />
+    </div>
+  );
 }
 
 /**

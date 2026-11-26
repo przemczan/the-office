@@ -3,7 +3,6 @@ import { Badge, Icon } from "@the-office/ui";
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { STAGE_KIND_ICONS } from "../stage-edits.ts";
 import type { FlowGridCell } from "./flow-layout.ts";
-import { isRouteBack } from "./flow-model.ts";
 import { FlowLock } from "./flow-locked.tsx";
 import type { FlowStageMark } from "./flow-marks.ts";
 import type { FlowPick } from "./flow-pick.ts";
@@ -31,6 +30,8 @@ export interface FlowStageCardProps {
   /** Why a Task's started Stage is locked, shown as its lock. */
   readonly lockedNote: string | undefined;
   readonly listsRoutes: boolean;
+  /** The routes, by their index, whose lines leave from their rows' ports, each row showing its dot. */
+  readonly ports: ReadonlySet<number>;
   readonly showsHandle: boolean;
   readonly draggable: boolean;
   /** Being dragged: drawn over the others, where it would snap to. */
@@ -159,6 +160,7 @@ function RouteRows({
   picked,
   problems,
   warningWords,
+  ports,
   onPick,
 }: FlowStageCardProps): ReactNode {
   return (
@@ -189,10 +191,8 @@ function RouteRows({
               </span>
               {mark !== "" && <span className="flow-canvas-limit-mark-inline">{mark}</span>}
             </button>
-            {/* A route back leaves its card's top edge for its lane, so its row has no port. */}
-            {!isRouteBack(stages, stage.key, route.to) && (
-              <span className="flow-canvas-port" aria-hidden="true" />
-            )}
+            {/* Only a line that leaves from its row shows the row's port. */}
+            {ports.has(index) && <span className="flow-canvas-port" aria-hidden="true" />}
           </div>
         );
       })}

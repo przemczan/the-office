@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import { atMostWords, limitMark, routeTargetName } from "../pipelines/flow/condition-words.ts";
 import { FlowCanvas } from "../pipelines/flow/flow-canvas.tsx";
 import { FlowViewport } from "../pipelines/flow/flow-viewport.tsx";
+import { useRouteDrawing } from "../pipelines/flow/use-route-drawing.ts";
 import {
   checkedSentence,
   proposalFlow,
@@ -122,6 +123,8 @@ export function ProposedFlow({
   readonly action?: ReactNode;
 }): ReactNode {
   const flow = useMemo(() => proposalFlow(stages, routes), [stages, routes]);
+  // The browser's Route drawing choice; this small drawing has no switch of its own.
+  const [routeDrawing] = useRouteDrawing();
   return (
     <section className="proposal-section proposal-flow" aria-label={title}>
       <div className="proposal-section-head">
@@ -137,6 +140,7 @@ export function ProposedFlow({
           warnings={routes.check}
           whoWorks={whoWorks}
           readOnly
+          routeDrawing={routeDrawing}
         />
       </FlowViewport>
       <p className="proposal-checked">

@@ -87,7 +87,7 @@ export function movedInOrderHint(
 
 /** Auto-align's words: done, undone and failed. */
 export function autoAlignedHint(count: number): string {
-  return `Auto-align laid out the ${counted(count, "Stage", "Stages")} from left to right in the Pipeline's order, with routes back in their own lanes.`;
+  return `Auto-align laid out the ${counted(count, "Stage", "Stages")} from left to right in the Pipeline's order.`;
 }
 
 export const AUTO_ALIGN_UNDONE = "The Stages are back where they were before Auto-align.";

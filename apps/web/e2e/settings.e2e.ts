@@ -958,6 +958,84 @@ test(
 );
 
 test(
+  "the user switches the flow's Route drawing through its three ways, kept on reload, and presses a route's ≤N× mark to pick it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const pipeline = await addedPipeline(page, `Drawn ${Date.now()}`, [
+      {
+        kind: "script",
+        key: "build",
+        name: "Build",
+        optional: false,
+        command: "build",
+        position: { x: 0, y: 0 },
+        routes: [{ to: "tests", condition: null, limit: null }],
+      },
+      {
+        kind: "script",
+        key: "tests",
+        name: "Tests",
+        optional: false,
+        command: "test",
+        position: { x: 308, y: 0 },
+        routes: [
+          {
+            to: "build",
+            condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+            limit: 3,
+          },
+          { to: "review", condition: null, limit: null },
+        ],
+      },
+      {
+        kind: "gate",
+        key: "review",
+        name: "Review",
+        optional: false,
+        position: { x: 616, y: 0 },
+        routes: [{ to: null, condition: null, limit: null }],
+      },
+    ]);
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
+    const flow = page.getByRole("region", { name: "Flow" });
+    const drawing = page.getByRole("group", { name: "Route drawing" });
+    await expect(flow).toHaveAttribute("data-route-drawing", "right-angles");
+    await expect(drawing.getByRole("tab", { name: "Right angles" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    const mark = flow.locator("[data-flow-limit-mark]");
+    try {
+      for (const [words, drawn] of [
+        ["Curves", "curves"],
+        ["Straight lines", "straight-lines"],
+        ["Right angles", "right-angles"],
+      ] as const) {
+        await drawing.getByRole("tab", { name: words }).click();
+        await expect(flow).toHaveAttribute("data-route-drawing", drawn);
+        // In every way, the route back keeps room for its mark.
+        await expect(mark).toHaveText("≤3×");
+      }
+
+      // The choice is this browser's: a reload reads it back, and nothing was edited.
+      await drawing.getByRole("tab", { name: "Curves" }).click();
+      await page.reload();
+      await expect(flow).toHaveAttribute("data-route-drawing", "curves");
+      await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+
+      // A press on the mark picks its route.
+      await mark.click();
+      await expect(page.getByRole("region", { name: "Route" })).toContainText(
+        "Route from Tests to Build",
+      );
+      await expect(mark).toHaveClass(/flow-canvas-limit-mark--picked/);
+    } finally {
+      await page.evaluate(() => localStorage.removeItem("the-office.flow-route-drawing"));
+    }
+  },
+);
+
+test(
   "at 390 wide the flow editor runs top to bottom and nothing scrolls sideways, in Settings › Pipelines and on a Project page",
   { tag: "@full" },
   async ({ page }) => {
