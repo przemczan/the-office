@@ -104,7 +104,8 @@ export class EngineCascade {
     const project =
       projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId);
     const engines = await this.engineModels.engines();
-    const found = await this.inPlace(engines, project, await this.workLevels(taskId, initiativeId));
+    const work = await this.workLevels(taskId, initiativeId);
+    const found = await this.inPlace(engines, project, work);
     if (found === null) throw new NoEngineListed();
     const engine = engines.find(({ id }) => id === engineId) ?? found.engine;
     return workInCascade({
@@ -113,6 +114,7 @@ export class EngineCascade {
       inPlace: found.inPlace,
       person: card.engineSettings,
       project,
+      work,
       stageEffort,
     });
   }
@@ -178,6 +180,7 @@ export class EngineCascade {
       inPlace,
       person,
       project,
+      work,
       stageEffort,
     });
   }

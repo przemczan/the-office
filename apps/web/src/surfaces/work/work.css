@@ -4671,6 +4671,13 @@ button.initiative-track-body:hover .stage-mark {
   font: var(--type-caption);
 }
 
+.work-engine-row-selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
 .work-engine-row-source.here {
   color: var(--info-fg);
 }

@@ -34,7 +34,7 @@
 - `devices-words.ts`: ADD_A_DEVICE, PHONE_OVER_WIRELESS, ADD_WIRELESS_TITLE, DEVICE_NOT_SAVED, PHONE_NOT_PAIRED, NEEDS_RUN_ENVIRONMENT, NEEDS_RUN_ENVIRONMENT_WHY, NO_PROJECT_DEVICES, USB_NOTE, DIDNT_ANSWER_LINE, NOT_USED_YET, PORT_HINT, devicesNoteWords, pairingEnvironmentWords, pairAgainTitle, PAIRING_STEP_WORDS, PAIRING_STEPS, changePortTitle, noPairingNeededWords, removeHeldWords, pairedToastWords, addedToastWords, renamedToastWords, portSavedToastWords, removedToastWords, addressWords, PairingProgress, pairingProgressOf
 - `engine-block.fixtures.tsx`: PROJECT, projectWith, ROLES, engineCard, closeCard, savedAs, PUT_ENGINE, refused, selectIn, pick, optionLabels, groupOf, shownDialog, click
 - `engine-block.tsx`: EngineBlock
-- `engine-people.tsx`: ENGINES_DEFAULT_CHOICE, modelChoices, EngineGroup, Forced, EnginePeople
+- `engine-people.tsx`: EngineGroup, Forced, EnginePeople
 - `engine-stand-ins.tsx`: EngineStandIns
 - `environment-check-block.tsx`: EnvironmentCheckBlock
 - `environment-labels.ts`: checkBadge, worktreeCheckLabel, worktreeCheckDetail, commandCheckLabel, runSummary, formatDuration, SecretVariableDraft, EnvironmentDraft, draftOf, draftChanged, withNewSecret, secretValueKept, environmentOf
@@ -52,7 +52,7 @@
 - `onboarding-block.tsx`: useOnboarding, OnboardingBadge, OnboardingBlock
 - `project-block.tsx`: ProjectBlock
 - `project-details-step.tsx`: ProjectDetailsStep
-- `project-engine-words.ts`: WHERE_SESSIONS_RUN, WHERE_SESSIONS_RUN_NOTE, FOR_EVERYONE, FOR_EVERYONE_NOTE, FORCE_LABEL, PICK_A_TYPE_FIRST, PER_PERSON, PER_PERSON_NOTE, PERSONS_SETTING, FORCED_ABOVE, EVERYONE_HAS_A_ROW, NOBODY_HAS_A_SETTING, TURN_OFF_THE_FORCE_TOO, STAND_IN_ENGINES, STAND_IN_ENGINES_NOTE, USE_OWN_LIST, FROM_SETTINGS_ENGINES, OFFICE_HAS_NO_STAND_IN, ANOTHER_ENGINE_TYPE_NOTE, noStandInWords, standInsToast, forceNote, turnOffTheForceWords, modelEffortWords, typeToast, forceToast, addWindowTitle, editWindowTitle, removeWindowTitle, REMOVE_WINDOW_TEXT, nothingIsSetHint, addedToast, savedToast, removedToast, roleCardHint, forcedAboveHint, typeChoicesOf, personTypesOf, TypeOffer, typeOfferOf, forceOnType, setsAnything, mergedSettings, peopleWith
+- `project-engine-words.ts`: WHERE_SESSIONS_RUN, WHERE_SESSIONS_RUN_NOTE, FOR_EVERYONE, FOR_EVERYONE_NOTE, FORCE_LABEL, PICK_A_TYPE_FIRST, PER_PERSON, PER_PERSON_NOTE, PERSONS_SETTING, FORCED_ABOVE, EVERYONE_HAS_A_ROW, NOBODY_HAS_A_SETTING, TURN_OFF_THE_FORCE_TOO, STAND_IN_ENGINES, STAND_IN_ENGINES_NOTE, USE_OWN_LIST, FROM_SETTINGS_ENGINES, OFFICE_HAS_NO_STAND_IN, ANOTHER_ENGINE_TYPE_NOTE, noStandInWords, standInsToast, forceNote, turnOffTheForceWords, modelEffortWords, typeToast, forceToast, addWindowTitle, editWindowTitle, removeWindowTitle, REMOVE_WINDOW_TEXT, nothingIsSetHint, addedToast, savedToast, removedToast, roleCardHint, forcedAboveHint, typeChoicesOf, personTypesOf, forceOnType, setsAnything, mergedSettings, peopleWith
 - `project-image-versions.tsx`: ProjectImageVersions
 - `project-item-line.tsx`: ProjectItemLine, whereItLives
 - `project-labels.ts`: installInputsFrom, MARK_COLOUR_LABELS

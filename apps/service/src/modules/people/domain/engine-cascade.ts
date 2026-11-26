@@ -15,6 +15,7 @@ export const WORK_CASCADE_LEVELS = [
   "projectPerson",
   "projectForce",
   "stage",
+  "taskPerson",
 ] as const;
 export type WorkCascadeLevel = (typeof WORK_CASCADE_LEVELS)[number];
 
@@ -127,11 +128,15 @@ export function movedProjectLevels(
 /**
  * The engine overrides a Task or an Initiative sets, which the Work module keeps: a Task's, and the
  * one of the Initiative it is in (or the Initiative's own, for its Threads). They win over the
- * Project default and the Office default, and the Task's over its Initiative's (spec §5.4.5).
+ * Project default and the Office default, and the Task's over its Initiative's; and the Task's
+ * setting for each person, per engine type, the most specific level of the model and effort cascade
+ * (spec §5.4.5).
  */
 export interface WorkCascadeLevels {
   readonly taskEngineOverride: EngineId | null;
   readonly initiativeEngineOverride: EngineId | null;
+  /** Each person's model and effort the Task sets; a person left out has none. */
+  readonly taskPeople?: ReadonlyMap<string, PersonEngineSettings>;
 }
 
 export const NO_WORK_LEVELS: WorkCascadeLevels = {
@@ -192,6 +197,8 @@ export interface WorkInCascadeLevels {
   readonly inPlace: EngineInPlace;
   readonly person: PersonEngineSettings;
   readonly project?: ProjectCascadeLevels;
+  /** The Task's levels, for a session about a Task: its setting for the person is the most specific. */
+  readonly work?: WorkCascadeLevels;
   /** The Stage's own effort, for a Stage run that sets one. */
   readonly stageEffort?: Effort | null;
 }
@@ -205,8 +212,8 @@ const ENGINE_DEFAULT = Symbol("engine's default");
  * specific level that sets it, apart, least specific first: the engine's default, the person's
  * setting for the type, the Project's setting for the person on the type, the Project's force on
  * its default's engine type only (a field it leaves unset is the engine's default), and the
- * Stage's effort. A model the engine doesn't offer gives way to its default, and an effort the type
- * doesn't take to the level below.
+ * Stage's effort, and the Task's setting for the person on the type. A model the engine doesn't
+ * offer gives way to its default, and an effort the type doesn't take to the level below.
  */
 export function workInCascade({
   roleKey,
@@ -214,9 +221,11 @@ export function workInCascade({
   inPlace,
   person,
   project,
+  work,
   stageEffort,
 }: WorkInCascadeLevels): EngineInCascade {
   const own = person[engine.kind];
+  const taskPerson = work?.taskPeople?.get(roleKey)?.[engine.kind];
   const projectPerson = project?.people.find((each) => each.roleKey === roleKey)?.engineSettings[
     engine.kind
   ];
@@ -224,6 +233,7 @@ export function workInCascade({
     project?.force && project.default?.engineType === engine.kind ? project.force : undefined;
   const [modelLevel, model] = mostSpecific<string>(
     [
+      ["taskPerson", taskPerson?.model],
       ["projectForce", force && (force.model ?? ENGINE_DEFAULT)],
       ["projectPerson", projectPerson?.model],
       ["person", own?.model],
@@ -234,6 +244,7 @@ export function workInCascade({
   const givesWay = !engine.models.includes(model);
   const [effortLevel, effort] = mostSpecific<Effort | null>(
     [
+      ["taskPerson", taskPerson?.effort],
       ["stage", stageEffort],
       ["projectForce", force && (force.effort ?? ENGINE_DEFAULT)],
       ["projectPerson", projectPerson?.effort],

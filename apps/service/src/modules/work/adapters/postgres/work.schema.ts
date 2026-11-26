@@ -21,6 +21,7 @@ import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
 import type { EditedField, EditedRecordKind } from "../../domain/record-edits.js";
 import type { EngineStandIn } from "../../domain/stand-ins-at-start.js";
+import type { TaskPersonEngine } from "../../domain/work-engine.js";
 import type { StateChangeCause, UserWayBack } from "../../domain/state-change.js";
 import type {
   Priority,
@@ -257,6 +258,11 @@ export const tasks = pgTable(
     /** The Stand-in Engines its last Start chose; engines are kept by Engine, so no foreign key. */
     engineStandIns: jsonb("engine_stand_ins")
       .$type<EngineStandIn[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    /** The Task's setting for each person, per engine type (spec 5.4.5); an Initiative has none. */
+    peopleEngineSettings: jsonb("people_engine_settings")
+      .$type<TaskPersonEngine[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
     /** Null unless the fire alarm, its Initiative's Pause or the usage window holds it Paused. */

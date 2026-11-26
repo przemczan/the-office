@@ -6,6 +6,7 @@ import type { EngineStandIn } from "./stand-ins-at-start.js";
 import type { PullRequestEnd } from "./task-pull-request.js";
 import { normalizedTags, tagsProblems } from "./task-tags.js";
 import { titleProblem } from "./title.js";
+import type { TaskPersonEngine } from "./work-engine.js";
 
 /**
  * Backlog → Planning → Ready → In progress → Done, with Waiting on you and Paused beside In
@@ -240,6 +241,11 @@ export interface Task {
    * Stand-in Engines; null for none, when its Initiative's override applies, if any.
    */
   readonly engineOverride: EngineId | null;
+  /**
+   * The Task's setting for each person (spec 5.4.5): their model and effort on each engine type,
+   * the most specific level of the model and effort cascade; empty while none is set.
+   */
+  readonly peopleEngineSettings: readonly TaskPersonEngine[];
 }
 
 /** The fields of a Task that hold its long texts, which most reads of many Tasks never need. */

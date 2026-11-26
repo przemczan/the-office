@@ -30,7 +30,7 @@ const FROM_OFFICE = { engineId: "work", from: "office" } as const;
 
 describe("the Task's Engine fold's words", () => {
   it("sums up its override, else its Initiative's, else its Project's engine or the Office default", () => {
-    const task = { engineOverride: null, initiativeEngineOverride: null };
+    const task = { engineOverride: null, initiativeEngineOverride: null, peopleEngineSettings: [] };
     expect(
       taskEngineSummary({ ...task, engineOverride: "personal" }, FROM_PROJECT, engineName),
     ).toBe("Personal · set for this Task · no stand-ins");
@@ -48,6 +48,21 @@ describe("the Task's Engine fold's words", () => {
       "Work account · from the Office default",
     );
     expect(taskEngineSummary(task, null, engineName)).toBe(NO_ENGINE_LISTED);
+  });
+
+  it("adds that models are set for the Task, whichever engine it follows", () => {
+    const task = {
+      engineOverride: null,
+      initiativeEngineOverride: null,
+      peopleEngineSettings: [{ roleKey: "developer", engineSettings: {} }],
+    };
+
+    expect(taskEngineSummary(task, FROM_PROJECT, engineName)).toBe(
+      "Work account · from the Project · models set for this Task",
+    );
+    expect(taskEngineSummary({ ...task, engineOverride: "personal" }, null, engineName)).toBe(
+      "Personal · set for this Task · no stand-ins · models set for this Task",
+    );
   });
 
   it("names the engine it follows with its switch off, and the stand-ins it has there", () => {

@@ -1,7 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
-import { EngineModels } from "../../engine/index.js";
+import { EngineModels, engineTypeOffersOf, type EngineTypeOffers } from "../../engine/index.js";
 import {
   defaultPipelineOwnerProblems,
   missingPipelineCommandsProblems,
@@ -19,11 +19,7 @@ import {
   type Project,
   type ProjectEngine,
 } from "../domain/project.js";
-import {
-  engineTypeOffersOf,
-  projectEngineProblems,
-  type EngineTypeOffers,
-} from "../domain/project-engine.js";
+import { projectEngineProblems } from "../domain/project-engine.js";
 import { environmentProblems, type ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { CLONE_REMOTE, Git, type FolderInspection } from "../ports/git.js";

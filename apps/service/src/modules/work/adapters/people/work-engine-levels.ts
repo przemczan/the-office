@@ -38,6 +38,9 @@ export class WorkEngineLevels extends KnownWorkLevels {
     return {
       taskEngineOverride: task.engineOverride,
       initiativeEngineOverride: initiative?.engineOverride ?? null,
+      taskPeople: new Map(
+        task.peopleEngineSettings.map((one) => [one.roleKey, one.engineSettings]),
+      ),
     };
   }
 

@@ -41,6 +41,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     originIdeaId: null,
     engineOverride: null,
     initiativeEngineOverride: null,
+    peopleEngineSettings: [],
     initiativeId: null,
     madeFor: null,
     resolvesTaskId: null,

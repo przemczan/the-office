@@ -117,6 +117,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     dropReason: undefined,
     createdByTheOffice: false,
     engineOverride: null,
+    peopleEngineSettings: [],
     ...fields,
   };
 }

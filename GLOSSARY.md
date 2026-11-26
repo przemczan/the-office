@@ -740,7 +740,7 @@ Where a session runs: an Engine type and one of its accounts, from the most spec
 _Avoid_: Engine resolution, engine chain
 
 **Model and effort cascade**:
-How a person works on the Engine a session landed on: the model and the effort each from the most specific level set of the Engine's default, the person's Model and effort for its Engine type, the Project's setting for the person, the Project's Forced model and effort, and the Stage's effort.
+How a person works on the Engine a session landed on: the model and the effort each from the most specific level set of the Engine's default, the person's Model and effort for its Engine type, the Project's setting for the person, the Project's Forced model and effort, the Stage's effort, and the Task's setting for the person.
 _Avoid_: Model cascade, model override
 
 **Office default**:
@@ -758,6 +758,10 @@ _Avoid_: Project stand-ins override, project fallback list
 **Project default**:
 The Engine type and one of its accounts a Project's sessions run on, each "Office's default" unless set, set in the Project page's Engine block.
 _Avoid_: Project engine, project override
+
+**Task's setting for the person**:
+A model and an effort set on a Task's Engine tab for one person its work names ("Override models and efforts"), kept per Engine type, each "Unchanged" unless set; the most specific level of the Model and effort cascade, apart from the Task's Engine override.
+_Avoid_: Task model override, per-Task Role override
 
 **Engine override**:
 One Engine an Initiative or a Task forces on its page, turned on with "Override the engine": an Initiative's covers its shaping and planning Threads and every Task in it with no override of its own; a Task's covers every session about it (its Stage runs, its planning Thread, Consultations on it). It names no model, uses no Stand-in Engine, and when its Usage window is used up the Task pauses until the reset.

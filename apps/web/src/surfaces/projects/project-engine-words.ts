@@ -6,7 +6,6 @@ import type {
   PersonEngineSettings,
   ProjectEngine,
   ProjectEnginePerson,
-  RoleCardOptions,
 } from "@the-office/contracts";
 import type { EngineTypeChoice } from "../../shell/engine-type-account-fields.tsx";
 import {
@@ -15,6 +14,7 @@ import {
   ENGINE_KINDS,
   modelLabel,
 } from "../../shell/engine-words.ts";
+import { type TypeOffer } from "../../shell/engine-offers.ts";
 import { ENGINES_DEFAULT, takesEffort } from "../../shell/role-card-words.ts";
 
 /** The words and the sums of a Project's Engine card (screens/project-page.md "Engine"). */
@@ -153,20 +153,6 @@ export function personTypesOf(
   return projectType !== null && types.includes(projectType)
     ? [projectType, ...types.filter((type) => type !== projectType)]
     : types;
-}
-
-/** The models and efforts a type offers, as the Role card's options list them. */
-export interface TypeOffer {
-  readonly models: readonly string[];
-  readonly efforts: RoleCardOptions["engineTypes"][number]["efforts"];
-}
-
-export function typeOfferOf(options: RoleCardOptions | undefined, type: EngineKind): TypeOffer {
-  const offered = options?.engineTypes.find((entry) => entry.type === type);
-  return {
-    models: offered?.models.map(({ model }) => model) ?? [],
-    efforts: offered?.efforts ?? [],
-  };
 }
 
 /**

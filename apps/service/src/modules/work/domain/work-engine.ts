@@ -1,4 +1,4 @@
-import type { EngineId } from "../../engine/index.js";
+import type { Effort, EngineId, EngineKind } from "../../engine/index.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
 import { InitiativeEngineOverrideSet } from "./initiative-events.js";
@@ -15,6 +15,21 @@ import { TaskRefused } from "./task-refused.js";
  * Which Roles the change leaves on an engine that can't run them is Pipelines' check,
  * `TaskEngineChecks`, weighed before the change is saved.
  */
+
+/** A model and an effort, each null for "Unchanged": what the levels below give. */
+export interface TaskModelAndEffort {
+  readonly model: string | null;
+  readonly effort: Effort | null;
+}
+
+/**
+ * The Task's setting for one person (spec 5.4.5), on each engine type, the most specific level of
+ * the model and effort cascade.
+ */
+export interface TaskPersonEngine {
+  readonly roleKey: string;
+  readonly engineSettings: Partial<Record<EngineKind, TaskModelAndEffort>>;
+}
 
 /** A Task's engine overrides: its own and its Initiative's. */
 export interface TaskEngineLevels {
@@ -60,19 +75,52 @@ function isEnded({ state }: Pick<Task | Initiative, "state">): boolean {
   return state === "done" || state === "dropped";
 }
 
-/** The Task's engine override, null for none, in any state but Done and Dropped; undefined when it is already. */
+/**
+ * The Task's engine override, null for none, and its setting for each person (`people`: undefined
+ * keeps the saved ones, empty clears them), in any state but Done and Dropped; undefined when both
+ * are already so.
+ */
 export function changeTaskEngine(
   task: Task,
   engineId: EngineId | null,
+  people?: readonly TaskPersonEngine[],
 ): TaskChange<TaskEngineOverrideSet> | undefined {
   if (isEnded(task)) {
-    throw new TaskRefused(["A Task keeps its engine override once it is Done or Dropped."]);
+    throw new TaskRefused([
+      "A Task keeps its engine override and its models and efforts once it is Done or Dropped.",
+    ]);
   }
-  if (sameEngine(task.engineOverride, engineId)) return undefined;
+  const peopleEngineSettings = people === undefined ? task.peopleEngineSettings : kept(people);
+  if (
+    sameEngine(task.engineOverride, engineId) &&
+    samePeople(task.peopleEngineSettings, peopleEngineSettings)
+  ) {
+    return undefined;
+  }
   return {
-    task: { ...task, engineOverride: engineId },
+    task: { ...task, engineOverride: engineId, peopleEngineSettings },
     event: new TaskEngineOverrideSet(task.id, engineId),
   };
+}
+
+/**
+ * The Task's settings for people as they are kept: a person named twice is refused, and a person or
+ * an engine type with nothing set (both fields Unchanged) isn't kept.
+ */
+function kept(people: readonly TaskPersonEngine[]): TaskPersonEngine[] {
+  if (new Set(people.map(({ roleKey }) => roleKey)).size !== people.length) {
+    throw new TaskRefused(["Name each person once."]);
+  }
+  return people.flatMap(({ roleKey, engineSettings }) => {
+    const set = Object.entries(engineSettings).filter(
+      ([, { model, effort }]) => model !== null || effort !== null,
+    );
+    return set.length === 0 ? [] : [{ roleKey, engineSettings: Object.fromEntries(set) }];
+  });
+}
+
+function samePeople(first: readonly TaskPersonEngine[], second: readonly TaskPersonEngine[]) {
+  return JSON.stringify(first) === JSON.stringify(second);
 }
 
 /** The Initiative's engine override, null for none, while it is shaping or active; undefined when it is already. */

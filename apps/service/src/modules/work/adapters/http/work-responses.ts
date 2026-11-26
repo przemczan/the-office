@@ -188,6 +188,10 @@ export function toTaskSummaryResponse(
     dropReason: task.dropReason ? { ...task.dropReason } : null,
     engineOverride: task.engineOverride,
     initiativeEngineOverride,
+    peopleEngineSettings: task.peopleEngineSettings.map(({ roleKey, engineSettings }) => ({
+      roleKey,
+      engineSettings: { ...engineSettings },
+    })),
   };
 }
 

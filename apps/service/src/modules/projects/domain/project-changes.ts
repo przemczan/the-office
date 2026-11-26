@@ -1,5 +1,11 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { standInListWithout, type Engine, type EngineRemoval } from "../../engine/index.js";
+import {
+  engineTypeOffersOf,
+  standInListWithout,
+  type Engine,
+  type EngineRemoval,
+  type EngineTypeOffers,
+} from "../../engine/index.js";
 import {
   DEFAULT_ISSUE_SETTINGS,
   type IssueSettings,
@@ -78,13 +84,7 @@ import {
   sameFeatureSwitches,
   type ProjectFeatureSwitches,
 } from "./project-features.js";
-import {
-  engineTypeOffersOf,
-  forceOfferedBy,
-  sameProjectEngine,
-  type EngineTypeOffers,
-  type ProjectEngineChange,
-} from "./project-engine.js";
+import { forceOfferedBy, sameProjectEngine, type ProjectEngineChange } from "./project-engine.js";
 import { ProjectRefused } from "./project-refused.js";
 import { proposedCommandsProblems, type ProposedCommands } from "./proposed-commands.js";
 

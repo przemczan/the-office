@@ -435,6 +435,8 @@ export function workCascadeLevelWords(level: WorkCascadeLevel, personName: strin
       return "forced by the Project";
     case "stage":
       return "from the Stage";
+    case "taskPerson":
+      return "set for this Task";
   }
 }
 

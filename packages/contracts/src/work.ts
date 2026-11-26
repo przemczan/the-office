@@ -3,6 +3,7 @@ import { webEventSchema } from "./events.js";
 import { engineIdSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
 import { pageQuerySchema, pageSchemaOf } from "./paging.js";
+import { personEngineSettingsSchema } from "./people.js";
 import { projectFilterParamSchema } from "./project-filter.js";
 import { mergeMethodSchema } from "./pull-requests.js";
 import { userRefSchema } from "./users.js";
@@ -193,6 +194,27 @@ export type Initiative = z.infer<typeof initiativeSchema>;
  */
 export const workEngineChangeSchema = z.object({ engineId: engineIdSchema.nullable() });
 export type WorkEngineChange = z.infer<typeof workEngineChangeSchema>;
+
+/**
+ * One person's model and effort on each engine type, as a Project keeps them for a person (a type
+ * left out is the level below). Named for the Task, whose setting for the person it is.
+ */
+export const taskPersonEngineSettingsSchema = z.object({
+  roleKey: z.string(),
+  engineSettings: personEngineSettingsSchema,
+});
+export type TaskPersonEngineSettings = z.infer<typeof taskPersonEngineSettingsSchema>;
+
+/**
+ * PUT /tasks/:id/engine: the Task's engine override (as `workEngineChangeSchema`) and its setting
+ * for each person; `people` left out keeps the saved settings, null or empty clears them. Refused
+ * for a model or effort the engine type doesn't offer, a person named twice, and once it is Done or
+ * Dropped.
+ */
+export const taskEngineChangeSchema = workEngineChangeSchema.extend({
+  people: z.array(taskPersonEngineSettingsSchema).nullable().optional(),
+});
+export type TaskEngineChangeRequest = z.infer<typeof taskEngineChangeSchema>;
 
 /**
  * PUT /initiatives/:id/pipeline: the Initiative's Pipeline in one Project it spans, chosen while
@@ -482,6 +504,11 @@ export const taskSchema = newTaskSchema.extend({
   engineOverride: engineIdSchema.nullable(),
   /** Its Initiative's engine override, which applies while it has none; null for none or no Initiative. */
   initiativeEngineOverride: engineIdSchema.nullable(),
+  /**
+   * The Task's setting for each person it names, on each engine type (spec 5.4.5): the most
+   * specific level of the model and effort cascade; empty while none is set.
+   */
+  peopleEngineSettings: z.array(taskPersonEngineSettingsSchema),
   /**
    * What The Office made it for: a Project's Onboard Task, its "Set up the run environment" Task,
    * an Initiative's Publishing Task, or a Conflict resolution Task; null for any other Task.

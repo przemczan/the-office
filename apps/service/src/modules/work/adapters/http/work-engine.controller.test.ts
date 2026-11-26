@@ -190,7 +190,9 @@ describe("PUT /api/tasks/:id/engine", () => {
 
     const reasons = await reasonsOf(await setTaskEngine(task, anEngine()));
 
-    expect(reasons).toEqual(["A Task keeps its engine override once it is Done or Dropped."]);
+    expect(reasons).toEqual([
+      "A Task keeps its engine override and its models and efforts once it is Done or Dropped.",
+    ]);
     expect(checked).toEqual([]);
   });
 
@@ -200,7 +202,86 @@ describe("PUT /api/tasks/:id/engine", () => {
 
     const reasons = await reasonsOf(await setTaskEngine(task, null));
 
-    expect(reasons).toEqual(["A Task keeps its engine override once it is Done or Dropped."]);
+    expect(reasons).toEqual([
+      "A Task keeps its engine override and its models and efforts once it is Done or Dropped.",
+    ]);
+  });
+});
+
+const developer = (model: string | null, effort: string | null) => ({
+  roleKey: "developer",
+  engineSettings: { "claude-code": { model, effort } },
+});
+
+function setTaskPeople(task: Task, people: unknown): Promise<Response> {
+  return sendJson(work, "PUT", `/tasks/${task.id}/engine`, { engineId: null, people });
+}
+
+describe("PUT /api/tasks/:id/engine, the Task's setting for people", () => {
+  it("saves a model and an effort per person and engine type, and clears them with null", async () => {
+    const task = await createTask();
+
+    const response = await setTaskPeople(task, [developer("claude-haiku-5-5", "low")]);
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).peopleEngineSettings).toEqual([
+      developer("claude-haiku-5-5", "low"),
+    ]);
+    expect(webEventsOf(work)).toContainEqual({ type: "task.engine-override-set", taskId: task.id });
+    expect(checked).toEqual([]);
+
+    expect((await readTask(task)).peopleEngineSettings).toHaveLength(1);
+    expect((await setTaskPeople(task, null)).status).toBe(200);
+    expect((await readTask(task)).peopleEngineSettings).toEqual([]);
+  });
+
+  it("keeps them when `people` is left out, and the engine override beside them", async () => {
+    const task = await createTask();
+    const engine = anEngine();
+    await setTaskPeople(task, [developer("claude-haiku-5-5", null)]);
+
+    expect((await setTaskEngine(task, engine)).status).toBe(200);
+
+    const read = await readTask(task);
+    expect(read.engineOverride).toBe(engine);
+    expect(read.peopleEngineSettings).toEqual([developer("claude-haiku-5-5", null)]);
+  });
+
+  it("doesn't keep a person with every field Unchanged", async () => {
+    const task = await createTask();
+
+    await setTaskPeople(task, [developer(null, null)]);
+
+    expect((await readTask(task)).peopleEngineSettings).toEqual([]);
+  });
+
+  it("refuses a model or an effort the engine type doesn't offer", async () => {
+    const task = await createTask();
+
+    expect(await reasonsOf(await setTaskPeople(task, [developer("no-such-model", "low")]))).toEqual(
+      ["Choose a model Claude Code offers."],
+    );
+    const geminiEffort = {
+      roleKey: "developer",
+      engineSettings: { "gemini-cli": { model: null, effort: "low" } },
+    };
+    expect(await reasonsOf(await setTaskPeople(task, [geminiEffort]))).toEqual([
+      "Choose an effort Gemini CLI takes.",
+    ]);
+    expect((await readTask(task)).peopleEngineSettings).toEqual([]);
+  });
+
+  it("refuses a person named twice, and once the Task is Done or Dropped", async () => {
+    const task = await createTask();
+
+    expect(
+      await reasonsOf(await setTaskPeople(task, [developer(null, "low"), developer(null, "high")])),
+    ).toEqual(["Name each person once."]);
+
+    await end(task, "done");
+    expect(await reasonsOf(await setTaskPeople(task, []))).toEqual([
+      "A Task keeps its engine override and its models and efforts once it is Done or Dropped.",
+    ]);
   });
 });
 

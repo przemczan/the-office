@@ -1,22 +1,35 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type {
-  Engine,
-  EngineId,
-  Initiative,
-  Project,
-  Task,
-  TaskSummary,
+import {
+  effortSchema,
+  type Engine,
+  type EngineId,
+  type EngineKind,
+  type EngineTypeSetting,
+  type Initiative,
+  type Project,
+  type Task,
+  type TaskEngineCascade,
+  type TaskPersonEngineSettings,
+  type TaskSummary,
 } from "@the-office/contracts";
-import { Alert, GroupedSelect, Icon, Switch, type GroupedSelectGroup } from "@the-office/ui";
-import type { ReactNode } from "react";
+import {
+  Alert,
+  GroupedSelect,
+  Icon,
+  Select,
+  Switch,
+  type GroupedSelectGroup,
+} from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { engineSettingsQuery } from "../../api/engine.ts";
-import { roleQueries, taskEngineCascadeKey } from "../../api/people.ts";
+import { roleCardQueries, roleQueries, taskEngineCascadeKey } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { changeInitiativeEngine, changeTaskEngine, taskQueries } from "../../api/work.ts";
 import {
   EFFORT_LABELS,
   ENGINE_KINDS,
+  modelLabel,
   ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
 } from "../../shell/engine-words.ts";
@@ -25,6 +38,7 @@ import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { modelAndEffortText, workSourceText } from "../../shell/role-card-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useEngineName } from "../../shell/use-engine-name.ts";
+import { ENGINES_DEFAULT_CHOICE, modelChoices, typeOfferOf } from "../../shell/engine-offers.ts";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { useRecordChange } from "./planning-parts.tsx";
 import { RecordFold } from "./record-fold.tsx";
@@ -35,7 +49,10 @@ import {
   INITIATIVE_ENGINE_KEPT,
   INITIATIVE_OFF_HINT,
   ITS_TASKS_NOTE,
+  MODELS_REFUSED,
   NO_ENGINE_LISTED,
+  OVERRIDE_MODELS_AND_EFFORTS,
+  OVERRIDE_MODELS_HINT,
   OVERRIDE_THE_ENGINE,
   RUNNING_STAGE_NOTE,
   RUNS_ON_NOTE,
@@ -51,6 +68,8 @@ import {
   taskEngineToast,
   taskFollowedEngine,
   taskFollowsLine,
+  taskPeopleClearedToast,
+  taskPersonToast,
   type FollowedEngine,
 } from "./work-engine-words.ts";
 
@@ -70,6 +89,9 @@ export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
   const fold = useFold({ kind: "task", id: task.id }, "engine", true);
   const changing = useRecordChange(task, (engineId: EngineId | null) =>
     changeTaskEngine(task.id, engineId),
+  );
+  const changingPeople = useRecordChange(task, (people: readonly TaskPersonEngineSettings[]) =>
+    changeTaskEngine(task.id, task.engineOverride, people),
   );
   const editable = task.state !== "done" && task.state !== "dropped";
   // While it saves, the fields show the choice; a refusal puts them back to what is saved.
@@ -104,14 +126,33 @@ export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
                 project?.engine.standIns.useOwnList ?? false,
                 engineName,
               )}
-              disabled={engineSettings === undefined || changing.isPending}
+              // A models save sends the engine as saved, so neither part changes while the other saves.
+              disabled={
+                engineSettings === undefined || changing.isPending || changingPeople.isPending
+              }
               onChange={save}
             />
             {changing.error && <RefusalAlert title={ENGINE_REFUSED} error={changing.error} />}
-            <TaskRunsOn task={task} />
+            <ModelsOverride
+              task={task}
+              pending={changing.isPending || changingPeople.isPending}
+              refusal={changingPeople.error}
+              onSave={(people, toast) =>
+                changingPeople.mutate(people, {
+                  onSuccess: () => {
+                    void queryClient.invalidateQueries({ queryKey: taskEngineCascadeKey(task.id) });
+                    showToast(toast);
+                  },
+                })
+              }
+            />
           </>
         ) : (
-          <KeptEngine value={task.engineOverride} kept={TASK_ENGINE_KEPT} />
+          <KeptEngine
+            value={task.engineOverride}
+            kept={TASK_ENGINE_KEPT}
+            modelsSet={task.peopleEngineSettings.length > 0}
+          />
         )}
       </div>
     </RecordFold>
@@ -196,8 +237,14 @@ function engineGroups(engines: readonly Engine[]): GroupedSelectGroup[] {
  * The model and effort the Planner and each Role the Task's Stages name work with on the Task's
  * engine, where each comes from, and each Stage that sets its own effort.
  */
-function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
-  const cascade = useQuery(taskQueries.engineCascade(task.id)).data;
+function TaskRunsOn({
+  cascade,
+  models,
+}: {
+  readonly cascade: TaskEngineCascade | undefined;
+  /** While models and efforts are overridden: each row's selects. */
+  readonly models?: PersonSettingsEditor;
+}): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   if (!cascade || cascade.people.length === 0) return null;
   return (
@@ -225,6 +272,14 @@ function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
                       {EFFORT_LABELS[effort]} on {stageName}
                     </span>
                   ))}
+                  {models && cascade.engine && (
+                    <PersonSelects
+                      person={person}
+                      type={cascade.engine.engineType}
+                      name={firstName}
+                      editor={models}
+                    />
+                  )}
                 </span>
               ) : (
                 <span className="work-engine-row-what task-quiet">{NO_ENGINE_LISTED}</span>
@@ -234,6 +289,134 @@ function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
         })}
       </ul>
     </div>
+  );
+}
+
+/** What `TaskRunsOn`'s selects read and change: the Task's setting for each person. */
+interface PersonSettingsEditor {
+  readonly settings: readonly TaskPersonEngineSettings[];
+  readonly disabled: boolean;
+  readonly onChange: (roleKey: string, type: EngineKind, setting: EngineTypeSetting) => void;
+}
+
+/**
+ * The switch "Override models and efforts" (spec §2.1.3, "A Task's engine"), independent of the
+ * engine override: while it is on each row of "Runs on" gets a Model and an Effort select over what
+ * the Task's engine type offers, each saved at once; off clears every setting.
+ */
+function ModelsOverride({
+  task,
+  pending,
+  refusal,
+  onSave,
+}: {
+  readonly task: Task;
+  readonly pending: boolean;
+  readonly refusal: Error | null;
+  readonly onSave: (people: readonly TaskPersonEngineSettings[], toast: string) => void;
+}): ReactNode {
+  const cascade = useQuery(taskQueries.engineCascade(task.id)).data;
+  const roles = useQuery(roleQueries.list()).data;
+  const [turnedOn, setTurnedOn] = useState(false);
+  const on = turnedOn || task.peopleEngineSettings.length > 0;
+  const change = (roleKey: string, type: EngineKind, setting: EngineTypeSetting): void => {
+    const others = task.peopleEngineSettings.filter((person) => person.roleKey !== roleKey);
+    const own = task.peopleEngineSettings.find((person) => person.roleKey === roleKey);
+    const person = cascade?.people.find((each) => each.roleKey === roleKey);
+    const filled = roles?.find(({ key }) => key === roleKey);
+    onSave(
+      [...others, { roleKey, engineSettings: { ...own?.engineSettings, [type]: setting } }],
+      taskPersonToast(task, filled?.card.name ?? person?.roleName ?? roleKey, setting),
+    );
+  };
+  return (
+    <>
+      <div className="work-engine-override">
+        <Switch
+          checked={on}
+          disabled={pending}
+          onChange={(next) => {
+            setTurnedOn(next);
+            if (!next && task.peopleEngineSettings.length > 0) {
+              onSave([], taskPeopleClearedToast(task));
+            }
+          }}
+          label={OVERRIDE_MODELS_AND_EFFORTS}
+          description={OVERRIDE_MODELS_HINT}
+        />
+      </div>
+      {refusal && <RefusalAlert title={MODELS_REFUSED} error={refusal} />}
+      <TaskRunsOn
+        cascade={cascade}
+        models={
+          on
+            ? { settings: task.peopleEngineSettings, disabled: pending, onChange: change }
+            : undefined
+        }
+      />
+    </>
+  );
+}
+
+/** Unchanged names what the levels below give, unless this Task's own setting is what shows. */
+function unchangedChoice(level: string | undefined, text: string | undefined): string {
+  return level === undefined || level === "taskPerson" || text === undefined
+    ? "Unchanged"
+    : `Unchanged · ${text}`;
+}
+
+/** One person's Model and Effort selects on the Task's engine type, each starting on Unchanged. */
+function PersonSelects({
+  person,
+  type,
+  name,
+  editor,
+}: {
+  readonly person: TaskEngineCascade["people"][number];
+  readonly type: EngineKind;
+  readonly name: string;
+  readonly editor: PersonSettingsEditor;
+}): ReactNode {
+  const options = useQuery(roleCardQueries.options()).data;
+  const offer = typeOfferOf(options, type);
+  const setting = editor.settings.find(({ roleKey }) => roleKey === person.roleKey)?.engineSettings[
+    type
+  ] ?? { model: null, effort: null };
+  const work = person.work;
+  const change = (next: Partial<EngineTypeSetting>): void =>
+    editor.onChange(person.roleKey, type, { ...setting, ...next });
+  return (
+    <span className="work-engine-row-selects">
+      <Select
+        label={`Model for ${name}`}
+        value={setting.model ?? ENGINES_DEFAULT_CHOICE}
+        options={modelChoices(
+          offer.models,
+          setting.model,
+          unchangedChoice(work?.modelLevel, work ? modelLabel(work.model) : undefined),
+        )}
+        disabled={editor.disabled}
+        onChange={(model) => change({ model: model === ENGINES_DEFAULT_CHOICE ? null : model })}
+      />
+      {offer.efforts.length > 0 && (
+        <Select
+          label={`Effort for ${name}`}
+          value={setting.effort ?? ENGINES_DEFAULT_CHOICE}
+          options={[
+            {
+              value: ENGINES_DEFAULT_CHOICE,
+              label: unchangedChoice(
+                work?.effortLevel,
+                work?.effort ? EFFORT_LABELS[work.effort] : undefined,
+              ),
+            },
+            ...offer.efforts.map((effort) => ({ value: effort, label: EFFORT_LABELS[effort] })),
+          ]}
+          disabled={editor.disabled}
+          onChange={(effort) => change({ effort: effortSchema.safeParse(effort).data ?? null })}
+        />
+      )}
+    </span>
   );
 }
 
@@ -357,9 +540,12 @@ export function InitiativeEngineBlock({
 function KeptEngine({
   value,
   kept,
+  modelsSet,
 }: {
   readonly value: EngineId | null;
   readonly kept: string;
+  /** A Task's: whether it set models and efforts for people; left out for an Initiative's. */
+  readonly modelsSet?: boolean;
 }): ReactNode {
   const engineName = useEngineName();
   return (
@@ -369,6 +555,12 @@ function KeptEngine({
           <dt>{OVERRIDE_THE_ENGINE}</dt>
           <dd>{value ? engineName(value) : "Off"}</dd>
         </div>
+        {modelsSet !== undefined && (
+          <div className="work-engine-kept-row">
+            <dt>{OVERRIDE_MODELS_AND_EFFORTS}</dt>
+            <dd>{modelsSet ? "On" : "Off"}</dd>
+          </div>
+        )}
       </dl>
       <p className="task-quiet work-engine-lock">
         <Icon name="lock" size={13} />

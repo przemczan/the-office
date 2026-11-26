@@ -72,6 +72,12 @@ export {
   type OfficeDefault,
 } from "./domain/engines.js";
 export {
+  engineTypeOffersOf,
+  modelEffortProblems,
+  type EngineTypeOffers,
+  type ModelAndEffortSetting,
+} from "./domain/engine-type-offers.js";
+export {
   engineThroughStandIns,
   engineToRunOn,
   standInListProblems,

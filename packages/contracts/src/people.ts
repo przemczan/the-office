@@ -246,8 +246,8 @@ export type EngineCascadeLevel = z.infer<typeof engineCascadeLevelSchema>;
 
 /**
  * The levels of the model and effort cascade, least specific first (spec §5.4.5): the engine's
- * default, the person's setting, the Project's setting for the person, the Project's force, and the
- * Stage's effort.
+ * default, the person's setting, the Project's setting for the person, the Project's force, the
+ * Stage's effort, and the Task's setting for the person.
  */
 export const workCascadeLevelSchema = z.enum([
   "engine",
@@ -255,6 +255,7 @@ export const workCascadeLevelSchema = z.enum([
   "projectPerson",
   "projectForce",
   "stage",
+  "taskPerson",
 ]);
 export type WorkCascadeLevel = z.infer<typeof workCascadeLevelSchema>;
 

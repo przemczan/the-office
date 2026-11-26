@@ -132,6 +132,15 @@ async function openEngineFold(page: Page): Promise<Locator> {
   return fold;
 }
 
+/** The Initiative page's Engine fold, in its record column with no tab, opened: it starts folded. */
+async function openInitiativeEngineFold(page: Page): Promise<Locator> {
+  const fold = page.getByRole("region", { name: "Engine", exact: true });
+  const head = fold.getByRole("button", { name: /^Engine/ });
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  await expect(head).toHaveAttribute("aria-expanded", "true");
+  return fold;
+}
+
 test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, () => {
   test("the user overrides a Task's engine in its Engine fold, with no model and no stand-ins", async ({
     page,
@@ -143,7 +152,7 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
     await page.goto(`/tasks/${task.id}`);
     const fold = await openEngineFold(page);
     const head = fold.getByRole("button", { name: /^Engine/ });
-    const override = fold.getByRole("switch");
+    const override = fold.getByRole("switch").first();
     const engine = fold.getByRole("combobox", { name: "Engine" });
     // Off: it follows the Office default, as its Project sets none, and no Engine field shows.
     await expect(head).toContainText("Claude Code · from the Office default");
@@ -194,6 +203,40 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
     if (working > 0) await expect(runsOn.getByRole("listitem")).toHaveCount(working);
   });
 
+  test("the user overrides models and efforts on a Task, apart from its engine", async ({
+    page,
+  }) => {
+    const word = aWordOfItsOwn();
+    const project = await addedProject(page, `Engine models shop ${word}`, "EM");
+    const task = await createdTask(page, project, `Engine models export ${word}`);
+
+    await page.goto(`/tasks/${task.id}`);
+    const fold = await openEngineFold(page);
+    const models = fold.getByRole("switch").nth(1);
+    await expect(models).toHaveAttribute("aria-checked", "false");
+    await expect(fold.getByRole("switch").first()).toHaveAttribute("aria-checked", "false");
+
+    await models.click();
+    await expect(models).toHaveAttribute("aria-checked", "true");
+    // The engine override stays off: the two switches work apart.
+    await expect(fold.getByRole("switch").first()).toHaveAttribute("aria-checked", "false");
+    expect((await savedTask(page, task)).engineOverride).toBeNull();
+
+    // With nobody hired (a file run alone) the list has no rows to set.
+    if ((await rolesWorking(page, task)) > 0) {
+      const effort = fold.getByRole("combobox", { name: /^Effort for / }).first();
+      await effort.click();
+      const options = page.getByRole("listbox").getByRole("option");
+      await options.filter({ hasNotText: "Unchanged" }).first().click();
+      await expect(fold.getByRole("list", { name: "Runs on" })).toContainText("set for this Task");
+      expect((await savedTask(page, task)).peopleEngineSettings).toHaveLength(1);
+    }
+
+    await models.click();
+    await expect(models).toHaveAttribute("aria-checked", "false");
+    await expect.poll(async () => (await savedTask(page, task)).peopleEngineSettings).toEqual([]);
+  });
+
   test("a Task in an Initiative with an override follows it, and its own override wins", async ({
     page,
   }) => {
@@ -205,12 +248,10 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
     await setInitiativeEngine(page, initiativeId, CLAUDE_CODE);
 
     await page.goto(`/tasks/${task.id}`);
-    const head = page
-      .getByRole("region", { name: "Engine", exact: true })
-      .getByRole("button", { name: /^Engine/ });
-    await expect(head).toContainText("Claude Code · from its Initiative · no stand-ins");
     const fold = await openEngineFold(page);
-    await expect(fold.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+    const head = fold.getByRole("button", { name: /^Engine/ });
+    await expect(head).toContainText("Claude Code · from its Initiative · no stand-ins");
+    await expect(fold.getByRole("switch").first()).toHaveAttribute("aria-checked", "false");
     await expect(fold).toContainText(
       "Turn it on to run this Task on another engine than its Initiative's.",
     );
@@ -220,7 +261,7 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
     await screenshotScenario(page, "task-engine-inherited", { inView: fold });
 
     // Its own override wins over its Initiative's.
-    await fold.getByRole("switch").click();
+    await fold.getByRole("switch").first().click();
     await expect(head).toContainText("Claude Code · set for this Task · no stand-ins");
     const saved = await savedTask(page, task);
     expect(saved.engineOverride).toBe(CLAUDE_CODE);
@@ -228,8 +269,8 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
     await expect(
       page.getByText(`${task.title} runs on Claude Code, with no stand-ins.`),
     ).toBeVisible();
-    await expect(fold.getByRole("switch")).toBeEnabled();
-    await fold.getByRole("switch").click();
+    await expect(fold.getByRole("switch").first()).toBeEnabled();
+    await fold.getByRole("switch").first().click();
     await expect(
       page.getByText(`${task.title} follows its Initiative's engine again.`),
     ).toBeVisible();
@@ -249,7 +290,7 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
     await setTaskEngine(page, own, CLAUDE_CODE);
 
     await page.goto(`/work/initiatives/${initiativeId}`);
-    const fold = await openEngineFold(page);
+    const fold = await openInitiativeEngineFold(page);
     const override = fold.getByRole("switch");
     await expect(override).toHaveAttribute("aria-checked", "false");
     await expect(fold).toContainText(
@@ -292,9 +333,9 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
     const fold = await openEngineFold(page);
     await expect(fold.getByRole("switch")).toHaveCount(0);
     await expect(fold.getByRole("combobox")).toHaveCount(0);
-    await expect(fold.getByRole("definition")).toHaveText(["Claude Code"]);
+    await expect(fold.getByRole("definition")).toHaveText(["Claude Code", "Off"]);
     await expect(fold).toContainText(
-      "Kept as it was: the engine of a Done or Dropped Task doesn't change.",
+      "Kept as it was: the engine, models and efforts of a Done or Dropped Task don't change.",
     );
     await expect(fold.getByRole("list", { name: "Runs on" })).toHaveCount(0);
     await screenshotScenario(page, "task-engine-read-only", { inView: fold });

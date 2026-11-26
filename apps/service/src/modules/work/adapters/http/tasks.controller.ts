@@ -15,7 +15,7 @@ import {
   causedByChangeSchema,
   commitMessageChangeSchema,
   foundInVersionChangeSchema,
-  workEngineChangeSchema,
+  taskEngineChangeSchema,
   makeAPlanSchema,
   markReadyRequestSchema,
   newTaskSchema,
@@ -31,7 +31,7 @@ import {
   type CommitMessageChange,
   type History,
   type FoundInVersionChange,
-  type WorkEngineChange,
+  type TaskEngineChangeRequest,
   type MakeAPlan,
   type MarkReadyRequest,
   type NewTask,
@@ -144,15 +144,19 @@ export class TasksController {
   }
 
   /**
-   * The Task's engine override (spec 5.4.5), an engine only, null for none, in any state but Done
-   * and Dropped; refused for an engine not listed, and when a Role of its Pipeline couldn't run on it.
+   * The Task's engine override (spec 5.4.5), null for none, and its setting for each person (`people`
+   * left out keeps them, null or empty clears them), in any state but Done and Dropped; refused for
+   * an engine not listed, when a Role of its Pipeline couldn't run on it, and for a model or effort
+   * the engine type doesn't offer.
    */
   @Put(":id/engine")
   async setEngine(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(workEngineChangeSchema)) { engineId }: WorkEngineChange,
+    @Body(new ContractPipe(taskEngineChangeSchema)) { engineId, people }: TaskEngineChangeRequest,
   ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.setEngine(id, engineId));
+    return this.responses.task(
+      await this.tasks.setEngine(id, engineId, people === undefined ? undefined : (people ?? [])),
+    );
   }
 
   @Put(":id/tags")

@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "people_engine_settings" jsonb DEFAULT '[]'::jsonb NOT NULL;

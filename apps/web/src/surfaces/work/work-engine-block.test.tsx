@@ -9,6 +9,7 @@ import type {
   EngineSettings,
   Initiative,
   Project,
+  RoleCardOptions,
   Task,
   TaskEngineCascade,
 } from "@the-office/contracts";
@@ -16,7 +17,7 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { engineSettingsQuery } from "../../api/engine.ts";
-import { roleQueries } from "../../api/people.ts";
+import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
@@ -91,6 +92,7 @@ const TASK: Task = {
   originIdeaId: null,
   engineOverride: null,
   initiativeEngineOverride: null,
+  peopleEngineSettings: [],
   initiativeId: null,
   madeFor: null,
   resolvesTaskId: null,
@@ -168,6 +170,15 @@ function queryClientWithOptions(): QueryClient {
   queryClient.setQueryData(engineSettingsQuery().queryKey, SETTINGS);
   queryClient.setQueryData(projectQueries.one(PROJECT.id).queryKey, PROJECT);
   queryClient.setQueryData(roleQueries.list().queryKey, []);
+  queryClient.setQueryData(roleCardQueries.options().queryKey, {
+    engineTypes: [
+      {
+        type: "claude-code",
+        models: [{ model: "claude-sonnet-5-5" }, { model: "claude-haiku-5-5" }],
+        efforts: ["low", "medium", "high"],
+      },
+    ],
+  } as unknown as RoleCardOptions);
   return queryClient;
 }
 
@@ -259,6 +270,27 @@ async function pickEngine(page: HTMLElement, name: string): Promise<void> {
   await click(option);
   // The save's answer lands a few ticks later.
   await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+}
+
+/** A native select by its label, as `Select` renders one. */
+function nativeSelect(page: HTMLElement, label: string): HTMLSelectElement {
+  const found = [...page.querySelectorAll("label")].find(
+    ({ textContent }) => textContent.trim() === label,
+  );
+  const control = found && document.getElementById(found.htmlFor);
+  if (!(control instanceof HTMLSelectElement)) throw new Error(`There is no field ${label}.`);
+  return control;
+}
+
+async function choose(control: HTMLSelectElement, value: string): Promise<void> {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(
+      control,
+      value,
+    );
+    control.dispatchEvent(new Event("change", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 20));
   });
 }
@@ -370,6 +402,83 @@ describe("the Task's Engine fold", () => {
     expect(summaryOf(page)).toBe("Work account · from the Project");
   });
 
+  it("overrides models and efforts apart from the engine, a Model and Effort select for each person", async () => {
+    const sent: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_url, request) => {
+        if (request?.method !== "PUT") return Promise.resolve(Response.json([]));
+        sent.push(JSON.parse(String(request.body)));
+        return Promise.resolve(Response.json({ ...TASK, peopleEngineSettings: [] }));
+      }),
+    );
+    const withSettings = {
+      ...TASK,
+      peopleEngineSettings: [
+        {
+          roleKey: "developer",
+          engineSettings: { "claude-code": { model: "claude-haiku-5-5", effort: null } },
+        },
+      ],
+    } satisfies Task;
+    const page = await taskPage(withSettings);
+
+    expect(summaryOf(page)).toBe("Work account · from the Project · models set for this Task");
+    const switches = page.querySelectorAll<HTMLElement>('[role="switch"]');
+    expect(switches[1]?.getAttribute("aria-checked")).toBe("true");
+    for (const name of ["Pam", "Dwight"]) {
+      expect(page.textContent).toContain(`Model for ${name}`);
+      expect(page.textContent).toContain(`Effort for ${name}`);
+    }
+
+    await click(switches[1]!);
+
+    expect(sent).toEqual([{ engineId: null, people: [] }]);
+    expect(document.body.textContent).toContain(
+      "Export Stats as CSV: everyone works with their usual models and efforts again.",
+    );
+  });
+
+  it("saves a person's model as it is chosen, keeping their effort Unchanged", async () => {
+    const sent: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_url, request) => {
+        if (request?.method !== "PUT") return Promise.resolve(Response.json([]));
+        const body = JSON.parse(String(request.body)) as {
+          readonly people: Task["peopleEngineSettings"];
+        };
+        sent.push(body);
+        return Promise.resolve(Response.json({ ...TASK, peopleEngineSettings: body.people }));
+      }),
+    );
+    const page = await taskPage(TASK);
+
+    await click(page.querySelectorAll<HTMLElement>('[role="switch"]')[1]!);
+    const model = nativeSelect(page, "Model for Dwight");
+    expect([...model.options].map(({ textContent }) => textContent)).toEqual([
+      "Unchanged · Opus 5.5",
+      "Sonnet 5.5",
+      "Haiku 5.5",
+    ]);
+    await choose(model, "claude-haiku-5-5");
+
+    expect(sent).toEqual([
+      {
+        engineId: null,
+        people: [
+          {
+            roleKey: "developer",
+            engineSettings: { "claude-code": { model: "claude-haiku-5-5", effort: null } },
+          },
+        ],
+      },
+    ]);
+    expect(document.body.textContent).toContain(
+      "Export Stats as CSV: Dwight works with Haiku 5.5.",
+    );
+  });
+
   it("shows the service's refusal under the field and keeps what is saved", async () => {
     const refusal =
       "On “Export Stats as CSV”, the Developer would run on Gemini, which can't use Office tools, as their Pipelines' Agent Stages need.";
@@ -399,7 +508,7 @@ describe("the Task's Engine fold", () => {
     expect(page.querySelector('[role="switch"]')).toBeNull();
     expect(engineField(page)).toBeNull();
     expect(page.querySelector(".work-engine-kept")?.textContent).toBe(
-      "Override the enginePersonal",
+      "Override the enginePersonalOverride models and effortsOff",
     );
     expect(page.textContent).toContain(TASK_ENGINE_KEPT);
     expect(page.textContent).not.toContain("Opus");

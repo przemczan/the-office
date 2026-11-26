@@ -11,8 +11,10 @@ import {
   type LandedEngine,
   type NamedEngineInCascade,
   type ProjectCascadeLevels,
+  type WorkCascadeLevels,
   type WorkInCascadeLevels,
 } from "./engine-cascade.js";
+import type { PersonEngineSettings } from "./role-card.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const projectDefault = { engineType: "claude-code", engineId: "second-account" } as const;
@@ -190,6 +192,10 @@ describe("movedProjectLevels", () => {
     ).toEqual({ useOwnList: false, engineIds: ["gemini"] });
   });
 });
+
+function taskLevels(settings: PersonEngineSettings): WorkCascadeLevels {
+  return { ...NO_WORK_LEVELS, taskPeople: new Map([["developer", settings]]) };
+}
 
 describe("the model and effort cascade", () => {
   const claudeCode: LandedEngine = {
@@ -417,6 +423,91 @@ describe("the model and effort cascade", () => {
         engine: { ...claudeCode, efforts: ["low", "medium", "high"] },
       }),
     ).toMatchObject({ effort: "low", effortLevel: "person" });
+  });
+
+  describe("the Task's setting for the person", () => {
+    it("wins over the force, the Project's setting and the Stage's effort, each field apart", () => {
+      expect(
+        working({
+          person: { "claude-code": { model: "claude-opus-5-5", effort: "max" } },
+          project: aProject({
+            default: onClaudeCode,
+            force: { model: "claude-haiku-5-5", effort: "low" },
+          }),
+          stageEffort: "xhigh",
+          work: taskLevels({ "claude-code": { model: "claude-opus-5-5", effort: "high" } }),
+        }),
+      ).toMatchObject({
+        model: "claude-opus-5-5",
+        modelLevel: "taskPerson",
+        effort: "high",
+        effortLevel: "taskPerson",
+      });
+    });
+
+    it("leaves a field set to Unchanged to the levels below", () => {
+      const project = aProject({
+        default: onClaudeCode,
+        force: { model: "claude-haiku-5-5", effort: "low" },
+      });
+
+      expect(
+        working({
+          project,
+          stageEffort: "xhigh",
+          work: taskLevels({ "claude-code": { model: null, effort: "high" } }),
+        }),
+      ).toMatchObject({
+        model: "claude-haiku-5-5",
+        modelLevel: "projectForce",
+        effort: "high",
+        effortLevel: "taskPerson",
+      });
+      expect(
+        working({
+          project,
+          stageEffort: "xhigh",
+          work: taskLevels({ "claude-code": { model: "claude-opus-5-5", effort: null } }),
+        }),
+      ).toMatchObject({
+        model: "claude-opus-5-5",
+        modelLevel: "taskPerson",
+        effort: "xhigh",
+        effortLevel: "stage",
+      });
+    });
+
+    it("ignores a setting for another engine type or another person", () => {
+      expect(
+        working({ work: taskLevels({ codex: { model: "gpt-6", effort: "low" } }) }),
+      ).toMatchObject({ modelLevel: "engine", effortLevel: "engine" });
+      expect(
+        working({
+          work: {
+            ...NO_WORK_LEVELS,
+            taskPeople: new Map([
+              ["reviewer", { "claude-code": { model: "claude-opus-5-5", effort: "low" } }],
+            ]),
+          },
+        }),
+      ).toMatchObject({ modelLevel: "engine", effortLevel: "engine" });
+    });
+
+    it("gives an effort the type doesn't take way, and a model it doesn't offer", () => {
+      expect(
+        working({
+          person: { "claude-code": { model: null, effort: "high" } },
+          engine: { ...claudeCode, efforts: ["low", "medium", "high"] },
+          work: taskLevels({ "claude-code": { model: "claude-opus-4", effort: "max" } }),
+        }),
+      ).toMatchObject({
+        model: "claude-sonnet-5-5",
+        modelLevel: "engine",
+        gaveWay: "claude-opus-4",
+        effort: "high",
+        effortLevel: "person",
+      });
+    });
   });
 
   it("gives an effort the type doesn't take way to the level below", () => {

@@ -17,12 +17,12 @@ import {
   ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
   modelLabel,
-  noLongerOfferedModelLabel,
 } from "../../shell/engine-words.ts";
+import { ENGINES_DEFAULT_CHOICE, modelChoices, typeOfferOf } from "../../shell/engine-offers.ts";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { ENGINES_DEFAULT, takesEffort } from "../../shell/role-card-words.ts";
+import { takesEffort } from "../../shell/role-card-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import {
   EVERYONE_HAS_A_ROW,
@@ -44,29 +44,7 @@ import {
   roleCardHint,
   savedToast,
   setsAnything,
-  typeOfferOf,
 } from "./project-engine-words.ts";
-
-/** A Model or Effort field's first choice, "Engine's default" or "Person's setting": nothing set. */
-export const ENGINES_DEFAULT_CHOICE = "";
-
-/**
- * A Model field's choices: `first` ("Engine's default" or "Person's setting"), then the type's
- * models; one saved that the type no longer offers stays, marked, until it is changed.
- */
-export function modelChoices(
-  models: readonly string[],
-  saved: string | null,
-  first: string = ENGINES_DEFAULT,
-): { value: string; label: string }[] {
-  return [
-    { value: ENGINES_DEFAULT_CHOICE, label: first },
-    ...models.map((model) => ({ value: model, label: modelLabel(model) })),
-    ...(saved !== null && !models.includes(saved)
-      ? [{ value: saved, label: noLongerOfferedModelLabel(saved) }]
-      : []),
-  ];
-}
 
 /** One group of the Engine card: its title and one-line description, then its controls. */
 export function EngineGroup({

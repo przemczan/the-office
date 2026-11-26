@@ -99,6 +99,7 @@ import {
   type TaskRestart,
   type TaskWaysBack,
   type TaskSummary,
+  type TaskPersonEngineSettings,
   type TaskPlacement,
   type TaskUsageEstimateList,
   type UsageSettings,
@@ -671,9 +672,16 @@ export function changeCommitMessage(id: string, message: string): Promise<Task> 
   return sendToApi("PUT", `${taskPath(id)}/commit-message`, { message }, taskSchema);
 }
 
-/** The Task's engine override, an engine only, until Done or Dropped; null turns it off. */
-export function changeTaskEngine(id: string, engineId: EngineId | null): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/engine`, { engineId }, taskSchema);
+/**
+ * The Task's engine override, an engine only, until Done or Dropped; null turns it off. With
+ * `people`, its setting for each person (empty clears them); left out, the saved ones stay.
+ */
+export function changeTaskEngine(
+  id: string,
+  engineId: EngineId | null,
+  people?: readonly TaskPersonEngineSettings[],
+): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/engine`, { engineId, people }, taskSchema);
 }
 
 /** The Initiative's engine override, an engine only, until Done or Dropped; null turns it off. */

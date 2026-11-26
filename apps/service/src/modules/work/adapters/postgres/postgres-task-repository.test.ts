@@ -427,6 +427,19 @@ describe("a Task's and an Initiative's engine override as their rows keep it", (
     expect((await repository().find(id))?.engineOverride).toBe("strata");
   });
 
+  it("keeps the Task's setting for each person, and none for a Task saved before it", async () => {
+    const { id } = await aTask(`project-${randomUUID()}`);
+    expect((await repository().find(id))?.peopleEngineSettings).toEqual([]);
+    const developer = {
+      roleKey: "developer",
+      engineSettings: { "claude-code": { model: "claude-haiku-5-5", effort: "low" } },
+    } as const;
+
+    await repository().update(id, (task) => changeTaskEngine(task, null, [developer]));
+
+    expect((await repository().find(id))?.peopleEngineSettings).toEqual([developer]);
+  });
+
   it("does the same for an Initiative's", async () => {
     const id = await anInitiativeId();
     await database()

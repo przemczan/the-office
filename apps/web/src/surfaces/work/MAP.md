@@ -187,7 +187,7 @@ An Initiative's block is a `group`, never a region or a heading: the e2e tests f
 - `use-timeline-scroll.ts`: TimelineScroll, chapterElementId, useTimelineScroll
 - `wireless-pairing-form.tsx`: WirelessPairingForm
 - `work-engine-block.tsx`: TaskEngineBlock, InitiativeEngineBlock
-- `work-engine-words.ts`: OVERRIDE_THE_ENGINE, TASK_ENGINE_KEPT, INITIATIVE_ENGINE_KEPT, RUNNING_STAGE_NOTE, ENGINE_REFUSED, EACH_PROJECTS_ENGINE, NO_ENGINE_LISTED, RUNS_ON_NOTE, TASK_FOLLOWS_INITIATIVE_HINT, INITIATIVE_OFF_HINT, ITS_TASKS_NOTE, FollowedEngine, projectEngineOf, taskFollowedEngine, taskEngineSummary, taskFollowsLine, noStandInsNote, taskEngineToast, initiativeEngineSummary, initiativeEngineToast, isOpenTask, InitiativeTaskEngine, initiativeTaskEngine
+- `work-engine-words.ts`: OVERRIDE_THE_ENGINE, TASK_ENGINE_KEPT, OVERRIDE_MODELS_AND_EFFORTS, OVERRIDE_MODELS_HINT, MODELS_REFUSED, MODELS_SET_FOR_THIS_TASK, INITIATIVE_ENGINE_KEPT, RUNNING_STAGE_NOTE, ENGINE_REFUSED, EACH_PROJECTS_ENGINE, NO_ENGINE_LISTED, RUNS_ON_NOTE, TASK_FOLLOWS_INITIATIVE_HINT, INITIATIVE_OFF_HINT, ITS_TASKS_NOTE, FollowedEngine, projectEngineOf, taskFollowedEngine, taskEngineSummary, taskFollowsLine, noStandInsNote, taskEngineToast, taskPersonToast, taskPeopleClearedToast, initiativeEngineSummary, initiativeEngineToast, isOpenTask, InitiativeTaskEngine, initiativeTaskEngine
 - `work-page.tsx`: WorkPage
 - `work-tab-counts.ts`: ShownByProjectFilter, openTasksCount, shapingInitiativesCount, openPullRequestsCount, newIdeasCount
 - `work-tabs.tsx`: WORK_TABS, WorkTab, WorkTabs

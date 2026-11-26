@@ -40,7 +40,7 @@ import {
 } from "./project-events.js";
 import { aNewProject, aProject, startingCommands } from "./project.fixtures.js";
 import type { ProjectEngine } from "./project.js";
-import type { EngineTypeOffers } from "./project-engine.js";
+import type { EngineTypeOffers } from "../../engine/index.js";
 import { ProjectRefused } from "./project-refused.js";
 import type { ProposedCommands } from "./proposed-commands.js";
 

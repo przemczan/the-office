@@ -29,8 +29,36 @@ describe("a Task's and an Initiative's engine override", () => {
     ).toBe(null);
     expect(() => changeTaskEngine(aTask({ state: "dropped" }), null)).toThrow(TaskRefused);
     expect(() => changeTaskEngine(aTask({ state: "done" }), STRATA)).toThrow(
-      "A Task keeps its engine override once it is Done or Dropped.",
+      "A Task keeps its engine override and its models and efforts once it is Done or Dropped.",
     );
+  });
+
+  it("keeps the setting for each person without the ones with nothing set", () => {
+    const set = { "claude-code": { model: "claude-haiku-5-5", effort: null } } as const;
+    const unchanged = { "claude-code": { model: null, effort: null } };
+
+    const change = changeTaskEngine(aTask(), null, [
+      { roleKey: "developer", engineSettings: set },
+      { roleKey: "reviewer", engineSettings: unchanged },
+    ]);
+
+    expect(change?.task.peopleEngineSettings).toEqual([
+      { roleKey: "developer", engineSettings: set },
+    ]);
+    expect(
+      changeTaskEngine(change!.task, null, [{ roleKey: "developer", engineSettings: set }]),
+    ).toBeUndefined();
+    expect(changeTaskEngine(change!.task, null)).toBeUndefined();
+    expect(changeTaskEngine(change!.task, null, [])?.task.peopleEngineSettings).toEqual([]);
+  });
+
+  it("refuses a person named twice, and a setting once the Task is Done or Dropped", () => {
+    const person = { roleKey: "developer", engineSettings: {} };
+
+    expect(() => changeTaskEngine(aTask(), null, [person, person])).toThrow(
+      "Name each person once.",
+    );
+    expect(() => changeTaskEngine(aTask({ state: "done" }), null, [])).toThrow(TaskRefused);
   });
 
   it("is set until the Initiative is Done or Dropped", () => {

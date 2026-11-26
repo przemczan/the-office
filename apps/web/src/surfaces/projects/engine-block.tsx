@@ -17,17 +17,13 @@ import {
   EngineTypeAccountFields,
   type EngineTypeAccount,
 } from "../../shell/engine-type-account-fields.tsx";
+import { ENGINES_DEFAULT_CHOICE, modelChoices, typeOfferOf } from "../../shell/engine-offers.ts";
 import { EFFORT_LABELS } from "../../shell/engine-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { ENGINES_DEFAULT } from "../../shell/role-card-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useEngineName } from "../../shell/use-engine-name.ts";
-import {
-  ENGINES_DEFAULT_CHOICE,
-  EngineGroup,
-  EnginePeople,
-  modelChoices,
-} from "./engine-people.tsx";
+import { EngineGroup, EnginePeople } from "./engine-people.tsx";
 import { EngineStandIns } from "./engine-stand-ins.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 import {
@@ -45,7 +41,6 @@ import {
   standInsToast,
   turnOffTheForceWords,
   typeChoicesOf,
-  typeOfferOf,
   typeToast,
 } from "./project-engine-words.ts";
 

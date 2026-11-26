@@ -1,11 +1,13 @@
 import type {
   EngineId,
   EngineSettings,
+  EngineTypeSetting,
   Initiative,
   Project,
   Task,
   TaskSummary,
 } from "@the-office/contracts";
+import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 
 /** An engine's name as Settings › Engines lists it. */
 type EngineNamer = (engineId: EngineId) => string;
@@ -13,7 +15,12 @@ type EngineNamer = (engineId: EngineId) => string;
 /** The Engine fold's words on the Task page and the Initiative page (spec §2.1.3, §2.1.4). */
 export const OVERRIDE_THE_ENGINE = "Override the engine";
 export const TASK_ENGINE_KEPT =
-  "Kept as it was: the engine of a Done or Dropped Task doesn't change.";
+  "Kept as it was: the engine, models and efforts of a Done or Dropped Task don't change.";
+export const OVERRIDE_MODELS_AND_EFFORTS = "Override models and efforts";
+export const OVERRIDE_MODELS_HINT =
+  "Set a model and an effort for each person on this Task. Unchanged keeps their usual settings.";
+export const MODELS_REFUSED = "The models and efforts weren't saved";
+export const MODELS_SET_FOR_THIS_TASK = "models set for this Task";
 export const INITIATIVE_ENGINE_KEPT =
   "Kept as it was: the engine of a Done or Dropped Initiative doesn't change.";
 export const RUNNING_STAGE_NOTE =
@@ -82,15 +89,18 @@ function fromWords({ from }: FollowedEngine): string {
 
 /** The Task's Engine fold's summary: its override, else what it follows. */
 export function taskEngineSummary(
-  task: Pick<Task, "engineOverride" | "initiativeEngineOverride">,
+  task: Pick<Task, "engineOverride" | "initiativeEngineOverride" | "peopleEngineSettings">,
   projectEngine: FollowedEngine | null,
   engineName: EngineNamer,
 ): string {
+  const models = task.peopleEngineSettings.length > 0 ? ` · ${MODELS_SET_FOR_THIS_TASK}` : "";
   if (task.engineOverride) {
-    return `${engineName(task.engineOverride)} · set for this Task · no stand-ins`;
+    return `${engineName(task.engineOverride)} · set for this Task · no stand-ins${models}`;
   }
   const followed = taskFollowedEngine(task, projectEngine);
-  return followed ? `${engineName(followed.engineId)} · ${fromWords(followed)}` : NO_ENGINE_LISTED;
+  return followed
+    ? `${engineName(followed.engineId)} · ${fromWords(followed)}${models}`
+    : `${NO_ENGINE_LISTED}${models}`;
 }
 
 /**
@@ -135,6 +145,23 @@ export function taskEngineToast(
     return `${task.title} follows its ${whose} engine again.`;
   }
   return `${task.title} runs on ${engineName(after)}, with no stand-ins.`;
+}
+
+/** The toast once one person's model and effort on the Task are saved; "usual" once both are Unchanged. */
+export function taskPersonToast(
+  task: Pick<Task, "title">,
+  personName: string,
+  { model, effort }: EngineTypeSetting,
+): string {
+  const set = [model && modelLabel(model), effort && EFFORT_LABELS[effort]].filter(Boolean);
+  return set.length === 0
+    ? `${task.title}: ${personName} works with their usual model and effort again.`
+    : `${task.title}: ${personName} works with ${set.join(" · ")}.`;
+}
+
+/** The toast once the Task's settings for every person are cleared. */
+export function taskPeopleClearedToast(task: Pick<Task, "title">): string {
+  return `${task.title}: everyone works with their usual models and efforts again.`;
 }
 
 /** The Initiative's Engine fold's summary: its override, else its Project's engine. */

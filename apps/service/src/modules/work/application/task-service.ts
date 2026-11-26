@@ -67,7 +67,12 @@ import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js
 import { changeCommitMessage, publishCommitMessage } from "../domain/task-commit-message.js";
 import { changeDescription, changeTitle } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
-import { changeTaskEngine, onTask, taskEngineMoves } from "../domain/work-engine.js";
+import {
+  changeTaskEngine,
+  onTask,
+  taskEngineMoves,
+  type TaskPersonEngine,
+} from "../domain/work-engine.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import {
@@ -90,7 +95,7 @@ import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { RecordEdits } from "../ports/record-edits.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/task-repository.js";
 import { publishDependencyChanges } from "./dependency-events.js";
-import { engineOverrideProblems } from "./engine-override-choice.js";
+import { engineOverrideProblems, taskPeopleProblems } from "./engine-override-choice.js";
 import { TaskEngineChecks } from "./task-engine-checks.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 
@@ -311,15 +316,29 @@ export class TaskService {
   /**
    * The Task's engine override (spec 5.4.5), null for none, in any state but Done and Dropped;
    * refused for an engine Settings › Engines doesn't list, and with the capability check's reasons
-   * when a Role of its Pipeline couldn't run on it. Held under Engine's
+   * when a Role of its Pipeline couldn't run on it. Saved with it, its setting for each person
+   * (`people`: undefined keeps the saved ones, empty clears them), refused for a model or effort
+   * the engine type doesn't offer, which no capability check weighs. Held under Engine's
    * `EngineReferenceLock` from reading the engines through the save, so a removal can't come in
    * between; the event is published after.
    */
-  async setEngine(id: string, engineId: EngineId | null): Promise<Task> {
+  async setEngine(
+    id: string,
+    engineId: EngineId | null,
+    people?: readonly TaskPersonEngine[],
+  ): Promise<Task> {
     const { task, event } = await this.engineReferences.holding(async () => {
       const stored = await this.read(id);
-      if (!changeTaskEngine(stored, engineId)) return { task: stored, event: undefined };
-      const unlisted = await engineOverrideProblems(this.engineModels, engineId);
+      const change = changeTaskEngine(stored, engineId, people);
+      if (!change) return { task: stored, event: undefined };
+      const unlisted = [
+        ...(await engineOverrideProblems(this.engineModels, engineId)),
+        ...(await taskPeopleProblems(
+          this.engineModels,
+          change.task.peopleEngineSettings,
+          stored.peopleEngineSettings,
+        )),
+      ];
       if (unlisted.length > 0) throw new TaskRefused(unlisted);
       const initiative =
         stored.initiativeId === undefined
@@ -330,7 +349,7 @@ export class TaskService {
         moves: taskEngineMoves(stored, initiative?.engineOverride ?? null, engineId),
       });
       if (problems.length > 0) throw new TaskRefused([...problems]);
-      return this.repository.update(id, (current) => changeTaskEngine(current, engineId));
+      return this.repository.update(id, (current) => changeTaskEngine(current, engineId, people));
     });
     if (event) await this.events.publish(event);
     return task;

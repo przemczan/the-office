@@ -179,6 +179,7 @@ export function createTask(
     dropReason: undefined,
     createdByTheOffice: setting.createdByTheOffice ?? false,
     engineOverride: null,
+    peopleEngineSettings: [],
   };
   return {
     task,
