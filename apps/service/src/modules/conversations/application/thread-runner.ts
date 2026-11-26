@@ -1618,8 +1618,6 @@ export class ThreadRunner implements OnModuleDestroy {
         place.officeTools,
         { card, hardSwitches },
         place.callsCanWait,
-        // A Consultation on a Task changes Project settings as an Agent Stage does (spec §6).
-        thread.consultation !== undefined && thread.home.kind === "task",
       ),
       mcpServers,
       outputSchema: undefined,

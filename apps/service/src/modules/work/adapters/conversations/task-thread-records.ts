@@ -38,7 +38,6 @@ import {
   PLANNING_INSTRUCTIONS,
 } from "../../domain/work-prompt-templates.js";
 import { KnownPeople } from "../../ports/known-people.js";
-import { WRITE_COMMIT_MESSAGE } from "../office-tools/commit-message-office-tools.js";
 import { WRITE_BUG_DETAILS, WRITE_KIND } from "../office-tools/planning-office-tools.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
@@ -60,7 +59,6 @@ export const PLANNING_OFFICE_TOOLS = [
   "write_tags",
   WRITE_KIND,
   WRITE_BUG_DETAILS,
-  WRITE_COMMIT_MESSAGE,
   "mark_planned",
   OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,

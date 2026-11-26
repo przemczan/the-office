@@ -51,6 +51,8 @@ export interface Setup {
   readonly answered?: readonly Decision[];
   readonly openRefusal?: string;
   readonly approvalHolds?: ApprovalHolds;
+  /** The caller's Thread, as `aThread` takes it: a Thread on `task-1` when left out. */
+  readonly thread?: Parameters<typeof aThread>[0];
 }
 
 /** The held calls with a Planner whose Authority row is as given, and the Decisions it opened. */
@@ -62,6 +64,7 @@ export function heldCallsWith({
   answered = [],
   openRefusal,
   approvalHolds = new ApprovalHolds(),
+  thread,
 }: Setup) {
   const opened: DecisionDraft[] = [];
   const putTo: (string | undefined)[] = [];
@@ -78,7 +81,8 @@ export function heldCallsWith({
   } as unknown as RoleCards;
   const threads = {
     // A held call waits in a Thread on a Task, as only there it has a Decision to wait on.
-    findBySession: () => Promise.resolve(aThread({ home: { kind: "task", taskId: "task-1" } })),
+    findBySession: () =>
+      Promise.resolve(aThread({ home: { kind: "task", taskId: "task-1" }, ...thread })),
     decisionsIn: () => Promise.resolve(answered),
     spendApproval: (id: string) => {
       const unspent = !spent.has(id);

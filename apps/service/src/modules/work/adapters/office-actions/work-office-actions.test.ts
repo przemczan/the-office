@@ -6,6 +6,7 @@ import {
   ADD_TO_INITIATIVE_ACTION,
   ARCHIVE_INITIATIVE_ACTION,
   ARCHIVE_TASK_ACTION,
+  ATTACH_LINK_ACTION,
   CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
   CHANGE_TASK_DESCRIPTION_ACTION,
   CHANGE_TASK_KIND_ACTION,
@@ -31,6 +32,7 @@ import {
   SHAPE_IDEA_INTO_TASK_ACTION,
   START_READY_TASKS_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
+  WRITE_COMMIT_MESSAGE_ACTION,
   WRITE_INITIATIVE_SHORT_NAME_ACTION,
   WRITE_INITIATIVE_OUTCOME_ACTION,
   historySchema,
@@ -45,6 +47,7 @@ import {
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
+import { AttachmentService } from "../../application/attachment-service.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
@@ -86,6 +89,8 @@ const TASK_CREATORS_ACTIONS = [
   CHANGE_TASK_PRIORITY_ACTION,
   CHANGE_TASK_PLAN_ACTION,
   CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
+  WRITE_COMMIT_MESSAGE_ACTION,
+  ATTACH_LINK_ACTION,
   DROP_TASK_ACTION,
   ARCHIVE_TASK_ACTION,
   RESTORE_TASK_ACTION,
@@ -557,6 +562,82 @@ describe("a Task's Plan and Definition of Done", () => {
     expect(await editsOf(`/tasks/${created.id}`)).toEqual([
       { field: "plan", by: "the person in the Role planner" },
     ]);
+  });
+});
+
+describe("a Task's commit message and links", () => {
+  it("write the commit message through the route and the tool alike", async () => {
+    const task = await aTaskInNoInitiative();
+
+    const written = await sendJson(work, "PUT", `/tasks/${task.id}/commit-message`, {
+      message: "feat(banner): keep it up",
+    });
+    const cleared = await callTool(WRITE_COMMIT_MESSAGE_ACTION.name, {
+      taskId: task.id,
+      message: "",
+    });
+    const rewritten = await callTool(WRITE_COMMIT_MESSAGE_ACTION.name, {
+      taskId: task.id,
+      message: "fix(banner): stay up offline",
+    });
+
+    expect(taskSchema.parse(await written.json()).commitMessage).toBe("feat(banner): keep it up");
+    expect(cleared.text).toMatch(/^Cleared the commit message/);
+    expect(rewritten).toEqual({ text: "Wrote the commit message onto the Task.", isError: false });
+    expect((await work.app.get(TaskService).read(task.id)).commitMessage).toBe(
+      "fix(banner): stay up offline",
+    );
+  });
+
+  it("attach a link through the route as the user and through the tool as the person", async () => {
+    const task = await aTaskInNoInitiative();
+    const owner = { kind: "task", taskId: task.id } as const;
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/attachments/links`, {
+      url: "https://example.com/preview",
+      name: "The preview",
+    });
+    const answer = await callTool(ATTACH_LINK_ACTION.name, {
+      taskId: task.id,
+      url: "https://example.com/docs",
+    });
+
+    expect(response.status).toBe(201);
+    expect(answer.text).toMatch(
+      /^Attached https:\/\/example\.com\/docs \(link to https:\/\/example\.com\/docs\) to the Task as Attachment .+\.$/,
+    );
+    expect(await work.app.get(AttachmentService).listOf(owner)).toEqual([
+      expect.objectContaining({
+        kind: "link",
+        name: "The preview",
+        addedBy: expect.objectContaining({ kind: "user" }),
+      }),
+      expect.objectContaining({
+        kind: "link",
+        name: "https://example.com/docs",
+        addedBy: { kind: "person", roleKey: "cto" },
+      }),
+    ]);
+  });
+
+  it("refuse an address that isn't a web address in the same words to both", async () => {
+    const task = await aTaskInNoInitiative();
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/attachments/links`, {
+      url: "file:///etc/passwd",
+    });
+    const answer = await callTool(ATTACH_LINK_ACTION.name, {
+      taskId: task.id,
+      url: "file:///etc/passwd",
+    });
+
+    expect(await refusalOf(response)).toEqual([
+      "A link is a web address starting http:// or https://.",
+    ]);
+    expect(answer).toEqual({
+      text: "A link is a web address starting http:// or https://.",
+      isError: true,
+    });
   });
 });
 

@@ -191,7 +191,7 @@ function timelineItemOf(line: ActivityLine): TimelineItem {
       tone: "neutral",
       actor: who,
       title:
-        change.by.kind === "person" ? (
+        change.by.kind === "person" && change.by.taskId !== undefined ? (
           <Link to="/tasks/$taskId" params={{ taskId: change.by.taskId }}>
             {what}
           </Link>

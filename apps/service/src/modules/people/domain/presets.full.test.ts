@@ -89,6 +89,30 @@ describe("PRESETS", () => {
     },
   );
 
+  // A running Stage's Task is the person's own work: its Attachments and commit message
+  // (Work › Task records) are theirs to write, the Reviewer's too, and they change no Project setting.
+  it.each([
+    ["developer", { kind: "ask-me" }],
+    ["reviewer", { kind: "never" }],
+  ] as const)(
+    "let the %s attach to and write the commit message of their own Task, others' as %o",
+    (roleKey, others) => {
+      expect(presetAuthority(roleKey).taskRecords).toEqual({
+        kind: "own-and-others",
+        own: { kind: "allowed" },
+        others,
+      });
+    },
+  );
+
+  it("give the Developer's Change Project settings to Devops and the Reviewer's to nobody", () => {
+    expect(presetAuthority("developer").changeProjectSettings).toEqual({
+      kind: "consult",
+      role: "devops",
+    });
+    expect(presetAuthority("reviewer").changeProjectSettings).toEqual({ kind: "never" });
+  });
+
   it("work with each engine's default model, and their effort on each type that takes it", () => {
     expect(presetFor("developer")?.card.engineSettings).toEqual({
       "claude-code": { model: null, effort: "high" },

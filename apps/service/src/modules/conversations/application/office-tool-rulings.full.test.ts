@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
-import { OfficeToolRegistry, type OfficeTool, type OfficeToolCall } from "../../engine/index.js";
-import type { AuthoritySetting, Duties, DutyKey } from "../../people/index.js";
+import {
+  OfficeToolRegistry,
+  type OfficeTool,
+  type OfficeToolAuthority,
+  type OfficeToolCall,
+} from "../../engine/index.js";
+import type { AuthorityGroup, AuthoritySetting, Duties, DutyKey } from "../../people/index.js";
 import { officeToolCallWords } from "../domain/office-tool-ruling.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import { anApproval, heldCallsWith, SESSION, type Setup } from "./held-calls.fixtures.js";
@@ -19,8 +24,15 @@ const CONSULT_CTO = { kind: "consult", role: "cto" } as const;
 
 const TOOL_NAME = "change_task_title";
 
+type ToolHooks = Pick<OfficeToolAuthority, "check" | "approvalLines">;
+
 /** A stand-in for the tool of an Office action of Task records, whose subject is its Task. */
-function aTaskTool(ran: unknown[], calls: OfficeToolCall[] = [], name = TOOL_NAME): OfficeTool {
+function aTaskTool(
+  ran: unknown[],
+  calls: OfficeToolCall[] = [],
+  name = TOOL_NAME,
+  hooks: ToolHooks = {},
+): OfficeTool {
   return {
     name,
     description: "Changes a Task's title.",
@@ -29,6 +41,7 @@ function aTaskTool(ran: unknown[], calls: OfficeToolCall[] = [], name = TOOL_NAM
       group: "taskRecords",
       title: "Change a Task's title",
       subject: (input) => ({ kind: "task", id: (input as { taskId: string }).taskId }),
+      ...hooks,
     },
     run: (input, call) => {
       ran.push(input);
@@ -38,12 +51,34 @@ function aTaskTool(ran: unknown[], calls: OfficeToolCall[] = [], name = TOOL_NAM
   };
 }
 
-interface Rulings extends Pick<Setup, "hired" | "consultants" | "answered"> {
+/** A stand-in for the tool of an Office action of Change Project settings, whose subject is its Project. */
+function aProjectTool(ran: unknown[], calls: OfficeToolCall[], name: string): OfficeTool {
+  return {
+    name,
+    description: "Changes a Project's settings.",
+    input: z.object({ project: z.string() }),
+    authority: {
+      group: "changeProjectSettings",
+      title: "Change Project settings",
+      subject: (input) => ({ kind: "project", id: (input as { project: string }).project }),
+    },
+    run: (input, call) => {
+      ran.push(input);
+      calls.push(call);
+      return Promise.resolve({ text: "Done.", isError: false });
+    },
+  };
+}
+
+interface Rulings extends Pick<Setup, "hired" | "consultants" | "answered" | "thread"> {
   readonly setting: AuthoritySetting;
   /** The Tasks the person created, whose work is their own. */
   readonly ownTasks?: readonly string[];
   readonly duties?: readonly DutyKey[];
   readonly toolName?: string;
+  /** The Authority group that rules the tool, Task records when left out. */
+  readonly group?: AuthorityGroup;
+  readonly hooks?: ToolHooks;
   /** Gives the tool a draft of its change, so a Proposal can be made of it. */
   readonly withDraft?: boolean;
   /** Stands in for the Proposals' service. */
@@ -54,11 +89,13 @@ function rulingsWith({
   ownTasks = [],
   duties = [],
   toolName = TOOL_NAME,
+  group = "taskRecords",
+  hooks,
   withDraft = false,
   proposals = {},
   ...setup
 }: Rulings) {
-  const held = heldCallsWith({ ...setup, switchKey: "taskRecords" });
+  const held = heldCallsWith({ ...setup, switchKey: group });
   const work = {
     isOwnWork: (_roleKey: string, { id }: { id: string }) => Promise.resolve(ownTasks.includes(id)),
   } as unknown as WorkRecords;
@@ -76,7 +113,10 @@ function rulingsWith({
   );
   const ran: unknown[] = [];
   const calls: OfficeToolCall[] = [];
-  const tool = aTaskTool(ran, calls, toolName);
+  const tool =
+    group === "taskRecords"
+      ? aTaskTool(ran, calls, toolName, hooks)
+      : aProjectTool(ran, calls, toolName);
   registry.register(
     withDraft
       ? {
@@ -163,6 +203,56 @@ describe("the ruling of an Office tool call", () => {
 
     expect(opened[0]?.questions[0]?.question).toContain(
       '{"action":"change_task_title","input":{"taskId":"task-1","title":"New title"}}',
+    );
+  });
+
+  it("refuses a call the tool's check refuses before holding it, so no approval is asked", async () => {
+    const hooks = { check: () => Promise.resolve("The Office has no Task task-1.") };
+    const asking = rulingsWith({ setting: ASK_ME, hooks });
+    const allowed = rulingsWith({ setting: ALLOWED, hooks });
+
+    const held = await asking.callWith(input);
+    const run = await allowed.callWith(input);
+
+    expect(held).toEqual({ text: "The Office has no Task task-1.", isError: true });
+    expect(asking.opened).toHaveLength(0);
+    expect(run).toEqual({ text: "The Office has no Task task-1.", isError: true });
+    expect(allowed.ran).toEqual([]);
+  });
+
+  it("checks the repeat after Allow once again, against the state at that moment", async () => {
+    const approval = anApproval(0, officeToolCallWords(TOOL_NAME, input));
+    let refusal: string | undefined = "The Task is Done.";
+    const { callWith, ran } = rulingsWith({
+      setting: ASK_ME,
+      answered: [approval],
+      hooks: { check: () => Promise.resolve(refusal) },
+    });
+
+    const refused = await callWith(input);
+    refusal = undefined;
+    const repeated = await callWith(input);
+
+    expect(refused.text).toBe("The Task is Done.");
+    expect(repeated.isError).toBe(false);
+    expect(ran).toEqual([input]);
+  });
+
+  it("lists the tool's approval lines on the card, and the generic words when it has none", async () => {
+    const lined = rulingsWith({
+      setting: ASK_ME,
+      hooks: { approvalLines: () => Promise.resolve(["Title: New title"]) },
+    });
+    const plain = rulingsWith({ setting: ASK_ME });
+
+    await lined.callWith(input);
+    await plain.callWith(input);
+
+    expect(lined.opened[0]?.context).toBe(
+      `Your Role card asks for approval of each call of ${TOOL_NAME}. This call changes:\n- Title: New title`,
+    );
+    expect(plain.opened[0]?.context).toBe(
+      `Your Role card asks for approval of each call of ${TOOL_NAME}.`,
     );
   });
 
@@ -266,9 +356,15 @@ describe("the ruling of an Office tool call", () => {
 
 describe("the tools a session is offered", () => {
   const ADD_DEPENDENCY = "add_dependency";
+  const CHANGE_PROJECT_SETTINGS = "change_project_settings";
 
-  function placesWith(setting: AuthoritySetting, duties: readonly DutyKey[] = []) {
-    const { roleCards } = heldCallsWith({ setting, switchKey: "initiativeRecords" });
+  /** The tools offered with `setting` in the group `switchKey`, the others as the Planner's card has them. */
+  function placesWith(
+    setting: AuthoritySetting,
+    duties: readonly DutyKey[] = [],
+    switchKey: AuthorityGroup = "initiativeRecords",
+  ) {
+    const { roleCards } = heldCallsWith({ setting, switchKey });
     const registry = new OfficeToolRegistry();
     registry.register(aTaskTool([]));
     registry.register({
@@ -280,6 +376,7 @@ describe("the tools a session is offered", () => {
         subject: () => ({ kind: "task", id: "t" }),
       },
     });
+    registry.register(aProjectTool([], [], CHANGE_PROJECT_SETTINGS));
     const places = new SessionPlaces(
       {} as never,
       {} as never,
@@ -333,5 +430,52 @@ describe("the tools a session is offered", () => {
     await expect(never.offered(true, ["open_decision", ADD_DEPENDENCY])).resolves.toEqual([
       "open_decision",
     ]);
+  });
+
+  it("leaves change_project_settings out of a Stage's list where the setting is Never, as the Reviewer's is", async () => {
+    // The Reviewer's preset is Never for Change Project settings (presets.full.test.ts pins it).
+    const { offered } = placesWith(NEVER, [], "changeProjectSettings");
+
+    await expect(offered(true, [TOOL_NAME, CHANGE_PROJECT_SETTINGS])).resolves.toEqual([TOOL_NAME]);
+  });
+
+  it("refuses a Stage's call on another Task than its own, whatever the setting", async () => {
+    const stage = { stageThread: true };
+    const other = rulingsWith({ setting: ALLOWED, thread: stage });
+    const own = rulingsWith({ setting: ALLOWED, thread: stage });
+
+    const refused = await other.callWith({ ...input, taskId: "task-2" });
+    await own.callWith(input);
+
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toContain("this Stage's own Task only");
+    expect(other.ran).toEqual([]);
+    expect(own.ran).toEqual([input]);
+  });
+
+  it("rules a call from a chat, with no Task, by the Change Project settings Authority", async () => {
+    const chat = { home: { kind: "chat", roleKey: "planner" } } as const;
+    const call = { project: "project-1" };
+    const allowed = rulingsWith({
+      setting: ALLOWED,
+      group: "changeProjectSettings",
+      toolName: "change_project_settings",
+      thread: chat,
+    });
+    const asking = rulingsWith({
+      setting: ASK_ME,
+      group: "changeProjectSettings",
+      toolName: "change_project_settings",
+      thread: chat,
+    });
+
+    await allowed.callWith(call);
+    const held = await asking.callWith(call);
+
+    expect(allowed.ran).toEqual([call]);
+    expect(held.isError).toBe(true);
+    expect(held.text).toContain("waits on the user");
+    expect(asking.ran).toEqual([]);
+    expect(asking.opened).toHaveLength(1);
   });
 });

@@ -1,4 +1,6 @@
-import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
+import { OfficeToolRegistry, type OfficeTool, type OfficeToolCall } from "../../../engine/index.js";
+
+type OfficeToolUser = NonNullable<OfficeToolCall["allowedBy"]>;
 import type { RoleCards } from "../../../people/index.js";
 import {
   ProjectRefused,
@@ -10,8 +12,8 @@ import {
   type TestTarget,
   type TestTargets,
 } from "../../../projects/index.js";
-import type { HeldCallOutcome, HeldCallRequest, HeldCalls } from "../../application/held-calls.js";
 import { CHANGE_PROJECT_SETTINGS_TOOL } from "../../domain/session-instructions.js";
+import type { Thread } from "../../domain/thread.js";
 import { aThread, aUserMessage } from "../../domain/thread.fixtures.js";
 import { ANN_LEE } from "../../domain/user.fixtures.js";
 import type { ThreadRepository } from "../../ports/thread-repository.js";
@@ -102,9 +104,6 @@ export const RELEASE_ACTION: Action = {
   setBy: {},
 };
 
-/** How the session's Change Project settings rules, as HeldCalls would. */
-export type Ruling = "allowed" | "ask-me" | "never";
-
 /** Every change the tool asked of Projects, by method, with what it was given. */
 export interface Change {
   readonly method: string;
@@ -112,21 +111,18 @@ export interface Change {
 }
 
 /**
- * The tool as registered, over a Projects that keeps what it was asked and a hold that rules as
- * told: Ask me holds a call until `allowOnce` approves it, and runs the same call once then, as
- * HeldCalls finds the approval by the call's words.
+ * The tool as registered, over a Projects that keeps what it was asked, in Nina's session on a
+ * Task or in the `thread` given. The ruling of the call is OfficeToolRulings', tested there.
  */
 export function toolsWith(
-  ruling: Ruling,
   options: {
     readonly failingActions?: boolean;
     readonly project?: Project;
+    readonly thread?: Thread;
   } = {},
 ) {
   const project = options.project ?? SHOP;
   const changes: Change[] = [];
-  const holds: HeldCallRequest[] = [];
-  const approved: string[] = [];
   const record =
     (method: string) =>
     (...args: unknown[]) => {
@@ -157,24 +153,8 @@ export function toolsWith(
     return Promise.resolve();
   });
   return {
-    ...toolsOn({ projects, testTargets, actions, runEnvironments }, (request) => {
-      holds.push(request);
-      if (ruling === "allowed") return { kind: "proceed", roleKey: "devops" };
-      if (ruling === "never") {
-        return { kind: "refused", reason: "Your Role card says Never to Change Project settings." };
-      }
-      const spent = approved.indexOf(request.call);
-      if (spent === -1) return { kind: "held", waitingOn: "the user" };
-      approved.splice(spent, 1);
-      return { kind: "proceed", roleKey: "devops" };
-    }),
+    ...toolsOn({ projects, testTargets, actions, runEnvironments }, options.thread),
     changes,
-    holds,
-    /** The user's "Allow once" of the last call held. */
-    allowOnce: () => {
-      const last = holds.at(-1);
-      if (last) approved.push(last.call);
-    },
   };
 }
 
@@ -186,21 +166,11 @@ export interface ProjectSettingServices {
   readonly runEnvironments: RunEnvironmentSwitchRegistry;
 }
 
-/**
- * The tool as registered over `services`, in Nina's session on a Task, each call ruled by `rule`
- * (Allowed when left out).
- */
+/** The tool as registered over `services`, in Nina's session on a Task unless `thread` is given. */
 export function toolsOn(
   services: ProjectSettingServices,
-  rule: (request: HeldCallRequest) => HeldCallOutcome = () => ({
-    kind: "proceed",
-    roleKey: "devops",
-  }),
+  thread: Thread = aThread({ roleKey: "devops", home: { kind: "task", taskId: TASK } }),
 ) {
-  const heldCalls = {
-    hold: (request: HeldCallRequest): Promise<HeldCallOutcome> => Promise.resolve(rule(request)),
-  } as unknown as HeldCalls;
-  const thread = aThread({ roleKey: "devops", home: { kind: "task", taskId: TASK } });
   const threads = {
     findBySession: (sessionId: string) =>
       Promise.resolve(sessionId === SESSION ? thread : undefined),
@@ -216,7 +186,6 @@ export function toolsOn(
     services.testTargets,
     services.actions,
     services.runEnvironments,
-    heldCalls,
     threads,
     roleCards,
   ).onModuleInit();
@@ -225,11 +194,32 @@ export function toolsOn(
   return { tool };
 }
 
-/** Runs the tool on the input as the engine gives it: parsed, its defaults filled. */
-export function runOf(tool: OfficeTool, input: unknown, sessionId = SESSION) {
-  return tool.run(tool.input.parse(input), {
+/** The call from `sessionId`, run after `allowedBy`'s Allow once when given. */
+function callFrom(sessionId: string, allowedBy?: OfficeToolUser): OfficeToolCall {
+  return {
     sessionId,
     outputFolder: "",
     judgeCommand: () => Promise.resolve({ allowed: true }),
-  });
+    ...(allowedBy ? { allowedBy } : {}),
+  };
+}
+
+/** Runs the tool on the input as the engine gives it: parsed, its defaults filled. */
+export function runOf(
+  tool: OfficeTool,
+  input: unknown,
+  sessionId = SESSION,
+  allowedBy?: OfficeToolUser,
+) {
+  return tool.run(tool.input.parse(input), callFrom(sessionId, allowedBy));
+}
+
+/** The tool's own refusal of the call, as the ruling step asks it before it runs or holds one. */
+export function checkOf(tool: OfficeTool, input: unknown) {
+  return tool.authority?.check?.(tool.input.parse(input), callFrom(SESSION));
+}
+
+/** The lines the approval card lists for the call. */
+export function approvalLinesOf(tool: OfficeTool, input: unknown) {
+  return tool.authority?.approvalLines?.(tool.input.parse(input), callFrom(SESSION));
 }

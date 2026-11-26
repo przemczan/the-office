@@ -117,7 +117,7 @@ describe("StageScreenshots.attach", () => {
         mediaType: "image/png",
         content: A_PNG,
       },
-      "planner",
+      { kind: "person", roleKey: "planner" },
     );
     const newCopy = new Uint8Array([...A_PNG, 13, 10]);
     await writeFile(join(screenshots, "home.png"), newCopy);

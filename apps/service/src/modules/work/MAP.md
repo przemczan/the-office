@@ -46,7 +46,6 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, BranchCle
 - `GET /tasks/:id/attachments`: AttachmentsController.listOfTask
 - `POST /ideas/:id/attachments/links`: AttachmentsController.addLinkToIdea
 - `POST /initiatives/:id/attachments/links`: AttachmentsController.addLinkToInitiative
-- `POST /tasks/:id/attachments/links`: AttachmentsController.addLinkToTask
 - `GET /attachments/:id/content`: AttachmentsController.content
 - `DELETE /attachments/:id`: AttachmentsController.remove
 - `GET /settings/auto-mode`: AutoModeController.read
@@ -88,7 +87,6 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, BranchCle
 - `GET /tasks/:id/history`: TasksController.history
 - `PUT /tasks/:id/caused-by`: TasksController.changeCausedBy
 - `PUT /tasks/:id/found-in-version`: TasksController.changeFoundInVersion
-- `PUT /tasks/:id/commit-message`: TasksController.changeCommitMessage
 - `PUT /tasks/:id/tags`: TasksController.changeTags
 - `GET /tasks/:id/readiness`: TasksController.readiness
 - `GET /tasks/:id/start`: TasksController.startCheck
@@ -181,14 +179,13 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, BranchCle
 
 ### adapters/office-tools/
 
-- `attachment-office-tools.ts`: ATTACH_FILE, ATTACH_LINK, AttachmentOfficeTools
-- `commit-message-office-tools.ts`: WRITE_COMMIT_MESSAGE, CommitMessageOfficeTools
+- `attachment-office-tools.ts`: ATTACH_FILE, AttachmentOfficeTools, attachedWords
 - `onboarding-office-tools.ts`: OnboardingOfficeTools
 - `planning-office-tools.ts`: START_PLANNING, WRITE_PLAN, WRITE_DEFINITION_OF_DONE, PROPOSE_PIPELINE, WRITE_TAGS, MARK_PLANNED, WRITE_KIND, WRITE_BUG_DETAILS, PlanningOfficeTools
 - `shaping-office-tools.ts`: READ_INITIATIVE, WRITE_OUTCOME, ADD_TASK, WRITE_TASK_TITLE, WRITE_TASK_DESCRIPTION, CHOOSE_PIPELINE, ShapingOfficeTools
 - `work-office-tools.ts`: LIST_TASKS, READ_TASK, LIST_IDEAS, READ_IDEA, READ_ATTACHMENT, CREATE_TASK, CREATE_INITIATIVE, ATTACHMENT_ANSWER_BUDGET, WorkOfficeTools
-- `work-tool-answers.ts`: OfficeToolResult, WorkToolRefused, answered, personInSession
-- Tests: attachment-office-tools.full.test.ts, attachment-office-tools.test.ts, choose-pipeline.test.ts, commit-message-office-tools.test.ts, onboarding-office-tools.full.test.ts, planning-office-tools.full.test.ts, shaping-office-tools.full.test.ts, work-office-tools.full.test.ts
+- `work-tool-answers.ts`: OfficeToolResult, WorkToolRefused, answered, refusalOf, personInSession
+- Tests: attachment-office-tools.full.test.ts, attachment-office-tools.test.ts, choose-pipeline.test.ts, onboarding-office-tools.full.test.ts, planning-office-tools.full.test.ts, shaping-office-tools.full.test.ts, work-office-tools.full.test.ts
 
 ### adapters/pdf/
 

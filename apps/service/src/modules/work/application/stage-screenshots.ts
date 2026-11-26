@@ -42,11 +42,10 @@ export class StageScreenshots {
     const names: string[] = [];
     for (const reading of readings) {
       if (!("file" in reading)) continue;
-      const { attachment } = await this.attachments.attachFromWorktree(
-        taskId,
-        reading.file,
+      const { attachment } = await this.attachments.attachFromWorktree(taskId, reading.file, {
+        kind: "person",
         roleKey,
-      );
+      });
       names.push(attachment.name);
     }
     return { kind: "attached", names };

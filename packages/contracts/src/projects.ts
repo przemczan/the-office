@@ -972,9 +972,12 @@ export const settingChangedBySchema = z.discriminatedUnion("kind", [
     roleKey: z.string(),
     name: z.string(),
     title: z.string(),
-    taskId: z.string(),
+    /** The Task whose Thread the person changed it from; none from a chat. */
+    taskId: z.string().optional(),
     /** The user who asked the person for the change. */
     askedBy: userRefSchema.optional(),
+    /** The user whose Allow once let the person's call run, where it was held for approval. */
+    allowedBy: userRefSchema.optional(),
   }),
 ]);
 export type SettingChangedBy = z.infer<typeof settingChangedBySchema>;

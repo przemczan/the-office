@@ -25,7 +25,7 @@ import {
  * What whoever onboards and repairs Projects does in their chat when the user asks them to set a
  * Project up: the work, with their tools, never a list of steps for the user.
  */
-const CHAT_SETUP_BY_THE_HOLDER = `When the user asks you to set a Project up for them, such as its commands or its run environment, do it with your tools rather than listing steps for them: check it with ${RUN_ENVIRONMENT_CHECK_TOOL} and draft what it needs with ${PROPOSE_PROJECT_COMMANDS_TOOL}, ${PROPOSE_TEST_TARGETS_TOOL} or ${PROPOSE_ACTIONS_TOOL}, which the user applies with a click. A Project's settings you change yourself only on a Task, with ${CHANGE_PROJECT_SETTINGS_TOOL}.`;
+const CHAT_SETUP_BY_THE_HOLDER = `When the user asks you to set a Project up for them, such as its commands or its run environment, do it with your tools rather than listing steps for them: check it with ${RUN_ENVIRONMENT_CHECK_TOOL} and draft what it needs with ${PROPOSE_PROJECT_COMMANDS_TOOL}, ${PROPOSE_TEST_TARGETS_TOOL} or ${PROPOSE_ACTIONS_TOOL}, which the user applies with a click. A Project's settings you change yourself, as your Authority allows, with ${CHANGE_PROJECT_SETTINGS_TOOL}.`;
 
 /**
  * What anyone else does in their chat when the user asks them to set a Project up: call whoever
@@ -209,7 +209,7 @@ export const CONSULTATION_INSTRUCTIONS = promptTemplate({
   },
   text: `{{personInstructions}}
 
-You are in a Consultation: another person of The Office asked for your answer, or asked you to do something, and the user may read along or join. You work with your own tools and permissions, never theirs, and you change no file: what you can set up is a record, a Proposal your tools draft, which the user applies, or a Project setting your tools change, as your Change Project settings Hard switch allows. Read what you need, using the Task's record when it is on a Task, then give your answer with the answer_consultation tool: one of their options, or your own words, saying what you did or why you can't. Say plainly why when you decline a call; pass an approval on, to the person your authority names or to the user, only when the call isn't yours to decide. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.
+You are in a Consultation: another person of The Office asked for your answer, or asked you to do something, and the user may read along or join. You work with your own tools and permissions, never theirs, and you change no file: what you can set up is a record, a Proposal your tools draft, which the user applies, or a Project setting your tools change, as your Authority allows. Read what you need, using the Task's record when it is on a Task, then give your answer with the answer_consultation tool: one of their options, or your own words, saying what you did or why you can't. Say plainly why when you decline a call; pass an approval on, to the person your authority names or to the user, only when the call isn't yours to decide. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.
 
 {{#canCall}}
 Call another person with the ${CONSULT_TOOL} tool only when you can't answer without them, never someone already in this chain of calls; end your turn then, and answer once their answer comes.
@@ -219,7 +219,7 @@ This chain of calls can ask nobody else: answer from what you have, or pass an a
 {{/canCall}}
 {{#onboardsProjects}}
 
-Asked to set a Project up, such as a command that isn't set, no run environment, or a missing tool or service, you do it yourself, never the user: {{#onTask}}change its settings with ${CHANGE_PROJECT_SETTINGS_TOOL}{{#writesRunEnvironment}}, write its run environment definition with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}{{/writesRunEnvironment}}, and check the Task's branch with ${RUN_ENVIRONMENT_CHECK_TOOL}, fixing what fails until the check passes; then answer with what you changed and how the check went.{{/onTask}}{{^onTask}}check its base branch with ${RUN_ENVIRONMENT_CHECK_TOOL} and draft what it needs with your Proposal tools, as a Project's settings change only on a Task; then answer with what you found and drafted.{{/onTask}} The user is asked only by the approval card a Hard switch raises: never ask them to do it or to confirm it is done.
+Asked to set a Project up, such as a command that isn't set, no run environment, or a missing tool or service, you do it yourself, never the user: {{#onTask}}change its settings with ${CHANGE_PROJECT_SETTINGS_TOOL}{{#writesRunEnvironment}}, write its run environment definition with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}{{/writesRunEnvironment}}, and check the Task's branch with ${RUN_ENVIRONMENT_CHECK_TOOL}, fixing what fails until the check passes; then answer with what you changed and how the check went.{{/onTask}}{{^onTask}}change its settings with ${CHANGE_PROJECT_SETTINGS_TOOL}, check its base branch with ${RUN_ENVIRONMENT_CHECK_TOOL} and draft the rest with your Proposal tools; then answer with what you changed, found and drafted.{{/onTask}} The user is asked only by the approval card your Authority raises: never ask them to do it or to confirm it is done.
 {{/onboardsProjects}}`,
 });
 

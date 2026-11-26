@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   OfficeToolRegistry,
+  type OfficeToolCall,
   type OfficeToolRuled,
   type OfficeToolRuling,
 } from "../../engine/index.js";
@@ -12,6 +13,7 @@ import {
   type HardSwitchValue,
 } from "../../people/index.js";
 import { dutyActionTools } from "../domain/duty-action-tools.js";
+import type { Thread } from "../domain/thread.js";
 import { officeToolCallWords, toolRuling, valueOnSubject } from "../domain/office-tool-ruling.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -25,7 +27,9 @@ import { WorkRecords } from "./work-records.js";
  * registry asks before it runs a tool: Allowed runs it, Consult a person and Ask me hold it as a
  * held call, Proposal drafts it as a Proposal the user applies (the Agent goes on at once), and
  * Never refuses it as an unknown tool. The setting is the person's Authority as it is at
- * the call, on the call's subject, own work or others'.
+ * the call, on the call's subject, own work or others'. A call the tool's own check refuses is
+ * refused before it runs, is held or is drafted, and a held call's card lists the tool's approval
+ * lines.
  */
 @Injectable()
 export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
@@ -45,10 +49,11 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
   }
 
   async rule(
-    { sessionId }: { readonly sessionId: string },
+    call: OfficeToolCall,
     { name, authority }: Parameters<OfficeToolRuling["rule"]>[1],
     input: unknown,
   ): Promise<OfficeToolRuled> {
+    const { sessionId } = call;
     // A tool that isn't an Office action has no setting of its own: it keeps its own checks.
     if (authority === undefined) return { kind: "run" };
     const thread = await this.threads.findBySession(sessionId);
@@ -60,20 +65,29 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
         `${name} names the Authority group ${authority.group}, which isn't in the catalog.`,
       );
     }
+    const subject = authority.subject(input);
+    // A Stage works on its own Task only: its Authority over other work is for its other Threads.
+    if (thread.stageThread && subject.kind === "task" && subject.id !== taskOf(thread)) {
+      return hold(
+        `${name} acts on this Stage's own Task only. Ask the user to do it from another Thread.`,
+      );
+    }
     const setting = session.authority[authority.group];
     const ownWork =
-      setting.kind === "own-and-others" &&
-      (await this.work.isOwnWork(thread.roleKey, authority.subject(input)));
+      setting.kind === "own-and-others" && (await this.work.isOwnWork(thread.roleKey, subject));
     const dutyHolder = dutyActionTools(await this.duties.heldBy(thread.roleKey)).has(name);
     const ruling = toolRuling(valueOnSubject(setting, ownWork), dutyHolder);
-    if (ruling.kind === "run") return { kind: "run" };
     if (ruling.kind === "never") return { kind: "never" };
+    // Asked at every outcome but Never, so a repeat after Allow once meets the state of its own time.
+    const refused = await authority.check?.(input, call);
+    if (refused !== undefined) return hold(refused);
+    if (ruling.kind === "run") return { kind: "run" };
     if (ruling.kind === "propose") {
       const proposed = await this.propose(sessionId, authority.title, name, input);
       // A tool with no draft can't be proposed: it is held as Ask me.
-      return proposed ?? this.holdForApproval(sessionId, name, input, ASK_ME);
+      return proposed ?? this.holdForApproval(call, name, authority, input, ASK_ME);
     }
-    return this.holdForApproval(sessionId, name, input, ruling.setting);
+    return this.holdForApproval(call, name, authority, input, ruling.setting);
   }
 
   /** Drafts the call as a Proposal and answers it at once; undefined for a tool that has no draft. */
@@ -105,20 +119,34 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
   }
 
   private async holdForApproval(
-    sessionId: string,
+    call: OfficeToolCall,
     name: string,
+    authority: NonNullable<Parameters<OfficeToolRuling["rule"]>[1]["authority"]>,
     input: unknown,
     setting: HardSwitchValue,
   ): Promise<OfficeToolRuled> {
+    const { sessionId } = call;
     const fields = (await this.registry.draft(name, input).catch(() => undefined))?.fields;
+    const lines = (await authority.approvalLines?.(input, call)) ?? [];
     return this.heldCalls.holdToolCall(sessionId, name, setting, {
       sessionId,
       call: officeToolCallWords(name, input),
-      context: `Your Role card asks for approval of each call of ${name}.`,
+      context: approvalContext(name, lines),
       why: `${name} needs approval for each call.`,
       ...(fields && { fields }),
     });
   }
+}
+
+/** The approval card's words: what the tool says the call changes, one line each, where it says. */
+function approvalContext(name: string, lines: readonly string[]): string {
+  const asks = `Your Role card asks for approval of each call of ${name}.`;
+  if (lines.length === 0) return asks;
+  return `${asks} This call changes:\n${lines.map((line) => `- ${line}`).join("\n")}`;
+}
+
+function taskOf({ home }: Thread): string | undefined {
+  return home.kind === "task" ? home.taskId : undefined;
 }
 
 function hold(words: string): OfficeToolRuled {

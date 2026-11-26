@@ -565,20 +565,17 @@ export const CHANGE_ROLE_TOOL = "change_role";
 
 /**
  * The Office tool an Agent changes a Project's everyday settings with, every section of a setup in
- * one call (spec §6, "Project settings by Agents"); it sits behind the Change Project settings Hard
- * switch.
+ * one call (spec §6, "Project settings by Agents"); its Change Project settings Authority rules it.
  */
 export const CHANGE_PROJECT_SETTINGS_TOOL = "change_project_settings";
 
 /**
  * The Office tools a session gets: its place's; `remember` when its card has Shared memory;
  * `change_role` on a Task, where a held call has a Thread to wait in (`callsCanWait`), unless its
- * Change Roles is Never, with `read_role` to start the change from; and `change_project_settings`
- * in an Agent Stage or a Consultation on a Task (`changesProjectSettings`), unless its Change
- * Project settings is Never. Each reads the session's Hard switches, its Authority's named groups
- * in effect, which read Proposal as Never: at Proposal the direct tool isn't offered and the
- * person's drafting tools carry the change. A chat, a Planning Thread and a person's Thread on a
- * Task never get them.
+ * Change Roles is Never, with `read_role` to start the change from. It reads the session's Hard
+ * switches, its Authority's named groups in effect, which read Proposal as Never: at Proposal the
+ * direct tool isn't offered and the person's drafting tools carry the change. A chat, a Planning
+ * Thread and a person's Thread on a Task never get it.
  */
 export function sessionOfficeTools(
   placeTools: readonly string[],
@@ -587,24 +584,15 @@ export function sessionOfficeTools(
     hardSwitches,
   }: {
     readonly card: { readonly capabilities: { readonly sharedMemory: boolean } };
-    readonly hardSwitches: {
-      readonly changeRoles: { readonly kind: string };
-      readonly changeProjectSettings: { readonly kind: string };
-    };
+    readonly hardSwitches: { readonly changeRoles: { readonly kind: string } };
   },
   callsCanWait: boolean,
-  changesProjectSettings: boolean,
 ): string[] {
   return [
     ...placeTools,
     ...(capabilities.sharedMemory ? [REMEMBER_TOOL] : []),
     ...(callsCanWait && hardSwitches.changeRoles.kind !== "never"
       ? [CHANGE_ROLE_TOOL, ...(placeTools.includes(READ_ROLE_TOOL) ? [] : [READ_ROLE_TOOL])]
-      : []),
-    ...(changesProjectSettings &&
-    hardSwitches.changeProjectSettings.kind !== "never" &&
-    !placeTools.includes(CHANGE_PROJECT_SETTINGS_TOOL)
-      ? [CHANGE_PROJECT_SETTINGS_TOOL]
       : []),
   ];
 }

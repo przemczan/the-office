@@ -25,9 +25,12 @@ export type SettingChangedBy =
       readonly roleKey: string;
       readonly name: string;
       readonly title: string;
-      readonly taskId: string;
+      /** The Task whose Thread the person changed it from; none from a chat. */
+      readonly taskId?: string;
       /** The user who asked the person for the change, where their Thread has one. */
       readonly askedBy?: SettingChangeUser;
+      /** The user whose Allow once let the person's call run, where it was held for approval. */
+      readonly allowedBy?: SettingChangeUser;
     };
 
 /**

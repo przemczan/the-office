@@ -964,7 +964,6 @@ export class StageThreads {
         ],
         { card, hardSwitches },
         true,
-        true,
       ),
       mcpServers,
       outputSchema: request.session.outputSchema,

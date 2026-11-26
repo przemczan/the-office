@@ -82,7 +82,7 @@ describe("attach_file", () => {
   it("attaches a file from the Task's worktree to the Task, in the person's name, which the Task's Attachments list", async () => {
     await writeFile(join(worktree, "docs", "report.md"), "# Thumbnails\n\nAll pages show them.");
 
-    const result = await call(ATTACH_FILE, { path: "docs/report.md" });
+    const result = await call(ATTACH_FILE, { taskId: task.id, path: "docs/report.md" });
 
     const service = work.app.get(AttachmentService);
     const [attachment] = await service.listOf({ kind: "task", taskId: task.id });
@@ -114,12 +114,12 @@ describe("attach_file", () => {
 
   it("replaces the copy it attached from the same path before a Gate: one Attachment, the new bytes, its first id and place", async () => {
     await writeFile(join(worktree, "docs", "design.html"), "<h1>First</h1>");
-    await call(ATTACH_FILE, { path: "docs/design.html" });
+    await call(ATTACH_FILE, { taskId: task.id, path: "docs/design.html" });
     const service = work.app.get(AttachmentService);
     const [first] = await service.listOf({ kind: "task", taskId: task.id });
     await writeFile(join(worktree, "docs", "design.html"), "<h1>Second copy</h1>");
 
-    const result = await call(ATTACH_FILE, { path: "./docs/design.html" });
+    const result = await call(ATTACH_FILE, { taskId: task.id, path: "./docs/design.html" });
 
     expect(result).toEqual({
       text: `Replaced design.html (Attachment ${first?.id}) with the new copy.`,
@@ -135,11 +135,11 @@ describe("attach_file", () => {
 
   it("adds a new Attachment from the same path once the user acted at a Gate on the Task", async () => {
     await writeFile(join(worktree, "docs", "design.html"), "<h1>First</h1>");
-    await call(ATTACH_FILE, { path: "docs/design.html" });
+    await call(ATTACH_FILE, { taskId: task.id, path: "docs/design.html" });
     work.app.get(TaskGatesForTests).lastActedOnGateEnds.set(task.id, new Date());
     await writeFile(join(worktree, "docs", "design.html"), "<h1>Sent back</h1>");
 
-    const result = await call(ATTACH_FILE, { path: "docs/design.html" });
+    const result = await call(ATTACH_FILE, { taskId: task.id, path: "docs/design.html" });
 
     const attached = await work.app
       .get(AttachmentService)
@@ -156,11 +156,11 @@ describe("attach_file", () => {
     await writeFile(join(worktree, ".git"), "gitdir: elsewhere");
 
     const answers = [
-      await call(ATTACH_FILE, { path: "../../../outside.txt" }),
-      await call(ATTACH_FILE, { path: join(folder, "outside.txt") }),
-      await call(ATTACH_FILE, { path: ".git" }),
-      await call(ATTACH_FILE, { path: "docs" }),
-      await call(ATTACH_FILE, { path: "missing.md" }),
+      await call(ATTACH_FILE, { taskId: task.id, path: "../../../outside.txt" }),
+      await call(ATTACH_FILE, { taskId: task.id, path: join(folder, "outside.txt") }),
+      await call(ATTACH_FILE, { taskId: task.id, path: ".git" }),
+      await call(ATTACH_FILE, { taskId: task.id, path: "docs" }),
+      await call(ATTACH_FILE, { taskId: task.id, path: "missing.md" }),
     ];
 
     expect(answers).toEqual([
@@ -173,5 +173,86 @@ describe("attach_file", () => {
     expect(await work.app.get(AttachmentService).listOf({ kind: "task", taskId: task.id })).toEqual(
       [],
     );
+  });
+});
+
+describe("attach_file from a Thread's image", () => {
+  const IMAGE = { name: "bug.png", mediaType: "image/png", content: new Uint8Array([137, 80, 78]) };
+
+  it("copies an image the user sent in this Thread to the Task, in the person's name", async () => {
+    const service = work.app.get(AttachmentService);
+    const owner = { kind: "thread", threadId: randomUUID() } as const;
+    work.app.get(SessionTasksForTests).imageOwners.set(SESSION, owner);
+    const sent = await service.addFile(owner, IMAGE, ANN_LEE);
+
+    const result = await call(ATTACH_FILE, { taskId: task.id, attachmentId: sent.id });
+
+    const [attached] = await service.listOf({ kind: "task", taskId: task.id });
+    expect(attached).toMatchObject({
+      kind: "image",
+      name: "bug.png",
+      mediaType: "image/png",
+      addedBy: { kind: "person", roleKey: "planner" },
+    });
+    expect(attached?.id).not.toBe(sent.id);
+    expect(result).toEqual({
+      text: `Attached bug.png (image, image/png, 3 bytes) to the Task as Attachment ${attached?.id}.`,
+      isError: false,
+    });
+  });
+
+  it("refuses an image the Thread didn't get, and a call that gives both or neither", async () => {
+    const service = work.app.get(AttachmentService);
+    work.app
+      .get(SessionTasksForTests)
+      .imageOwners.set(SESSION, { kind: "thread", threadId: randomUUID() });
+    const elsewhere = await service.addFile(
+      { kind: "thread", threadId: randomUUID() },
+      IMAGE,
+      ANN_LEE,
+    );
+
+    const answers = [
+      await call(ATTACH_FILE, { taskId: task.id, attachmentId: elsewhere.id }),
+      await call(ATTACH_FILE, { taskId: task.id, attachmentId: elsewhere.id, path: "a.md" }),
+      await call(ATTACH_FILE, { taskId: task.id }),
+    ];
+
+    expect(answers).toEqual([
+      { text: "That isn't an image the user sent in this Thread.", isError: true },
+      { text: "Give exactly one of path and attachmentId.", isError: true },
+      { text: "Give exactly one of path and attachmentId.", isError: true },
+    ]);
+    expect(await service.listOf({ kind: "task", taskId: task.id })).toEqual([]);
+  });
+});
+
+/** attach_file's own refusal of the call in `sessionId`, as the ruling step asks it. */
+function checkOf(input: Record<string, unknown>, sessionId = SESSION) {
+  const [tool] = work.app.get(OfficeToolRegistry).named([ATTACH_FILE], RUN_EVERY_CALL);
+  return tool?.authority?.check?.(tool.input.parse(input), anOfficeToolCall(sessionId));
+}
+
+describe("attach_file's check, before the ruling step runs or holds a call", () => {
+  const IMAGE = { name: "bug.png", mediaType: "image/png", content: new Uint8Array([137, 80, 78]) };
+
+  it("refuses up front what the call would refuse, so no approval is spent on it", async () => {
+    const elsewhere = await work.app
+      .get(AttachmentService)
+      .addFile({ kind: "thread", threadId: randomUUID() }, IMAGE, ANN_LEE);
+
+    await expect(checkOf({ taskId: task.id, path: "docs/report.md" }, "a-chat")).resolves.toBe(
+      "A worktree file attaches only from a Thread on the Task, whose worktree it is.",
+    );
+    await expect(checkOf({ taskId: task.id, attachmentId: elsewhere.id })).resolves.toBe(
+      "That isn't an image the user sent in this Thread.",
+    );
+    await expect(checkOf({ taskId: task.id })).resolves.toBe(
+      "Give exactly one of path and attachmentId.",
+    );
+  });
+
+  it("lets a worktree file from a Thread on the Task go on", async () => {
+    await expect(checkOf({ taskId: task.id, path: "docs/report.md" })).resolves.toBeUndefined();
   });
 });

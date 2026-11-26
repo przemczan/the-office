@@ -5,6 +5,7 @@ import { RoleCards } from "../../people/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
 import { latestWriter, type Message, type MessageDraft } from "../domain/message.js";
 import type { UserRef } from "../domain/user.js";
+import { imageOwnerOf, type MessageImageOwner } from "../domain/message-image-owner.js";
 import { isPersonsThread, type ContextOverride, type Thread } from "../domain/thread.js";
 import {
   chooseOverride,
@@ -244,6 +245,15 @@ export class ThreadService {
   async taskInSession(sessionId: string): Promise<string | undefined> {
     const home = (await this.repository.findBySession(sessionId))?.home;
     return home?.kind === "task" ? home.taskId : undefined;
+  }
+
+  /**
+   * What keeps the images the user sent in the Thread that has the engine session `sessionId` now
+   * (`imageOwnerOf`), for the Office tool that attaches one to a Task; undefined for an unknown session.
+   */
+  async imageOwnerInSession(sessionId: string): Promise<MessageImageOwner | undefined> {
+    const thread = await this.repository.findBySession(sessionId);
+    return thread && imageOwnerOf(thread);
   }
 
   /**

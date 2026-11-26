@@ -1,7 +1,11 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { projectCommandSchema } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
+import {
+  OfficeToolRegistry,
+  type OfficeToolCall,
+  type OfficeToolResult,
+} from "../../../engine/index.js";
 import { RoleCards } from "../../../people/index.js";
 import {
   ProjectActions,
@@ -20,8 +24,6 @@ import {
   type SettingChangedBy,
   type TestTarget,
 } from "../../../projects/index.js";
-import { HeldCalls } from "../../application/held-calls.js";
-import { canonicalCall } from "../../domain/canonical-call.js";
 import { latestWriter } from "../../domain/message.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
 import {
@@ -38,7 +40,7 @@ type Project = Awaited<ReturnType<ProjectService["read"]>>;
 const SECRET_VALUES_ARE_THE_USERS =
   "Secret variables' values are the user's: they type them on the Project page.";
 
-const DESCRIPTION = `Changes a Project's everyday settings in one call: give everything a setup needs at once, in the sections it changes, each optional, at least one: environmentVariables, install, installInputs and commands, testTargets, actions, and runEnvironment. They apply in that order, Run environment last; each is changed as the Project page would, recorded in its Recent activity, and if one is refused, those before it stay applied and the answer names them. Your Change Project settings Hard switch decides the whole call: Allowed applies it at once; Ask me holds it as one approval card listing every change, so end your turn: the answer comes as your next message, and after "Allow once" you repeat the same call, word for word, which then applies once; Never refuses it. These stay the user's, so draft them with the Proposal tools (propose_*) or leave them to the Project page: Secret variables' values (only their names go here), the Publishing mode, Before and After publishing (${PROPOSE_PROJECT_COMMANDS_TOOL}), Delete branches once merged, GitHub issues write-back, Server values, the Engine, Actions that leave the workstation (${PROPOSE_ACTIONS_TOOL}), Project Pipelines and the Default Pipeline.`;
+const DESCRIPTION = `Changes a Project's everyday settings in one call: give everything a setup needs at once, in the sections it changes, each optional, at least one: environmentVariables, install, installInputs and commands, testTargets, actions, and runEnvironment. They apply in that order, Run environment last; each is changed as the Project page would, recorded in its Recent activity, and if one is refused, those before it stay applied and the answer names them. These stay the user's, so draft them with the Proposal tools (propose_*) or leave them to the Project page: Secret variables' values (only their names go here), the Publishing mode, Before and After publishing (${PROPOSE_PROJECT_COMMANDS_TOOL}), Delete branches once merged, GitHub issues write-back, Server values, the Engine, Actions that leave the workstation (${PROPOSE_ACTIONS_TOOL}), Project Pipelines and the Default Pipeline.`;
 
 const commandsInput = z
   .object({
@@ -212,11 +214,13 @@ interface Step {
 /**
  * The Office tool that changes a Project's everyday settings (spec §6, "Project settings by
  * Agents"): its Environment variables, install and commands, test targets, Actions and Run
- * environment, in one call held by the Change Project settings Hard switch, which The Office sees
- * to in code. It reads the Project and refuses all it can before holding the call, so an approval
- * is never spent on a call refused up front; then applies each section through the same method the
- * Project page does, recorded as made by the session's person on its Task. The settings that stay
- * the user's are refused, pointing to the Proposal tools and the Project page.
+ * environment, in one call ruled by the person's Change Project settings Authority (spec 5.4.1, "One
+ * ruling step"). Its check reads the Project and refuses all it can before the call is held, so an
+ * approval is never spent on a call refused up front, and its approval lines list every change; then
+ * it applies each section through the same method the Project page does, recorded as made by the
+ * session's person, on its Task when the Thread has one, as asked by the user who wrote last and
+ * allowed by the user whose Allow once let it run. The settings that stay the user's are refused,
+ * pointing to the Proposal tools and the Project page.
  */
 @Injectable()
 export class ProjectSettingOfficeTools implements OnModuleInit {
@@ -228,7 +232,6 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
     private readonly testTargets: TestTargets,
     private readonly actions: ProjectActions,
     private readonly runEnvironments: RunEnvironmentSwitchRegistry,
-    private readonly heldCalls: HeldCalls,
     private readonly threads: ThreadRepository,
     private readonly roleCards: RoleCards,
   ) {}
@@ -238,39 +241,79 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
       name: CHANGE_PROJECT_SETTINGS_TOOL,
       description: DESCRIPTION,
       input,
-      run: (given, { sessionId }) =>
-        this.withProject(given.project, (found) => this.change(sessionId, found, given)),
+      authority: {
+        group: "changeProjectSettings",
+        title: "Change Project settings",
+        subject: (given) => ({ kind: "project", id: (given as Input).project }),
+        check: (given) =>
+          this.onProject(
+            (given as Input).project,
+            async (found) => {
+              const checked = await this.checked(found, given as Input);
+              return "refused" in checked ? checked.refused : undefined;
+            },
+            (words) => words,
+          ),
+        approvalLines: (given) =>
+          this.onProject(
+            (given as Input).project,
+            (found) => this.approvalLines(found, given as Input),
+            () => [],
+          ),
+      },
+      run: (given, call) =>
+        this.onProject(given.project, (found) => this.change(call, found, given), refusal),
     });
   }
 
   private async change(
-    sessionId: string,
+    { sessionId, allowedBy }: OfficeToolCall,
     project: Project,
     given: Input,
   ): Promise<OfficeToolResult> {
+    // The ruling step checked the call already; checked again here, as the tool may run unruled.
+    const checked = await this.checked(project, given);
+    if ("refused" in checked) return refusal(checked.refused);
+    const thread = await this.threads.findBySession(sessionId);
+    if (!thread) return refusal("The Office doesn't know this session's Thread.");
+    const person = await this.roleCards.find(thread.roleKey);
+    const writer = latestWriter(await this.threads.messages(thread.id));
+    const by: SettingChangedBy = {
+      kind: "person",
+      roleKey: thread.roleKey,
+      name: person?.card.name ?? thread.roleKey,
+      title: person?.card.title ?? thread.roleKey,
+      ...(thread.home.kind === "task" ? { taskId: thread.home.taskId } : {}),
+      ...(writer ? { askedBy: { userId: writer.userId, name: writer.name } } : {}),
+      ...(allowedBy ? { allowedBy: { userId: allowedBy.userId, name: allowedBy.name } } : {}),
+    };
+    const { sections, commands, targets } = checked;
+    return this.apply(project, this.steps(project, sections, commands, targets), by);
+  }
+
+  /**
+   * The call's sections with the commands and test targets they change, or its refusal: every
+   * refusal that doesn't need a section applied, so none is found after anyone was asked.
+   */
+  private async checked(project: Project, given: Input): Promise<Checked> {
     if (given.beforePublishingCommand !== undefined || given.afterPublishingCommand !== undefined) {
-      return refusal(
-        `Before and After publishing are the user's: draft them with ${PROPOSE_PROJECT_COMMANDS_TOOL}, or the user changes them on the Project page.`,
-      );
+      return {
+        refused: `Before and After publishing are the user's: draft them with ${PROPOSE_PROJECT_COMMANDS_TOOL}, or the user changes them on the Project page.`,
+      };
     }
     const secretGiven = secretVariablesGiven(project, given.environmentVariables);
     if (secretGiven.length > 0) {
-      return refusal(
-        `${secretGiven.join(", ")}: ${SECRET_VALUES_ARE_THE_USERS} This tool keeps the Secret variables as they are.`,
-      );
+      return {
+        refused: `${secretGiven.join(", ")}: ${SECRET_VALUES_ARE_THE_USERS} This tool keeps the Secret variables as they are.`,
+      };
     }
     const sections = sectionsOf(given);
     if (Object.keys(sections).length === 0) {
-      return refusal(
-        "Nothing to change: give at least one of environmentVariables, install, installInputs, commands, testTargets, actions and runEnvironment.",
-      );
+      return {
+        refused:
+          "Nothing to change: give at least one of environmentVariables, install, installInputs, commands, testTargets, actions and runEnvironment.",
+      };
     }
-    const thread = await this.threads.findBySession(sessionId);
-    if (thread?.home.kind !== "task") {
-      return refusal("A Project's settings change only from a Thread on a Task.");
-    }
-
-    // Every refusal that doesn't need a section applied, before anyone is asked.
     const problems: string[] = [];
     for (const [section, feature] of [
       [sections.testTargets, "test-targets"],
@@ -290,7 +333,6 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
       );
     }
     const targets = sections.testTargets && editedTargets(sections.testTargets, problems);
-    const storedTargets = sections.testTargets ? await this.testTargets.list(project.id) : [];
     const storedActions = sections.actions ? await this.actions.list(project.id) : [];
     if (sections.actions) {
       problems.push(
@@ -301,41 +343,20 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
         ),
       );
     }
-    if (problems.length > 0) return refusal(problems.join(" "));
+    if (problems.length > 0) return { refused: problems.join(" ") };
+    return { sections, commands, targets };
+  }
 
-    const outcome = await this.heldCalls.hold({
-      sessionId,
-      switchKey: "changeProjectSettings",
-      call: `Change the settings of the Project ${project.name}: ${canonicalCall(sections)}`,
-      context: `${given.why}\n\nIt changes these settings of ${project.name} as the Project page would, each recorded in its Recent activity:\n${approvalLines(
-        sections,
-        project,
-        storedTargets,
-        storedActions,
-      )
-        .map((line) => `- ${line}`)
-        .join("\n")}`,
-      why: given.why,
-    });
-    if (outcome.kind === "refused") return refusal(outcome.reason);
-    if (outcome.kind === "held") {
-      return {
-        text: `The call waits on ${outcome.waitingOn}, as one Decision in this Thread listing every change. End your turn now: their answer comes as your next message.`,
-        isError: false,
-      };
-    }
-    const person = await this.roleCards.find(outcome.roleKey);
-    const writer = latestWriter(await this.threads.messages(thread.id));
-    const asked = writer ? { askedBy: { userId: writer.userId, name: writer.name } } : {};
-    const by: SettingChangedBy = {
-      kind: "person",
-      roleKey: outcome.roleKey,
-      name: person?.card.name ?? outcome.roleKey,
-      title: person?.card.title ?? outcome.roleKey,
-      taskId: thread.home.taskId,
-      ...asked,
-    };
-    return this.apply(project, this.steps(project, sections, commands, targets), by);
+  /** Every change of the call, one line per setting of the Project, as the approval card lists them. */
+  private async approvalLines(project: Project, given: Input): Promise<readonly string[]> {
+    const sections = sectionsOf(given);
+    const [storedTargets, storedActions] = await Promise.all([
+      sections.testTargets ? this.testTargets.list(project.id) : [],
+      sections.actions ? this.actions.list(project.id) : [],
+    ]);
+    return changeLines(sections, project, storedTargets, storedActions).map(
+      (line) => `${project.name}'s ${line}`,
+    );
   }
 
   /** The install and commands change, as a Proposal of them would carry it, when the call has one. */
@@ -474,22 +495,32 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
     return { text: `Changed: ${project.name}'s ${listed(applied)}.`, isError: false };
   }
 
-  /** Runs `work` on the Project, answering a refusal of Projects in its words. */
-  private async withProject(
+  /** Runs `work` on the Project, answering a refusal of Projects as `refused` makes of its words. */
+  private async onProject<Answer>(
     projectId: string,
-    work: (project: Project) => Promise<OfficeToolResult>,
-  ): Promise<OfficeToolResult> {
+    work: (project: Project) => Promise<Answer>,
+    refused: (words: string) => Answer,
+  ): Promise<Answer> {
     try {
       const project = await this.projects.find(projectId.trim());
-      if (!project) return refusal(`The Office has no Project "${projectId}".`);
+      if (!project) return refused(`The Office has no Project "${projectId}".`);
       return await work(project);
     } catch (error) {
       // FeatureSwitchedOff is a ProjectRefused, so a switched-off Project is refused in its words.
-      if (isRefusal(error)) return refusal(error.message);
+      if (isRefusal(error)) return refused(error.message);
       throw error;
     }
   }
 }
+
+/** A call's sections as it may apply them, with what they change, or why it is refused. */
+type Checked =
+  | { readonly refused: string }
+  | {
+      readonly sections: Sections;
+      readonly commands: ProposedCommands | undefined;
+      readonly targets: readonly EditedTestTarget[] | undefined;
+    };
 
 function refusal(text: string): OfficeToolResult {
   return { text, isError: true };
@@ -567,8 +598,8 @@ function editedTargets(given: TestTargetsInput, problems: string[]): EditedTestT
   }
 }
 
-/** Every change of the call, one line per setting, as the approval card lists them: names only for secrets. */
-function approvalLines(
+/** Every change of the call, one line per setting: names only for secrets. */
+function changeLines(
   sections: Sections,
   project: Project,
   storedTargets: readonly TestTarget[],

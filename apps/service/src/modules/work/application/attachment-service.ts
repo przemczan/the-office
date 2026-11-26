@@ -35,6 +35,7 @@ import { attachingToIdeaProblems } from "../domain/idea-changes.js";
 import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import { pdfTextOf } from "../domain/pdf-text.js";
+import type { PersonAuthor } from "../domain/state-change.js";
 import { SEARCHED_TEXT_LIMIT, searchedText } from "../domain/search.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { lineReader, type LineReading, type LinesPart } from "../domain/text-lines.js";
@@ -142,10 +143,10 @@ export class AttachmentService {
   async attachFromWorktree(
     taskId: string,
     file: WorktreeUpload,
-    roleKey: string,
+    addedBy: PersonAuthor,
   ): Promise<WorktreeAttaching> {
     return this.worktreeAttachingLocks.run(taskId, async () => {
-      const adding = await this.adding({ kind: "task", taskId }, { kind: "person", roleKey });
+      const adding = await this.adding({ kind: "task", taskId }, addedBy);
       const [attachments, lastActedOnGateEnd] = await Promise.all([
         this.repository.listOf(adding.owner),
         this.taskGates.lastActedOnGateEnd(taskId),

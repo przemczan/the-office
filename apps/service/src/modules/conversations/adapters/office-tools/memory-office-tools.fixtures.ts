@@ -39,18 +39,14 @@ export function toolWith(thread: Thread | undefined, refusal?: string) {
   return { tool, written };
 }
 
-/** A Planner's session whose Change Roles and Change Project settings are as given. */
-export const card = (
-  sharedMemory: boolean,
-  changeRoles: AuthorityValue,
-  changeProjectSettings: AuthorityValue = { kind: "never" },
-) =>
+/** A Planner's session whose Change Roles is as given. */
+export const card = (sharedMemory: boolean, changeRoles: AuthorityValue) =>
   sessionRole(
     "planner",
     1,
     aPlannerCard({
       capabilities: { sharedMemory, chat: true, consultant: true, runEnvironment: false },
-      authority: { ...aPlannerCard().authority, changeRoles, changeProjectSettings },
+      authority: { ...aPlannerCard().authority, changeRoles },
     }),
     { kind: "ask-me" },
   );

@@ -11,14 +11,12 @@ import {
 } from "@nestjs/common";
 import {
   causedByChangeSchema,
-  commitMessageChangeSchema,
   foundInVersionChangeSchema,
   newTaskSchema,
   taskListQuerySchema,
   tagsChangeSchema,
   taskMoveCheckQuerySchema,
   type CausedByChange,
-  type CommitMessageChange,
   type History,
   type FoundInVersionChange,
   type NewTask,
@@ -109,15 +107,6 @@ export class TasksController {
     return this.responses.task(
       await this.tasks.changeFoundInVersion(id, foundInVersion ?? undefined),
     );
-  }
-
-  /** The user's commit message, until Publish lands it (spec §2.3). */
-  @Put(":id/commit-message")
-  async changeCommitMessage(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(commitMessageChangeSchema)) { message }: CommitMessageChange,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.changeCommitMessage(id, message));
   }
 
   @Put(":id/tags")

@@ -9,69 +9,9 @@ const TEST_E2E = {
   rerunCommandLine: "",
 };
 
-describe("the change_project_settings tool's calls", () => {
-  it("read the same reworded only in key order or spacing, so the repeat finds its Allow once", async () => {
-    const { tool, changes, allowOnce } = toolsWith("ask-me");
-
-    await runOf(tool, {
-      project: "shop",
-      install: "npm   install ",
-      commands: { add: [TEST_E2E], remove: ["build"] },
-      environmentVariables: { prependPath: ["/opt/node/bin"], unset: [] },
-      runEnvironment: "off",
-      why: "End-to-end tests.",
-    });
-    allowOnce();
-    const result = await runOf(tool, {
-      runEnvironment: "off",
-      why: "End-to-end tests.",
-      environmentVariables: { unset: [], prependPath: [" /opt/node/bin"] },
-      commands: {
-        remove: ["build"],
-        add: [
-          {
-            rerunCommandLine: "",
-            commandLine: "npm run  e2e",
-            kind: "test",
-            name: "End to end",
-            key: "e2e",
-          },
-        ],
-      },
-      install: "npm install",
-      project: " shop ",
-    });
-
-    expect(result).toMatchObject({ isError: false });
-    expect(changes.map(({ method }) => method)).toEqual([
-      "changeEnvironment",
-      "changeCommandsAsProposed",
-      "runEnvironments.change",
-    ]);
-  });
-
-  it("show the approver the Project and every section, the input in one form", async () => {
-    const { tool, holds } = toolsWith("ask-me");
-
-    await runOf(tool, {
-      project: "shop",
-      runEnvironment: "off",
-      install: "npm install",
-      why: "No Docker here.",
-    });
-
-    expect(holds).toHaveLength(1);
-    expect(holds[0]).toMatchObject({
-      switchKey: "changeProjectSettings",
-      call: 'Change the settings of the Project Shop: {"install":"npm install","runEnvironment":"off"}',
-      why: "No Docker here.",
-    });
-    expect(holds[0]?.context).toMatch(/^No Docker here\./);
-    expect(holds[0]?.context).toContain("- Install command: npm install\n- Run environment: Off");
-  });
-
+describe("the change_project_settings tool's refusals", () => {
   it("refuses every problem it can find up front at once, asking nobody", async () => {
-    const { tool, holds, changes } = toolsWith("allowed");
+    const { tool, changes } = toolsWith();
 
     const result = await runOf(tool, {
       project: "shop",
@@ -95,14 +35,13 @@ describe("the change_project_settings tool's calls", () => {
     expect(result.text).toContain('The Project has no command with the key "e2e".');
     expect(result.text).toContain('Test target "web" is Hosted, so it needs a port.');
     expect(result.text).toContain('Action "release" leaves the workstation.');
-    expect(holds).toEqual([]);
     expect(changes).toEqual([]);
   });
 });
 
 describe("its install and commands", () => {
   it("changes install, its inputs and commands all or nothing, as a Proposal of them applies", async () => {
-    const { tool, changes } = toolsWith("allowed");
+    const { tool, changes } = toolsWith();
 
     await runOf(tool, {
       project: "shop",
@@ -142,7 +81,7 @@ describe("its install and commands", () => {
   it.each(["beforePublishingCommand", "afterPublishingCommand"])(
     "refuses %s, pointing to propose_project_commands, asking nobody",
     async (line) => {
-      const { tool, holds, changes } = toolsWith("allowed");
+      const { tool, changes } = toolsWith();
 
       const result = await runOf(tool, {
         project: "shop",
@@ -152,13 +91,12 @@ describe("its install and commands", () => {
 
       expect(result.isError).toBe(true);
       expect(result.text).toContain("propose_project_commands");
-      expect(holds).toEqual([]);
       expect(changes).toEqual([]);
     },
   );
 
   it("refuses adding a command the Project has, and changing one it hasn't", async () => {
-    const { tool, holds } = toolsWith("allowed");
+    const { tool } = toolsWith();
 
     const result = await runOf(tool, {
       project: "shop",
@@ -170,13 +108,12 @@ describe("its install and commands", () => {
       text: 'The Project has a test command already: give it under change. The Project has no command with the key "e2e".',
       isError: true,
     });
-    expect(holds).toEqual([]);
   });
 });
 
 describe("its Run environment", () => {
   it("turns On with nothing checked on the base branch", async () => {
-    const { tool, changes } = toolsWith("allowed");
+    const { tool, changes } = toolsWith();
 
     await runOf(tool, {
       project: "shop",
@@ -190,7 +127,7 @@ describe("its Run environment", () => {
 
 describe("its test targets", () => {
   it("adds a target after those kept, with no user marked as its setter", async () => {
-    const { tool, changes } = toolsWith("allowed");
+    const { tool, changes } = toolsWith();
 
     await runOf(tool, {
       project: "shop",
@@ -218,7 +155,7 @@ describe("its test targets", () => {
   });
 
   it("refuses a target lacking its kind's own field, asking nobody", async () => {
-    const { tool, holds } = toolsWith("allowed");
+    const { tool } = toolsWith();
 
     const result = await runOf(tool, {
       project: "shop",
@@ -244,7 +181,6 @@ describe("its test targets", () => {
       text: 'Test target "web" is Hosted, so it needs a port.',
       isError: true,
     });
-    expect(holds).toEqual([]);
   });
 });
 
@@ -257,7 +193,7 @@ describe("its Actions", () => {
   };
 
   it("adds an Action after those kept, with no user marked as its setter", async () => {
-    const { tool, changes } = toolsWith("allowed");
+    const { tool, changes } = toolsWith();
 
     await runOf(tool, { project: "shop", actions: { actions: [LINT] }, why: "Handy." });
 
@@ -292,7 +228,7 @@ describe("its Actions", () => {
     ],
     ["removing one marked", { removeActions: ["release"] }],
   ])("refuses %s, pointing to propose_actions, asking nobody", async (_, given) => {
-    const { tool, holds, changes } = toolsWith("allowed");
+    const { tool, changes } = toolsWith();
 
     const result = await runOf(tool, {
       project: "shop",
@@ -304,14 +240,13 @@ describe("its Actions", () => {
     expect(result.isError).toBe(true);
     expect(result.text).toContain("leave");
     expect(result.text).toContain("propose_actions");
-    expect(holds).toEqual([]);
     expect(changes).toEqual([]);
   });
 });
 
 describe("its Environment variables", () => {
   it("keeps the lists left out, and refuses one marked secret", async () => {
-    const { tool, changes } = toolsWith("allowed");
+    const { tool, changes } = toolsWith();
 
     await runOf(tool, {
       project: "shop",
@@ -341,8 +276,8 @@ describe("its Environment variables", () => {
 });
 
 describe("the change_project_settings tool", () => {
-  it("is refused outside a Thread on a Task", async () => {
-    const { tool, holds } = toolsWith("allowed");
+  it("is refused to a session no Thread has", async () => {
+    const { tool } = toolsWith();
 
     const result = await runOf(
       tool,
@@ -351,14 +286,13 @@ describe("the change_project_settings tool", () => {
     );
 
     expect(result).toEqual({
-      text: "A Project's settings change only from a Thread on a Task.",
+      text: "The Office doesn't know this session's Thread.",
       isError: true,
     });
-    expect(holds).toEqual([]);
   });
 
   it("asks nobody about a Project that isn't there", async () => {
-    const { tool, holds } = toolsWith("allowed");
+    const { tool } = toolsWith();
 
     await expect(
       runOf(tool, {
@@ -367,6 +301,5 @@ describe("the change_project_settings tool", () => {
         why: ".",
       }),
     ).resolves.toEqual({ text: 'The Office has no Project "janitor".', isError: true });
-    expect(holds).toEqual([]);
   });
 });

@@ -716,10 +716,6 @@ export const taskWaysBackSchema = z.object({
 });
 export type TaskWaysBack = z.infer<typeof taskWaysBackSchema>;
 
-/** PUT /tasks/:id/commit-message: the Task's commit message; empty takes the default again. */
-export const commitMessageChangeSchema = z.object({ message: z.string() });
-export type CommitMessageChange = z.infer<typeof commitMessageChangeSchema>;
-
 /** PUT /tasks/:id/tags: the Task's Tags as they should be. */
 export const tagsChangeSchema = z.object({ tags: z.array(z.string()) });
 export type TagsChange = z.infer<typeof tagsChangeSchema>;
@@ -2310,6 +2306,44 @@ export const DELETE_VIEW_ACTION = officeAction({
   subject: ({ id }) => ({ kind: "saved-view", id }),
 });
 
+/** Office action: the Task's commit message, until Publish lands it; empty takes the default again. */
+export const WRITE_COMMIT_MESSAGE_ACTION = officeAction({
+  name: "write_commit_message",
+  description:
+    "Writes the Task's commit message: the message of the one commit Publish lands the Task as on its base, and of its pull request (the first line its title, the rest its body). Follow the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like); with none, write the Task's title with a short summary of the change below it. It replaces the message the Task has, applies at once and never moves the Task; the user can change it until Publish. An empty message takes the default again. Refused once the Task is Done or Dropped, or once Publish has landed it.",
+  input: z.object({
+    taskId: taskIdInput,
+    message: z
+      .string()
+      .describe("The whole commit message: its subject line, a blank line, then its body."),
+  }),
+  answer: taskSchema,
+  title: "Write the Task's commit message",
+  route: { method: "PUT", path: "/tasks/:taskId/commit-message" },
+  area: "work",
+  group: "taskRecords",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: a link on the Task's Attachments; an empty name is the URL. */
+export const ATTACH_LINK_ACTION = officeAction({
+  name: "attach_link",
+  description:
+    "Attaches a link to the Task, such as a page you used or a preview of the work, for the user to see with the Task.",
+  input: z.object({
+    taskId: taskIdInput,
+    url: z.string().describe("The web address, starting http:// or https://."),
+    name: z.string().optional().describe("What the link is, in a few words."),
+  }),
+  answer: attachmentSchema,
+  title: "Attach a link to a Task",
+  route: { method: "POST", path: "/tasks/:taskId/attachments/links" },
+  status: 201,
+  area: "work",
+  group: "taskRecords",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
 /** Work's Office actions, each declared above. */
 export const WORK_OFFICE_ACTIONS = [
   ADD_DEPENDENCY_ACTION,
@@ -2322,6 +2356,8 @@ export const WORK_OFFICE_ACTIONS = [
   CHANGE_TASK_PRIORITY_ACTION,
   CHANGE_TASK_PLAN_ACTION,
   CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
+  WRITE_COMMIT_MESSAGE_ACTION,
+  ATTACH_LINK_ACTION,
   DROP_TASK_ACTION,
   ARCHIVE_TASK_ACTION,
   RESTORE_TASK_ACTION,

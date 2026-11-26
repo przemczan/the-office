@@ -87,15 +87,6 @@ export class AttachmentsController {
     return this.addLink({ kind: "initiative", initiativeId: id }, link, authorOf(signedIn));
   }
 
-  @Post("tasks/:id/attachments/links")
-  async addLinkToTask(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(newLinkSchema)) link: NewLink,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<AttachmentResponse> {
-    return this.addLink({ kind: "task", taskId: id }, link, authorOf(signedIn));
-  }
-
   @Post(ATTACHMENT_UPLOAD_ROUTES[0])
   async addFileToIdea(
     @Param("id", ParseUUIDPipe) id: string,

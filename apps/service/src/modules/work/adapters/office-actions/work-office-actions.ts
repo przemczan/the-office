@@ -31,6 +31,8 @@ import {
   TAKE_OUT_OF_QUEUE_ACTION,
   ADD_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
+  ATTACH_LINK_ACTION,
+  WRITE_COMMIT_MESSAGE_ACTION,
   ARCHIVE_INITIATIVE_ACTION,
   ARCHIVE_TASK_ACTION,
   CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
@@ -57,6 +59,7 @@ import {
 } from "@the-office/contracts";
 import type { z } from "zod";
 import { officeActionDraft, officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
+import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeMembership } from "../../application/initiative-membership.js";
 import {
@@ -72,6 +75,7 @@ import { SavedViewService } from "../../application/saved-view-service.js";
 import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { TaskWaysBack } from "../../application/task-ways-back.js";
+import type { Attachment } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
@@ -88,7 +92,13 @@ import {
   readyTasksStartedResponse,
 } from "../http/initiative-response.js";
 import { TaskResponses } from "../http/task-responses.js";
-import { toIdeaResponse, toQueueResponse, toSavedViewResponse } from "../http/work-responses.js";
+import {
+  toAttachmentResponse,
+  toIdeaResponse,
+  toQueueResponse,
+  toSavedViewResponse,
+} from "../http/work-responses.js";
+import { attachedWords } from "../office-tools/attachment-office-tools.js";
 import { WorkSubjectSnapshots } from "./work-subject-snapshots.js";
 import { answered, personInSession } from "../office-tools/work-tool-answers.js";
 
@@ -138,6 +148,7 @@ export class WorkOfficeActions implements OnModuleInit {
     private readonly savedViews: SavedViewService,
     private readonly readyTasks: InitiativeStart,
     private readonly pausing: InitiativePause,
+    private readonly attachments: AttachmentService,
     private readonly snapshots: WorkSubjectSnapshots,
   ) {
     this.handlers = new Map(
@@ -152,6 +163,8 @@ export class WorkOfficeActions implements OnModuleInit {
         this.changeTaskPriority(),
         this.changeTaskPlan(),
         this.changeTaskDefinitionOfDone(),
+        this.writeCommitMessage(),
+        this.attachLink(),
         this.dropTask(),
         this.archiveTask(),
         this.restoreTask(),
@@ -591,6 +604,28 @@ export class WorkOfficeActions implements OnModuleInit {
       response: (task: Task) => this.responses.task(task),
       words: async (task) =>
         `"${task.title}" has the Definition of Done as given now, ${confirmationWords(task.definitionOfDoneConfirmed)}, ${stateWords(task)}.`,
+    });
+  }
+
+  private writeCommitMessage(): AnyWorkActionHandler {
+    return handler({
+      action: WRITE_COMMIT_MESSAGE_ACTION,
+      handle: ({ taskId, message }) => this.tasks.changeCommitMessage(taskId, message),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) =>
+        task.commitMessage === ""
+          ? "Cleared the commit message: Publish takes the default, the Task's title with a short summary below it."
+          : "Wrote the commit message onto the Task.",
+    });
+  }
+
+  private attachLink(): AnyWorkActionHandler {
+    return handler({
+      action: ATTACH_LINK_ACTION,
+      handle: ({ taskId, url, name }, by) =>
+        this.attachments.addLink({ kind: "task", taskId }, { url, name: name ?? "" }, by),
+      response: async (attachment: Attachment) => toAttachmentResponse(attachment),
+      words: async (attachment) => attachedWords(attachment),
     });
   }
 

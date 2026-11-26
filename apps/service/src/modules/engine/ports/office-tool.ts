@@ -59,6 +59,17 @@ export interface OfficeToolAuthority {
   readonly title: string;
   /** The subject a call with this input changes, so own work is told from others'. */
   subject(input: unknown): OfficeToolSubject;
+  /**
+   * The tool's own refusal of a call, in the words the Agent reads, or undefined when it may go on.
+   * The ruling step asks it before it runs or holds a call, so no approval is spent on a call refused
+   * up front, and again on the repeat after Allow once. It only reads what the refusal needs.
+   */
+  check?(input: unknown, call: OfficeToolCall): Promise<string | undefined>;
+  /**
+   * What a call changes, one plain line each, as the approval card lists them; the call's input is
+   * shown instead when the tool has none. It only reads, and names Secret variables by name only.
+   */
+  approvalLines?(input: unknown, call: OfficeToolCall): Promise<readonly string[]>;
 }
 
 /** The record a call changes, by its kind and id. */

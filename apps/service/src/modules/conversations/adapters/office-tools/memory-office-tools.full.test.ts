@@ -3,7 +3,6 @@ import { type HardSwitchValue } from "../../../people/index.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import {
   CHANGE_ROLE_TOOL,
-  CHANGE_PROJECT_SETTINGS_TOOL,
   READ_ROLE_TOOL,
   REMEMBER_TOOL,
   sessionOfficeTools,
@@ -50,48 +49,34 @@ describe("the remember tool", () => {
 
 describe("the Office tools of a session", () => {
   it("offer remember only while the card's Shared memory is on", () => {
-    expect(sessionOfficeTools(["read_task"], card(true, NEVER), true, false)).toEqual([
+    expect(sessionOfficeTools(["read_task"], card(true, NEVER), true)).toEqual([
       "read_task",
       REMEMBER_TOOL,
     ]);
-    expect(sessionOfficeTools(["read_task"], card(false, NEVER), true, false)).toEqual([
-      "read_task",
-    ]);
+    expect(sessionOfficeTools(["read_task"], card(false, NEVER), true)).toEqual(["read_task"]);
   });
 
   it("offer change_role on a Task when Change Roles is Ask me, with read_role to start from", () => {
-    expect(sessionOfficeTools(["read_task"], card(false, { kind: "ask-me" }), true, false)).toEqual(
-      ["read_task", CHANGE_ROLE_TOOL, READ_ROLE_TOOL],
-    );
+    expect(sessionOfficeTools(["read_task"], card(false, { kind: "ask-me" }), true)).toEqual([
+      "read_task",
+      CHANGE_ROLE_TOOL,
+      READ_ROLE_TOOL,
+    ]);
   });
 
   it.each([{ kind: "proposal" }, { kind: "never" }] as const)(
     "keep change_role when Change Roles is %o, which the view reads as Never",
     (changeRoles) => {
-      expect(sessionOfficeTools(["read_task"], card(false, changeRoles), true, false)).toEqual([
+      expect(sessionOfficeTools(["read_task"], card(false, changeRoles), true)).toEqual([
         "read_task",
       ]);
     },
   );
 
-  it.each([{ kind: "allowed" }, { kind: "ask-me" }, { kind: "consult", role: "devops" }] as const)(
-    "offer the Project setting tools where they change settings when Change Project settings is %o",
-    (changeProjectSettings) => {
-      expect(
-        sessionOfficeTools(["read_task"], card(false, NEVER, changeProjectSettings), false, true),
-      ).toEqual(["read_task", CHANGE_PROJECT_SETTINGS_TOOL]);
-    },
-  );
-
-  it("keep the Project setting tools when Change Project settings is Proposal", () => {
-    expect(
-      sessionOfficeTools(["read_task"], card(false, NEVER, { kind: "proposal" }), false, true),
-    ).toEqual(["read_task"]);
-  });
-
   it("offer read_role once when the place already has it", () => {
-    expect(
-      sessionOfficeTools([READ_ROLE_TOOL], card(false, { kind: "ask-me" }), true, false),
-    ).toEqual([READ_ROLE_TOOL, CHANGE_ROLE_TOOL]);
+    expect(sessionOfficeTools([READ_ROLE_TOOL], card(false, { kind: "ask-me" }), true)).toEqual([
+      READ_ROLE_TOOL,
+      CHANGE_ROLE_TOOL,
+    ]);
   });
 });

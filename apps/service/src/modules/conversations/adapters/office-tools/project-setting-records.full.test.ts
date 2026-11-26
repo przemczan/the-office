@@ -25,7 +25,6 @@ import { RunEnvironmentsModule } from "../../../run-environments/index.js";
 import { ScriptedContainerRuntime } from "../../../run-environments/index.fixtures.js";
 import { TaskService } from "../../../work/index.js";
 import { ownProjectsQueue, workModuleForTests } from "../../../work/index.fixtures.js";
-import type { HeldCallOutcome, HeldCallRequest } from "../../application/held-calls.js";
 import { BY_NINA, runOf, SECRET_VALUE, toolsOn } from "./project-setting-office-tools.fixtures.js";
 
 // The tool over the real Projects and Run environments, each change recorded as Nina's on her Task.
@@ -83,37 +82,17 @@ afterEach(async () => {
   await repository.remove();
 });
 
-function tools(rule?: (request: HeldCallRequest) => HeldCallOutcome) {
-  return toolsOn(
-    {
-      projects: app.get(ProjectService, { strict: false }),
-      testTargets: app.get(TestTargets, { strict: false }),
-      actions: app.get(ProjectActions, { strict: false }),
-      runEnvironments: app.get(RunEnvironmentSwitchRegistry, { strict: false }),
-    },
-    rule,
-  );
+function tools() {
+  return toolsOn({
+    projects: app.get(ProjectService, { strict: false }),
+    testTargets: app.get(TestTargets, { strict: false }),
+    actions: app.get(ProjectActions, { strict: false }),
+    runEnvironments: app.get(RunEnvironmentSwitchRegistry, { strict: false }),
+  });
 }
 
 async function latest(limit = 1) {
   return app.get(ProjectSettingChanges, { strict: false }).latestOf(projectId, limit);
-}
-
-/** Ask me, as HeldCalls rules it: a call waits until `allowOnce` lets the same words run once. */
-function askMe() {
-  const holds: HeldCallRequest[] = [];
-  const approved: string[] = [];
-  return {
-    holds,
-    allowOnce: () => approved.push(holds.at(-1)?.call ?? ""),
-    rule: (request: HeldCallRequest): HeldCallOutcome => {
-      holds.push(request);
-      const spent = approved.indexOf(request.call);
-      if (spent === -1) return { kind: "held", waitingOn: "the user" };
-      approved.splice(spent, 1);
-      return { kind: "proceed", roleKey: "devops" };
-    },
-  };
 }
 
 const E2E = {
@@ -141,7 +120,7 @@ const BUILD_APP = {
 };
 
 describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () => {
-  it("applies a whole setup after one Allow once, each section recorded as the person's on their Task, no Secret variable's value anywhere", async () => {
+  it("applies a whole setup in one call, each section recorded as the person's on their Task, no Secret variable's value anywhere", async () => {
     const projects = app.get(ProjectService, { strict: false });
     await projects.changeEnvironment(
       projectId,
@@ -152,8 +131,7 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
       },
       { kind: "user", user: { userId: "user-ann", name: "Ann" } },
     );
-    const ruling = askMe();
-    const { tool } = tools(ruling.rule);
+    const { tool } = tools();
     const setup = {
       project: projectId,
       environmentVariables: { variables: [{ name: "GREETING", value: "hello" }] },
@@ -165,12 +143,6 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
       why: "Set it up.",
     };
 
-    const held = await runOf(tool, setup);
-    expect(held.text).toContain("End your turn");
-    expect(ruling.holds).toHaveLength(1);
-    expect(await latest()).toEqual([expect.objectContaining({ setting: "environment" })]);
-
-    ruling.allowOnce();
     const result = await runOf(tool, setup);
 
     expect(result).toEqual({
@@ -187,7 +159,6 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
     ]);
     for (const record of records) expect(record.by).toEqual(BY_NINA);
     expect(JSON.stringify(records)).not.toContain(SECRET_VALUE);
-    expect(JSON.stringify(ruling.holds)).not.toContain(SECRET_VALUE);
     const project = await projects.read(projectId);
     expect(project.installCommand).toBe("npm install");
     expect(project.commands.map(({ key }) => key)).toEqual(["build", "lint", "test", "e2e"]);

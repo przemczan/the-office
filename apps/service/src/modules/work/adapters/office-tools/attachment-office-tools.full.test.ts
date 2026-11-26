@@ -5,7 +5,7 @@ import { searchResultsSchema } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AttachmentService } from "../../application/attachment-service.js";
 import type { Task } from "../../domain/task.js";
-import { ATTACH_FILE, ATTACH_LINK } from "./attachment-office-tools.js";
+import { ATTACH_FILE } from "./attachment-office-tools.js";
 import { randomUUID } from "node:crypto";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
@@ -79,7 +79,7 @@ describe("attach_file", () => {
   it.each(["design.html", "design.htm"])("attaches %s as an HTML file", async (name) => {
     await writeFile(join(worktree, name), "<h1>Design</h1>");
 
-    await call(ATTACH_FILE, { path: name });
+    await call(ATTACH_FILE, { taskId: task.id, path: name });
 
     const [attachment] = await work.app
       .get(AttachmentService)
@@ -90,7 +90,7 @@ describe("attach_file", () => {
   it("attaches a screenshot as an image, by its extension", async () => {
     await writeFile(join(worktree, "home.png"), new Uint8Array([137, 80, 78, 71]));
 
-    await call(ATTACH_FILE, { path: "home.png" });
+    await call(ATTACH_FILE, { taskId: task.id, path: "home.png" });
 
     const [attachment] = await work.app
       .get(AttachmentService)
@@ -110,7 +110,11 @@ describe("attach_file", () => {
       },
       ANN_LEE,
     );
-    await call(ATTACH_LINK, { url: "https://example.com/report.md", name: "report.md" });
+    await service.addLink(
+      owner,
+      { url: "https://example.com/report.md", name: "report.md" },
+      ANN_LEE,
+    );
     const other = await startAttaching(folder);
     try {
       await writeFile(join(other.worktree, "docs", "report.md"), "# The other Task's");
@@ -122,13 +126,13 @@ describe("attach_file", () => {
           mediaType: "text/markdown",
           content: new Uint8Array(),
         },
-        "planner",
+        { kind: "person", roleKey: "planner" },
       );
       await writeFile(join(worktree, "report.md"), "# From the root");
-      await call(ATTACH_FILE, { path: "report.md" });
+      await call(ATTACH_FILE, { taskId: task.id, path: "report.md" });
       await writeFile(join(worktree, "docs", "report.md"), "# From docs");
 
-      const result = await call(ATTACH_FILE, { path: "docs/report.md" });
+      const result = await call(ATTACH_FILE, { taskId: task.id, path: "docs/report.md" });
 
       expect(result.text).toMatch(/^Attached report\.md/);
       const attached = await service.listOf(owner);
@@ -144,58 +148,25 @@ describe("attach_file", () => {
 
   it("searches a replaced document by its new text alone", async () => {
     await writeFile(join(worktree, "docs", "notes.md"), "# Thumbnails\n\nmarmalade");
-    await call(ATTACH_FILE, { path: "docs/notes.md" });
+    await call(ATTACH_FILE, { taskId: task.id, path: "docs/notes.md" });
     await writeFile(join(worktree, "docs", "notes.md"), "# Thumbnails\n\nporcupine");
 
-    await call(ATTACH_FILE, { path: "docs/notes.md" });
+    await call(ATTACH_FILE, { taskId: task.id, path: "docs/notes.md" });
 
     const [notes] = await work.app.get(AttachmentService).listOf({ kind: "task", taskId: task.id });
     expect(await searchedAttachmentIds("marmalade")).not.toContain(notes?.id);
     expect(await searchedAttachmentIds("porcupine")).toContain(notes?.id);
   });
 
-  it("refuses a session on no Task", async () => {
-    const result = await call(ATTACH_FILE, { path: "docs/report.md" }, "chat-session");
+  it("refuses a worktree file from a session on no Task", async () => {
+    const result = await call(
+      ATTACH_FILE,
+      { taskId: task.id, path: "docs/report.md" },
+      "chat-session",
+    );
 
     expect(result).toEqual({
-      text: "This tool works in a Thread on a Task, and this session is on none.",
-      isError: true,
-    });
-  });
-});
-
-describe("attach_link", () => {
-  it("attaches a link to the Task in the person's name, named by its address when not named", async () => {
-    const named = await call(ATTACH_LINK, {
-      url: "https://example.com/preview",
-      name: "The preview",
-    });
-    await call(ATTACH_LINK, { url: "https://example.com/docs" });
-
-    const attachments = await work.app
-      .get(AttachmentService)
-      .listOf({ kind: "task", taskId: task.id });
-    expect(attachments).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: "link",
-          name: "The preview",
-          url: "https://example.com/preview",
-          addedBy: { kind: "person", roleKey: "planner" },
-        }),
-        expect.objectContaining({ kind: "link", name: "https://example.com/docs" }),
-      ]),
-    );
-    expect(named.text).toMatch(
-      /^Attached The preview \(link to https:\/\/example\.com\/preview\) to the Task as Attachment .+\.$/,
-    );
-  });
-
-  it("refuses an address that isn't a web address, with the reason", async () => {
-    const result = await call(ATTACH_LINK, { url: "file:///etc/passwd" });
-
-    expect(result).toEqual({
-      text: "A link is a web address starting http:// or https://.",
+      text: "A worktree file attaches only from a Thread on the Task, whose worktree it is.",
       isError: true,
     });
   });

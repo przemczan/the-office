@@ -100,13 +100,15 @@ import { StageRunners } from "./stage-runners.js";
  * The Office tools of an Agent Stage's session (spec §6): it reads every record and Attachment, its
  * own Task's and those of the Tasks, Idea and Initiative it is linked to, asks the user with a
  * Decision, consults a person (in tier 1 the user answers in their place), attaches a file or a link to the Task, writes
- * the Task's commit message (`write_commit_message`, Work's), asks The Office to update the Task's
+ * the Task's commit message (`write_commit_message`, Work's), changes the Project's everyday
+ * settings (`change_project_settings`, Conversations'), asks The Office to update the Task's
  * branch from the base, runs the Project's commands where they run (`StageProjectCommands`), and
  * reads the Stage history, an earlier run's whole outputs and Stage Thread too, so a later Stage
  * doesn't repeat a failed approach, and proposes a Bug Task for an issue outside its Task
  * (`propose_bug_task`, Conversations'), never creating a Task itself. Never `read_threads`: it reads Thread messages only through a
  * run's Stage Thread. The names are the tools' own, which Conversations, Work and Pipelines
- * register.
+ * register. A session's person gets each only as their Authority rules it, and a call on another
+ * Task than the Stage's is refused (spec 5.4.1).
  */
 export const AGENT_STAGE_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
@@ -116,6 +118,7 @@ export const AGENT_STAGE_OFFICE_TOOLS = [
   "attach_file",
   "attach_link",
   "write_commit_message",
+  "change_project_settings",
   UPDATE_BRANCH_TOOL,
   RUN_PROJECT_COMMAND_TOOL,
   "propose_bug_task",

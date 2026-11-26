@@ -118,6 +118,57 @@ const NO_ACTION: readonly NoActionRoute[] = [
     reason: "Opens the onboarding holder's chat, which drafts with propose_test_targets.",
   },
 
+  // Written by hand, one tool for the call: the route is the user's, the tool the person's.
+  {
+    route: "POST /tasks/:id/attachments/files",
+    reason: "The user's upload from their device, multipart; Agents use attach_file.",
+  },
+  {
+    route: "POST /projects/:id/commands",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "PUT /projects/:id/commands/:key",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "DELETE /projects/:id/commands/:key",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "PUT /projects/:id/install-command",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "PUT /projects/:id/install-inputs",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "PUT /projects/:id/environment",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "PUT /projects/:id/test-targets",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "PUT /projects/:id/actions",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+  {
+    route: "PUT /projects/:id/run-environment",
+    reason:
+      "One section of change_project_settings, one held call through the route's own Projects method.",
+  },
+
   // Sign-in plumbing and the session's hook.
   {
     route: "POST /sign-in/passkey/options",
@@ -148,11 +199,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     note: "write_bug_details, planning Threads only",
   },
   {
-    route: "PUT /tasks/:id/commit-message",
-    agent: "partial",
-    note: "write_commit_message, Agent Stages and planning Threads only",
-  },
-  {
     route: "POST /tasks/:id/gate/continue",
     agent: "gap",
     note: "a Gate: for the permissions design",
@@ -180,16 +226,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "POST /initiatives/:id/shaping", agent: "gap" },
   { route: "POST /initiatives/:id/planning", agent: "gap" },
   { route: "POST /initiatives/:id/plan-with", agent: "gap" },
-  {
-    route: "POST /tasks/:id/attachments/links",
-    agent: "partial",
-    note: "attach_link, Agent Stages only",
-  },
-  {
-    route: "POST /tasks/:id/attachments/files",
-    agent: "partial",
-    note: "attach_file from the worktree, Agent Stages only",
-  },
   { route: "POST /ideas/:id/attachments/links", agent: "gap" },
   { route: "POST /ideas/:id/attachments/files", agent: "gap" },
   { route: "POST /initiatives/:id/attachments/links", agent: "gap" },
@@ -226,51 +262,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     route: "POST /projects/:id/onboard",
     agent: "partial",
     note: "only by applying propose_project's Proposal",
-  },
-  {
-    route: "POST /projects/:id/commands",
-    agent: "tool",
-    note: "change_project_settings (hand-written)",
-  },
-  {
-    route: "PUT /projects/:id/commands/:key",
-    agent: "tool",
-    note: "change_project_settings (hand-written)",
-  },
-  {
-    route: "DELETE /projects/:id/commands/:key",
-    agent: "tool",
-    note: "change_project_settings (hand-written)",
-  },
-  {
-    route: "PUT /projects/:id/install-command",
-    agent: "tool",
-    note: "change_project_settings (hand-written)",
-  },
-  {
-    route: "PUT /projects/:id/install-inputs",
-    agent: "tool",
-    note: "change_project_settings (hand-written)",
-  },
-  {
-    route: "PUT /projects/:id/environment",
-    agent: "tool",
-    note: "change_project_settings (hand-written); Secret variables' values are the user's alone",
-  },
-  {
-    route: "PUT /projects/:id/test-targets",
-    agent: "tool",
-    note: "change_project_settings (hand-written)",
-  },
-  {
-    route: "PUT /projects/:id/actions",
-    agent: "tool",
-    note: "change_project_settings (hand-written); one leaving the workstation by Proposal only",
-  },
-  {
-    route: "PUT /projects/:id/run-environment",
-    agent: "tool",
-    note: "change_project_settings (hand-written)",
   },
   { route: "POST /projects/:id/run-environment/set-up", agent: "gap" },
   {

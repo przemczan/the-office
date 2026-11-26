@@ -1,3 +1,4 @@
+import type { AttachmentOwner } from "../domain/attachment.js";
 import { join } from "node:path";
 import { Injectable, Module } from "@nestjs/common";
 import {
@@ -646,6 +647,14 @@ export class SessionTasksForTests extends SessionTasks {
 
   async taskInSession(sessionId: string): Promise<string | undefined> {
     return this.tasks.get(sessionId);
+  }
+
+  /** Where the images sent in each session's Thread are kept, as a test names; the session's Task otherwise. */
+  readonly imageOwners = new Map<string, AttachmentOwner>();
+
+  async imageOwnerInSession(sessionId: string): Promise<AttachmentOwner | undefined> {
+    const taskId = this.tasks.get(sessionId);
+    return this.imageOwners.get(sessionId) ?? (taskId ? { kind: "task", taskId } : undefined);
   }
 }
 

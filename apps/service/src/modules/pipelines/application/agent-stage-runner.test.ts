@@ -90,6 +90,7 @@ describe("AgentStageRunner", () => {
           "attach_file",
           "attach_link",
           "write_commit_message",
+          "change_project_settings",
           "update_branch",
           "run_project_command",
           "propose_bug_task",
