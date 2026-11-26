@@ -33,6 +33,7 @@ import {
   ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
 } from "../../shell/engine-words.ts";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { roleName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { modelAndEffortText, workSourceText } from "../../shell/role-card-words.ts";
@@ -242,7 +243,7 @@ function TaskRunsOn({
   models,
 }: {
   readonly cascade: TaskEngineCascade | undefined;
-  /** While models and efforts are overridden: each row's selects. */
+  /** While models and efforts are overridden: each person's selects. */
   readonly models?: PersonSettingsEditor;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
@@ -253,37 +254,46 @@ function TaskRunsOn({
         <h4 className="work-engine-list-title">Runs on</h4>
         <span className="task-quiet">{RUNS_ON_NOTE}</span>
       </div>
-      <ul aria-label="Runs on">
+      <ul aria-label="Runs on" className="work-engine-people">
         {cascade.people.map((person) => {
           const filled = roles?.find(({ key }) => key === person.roleKey);
           const name = filled ? roleName(person.roleKey, roles) : person.roleName;
           const firstName = filled?.card.name ?? person.roleName;
+          const work = cascade.engine ? person.work : null;
           return (
-            <li key={person.roleKey} className="work-engine-row">
-              <span className="work-engine-row-name">{name}</span>
-              {cascade.engine && person.work ? (
-                <span className="work-engine-row-what">
-                  <span className="work-engine-row-engine">{modelAndEffortText(person.work)}</span>
-                  <span className="work-engine-row-source">
-                    {workSourceText(person.work, firstName)}
-                  </span>
-                  {person.stages.map(({ stageName, effort }) => (
-                    <span key={stageName} className="work-engine-row-source here">
-                      {EFFORT_LABELS[effort]} on {stageName}
-                    </span>
-                  ))}
-                  {models && cascade.engine && (
-                    <PersonSelects
-                      person={person}
-                      type={cascade.engine.engineType}
-                      name={firstName}
-                      editor={models}
-                    />
+            <li key={person.roleKey}>
+              <div className="work-engine-person" role="group" aria-label={name}>
+                <PersonAvatar roleKey={person.roleKey} name={firstName} size="sm" />
+                <div className="work-engine-person-top">
+                  <span className="work-engine-person-name">{name}</span>
+                  {work ? (
+                    <span className="work-engine-person-works">{modelAndEffortText(work)}</span>
+                  ) : (
+                    <span className="work-engine-person-works task-quiet">{NO_ENGINE_LISTED}</span>
                   )}
-                </span>
-              ) : (
-                <span className="work-engine-row-what task-quiet">{NO_ENGINE_LISTED}</span>
-              )}
+                </div>
+                {work && (
+                  <div className="work-engine-person-rest">
+                    <div className="work-engine-person-sources">
+                      <span className="work-engine-row-source">
+                        {workSourceText(work, firstName)}
+                      </span>
+                      {person.stages.map(({ stageName, effort }) => (
+                        <span key={stageName} className="work-engine-row-source here">
+                          {EFFORT_LABELS[effort]} on {stageName}
+                        </span>
+                      ))}
+                    </div>
+                    {models && cascade.engine && (
+                      <PersonSelects
+                        person={person}
+                        type={cascade.engine.engineType}
+                        editor={models}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </li>
           );
         })}
@@ -301,7 +311,7 @@ interface PersonSettingsEditor {
 
 /**
  * The switch "Override models and efforts" (spec §2.1.3, "A Task's engine"), independent of the
- * engine override: while it is on each row of "Runs on" gets a Model and an Effort select over what
+ * engine override: while it is on each person in "Runs on" gets a Model and an Effort select over what
  * the Task's engine type offers, each saved at once; off clears every setting.
  */
 function ModelsOverride({
@@ -365,16 +375,17 @@ function unchangedChoice(level: string | undefined, text: string | undefined): s
     : `Unchanged · ${text}`;
 }
 
-/** One person's Model and Effort selects on the Task's engine type, each starting on Unchanged. */
+/**
+ * One person's Model and Effort selects on the Task's engine type, each starting on Unchanged; the
+ * person's group names whose they are.
+ */
 function PersonSelects({
   person,
   type,
-  name,
   editor,
 }: {
   readonly person: TaskEngineCascade["people"][number];
   readonly type: EngineKind;
-  readonly name: string;
   readonly editor: PersonSettingsEditor;
 }): ReactNode {
   const options = useQuery(roleCardQueries.options()).data;
@@ -386,9 +397,10 @@ function PersonSelects({
   const change = (next: Partial<EngineTypeSetting>): void =>
     editor.onChange(person.roleKey, type, { ...setting, ...next });
   return (
-    <span className="work-engine-row-selects">
+    <div className="work-engine-person-selects">
       <Select
-        label={`Model for ${name}`}
+        label="Model"
+        size="sm"
         value={setting.model ?? ENGINES_DEFAULT_CHOICE}
         options={modelChoices(
           offer.models,
@@ -400,7 +412,8 @@ function PersonSelects({
       />
       {offer.efforts.length > 0 && (
         <Select
-          label={`Effort for ${name}`}
+          label="Effort"
+          size="sm"
           value={setting.effort ?? ENGINES_DEFAULT_CHOICE}
           options={[
             {
@@ -416,7 +429,7 @@ function PersonSelects({
           onChange={(effort) => change({ effort: effortSchema.safeParse(effort).data ?? null })}
         />
       )}
-    </span>
+    </div>
   );
 }
 

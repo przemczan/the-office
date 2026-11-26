@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A Task's models and efforts: the Runs on list · The Office design</title>
+    <style>
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-850: #1f1f1d;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --red-500: #c8102e;
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --type-body-sm: 400 13px / 1.45 var(--font-sans);
+        --type-caption: 400 12px / 1.4 var(--font-sans);
+        --type-label: 500 13px / 1.3 var(--font-sans);
+        --type-card-title: 600 14px / 1.4 var(--font-sans);
+        --type-overline: 500 11px / 1.2 var(--font-mono);
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --control-sm: 28px;
+      }
+      :root,
+      .light {
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-sunken: var(--gray-50);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --avatar-bg: var(--gray-100);
+      }
+      .dark {
+        color-scheme: dark;
+        --bg: var(--gray-950);
+        --surface: var(--gray-900);
+        --surface-sunken: var(--gray-950);
+        --fg-1: var(--gray-50);
+        --fg-2: var(--gray-300);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-800);
+        --border-subtle: var(--gray-850);
+        --border-strong: var(--gray-700);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 16%, transparent);
+        --info-fg: #9dbcf5;
+        --info-border: color-mix(in oklab, var(--blue-500) 30%, transparent);
+        --avatar-bg: var(--gray-800);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+      }
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+      }
+      .overline {
+        color: var(--accent-subtle-fg);
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 6px 0 8px;
+        font: 600 24px/1.25 var(--font-sans);
+      }
+      .lead {
+        max-width: 78ch;
+        margin: 0;
+        color: var(--fg-2);
+        font: 400 14px/1.5 var(--font-sans);
+      }
+      h2 {
+        margin: 40px 0 4px;
+        font: 600 16px/1.3 var(--font-sans);
+      }
+      .sub {
+        max-width: 78ch;
+        margin: 0 0 16px;
+        color: var(--fg-2);
+      }
+      .frames {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: flex-start;
+      }
+      .frame {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      .frame-label {
+        color: var(--fg-3);
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .frame-label b {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .stage {
+        padding: 16px;
+        border: 1px dashed var(--border-strong);
+        border-radius: 12px;
+        background: var(--bg);
+        color: var(--fg-1);
+      }
+      .w560 {
+        width: 560px;
+      }
+      .w360 {
+        width: 360px;
+      }
+      .w460 {
+        width: 460px;
+      }
+      .w520 {
+        width: 520px;
+      }
+      .notes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+      .note {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .note.accent {
+        border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+      }
+      .note h3 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+      }
+      .note ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--fg-2);
+      }
+      .note li + li {
+        margin-top: 4px;
+      }
+      code {
+        padding: 1px 4px;
+        border-radius: 4px;
+        background: var(--surface-sunken);
+        font: 400 12px/1.4 var(--font-mono);
+      }
+
+      /* ---------- RecordFold, as built ---------- */
+      .fold {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .fold-head {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 12px 16px;
+      }
+      .fold-head svg {
+        flex: none;
+        color: var(--fg-2);
+      }
+      .fold-title {
+        font: var(--type-card-title);
+      }
+      .fold-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 2px 18px 16px 16px;
+      }
+
+      /* ---------- Switch, Select, Alert: as packages/ui draws them ---------- */
+      .switch-row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .switch {
+        position: relative;
+        flex: none;
+        width: 32px;
+        height: 18px;
+        margin-top: 1px;
+        border-radius: 999px;
+        background: var(--border-strong);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: 0 1px 2px rgba(16, 16, 15, 0.2);
+      }
+      .switch.on {
+        background: var(--accent);
+      }
+      .switch.on::after {
+        left: 16px;
+      }
+      .switch-text b {
+        display: block;
+        font: var(--type-label);
+      }
+      .switch-text span {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .quiet {
+        margin: 0;
+        color: var(--fg-3);
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .field > label {
+        color: var(--fg-1);
+        font: var(--type-label);
+      }
+      .select {
+        position: relative;
+        display: flex;
+        align-items: center;
+        height: var(--control-sm);
+        padding: 0 28px 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+      }
+      .select span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .select::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        width: 6px;
+        height: 6px;
+        border-right: 1.5px solid var(--fg-3);
+        border-bottom: 1.5px solid var(--fg-3);
+        transform: translateY(-70%) rotate(45deg);
+      }
+      .select.md {
+        height: 32px;
+      }
+      .select .unchanged {
+        color: var(--fg-2);
+      }
+
+      /* ---------- Before: the list as built today ---------- */
+      .old-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .old-list h4,
+      .runs-head h4 {
+        margin: 0;
+        font: 600 13px/1.45 var(--font-sans);
+      }
+      .old-list ul {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .old-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        min-height: 28px;
+      }
+      .old-name {
+        overflow: hidden;
+        font-weight: 500;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .old-what {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .old-selects {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-top: 4px;
+      }
+      .old-selects .select {
+        height: 32px;
+      }
+      .source {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .source.here {
+        color: var(--info-fg);
+      }
+
+      /* ---------- After: the Runs on list ---------- */
+      .models {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .runs {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        container-type: inline-size;
+      }
+      .runs-head {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .runs ul {
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        list-style: none;
+      }
+      .person {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 4px 10px;
+        padding: 10px 12px;
+      }
+      .person + .person {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--avatar-bg);
+        color: var(--fg-2);
+        font: 600 10px/1 var(--font-sans);
+      }
+      .person-top {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        justify-content: space-between;
+        min-width: 0;
+        min-height: 24px;
+        padding-top: 2px;
+      }
+      .person-name {
+        min-width: 0;
+        overflow: hidden;
+        font-weight: 500;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .person-works {
+        flex: none;
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+      }
+      .person-rest {
+        display: flex;
+        grid-column: 2;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      .person-sources {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 6px;
+        margin-top: -2px;
+      }
+      .person-sources .source + .source::before {
+        content: "·";
+        margin-right: 6px;
+        color: var(--fg-3);
+      }
+      .person-selects {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 12px;
+        max-width: 440px;
+        padding-bottom: 2px;
+      }
+      .person-selects .field > label {
+        color: var(--fg-2);
+        font: 500 12px/1.3 var(--font-sans);
+      }
+      @container (max-width: 400px) {
+        .person-selects {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .is-saving .select {
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+      }
+
+      .anatomy {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 6px 14px;
+        margin: 0;
+      }
+      .anatomy dt {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .anatomy dd {
+        margin: 0;
+        color: var(--fg-2);
+      }
+      @media (max-width: 640px) {
+        .w560,
+        .w520,
+        .w460,
+        .w360 {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="overline">Task page · Engine tab</div>
+      <h1>A Task's models and efforts: the Runs on list</h1>
+      <p class="lead">
+        The switch "Override models and efforts" puts a Model and an Effort select on each row of "Runs on". As
+        built, they are squeezed into the right half of a two-column row, each under its own long label, so the
+        list turns ragged. This design gives each person one tidy block: who, what they work with, where it comes
+        from, then the two selects side by side. Words, behaviour and saving stay as they are; only the layout and
+        the selects' labels change.
+      </p>
+
+      <h2>Before: as built</h2>
+      <p class="sub">
+        The record column at about 460px. The selects sit in the right half only, labelled "Model for Pam" and
+        "Effort for Pam", so they wrap one under another, the names float in the middle of tall rows, and what
+        each person works with is said twice, far apart.
+      </p>
+      <div class="frames">
+        <div class="frame">
+          <div class="frame-label"><b>Before</b> · switch on · 460px</div>
+          <div class="stage w460">
+            <section class="fold">
+              <div class="fold-head">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /></svg>
+                <span class="fold-title">Engine</span>
+              </div>
+              <div class="fold-body">
+                <div class="switch-row">
+                  <span class="switch on"></span>
+                  <div class="switch-text">
+                    <b>Override models and efforts</b>
+                    <span>Set a model and an effort for each person on this Task. Unchanged keeps their usual settings.</span>
+                  </div>
+                </div>
+                <div class="old-list">
+                  <div>
+                    <h4>Runs on</h4>
+                    <span class="quiet">Its Planner and the Roles its Stages name, with the model and effort each works with on its engine now. A Consultant on it works the same way.</span>
+                  </div>
+                  <ul>
+                    <li class="old-row">
+                      <span class="old-name">Pam · Planner</span>
+                      <span class="old-what">
+                        <span>Opus 5.5 · High</span>
+                        <span class="source">from Pam's Role card</span>
+                        <span class="old-selects">
+                          <span class="field"><label>Model for Pam</label><span class="select"><span>Unchanged · Opus 5.5</span></span></span>
+                          <span class="field"><label>Effort for Pam</label><span class="select"><span>Unchanged · High</span></span></span>
+                        </span>
+                      </span>
+                    </li>
+                    <li class="old-row">
+                      <span class="old-name">Jim · Developer</span>
+                      <span class="old-what">
+                        <span>Sonnet 5.5 · Medium</span>
+                        <span class="source">set for this Task</span>
+                        <span class="source here">High on Implement</span>
+                        <span class="old-selects">
+                          <span class="field"><label>Model for Jim</label><span class="select"><span>Sonnet 5.5</span></span></span>
+                          <span class="field"><label>Effort for Jim</label><span class="select"><span>Medium</span></span></span>
+                        </span>
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <h2>After: one block per person</h2>
+      <p class="sub">
+        The list becomes a bordered list with a divider between people. Each block's first line is the same with
+        the switch off or on, so turning the switch on only opens the selects under it; nothing jumps sideways.
+      </p>
+      <div class="frames">
+        <div class="frame">
+          <div class="frame-label"><b>After</b> · switch on · wide record column (560px)</div>
+          <div class="stage w560">
+            <section class="fold">
+              <div class="fold-head">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /></svg>
+                <span class="fold-title">Engine</span>
+              </div>
+              <div class="fold-body">
+                <div class="switch-row">
+                  <span class="switch"></span>
+                  <div class="switch-text"><b>Override the engine</b></div>
+                </div>
+                <p class="quiet">Runs on Personal, from the Project, with the Office's Stand-in Engines.</p>
+                <div class="models">
+                  <div class="switch-row">
+                    <span class="switch on"></span>
+                    <div class="switch-text">
+                      <b>Override models and efforts</b>
+                      <span>Set a model and an effort for each person on this Task. Unchanged keeps their usual settings.</span>
+                    </div>
+                  </div>
+                  <div class="runs">
+                    <div class="runs-head">
+                      <h4>Runs on</h4>
+                      <span class="quiet">Its Planner and the Roles its Stages name, with the model and effort each works with on its engine now. A Consultant on it works the same way.</span>
+                    </div>
+                    <ul>
+                      <li class="person">
+                        <span class="avatar">P</span>
+                        <div class="person-top"><span class="person-name">Pam · Planner</span><span class="person-works">Opus 5.5 · High</span></div>
+                        <div class="person-rest">
+                          <div class="person-sources"><span class="source">from Pam's Role card</span></div>
+                          <div class="person-selects">
+                            <span class="field"><label>Model</label><span class="select"><span class="unchanged">Unchanged · Opus 5.5</span></span></span>
+                            <span class="field"><label>Effort</label><span class="select"><span class="unchanged">Unchanged · High</span></span></span>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="person">
+                        <span class="avatar">J</span>
+                        <div class="person-top"><span class="person-name">Jim · Developer</span><span class="person-works">Sonnet 5.5 · Medium</span></div>
+                        <div class="person-rest">
+                          <div class="person-sources"><span class="source">set for this Task</span><span class="source here">High on Implement</span></div>
+                          <div class="person-selects">
+                            <span class="field"><label>Model</label><span class="select"><span>Sonnet 5.5</span></span></span>
+                            <span class="field"><label>Effort</label><span class="select"><span>Medium</span></span></span>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="person">
+                        <span class="avatar">S</span>
+                        <div class="person-top"><span class="person-name">Stanley · UI/UX Designer</span><span class="person-works">Opus 5.5 · Medium</span></div>
+                        <div class="person-rest">
+                          <div class="person-sources"><span class="source">from the Project's setting for Stanley</span></div>
+                          <div class="person-selects">
+                            <span class="field"><label>Model</label><span class="select"><span class="unchanged">Unchanged · Opus 5.5</span></span></span>
+                            <span class="field"><label>Effort</label><span class="select"><span class="unchanged">Unchanged · Medium</span></span></span>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="person">
+                        <span class="avatar">A</span>
+                        <div class="person-top"><span class="person-name">Angela · Reviewer</span><span class="person-works">Opus 5.5 · High</span></div>
+                        <div class="person-rest">
+                          <div class="person-sources"><span class="source">set for this Task</span></div>
+                          <div class="person-selects">
+                            <span class="field"><label>Model</label><span class="select"><span class="unchanged">Unchanged · Opus 5.5</span></span></span>
+                            <span class="field"><label>Effort</label><span class="select"><span>High</span></span></span>
+                          </div>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-label"><b>After</b> · switch on · narrowest record column (360px)</div>
+          <div class="stage w360">
+            <section class="fold">
+              <div class="fold-head">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /></svg>
+                <span class="fold-title">Engine</span>
+              </div>
+              <div class="fold-body">
+                <div class="models" style="padding-top: 0; border-top: 0">
+                  <div class="switch-row">
+                    <span class="switch on"></span>
+                    <div class="switch-text">
+                      <b>Override models and efforts</b>
+                      <span>Set a model and an effort for each person on this Task. Unchanged keeps their usual settings.</span>
+                    </div>
+                  </div>
+                  <div class="runs">
+                    <div class="runs-head"><h4>Runs on</h4></div>
+                    <ul>
+                      <li class="person">
+                        <span class="avatar">P</span>
+                        <div class="person-top"><span class="person-name">Pam · Planner</span><span class="person-works">Opus 5.5 · High</span></div>
+                        <div class="person-rest">
+                          <div class="person-sources"><span class="source">from Pam's Role card</span></div>
+                          <div class="person-selects">
+                            <span class="field"><label>Model</label><span class="select"><span class="unchanged">Unchanged · Opus 5.5</span></span></span>
+                            <span class="field"><label>Effort</label><span class="select"><span class="unchanged">Unchanged · High</span></span></span>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="person">
+                        <span class="avatar">J</span>
+                        <div class="person-top"><span class="person-name">Jim · Developer</span><span class="person-works">Sonnet 5.5 · Medium</span></div>
+                        <div class="person-rest">
+                          <div class="person-sources"><span class="source">set for this Task</span><span class="source here">High on Implement</span></div>
+                          <div class="person-selects">
+                            <span class="field"><label>Model</label><span class="select"><span>Sonnet 5.5</span></span></span>
+                            <span class="field"><label>Effort</label><span class="select"><span>Medium</span></span></span>
+                          </div>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <h2>Switch off, and the other cases</h2>
+      <p class="sub">
+        Off, the same blocks without selects: the list reads as a compact two-line list. The first line never
+        changes between off and on.
+      </p>
+      <div class="frames">
+        <div class="frame">
+          <div class="frame-label"><b>After</b> · switch off · 520px</div>
+          <div class="stage w520">
+            <section class="fold">
+              <div class="fold-body" style="padding-top: 16px">
+                <div class="switch-row">
+                  <span class="switch"></span>
+                  <div class="switch-text">
+                    <b>Override models and efforts</b>
+                    <span>Set a model and an effort for each person on this Task. Unchanged keeps their usual settings.</span>
+                  </div>
+                </div>
+                <div class="runs">
+                  <div class="runs-head"><h4>Runs on</h4></div>
+                  <ul>
+                    <li class="person">
+                      <span class="avatar">P</span>
+                      <div class="person-top"><span class="person-name">Pam · Planner</span><span class="person-works">Opus 5.5 · High</span></div>
+                      <div class="person-rest"><div class="person-sources"><span class="source">from Pam's Role card</span></div></div>
+                    </li>
+                    <li class="person">
+                      <span class="avatar">J</span>
+                      <div class="person-top"><span class="person-name">Jim · Developer</span><span class="person-works">Opus 5.5 · Medium</span></div>
+                      <div class="person-rest"><div class="person-sources"><span class="source">from Jim's Role card</span><span class="source here">High on Implement</span></div></div>
+                    </li>
+                    <li class="person">
+                      <span class="avatar">S</span>
+                      <div class="person-top"><span class="person-name">Stanley · UI/UX Designer</span><span class="person-works">Opus 5.5 · Medium</span></div>
+                      <div class="person-rest"><div class="person-sources"><span class="source">from the Project's setting for Stanley</span></div></div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-label"><b>After</b> · an engine type with no efforts · no engine · saving · 520px</div>
+          <div class="stage w520">
+            <section class="fold">
+              <div class="fold-body" style="padding-top: 16px">
+                <div class="runs">
+                  <ul>
+                    <li class="person">
+                      <span class="avatar">J</span>
+                      <div class="person-top"><span class="person-name">Jim · Developer</span><span class="person-works">GPT-5.2 Codex</span></div>
+                      <div class="person-rest">
+                        <div class="person-sources"><span class="source">the engine's default</span></div>
+                        <div class="person-selects">
+                          <span class="field"><label>Model</label><span class="select"><span class="unchanged">Unchanged · GPT-5.2 Codex</span></span></span>
+                        </div>
+                      </div>
+                    </li>
+                    <li class="person">
+                      <span class="avatar">A</span>
+                      <div class="person-top"><span class="person-name">Angela · Reviewer</span></div>
+                      <div class="person-rest"><div class="person-sources"><span class="source">No engine: add one in Settings › Engines</span></div></div>
+                    </li>
+                    <li class="person is-saving">
+                      <span class="avatar">S</span>
+                      <div class="person-top"><span class="person-name">Stanley · UI/UX Designer</span><span class="person-works">Opus 5.5 · Medium</span></div>
+                      <div class="person-rest">
+                        <div class="person-sources"><span class="source">from the Project's setting for Stanley</span></div>
+                        <div class="person-selects">
+                          <span class="field"><label>Model</label><span class="select"><span>Unchanged · Opus 5.5</span></span></span>
+                          <span class="field"><label>Effort</label><span class="select"><span>Unchanged · Medium</span></span></span>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-label"><b>After</b> · Dark palette · 520px</div>
+          <div class="stage w520 dark">
+            <section class="fold">
+              <div class="fold-body" style="padding-top: 16px">
+                <div class="switch-row">
+                  <span class="switch on"></span>
+                  <div class="switch-text">
+                    <b>Override models and efforts</b>
+                    <span>Set a model and an effort for each person on this Task. Unchanged keeps their usual settings.</span>
+                  </div>
+                </div>
+                <div class="runs">
+                  <div class="runs-head"><h4>Runs on</h4></div>
+                  <ul>
+                    <li class="person">
+                      <span class="avatar">P</span>
+                      <div class="person-top"><span class="person-name">Pam · Planner</span><span class="person-works">Opus 5.5 · High</span></div>
+                      <div class="person-rest">
+                        <div class="person-sources"><span class="source">from Pam's Role card</span></div>
+                        <div class="person-selects">
+                          <span class="field"><label>Model</label><span class="select"><span class="unchanged">Unchanged · Opus 5.5</span></span></span>
+                          <span class="field"><label>Effort</label><span class="select"><span class="unchanged">Unchanged · High</span></span></span>
+                        </div>
+                      </div>
+                    </li>
+                    <li class="person">
+                      <span class="avatar">J</span>
+                      <div class="person-top"><span class="person-name">Jim · Developer</span><span class="person-works">Sonnet 5.5 · Medium</span></div>
+                      <div class="person-rest">
+                        <div class="person-sources"><span class="source">set for this Task</span><span class="source here">High on Implement</span></div>
+                        <div class="person-selects">
+                          <span class="field"><label>Model</label><span class="select"><span>Sonnet 5.5</span></span></span>
+                          <span class="field"><label>Effort</label><span class="select"><span>Medium</span></span></span>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <h2>What to build</h2>
+      <div class="notes">
+        <div class="note accent">
+          <h3>One person's block</h3>
+          <dl class="anatomy">
+            <dt>Line 1</dt>
+            <dd>The person's avatar (<code>PersonAvatar</code>, small, as the Project page's per-person table) and name on the left, cut with an ellipsis; what they work with, "&lt;model&gt; · &lt;effort&gt;", on the right, never cut.</dd>
+            <dt>Line 2</dt>
+            <dd>Where it comes from, then each "&lt;effort&gt; on &lt;Stage&gt;" in the info colour, as captions joined by " · ", wrapping, under the name.</dd>
+            <dt>Selects</dt>
+            <dd>Only while the switch is on: Model and Effort, small size, two equal columns under the name, at most 440px wide together. One column when the list is 400px wide or less (a container query on the list).</dd>
+          </dl>
+        </div>
+        <div class="note">
+          <h3>Labels</h3>
+          <ul>
+            <li>The selects read "Model" and "Effort", not "Model for Pam": each person's block is a group named by the person (<code>role="group"</code> with the name), the way the Project page's settings window names each engine type's pair.</li>
+            <li>A select on "Unchanged · &lt;value&gt;" reads the same as today; nothing about its options changes.</li>
+            <li>An engine type that offers no efforts shows the Model select alone, in the first column.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Unchanged</h3>
+          <ul>
+            <li>Every word, toast and refusal; the switches; saving at once; the selects disabled while a change saves.</li>
+            <li>The read-only fold of a Done or Dropped Task, and the Initiative page's Engine fold with its "Its Tasks" list.</li>
+            <li>The fold's 72ch width cap and the divider above the second switch.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Where</h3>
+          <ul>
+            <li><code>apps/web/src/surfaces/work/work-engine-block.tsx</code>: <code>TaskRunsOn</code> and <code>PersonSelects</code>.</li>
+            <li><code>apps/web/src/surfaces/work/work.css</code>: the <code>.work-engine-row*</code> rules; the Initiative's <code>.work-engine-task-row</code> keeps its grid.</li>
+            <li>Tests that find the selects by "Model for &lt;name&gt;": <code>work-engine-block.test.tsx</code> and <code>e2e/work-engine.e2e.ts</code> look inside the person's group instead.</li>
+            <li><code>docs/spec/screens/task-page.md</code>, Engine tab: the list's block layout and the selects' labels.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

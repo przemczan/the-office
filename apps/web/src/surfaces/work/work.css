@@ -4671,15 +4671,89 @@ button.initiative-track-body:hover .stage-mark {
   font: var(--type-caption);
 }
 
-.work-engine-row-selects {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 4px;
-}
-
 .work-engine-row-source.here {
   color: var(--info-fg);
+}
+
+/* The Task's "Runs on" list: one block per person, a divider between them. */
+.work-engine-list ul.work-engine-people {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  container-type: inline-size;
+}
+
+.work-engine-people > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* The avatar, then the person's lines and selects in the column beside it. */
+.work-engine-person {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px 10px;
+  padding: 10px 12px;
+}
+
+.work-engine-person-top {
+  display: flex;
+  /* In a narrow list what they work with drops under the name rather than cutting it short. */
+  flex-wrap: wrap;
+  gap: 0 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 24px;
+  padding-top: 2px;
+}
+
+.work-engine-person-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-1);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-engine-person-works {
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.work-engine-person-rest {
+  display: flex;
+  grid-column: 2;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.work-engine-person-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  margin-top: -2px;
+}
+
+.work-engine-person-sources > span + span::before {
+  margin-right: 6px;
+  color: var(--fg-3);
+  content: "·";
+}
+
+.work-engine-person-selects {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  max-width: 440px;
+  padding-bottom: 2px;
+}
+
+@container (max-width: 400px) {
+  .work-engine-person-selects {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .work-engine-kept {

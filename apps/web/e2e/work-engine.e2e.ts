@@ -224,10 +224,13 @@ test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, 
 
     // With nobody hired (a file run alone) the list has no rows to set.
     if ((await rolesWorking(page, task)) > 0) {
-      const effort = fold.getByRole("combobox", { name: /^Effort for / }).first();
-      await effort.click();
-      const options = page.getByRole("listbox").getByRole("option");
-      await options.filter({ hasNotText: "Unchanged" }).first().click();
+      const effort = fold
+        .getByRole("list", { name: "Runs on" })
+        .getByRole("group")
+        .first()
+        .getByRole("combobox", { name: "Effort" });
+      // The first choice is Unchanged.
+      await effort.selectOption({ index: 1 });
       await expect(fold.getByRole("list", { name: "Runs on" })).toContainText("set for this Task");
       expect((await savedTask(page, task)).peopleEngineSettings).toHaveLength(1);
     }

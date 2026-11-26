@@ -274,6 +274,15 @@ async function pickEngine(page: HTMLElement, name: string): Promise<void> {
   });
 }
 
+/** One person's block in "Runs on", the group named by the person. */
+function personGroup(page: HTMLElement, firstName: string): HTMLElement {
+  const found = [
+    ...page.querySelectorAll<HTMLElement>('[aria-label="Runs on"] [role="group"]'),
+  ].find((group) => group.getAttribute("aria-label")?.startsWith(firstName));
+  if (!found) throw new Error(`Runs on has no block for ${firstName}.`);
+  return found;
+}
+
 /** A native select by its label, as `Select` renders one. */
 function nativeSelect(page: HTMLElement, label: string): HTMLSelectElement {
   const found = [...page.querySelectorAll("label")].find(
@@ -351,12 +360,20 @@ describe("the Task's Engine fold", () => {
   it("lists the model and effort each person works with, where each comes from, and a Stage's own effort", async () => {
     const page = await taskPage(TASK);
 
-    const rows = [...page.querySelectorAll('[aria-label="Runs on"] li')].map(
-      ({ textContent }) => textContent,
+    const people = [...page.querySelectorAll('[aria-label="Runs on"] [role="group"]')].map(
+      (person) => [
+        person.getAttribute("aria-label"),
+        person.querySelector(".work-engine-person-top")?.textContent,
+        person.querySelector(".work-engine-person-rest")?.textContent,
+      ],
     );
-    expect(rows).toEqual([
-      "PamSonnet 5.5 · effort highmodel: the engine's default; effort: from Pam's Role card",
-      "DwightOpus 5.5 · effort mediumfrom Dwight's Role cardMax on Implement",
+    expect(people).toEqual([
+      [
+        "Pam",
+        "PamSonnet 5.5 · effort high",
+        "model: the engine's default; effort: from Pam's Role card",
+      ],
+      ["Dwight", "DwightOpus 5.5 · effort medium", "from Dwight's Role cardMax on Implement"],
     ]);
   });
 
@@ -427,8 +444,8 @@ describe("the Task's Engine fold", () => {
     const switches = page.querySelectorAll<HTMLElement>('[role="switch"]');
     expect(switches[1]?.getAttribute("aria-checked")).toBe("true");
     for (const name of ["Pam", "Dwight"]) {
-      expect(page.textContent).toContain(`Model for ${name}`);
-      expect(page.textContent).toContain(`Effort for ${name}`);
+      const labels = [...personGroup(page, name).querySelectorAll("label")];
+      expect(labels.map(({ textContent }) => textContent.trim())).toEqual(["Model", "Effort"]);
     }
 
     await click(switches[1]!);
@@ -455,7 +472,7 @@ describe("the Task's Engine fold", () => {
     const page = await taskPage(TASK);
 
     await click(page.querySelectorAll<HTMLElement>('[role="switch"]')[1]!);
-    const model = nativeSelect(page, "Model for Dwight");
+    const model = nativeSelect(personGroup(page, "Dwight"), "Model");
     expect([...model.options].map(({ textContent }) => textContent)).toEqual([
       "Unchanged · Opus 5.5",
       "Sonnet 5.5",
