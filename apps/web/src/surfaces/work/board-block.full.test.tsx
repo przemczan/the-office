@@ -166,13 +166,25 @@ describe("InitiativeBlock", () => {
     expect(cardsShown(page)).toEqual(["a"]);
   });
 
-  it("never folds a block of one card in Done, nor a block in another column", async () => {
+  it("in another column, folds a block of more than three cards to its first", async () => {
+    const page = await rendered({
+      cards: [card("a"), card("b"), card("c"), card("d")],
+    });
+
+    expect(cardsShown(page)).toEqual(["a"]);
+    expect(foldButton(page)?.textContent).toMatch(/^Show 3 more/);
+
+    act(() => foldButton(page)?.click());
+    expect(cardsShown(page)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("never folds a block of one card in Done, nor of three cards in another column", async () => {
     const one = await rendered({ column: column("done"), cards: [card("a")] });
     expect(cardsShown(one)).toEqual(["a"]);
     expect(foldButton(one)).toBeNull();
 
-    const ready = await rendered();
-    expect(cardsShown(ready)).toEqual(["a", "b"]);
+    const ready = await rendered({ cards: [card("a"), card("b"), card("c")] });
+    expect(cardsShown(ready)).toEqual(["a", "b", "c"]);
     expect(foldButton(ready)).toBeNull();
   });
 

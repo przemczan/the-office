@@ -109,7 +109,7 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 - Its head: a flag icon and the Initiative's name linking to its page, the Paused badge (small) while it is paused, and a count. The count is the number of its cards in the column, in Queued too, where each card's own Queued mark gives its place. Hover: "<n> of its Tasks in <column>".
 - The name never gives up its width to the count: a count that can't sit beside it moves to a line below, at its right end.
 - Hovering or focusing a block head outlines that Initiative's blocks in every column.
-- In Done, a block with more than one card shows only the first, with a **Show <n> more** button that becomes **Show fewer**.
+- In Done, a block with more than one card, and in every other column a block with more than three, shows only the first, with a **Show <n> more** button that becomes **Show fewer**.
 - No blocks show while the Initiative filter is set, or until the Initiatives are read: every card shows loose.
 - The block's fill is one rule for every palette.
 

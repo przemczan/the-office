@@ -21,6 +21,11 @@ export interface InitiativeBlockProps {
   readonly renderCard: (card: TaskSummary) => ReactNode;
 }
 
+/** Done folds a block of more than one card; every other column, a block of more than three. */
+function foldingFrom(column: Column): number {
+  return column.key === "done" ? 1 : 3;
+}
+
 /**
  * An Initiative's cards in one column (docs/design/board-initiative-blocks.html): a group named by
  * the Initiative, never a region or a heading, so the column stays the board's region and its `h3`
@@ -37,7 +42,7 @@ export function InitiativeBlock({
 }: InitiativeBlockProps): ReactNode {
   const [unfolded, setUnfolded] = useState(false);
   const count = blockCount(cards, column);
-  const foldable = column.key === "done" && cards.length > 1;
+  const foldable = cards.length > foldingFrom(column);
   const shown = foldable && !unfolded ? cards.slice(0, 1) : cards;
   const classes = ["initiative-block", outlined && "outlined", landing && "drop-ok"]
     .filter(Boolean)
