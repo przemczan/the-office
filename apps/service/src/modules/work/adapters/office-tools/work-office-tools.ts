@@ -452,7 +452,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: CREATE_INITIATIVE,
       description:
-        "Creates an Initiative in your name, only when the user asks for one or agrees to it: one outcome reached by Tasks across Projects. It lands being shaped and waits for the user's Confirm on its page, as one shaped from an Idea does. Name in its outcome the Projects it is meant to touch; its Tasks are added in its shaping Thread, with whoever holds Shapes Initiatives.",
+        "Creates an Initiative in your name, only when the user asks for one or agrees to it: one outcome reached by Tasks across Projects. It lands being shaped and waits for Confirm, on its page or with confirm_initiative where your Authority allows it, as one shaped from an Idea does. Name in its outcome the Projects it is meant to touch; its Tasks are added in its shaping Thread, with whoever holds Shapes Initiatives.",
       input: z.object({
         title: z.string().describe("One line naming the Initiative."),
         outcome: z

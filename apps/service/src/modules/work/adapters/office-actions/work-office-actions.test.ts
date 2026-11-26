@@ -12,19 +12,30 @@ import {
   CHANGE_TASK_PLAN_ACTION,
   CHANGE_TASK_PRIORITY_ACTION,
   CHANGE_TASK_TITLE_ACTION,
+  CONFIRM_INITIATIVE_ACTION,
   DROP_IDEA_ACTION,
   DROP_INITIATIVE_ACTION,
   DROP_TASK_ACTION,
   EDIT_IDEA_ACTION,
+  INITIATIVE_BACK_TO_SHAPING_ACTION,
+  PAUSE_INITIATIVE_ACTION,
+  PLAN_IDEA_AS_TASK_ACTION,
   REMOVE_DEPENDENCY_ACTION,
   REOPEN_TASK_ACTION,
   RESTORE_IDEA_ACTION,
   RESTORE_INITIATIVE_ACTION,
   RESTORE_TASK_ACTION,
+  RESUME_INITIATIVE_ACTION,
+  SET_INITIATIVE_ENGINE_ACTION,
+  SHAPE_IDEA_INTO_INITIATIVE_ACTION,
+  SHAPE_IDEA_INTO_TASK_ACTION,
+  START_READY_TASKS_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
+  WRITE_INITIATIVE_SHORT_NAME_ACTION,
   WRITE_INITIATIVE_OUTCOME_ACTION,
   historySchema,
   ideaSchema,
+  initiativePauseAnswerSchema,
   initiativeSchema,
   taskSchema,
   workRefusalSchema,
@@ -38,7 +49,11 @@ import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
-import { SessionPeopleForTests, SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
+import {
+  SessionPeopleForTests,
+  SessionTasksForTests,
+  TaskThreadsForTests,
+} from "../../ports/work-ports.fixtures.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { WRITE_PLAN } from "../office-tools/planning-office-tools.js";
 import {
@@ -81,6 +96,22 @@ const INITIATIVE_CREATORS_ACTIONS = [
   DROP_INITIATIVE_ACTION,
   ARCHIVE_INITIATIVE_ACTION,
   RESTORE_INITIATIVE_ACTION,
+  SET_INITIATIVE_ENGINE_ACTION,
+  WRITE_INITIATIVE_SHORT_NAME_ACTION,
+];
+/** The actions that shape an Idea, ruled by Ideas. */
+const IDEA_SHAPING_ACTIONS = [
+  SHAPE_IDEA_INTO_TASK_ACTION,
+  SHAPE_IDEA_INTO_INITIATIVE_ACTION,
+  PLAN_IDEA_AS_TASK_ACTION,
+];
+/** The actions that run an Initiative. */
+const RUNNING_ACTIONS = [
+  CONFIRM_INITIATIVE_ACTION,
+  INITIATIVE_BACK_TO_SHAPING_ACTION,
+  START_READY_TASKS_ACTION,
+  PAUSE_INITIATIVE_ACTION,
+  RESUME_INITIATIVE_ACTION,
 ];
 
 beforeAll(async () => {
@@ -142,6 +173,8 @@ describe("the derived Office tools", () => {
       ...TASK_CREATORS_ACTIONS,
       ...IDEA_CREATORS_ACTIONS,
       ...INITIATIVE_CREATORS_ACTIONS,
+      ...IDEA_SHAPING_ACTIONS,
+      ...RUNNING_ACTIONS,
     ]) {
       const [tool] = registry.named([action.name], RUN_EVERY_CALL);
       expect(tool).toMatchObject({
@@ -803,5 +836,156 @@ describe("write_initiative_outcome, drop_initiative, archive_initiative and rest
 
     expect(reasons.length).toBeGreaterThan(0);
     expect(answer).toEqual({ text: reasons.join(" "), isError: true });
+  });
+});
+
+describe("shaping an Idea", () => {
+  it("makes a Task through the tool and the route alike, each Idea shown Shaped and answered 201", async () => {
+    const byTool = await http.capture();
+    const byRoute = await http.capture();
+    const projectId = aProjectId();
+
+    const answer = await callTool(SHAPE_IDEA_INTO_TASK_ACTION.name, {
+      ideaId: byTool.id,
+      projectId,
+    });
+    const response = await sendJson(work, "POST", `/ideas/${byRoute.id}/shape`, { projectId });
+
+    expect(answer).toEqual({
+      text: `The Idea is Shaped: "Usage exports" is in Backlog now.`,
+      isError: false,
+    });
+    expect(response.status).toBe(201);
+    expect(taskSchema.parse(await response.json()).projectId).toBe(projectId);
+    for (const idea of [byTool, byRoute]) {
+      const read = await sendJson(work, "GET", `/ideas/${idea.id}`);
+      expect(ideaSchema.parse(await read.json()).state).toBe("shaped");
+    }
+  });
+
+  it("makes an Initiative through the tool and the route alike", async () => {
+    const byTool = await http.capture();
+    const byRoute = await http.capture();
+
+    const answer = await callTool(SHAPE_IDEA_INTO_INITIATIVE_ACTION.name, { ideaId: byTool.id });
+    const initiative = await http.shape(byRoute);
+
+    expect(answer).toEqual({
+      text: `The Idea is Shaped: the Initiative "Usage exports" is being shaped, with no Tasks yet.`,
+      isError: false,
+    });
+    expect(initiative.state).toBe("shaping");
+    const read = await sendJson(work, "GET", `/ideas/${byTool.id}`);
+    expect(ideaSchema.parse(await read.json())).toMatchObject({ state: "shaped" });
+  });
+
+  it("plans a Task through the tool, opening the Planner's Thread, as the route does", async () => {
+    const idea = await http.capture();
+    const projectId = aProjectId();
+
+    const answer = await callTool(PLAN_IDEA_AS_TASK_ACTION.name, { ideaId: idea.id, projectId });
+
+    expect(answer).toEqual({
+      text: `The Idea is Shaped: "Usage exports" is in Planning, its planning Thread open.`,
+      isError: false,
+    });
+    const [opened] = work.app.get(TaskThreadsForTests).opened;
+    expect(opened).toMatchObject({ roleKey: "planner" });
+    const read = await sendJson(work, "GET", `/ideas/${idea.id}`);
+    expect(ideaSchema.parse(await read.json()).state).toBe("shaped");
+  });
+
+  it("refuses an Idea already shaped in the same words to the user and the Agent", async () => {
+    const idea = await http.capture();
+    await http.shape(idea);
+
+    const response = await sendJson(work, "POST", `/ideas/${idea.id}/initiative`);
+    const answer = await callTool(SHAPE_IDEA_INTO_INITIATIVE_ACTION.name, { ideaId: idea.id });
+
+    const reasons = await refusalOf(response);
+    expect(answer).toEqual({ text: reasons.join(" "), isError: true });
+  });
+});
+
+describe("running an Initiative", () => {
+  it("confirms through the tool, then goes back to Shaping through the route", async () => {
+    const initiative = await aShapingInitiative();
+    await http.addTask(initiative);
+
+    const confirmed = await callTool(CONFIRM_INITIATIVE_ACTION.name, {
+      initiativeId: initiative.id,
+    });
+    const back = await sendJson(work, "POST", `/initiatives/${initiative.id}/back-to-shaping`);
+
+    expect(confirmed).toEqual({
+      text: `The Initiative "Usage exports" is confirmed, active.`,
+      isError: false,
+    });
+    expect(initiativeSchema.parse(await back.json()).state).toBe("shaping");
+    const again = await callTool(INITIATIVE_BACK_TO_SHAPING_ACTION.name, {
+      initiativeId: initiative.id,
+    });
+    expect(again.isError).toBe(true);
+  });
+
+  it("refuses Confirm of an active Initiative, and Start with no Ready Task, in the same words to both", async () => {
+    const initiative = await anActiveInitiative();
+
+    const confirmReasons = await refusalOf(await http.post(initiative, "confirm"));
+    const confirm = await callTool(CONFIRM_INITIATIVE_ACTION.name, { initiativeId: initiative.id });
+    const startReasons = await refusalOf(
+      await sendJson(work, "POST", `/initiatives/${initiative.id}/start`),
+    );
+    const start = await callTool(START_READY_TASKS_ACTION.name, { initiativeId: initiative.id });
+
+    expect(confirm).toEqual({ text: confirmReasons.join(" "), isError: true });
+    expect(start).toEqual({ text: startReasons.join(" "), isError: true });
+  });
+
+  it("pauses and resumes through the tool and the route, refusing each out of turn alike", async () => {
+    const initiative = await anActiveInitiative();
+
+    const paused = await callTool(PAUSE_INITIATIVE_ACTION.name, { initiativeId: initiative.id });
+    const resumed = await sendJson(work, "POST", `/initiatives/${initiative.id}/resume`);
+    const reasons = await refusalOf(
+      await sendJson(work, "POST", `/initiatives/${initiative.id}/resume`),
+    );
+    const resumedAgain = await callTool(RESUME_INITIATIVE_ACTION.name, {
+      initiativeId: initiative.id,
+    });
+
+    expect(paused).toEqual({
+      text: `The Initiative "Usage exports" is paused, with 0 of its Tasks paused.`,
+      isError: false,
+    });
+    expect(initiativePauseAnswerSchema.parse(await resumed.json()).initiative.pausedAt).toBeNull();
+    expect(resumedAgain).toEqual({ text: reasons.join(" "), isError: true });
+  });
+});
+
+describe("set_initiative_engine and write_initiative_short_name", () => {
+  it("change the engine and the Short name through the tool and the route", async () => {
+    const initiative = await aShapingInitiative();
+
+    const cleared = await callTool(SET_INITIATIVE_ENGINE_ACTION.name, {
+      initiativeId: initiative.id,
+      engineId: null,
+    });
+    const engine = await sendJson(work, "PUT", `/initiatives/${initiative.id}/engine`, {
+      engineId: null,
+    });
+    const refused = await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, {
+      shortName: "usage-csv",
+    });
+    const named = await callTool(WRITE_INITIATIVE_SHORT_NAME_ACTION.name, {
+      initiativeId: initiative.id,
+      shortName: "usage-csv",
+    });
+
+    expect(cleared.text).toBe(`The Initiative "Usage exports" has the engine as given now.`);
+    expect(initiativeSchema.parse(await engine.json()).engineOverride).toBeNull();
+    // With no Pipeline in any Project, the Initiative has no Short name to write.
+    expect(refused.status).toBe(422);
+    expect(named.isError).toBe(true);
   });
 });

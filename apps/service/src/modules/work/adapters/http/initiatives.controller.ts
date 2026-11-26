@@ -17,33 +17,22 @@ import {
   initiativePipelinesChangeSchema,
   initiativePlanningSchema,
   newInitiativeTaskSchema,
-  workEngineChangeSchema,
   searchQuerySchema,
-  shortNameChangeSchema,
   type ArchivedInitiativesPage,
   type ArchivedInitiativesQuery,
   type History,
   type Initiative as InitiativeResponse,
-  type InitiativePauseAnswer,
   type InitiativePipelineChoice,
   type InitiativePipelinesChange,
   type InitiativePlanningRequest,
   type NewInitiativeTask,
-  type WorkEngineChange,
-  type ReadyTasksStarted,
   type SearchQuery,
-  type ShortNameChange,
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
-import {
-  InitiativePause,
-  type InitiativePauseOutcome,
-} from "../../application/initiative-pause.js";
 import { InitiativePlanning } from "../../application/initiative-planning.js";
 import { InitiativeService } from "../../application/initiative-service.js";
-import { InitiativeStart } from "../../application/initiative-start.js";
 import type { Initiative } from "../../domain/initiative.js";
 import {
   toArchivedInitiativesPageResponse,
@@ -62,8 +51,6 @@ export class InitiativesController {
   constructor(
     private readonly initiatives: InitiativeService,
     private readonly planning: InitiativePlanning,
-    private readonly starting: InitiativeStart,
-    private readonly pausing: InitiativePause,
   ) {}
 
   /**
@@ -107,39 +94,6 @@ export class InitiativesController {
     return toHistoryResponse(await this.initiatives.history(id));
   }
 
-  /** "Confirm the Initiative": active, or done at once when its Tasks already are. */
-  @Post(":id/confirm")
-  @HttpCode(HttpStatus.OK)
-  async confirm(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.confirm(id, authorOf(signedIn)));
-  }
-
-  /** Back to Shaping: the user's undo of Confirm, refused with every reason it can't be. */
-  @Post(":id/back-to-shaping")
-  @HttpCode(HttpStatus.OK)
-  async backToShaping(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.backToShaping(id, authorOf(signedIn)));
-  }
-
-  /**
-   * The Initiative's engine override (spec 5.4.5), an engine only, null for none, while it is
-   * shaping or active; refused for an engine not listed, and when a Role of an open Task's Pipeline
-   * couldn't run on it.
-   */
-  @Put(":id/engine")
-  async setEngine(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(workEngineChangeSchema)) { engineId }: WorkEngineChange,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.setEngine(id, engineId));
-  }
-
   /**
    * The user's choice of the Initiative's Pipeline in one Project it spans, null for None; refused
    * once the Initiative is no longer being shaped, where only a Proposal of whoever shapes
@@ -167,15 +121,6 @@ export class InitiativesController {
     { pipelines, shortName }: InitiativePipelinesChange,
   ): Promise<InitiativeResponse> {
     return this.respond(await this.initiatives.setPipelines(id, pipelines, shortName));
-  }
-
-  /** The user's own Short name; refused once the Initiative is no longer being shaped. */
-  @Put(":id/short-name")
-  async writeShortName(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(shortNameChangeSchema)) { shortName }: ShortNameChange,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.writeShortName(id, shortName));
   }
 
   /**
@@ -218,62 +163,6 @@ export class InitiativesController {
   }
 
   /**
-   * Start Ready Tasks: the normal Start on each of the Initiative's Ready Tasks, an Overlap queued
-   * behind; what started, what was queued and what was refused, each with its reasons.
-   */
-  @Post(":id/start")
-  @HttpCode(HttpStatus.OK)
-  async startReadyTasks(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<ReadyTasksStarted> {
-    const { started, queued, refused } = await this.starting.startReadyTasks(
-      id,
-      authorOf(signedIn),
-    );
-    return {
-      started: started.map(({ id: taskId, title }) => ({ taskId, title })),
-      queued: queued.map(({ task, place, reasons }) => ({
-        taskId: task.id,
-        title: task.title,
-        place,
-        reasons: [...reasons],
-      })),
-      refused: refused.map(({ task, reasons }) => ({
-        taskId: task.id,
-        title: task.title,
-        reasons: [...reasons],
-      })),
-    };
-  }
-
-  /**
-   * Pause the Initiative: pauses its Tasks In progress or Waiting on you, and holds every Start of
-   * its Tasks until it is resumed; refused unless it is active and not paused.
-   */
-  @Post(":id/pause")
-  @HttpCode(HttpStatus.OK)
-  async pause(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativePauseAnswer> {
-    return this.respondToPause(await this.pausing.pause(id, authorOf(signedIn)));
-  }
-
-  /**
-   * Resume the Initiative: resumes the Tasks its Pause paused and lets its queued Tasks start;
-   * refused unless it is paused.
-   */
-  @Post(":id/resume")
-  @HttpCode(HttpStatus.OK)
-  async resume(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativePauseAnswer> {
-    return this.respondToPause(await this.pausing.resume(id, authorOf(signedIn)));
-  }
-
-  /**
    * A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it
    * names.
    */
@@ -285,13 +174,6 @@ export class InitiativesController {
   ): Promise<TaskResponse> {
     const task = await this.initiatives.addTask(id, given, blockedBy, authorOf(signedIn));
     return toTaskResponse(task, (await this.initiatives.read(id)).engineOverride);
-  }
-
-  private async respondToPause({
-    initiative,
-    taskIds,
-  }: InitiativePauseOutcome): Promise<InitiativePauseAnswer> {
-    return { initiative: await this.respond(initiative), taskIds: [...taskIds] };
   }
 
   private async respond(initiative: Initiative): Promise<InitiativeResponse> {

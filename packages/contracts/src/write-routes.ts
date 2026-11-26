@@ -166,16 +166,7 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
 
   // Work: Ideas, Initiatives, Attachments, views.
   { route: "POST /ideas", agent: "tool", note: "capture_idea (hand-written)" },
-  { route: "POST /ideas/:id/shape", agent: "gap" },
-  { route: "POST /ideas/:id/initiative", agent: "gap" },
-  { route: "POST /ideas/:id/plan", agent: "gap" },
   { route: "POST /initiatives/:id/tasks", agent: "partial", note: "add_task, shaping Thread only" },
-  { route: "POST /initiatives/:id/confirm", agent: "gap" },
-  { route: "POST /initiatives/:id/back-to-shaping", agent: "gap" },
-  { route: "POST /initiatives/:id/start", agent: "gap" },
-  { route: "POST /initiatives/:id/pause", agent: "gap" },
-  { route: "POST /initiatives/:id/resume", agent: "gap" },
-  { route: "PUT /initiatives/:id/engine", agent: "gap" },
   {
     route: "PUT /initiatives/:id/pipeline",
     agent: "partial",
@@ -186,7 +177,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     agent: "partial",
     note: "choose_pipeline, shaping Thread only",
   },
-  { route: "PUT /initiatives/:id/short-name", agent: "gap" },
   { route: "POST /initiatives/:id/shaping", agent: "gap" },
   { route: "POST /initiatives/:id/planning", agent: "gap" },
   { route: "POST /initiatives/:id/plan-with", agent: "gap" },

@@ -1,46 +1,21 @@
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseFilters } from "@nestjs/common";
 import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  UseFilters,
-} from "@nestjs/common";
-import {
-  ideaShapingSchema,
   newIdeaSchema,
   type Idea as IdeaResponse,
   type History,
-  type IdeaShaping,
-  type Initiative as InitiativeResponse,
   type NewIdea,
-  type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { IdeaService } from "../../application/idea-service.js";
-import { InitiativeService } from "../../application/initiative-service.js";
-import { PlanningService } from "../../application/planning-service.js";
-import {
-  toHistoryResponse,
-  toIdeaResponse,
-  toInitiativeResponse,
-  toTaskResponse,
-} from "./work-responses.js";
+import { toHistoryResponse, toIdeaResponse } from "./work-responses.js";
 import { authorOf } from "./signed-in-author.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("ideas")
 @UseFilters(WorkRefusalsFilter)
 export class IdeasController {
-  constructor(
-    private readonly ideas: IdeaService,
-    private readonly initiatives: InitiativeService,
-    private readonly planning: PlanningService,
-  ) {}
+  constructor(private readonly ideas: IdeaService) {}
 
   @Post()
   async capture(
@@ -69,45 +44,5 @@ export class IdeasController {
   @Get(":id/history")
   async history(@Param("id", ParseUUIDPipe) id: string): Promise<History> {
     return toHistoryResponse(await this.ideas.history(id));
-  }
-
-  /** The Task the Idea became, of the Kind chosen (a Feature by default). */
-  @Post(":id/shape")
-  @HttpCode(HttpStatus.CREATED)
-  async shape(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(ideaShapingSchema)) { projectId, kind, description }: IdeaShaping,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    const given = {
-      ...(kind !== undefined && { kind }),
-      ...(description !== undefined && { description }),
-    };
-    // A Task shaped from an Idea is in no Initiative.
-    return toTaskResponse(await this.ideas.shape(id, projectId, authorOf(signedIn), given), null);
-  }
-
-  /** Shape into an Initiative: the Initiative the Idea became, being shaped, with no Tasks yet. */
-  @Post(":id/initiative")
-  @HttpCode(HttpStatus.CREATED)
-  async shapeIntoInitiative(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativeResponse> {
-    return toInitiativeResponse(await this.initiatives.shape(id, authorOf(signedIn)), []);
-  }
-
-  /** Plan as a Task with the Planner: the Task the Idea became, in Planning with its Thread. */
-  @Post(":id/plan")
-  @HttpCode(HttpStatus.CREATED)
-  async shapeAndPlan(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    return toTaskResponse(
-      await this.planning.shapeAndPlan(id, projectId, authorOf(signedIn)),
-      null,
-    );
   }
 }

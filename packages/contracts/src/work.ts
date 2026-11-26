@@ -1882,6 +1882,139 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
 ]);
 export type WorkWebEvent = z.infer<typeof workWebEventSchema>;
 
+/** Office action: Shape the Idea into a Task. */
+export const SHAPE_IDEA_INTO_TASK_ACTION = officeAction({
+  name: "shape_idea_into_task",
+  description:
+    "Shapes an Idea into a Task in Backlog in the Project given, of the Kind given (a Feature by default); the Idea is Shaped afterwards. A Description is for a Bug from an Idea without notes.",
+  input: ideaShapingSchema.extend({ ideaId: ideaIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/ideas/:ideaId/shape" },
+  status: 201,
+  area: "ideas",
+  group: "ideas",
+  subject: ({ ideaId }) => ({ kind: "idea", id: ideaId }),
+});
+
+/** Office action: Shape the Idea into an Initiative. */
+export const SHAPE_IDEA_INTO_INITIATIVE_ACTION = officeAction({
+  name: "shape_idea_into_initiative",
+  description:
+    "Shapes an Idea into an Initiative, being shaped, with no Tasks yet; the Idea is Shaped afterwards.",
+  input: z.object({ ideaId: ideaIdInput }),
+  answer: initiativeSchema,
+  route: { method: "POST", path: "/ideas/:ideaId/initiative" },
+  status: 201,
+  area: "ideas",
+  group: "ideas",
+  subject: ({ ideaId }) => ({ kind: "idea", id: ideaId }),
+});
+
+/** Office action: Plan the Idea as a Task with the Planner. */
+export const PLAN_IDEA_AS_TASK_ACTION = officeAction({
+  name: "plan_idea_as_task",
+  description:
+    "Plans an Idea as a Task with the Planner: the Idea becomes a Task in Planning in the Project given, with its planning Thread open; the Idea is Shaped afterwards.",
+  input: ideaShapingSchema.pick({ projectId: true }).extend({ ideaId: ideaIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/ideas/:ideaId/plan" },
+  status: 201,
+  area: "ideas",
+  group: "ideas",
+  subject: ({ ideaId }) => ({ kind: "idea", id: ideaId }),
+});
+
+/** Office action: Confirm the Initiative. */
+export const CONFIRM_INITIATIVE_ACTION = officeAction({
+  name: "confirm_initiative",
+  description:
+    "Confirms an Initiative being shaped: it becomes active, or Done at once when its Tasks already are, and its branch is made in each Project that has a Pipeline. Refused with every reason it can't be confirmed.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: initiativeSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/confirm" },
+  area: "initiatives",
+  group: "runningAnInitiative",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: Back to Shaping, the undo of Confirm. */
+export const INITIATIVE_BACK_TO_SHAPING_ACTION = officeAction({
+  name: "initiative_back_to_shaping",
+  description:
+    "Takes a confirmed Initiative back to Shaping, undoing Confirm; refused with every reason it can't be, such as a Task that has started.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: initiativeSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/back-to-shaping" },
+  area: "initiatives",
+  group: "runningAnInitiative",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: Start Ready Tasks of the Initiative. */
+export const START_READY_TASKS_ACTION = officeAction({
+  name: "start_ready_tasks",
+  description:
+    "Starts every Ready Task of an active Initiative as Start does, an Overlap queued behind; answers what started, what was queued and what was refused, each with its reasons.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: readyTasksStartedSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/start" },
+  area: "initiatives",
+  group: "runningAnInitiative",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: Pause the Initiative. */
+export const PAUSE_INITIATIVE_ACTION = officeAction({
+  name: "pause_initiative",
+  description:
+    "Pauses an active Initiative: its Tasks In progress or Waiting on you are paused, and every Start of its Tasks is held until it is resumed.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: initiativePauseAnswerSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/pause" },
+  area: "initiatives",
+  group: "runningAnInitiative",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: Resume the Initiative. */
+export const RESUME_INITIATIVE_ACTION = officeAction({
+  name: "resume_initiative",
+  description:
+    "Resumes a paused Initiative: the Tasks its Pause paused go on and its queued Tasks may start.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: initiativePauseAnswerSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/resume" },
+  area: "initiatives",
+  group: "runningAnInitiative",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: the Initiative's engine override. */
+export const SET_INITIATIVE_ENGINE_ACTION = officeAction({
+  name: "set_initiative_engine",
+  description:
+    "Sets an Initiative's engine override, null for none, while it is shaping or active. Refused for an engine not listed, and when a Role of an open Task's Pipeline couldn't run on it.",
+  input: workEngineChangeSchema.extend({ initiativeId: initiativeIdInput }),
+  answer: initiativeSchema,
+  route: { method: "PUT", path: "/initiatives/:initiativeId/engine" },
+  area: "initiatives",
+  group: "initiativeRecords",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: the Initiative's Short name. */
+export const WRITE_INITIATIVE_SHORT_NAME_ACTION = officeAction({
+  name: "write_initiative_short_name",
+  description:
+    "Writes an Initiative's Short name, which its branches are named by, while it is being shaped.",
+  input: shortNameChangeSchema.extend({ initiativeId: initiativeIdInput }),
+  answer: initiativeSchema,
+  route: { method: "PUT", path: "/initiatives/:initiativeId/short-name" },
+  area: "initiatives",
+  group: "initiativeRecords",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
 /** Office action: Mark Ready, from Backlog or Planning. */
 export const MARK_TASK_READY_ACTION = officeAction({
   name: "mark_task_ready",
@@ -2145,6 +2278,16 @@ export const WORK_OFFICE_ACTIONS = [
   DROP_INITIATIVE_ACTION,
   ARCHIVE_INITIATIVE_ACTION,
   RESTORE_INITIATIVE_ACTION,
+  SHAPE_IDEA_INTO_TASK_ACTION,
+  SHAPE_IDEA_INTO_INITIATIVE_ACTION,
+  PLAN_IDEA_AS_TASK_ACTION,
+  CONFIRM_INITIATIVE_ACTION,
+  INITIATIVE_BACK_TO_SHAPING_ACTION,
+  START_READY_TASKS_ACTION,
+  PAUSE_INITIATIVE_ACTION,
+  RESUME_INITIATIVE_ACTION,
+  SET_INITIATIVE_ENGINE_ACTION,
+  WRITE_INITIATIVE_SHORT_NAME_ACTION,
   MARK_TASK_READY_ACTION,
   CONFIRM_TASK_PLAN_ACTION,
   CONFIRM_TASK_DEFINITION_OF_DONE_ACTION,

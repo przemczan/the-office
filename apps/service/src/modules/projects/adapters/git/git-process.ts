@@ -112,6 +112,9 @@ export class GitProcess {
         const decoder = new StringDecoder("utf8");
         child.stderr?.on("data", (chunk: Buffer) => onStandardError(decoder.write(chunk)));
       }
+      // git may exit before reading its input, as a commit a hook refuses does: the write then
+      // fails with EPIPE, and the exit code, not the pipe, says what happened.
+      child.stdin?.on("error", () => undefined);
       child.stdin?.end(input);
     }).finally(() => identity.release());
   }

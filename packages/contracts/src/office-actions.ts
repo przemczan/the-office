@@ -55,6 +55,8 @@ export interface OfficeAction<
   readonly answer: Answer;
   /** Under `/api`, its path parameters written `:name`. */
   readonly route: { readonly method: OfficeActionMethod; readonly path: string };
+  /** The status its route answers with when it succeeds; 200 when left out. */
+  readonly status?: 200 | 201;
   /** The tool area it belongs to (spec 6 › Tool areas). */
   readonly area: AuthorityAreaKey;
   /**

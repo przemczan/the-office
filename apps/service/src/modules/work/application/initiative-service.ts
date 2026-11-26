@@ -424,7 +424,7 @@ export class InitiativeService implements OnModuleInit {
 
   /**
    * The user's undo of Confirm (spec 2.1, "Back to Shaping"): shaping again, its waiting Tasks back
-   * in Shaping and its still-empty branches removed (InitiativeBranching). No Agent has a tool for it.
+   * in Shaping and its still-empty branches removed (InitiativeBranching).
    */
   async backToShaping(id: string, by: Author): Promise<Initiative> {
     return this.branching.backToShaping(id, by);

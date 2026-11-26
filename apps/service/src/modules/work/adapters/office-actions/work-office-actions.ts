@@ -1,6 +1,16 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   CHOOSE_TASK_ENGINE_ACTION,
+  CONFIRM_INITIATIVE_ACTION,
+  INITIATIVE_BACK_TO_SHAPING_ACTION,
+  PAUSE_INITIATIVE_ACTION,
+  PLAN_IDEA_AS_TASK_ACTION,
+  RESUME_INITIATIVE_ACTION,
+  SET_INITIATIVE_ENGINE_ACTION,
+  SHAPE_IDEA_INTO_INITIATIVE_ACTION,
+  SHAPE_IDEA_INTO_TASK_ACTION,
+  START_READY_TASKS_ACTION,
+  WRITE_INITIATIVE_SHORT_NAME_ACTION,
   CHOOSE_TASK_PIPELINE_ACTION,
   CONFIRM_TASK_DEFINITION_OF_DONE_ACTION,
   CONFIRM_TASK_PLAN_ACTION,
@@ -49,7 +59,12 @@ import type { z } from "zod";
 import { officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeMembership } from "../../application/initiative-membership.js";
+import {
+  InitiativePause,
+  type InitiativePauseOutcome,
+} from "../../application/initiative-pause.js";
 import { InitiativeService } from "../../application/initiative-service.js";
+import { InitiativeStart, type ReadyTasksStarted } from "../../application/initiative-start.js";
 import { ConflictResolutions } from "../../application/conflict-resolutions.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
@@ -67,7 +82,11 @@ import type { DependencyChanges } from "../../domain/task-dependencies.js";
 import { TaskDependencyRemoved } from "../../domain/task-events.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { SessionPeople } from "../../ports/session-people.js";
-import { initiativeResponse } from "../http/initiative-response.js";
+import {
+  initiativePauseResponse,
+  initiativeResponse,
+  readyTasksStartedResponse,
+} from "../http/initiative-response.js";
 import { TaskResponses } from "../http/task-responses.js";
 import { toIdeaResponse, toQueueResponse, toSavedViewResponse } from "../http/work-responses.js";
 import { answered, personInSession } from "../office-tools/work-tool-answers.js";
@@ -116,6 +135,8 @@ export class WorkOfficeActions implements OnModuleInit {
     private readonly queue: QueueService,
     private readonly conflictResolutions: ConflictResolutions,
     private readonly savedViews: SavedViewService,
+    private readonly readyTasks: InitiativeStart,
+    private readonly pausing: InitiativePause,
   ) {
     this.handlers = new Map(
       [
@@ -160,6 +181,16 @@ export class WorkOfficeActions implements OnModuleInit {
         this.dropInitiative(),
         this.archiveInitiative(),
         this.restoreInitiative(),
+        this.shapeIdeaIntoTask(),
+        this.shapeIdeaIntoInitiative(),
+        this.planIdeaAsTask(),
+        this.confirmInitiative(),
+        this.initiativeBackToShaping(),
+        this.startReadyTasks(),
+        this.pauseInitiative(),
+        this.resumeInitiative(),
+        this.setInitiativeEngine(),
+        this.writeInitiativeShortName(),
       ].map((each) => [each.action.name, each]),
     );
     const unhandled = WORK_OFFICE_ACTIONS.filter(({ name }) => !this.handlers.has(name));
@@ -664,6 +695,130 @@ export class WorkOfficeActions implements OnModuleInit {
         `The Initiative "${initiative.name}" is back on the board now, ${initiative.state}.`,
     });
   }
+
+  /** A Task shaped from an Idea is in no Initiative. */
+  private shapeIdeaIntoTask(): AnyWorkActionHandler {
+    return handler({
+      action: SHAPE_IDEA_INTO_TASK_ACTION,
+      handle: ({ ideaId, projectId, kind, description }, by) =>
+        this.ideas.shape(ideaId, projectId, by, {
+          ...(kind !== undefined && { kind }),
+          ...(description !== undefined && { description }),
+        }),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `The Idea is Shaped: "${task.title}" is in Backlog now.`,
+    });
+  }
+
+  private shapeIdeaIntoInitiative(): AnyWorkActionHandler {
+    return handler({
+      action: SHAPE_IDEA_INTO_INITIATIVE_ACTION,
+      handle: ({ ideaId }, by) => this.initiatives.shape(ideaId, by),
+      response: (initiative: Initiative) => initiativeResponse(this.initiatives, initiative),
+      words: async (initiative) =>
+        `The Idea is Shaped: the Initiative "${initiative.name}" is being shaped, with no Tasks yet.`,
+    });
+  }
+
+  /** Opens the Planner's planning Thread on the new Task, as the user's Plan as a Task does. */
+  private planIdeaAsTask(): AnyWorkActionHandler {
+    return handler({
+      action: PLAN_IDEA_AS_TASK_ACTION,
+      handle: ({ ideaId, projectId }, by) => this.planning.shapeAndPlan(ideaId, projectId, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) =>
+        `The Idea is Shaped: "${task.title}" is in Planning, its planning Thread open.`,
+    });
+  }
+
+  private confirmInitiative(): AnyWorkActionHandler {
+    return handler({
+      action: CONFIRM_INITIATIVE_ACTION,
+      handle: ({ initiativeId }, by) => this.initiatives.confirm(initiativeId, by),
+      response: (initiative: Initiative) => initiativeResponse(this.initiatives, initiative),
+      words: async (initiative) => {
+        const { branches } = await initiativeResponse(this.initiatives, initiative);
+        const made = branches.length
+          ? ` Its branches: ${branches.map(({ projectId, branch }) => `${branch} (${projectId})`).join(", ")}.`
+          : "";
+        return `The Initiative "${initiative.name}" is confirmed, ${initiative.state}.${made}`;
+      },
+    });
+  }
+
+  private initiativeBackToShaping(): AnyWorkActionHandler {
+    return handler({
+      action: INITIATIVE_BACK_TO_SHAPING_ACTION,
+      handle: ({ initiativeId }, by) => this.initiatives.backToShaping(initiativeId, by),
+      response: (initiative: Initiative) => initiativeResponse(this.initiatives, initiative),
+      words: async (initiative) => `The Initiative "${initiative.name}" is back to Shaping.`,
+    });
+  }
+
+  private startReadyTasks(): AnyWorkActionHandler {
+    return handler({
+      action: START_READY_TASKS_ACTION,
+      handle: ({ initiativeId }, by) => this.readyTasks.startReadyTasks(initiativeId, by),
+      response: async (result: ReadyTasksStarted) => readyTasksStartedResponse(result),
+      words: async ({ started, queued, refused }: ReadyTasksStarted) => {
+        return [
+          started.length ? `Started: ${titled(started)}.` : "Nothing started.",
+          ...queued.map(
+            ({ task, place, reasons }) =>
+              `"${task.title}" is in the queue, in place ${place}: ${reasons.join(" ")}`,
+          ),
+          ...refused.map(
+            ({ task, reasons }) => `"${task.title}" was refused: ${reasons.join(" ")}`,
+          ),
+        ].join(" ");
+      },
+    });
+  }
+
+  private pauseInitiative(): AnyWorkActionHandler {
+    return handler({
+      action: PAUSE_INITIATIVE_ACTION,
+      handle: ({ initiativeId }, by) => this.pausing.pause(initiativeId, by),
+      response: (outcome: InitiativePauseOutcome) =>
+        initiativePauseResponse(this.initiatives, outcome),
+      words: async ({ initiative, taskIds }: InitiativePauseOutcome) =>
+        `The Initiative "${initiative.name}" is paused, with ${taskIds.length} of its Tasks paused.`,
+    });
+  }
+
+  private resumeInitiative(): AnyWorkActionHandler {
+    return handler({
+      action: RESUME_INITIATIVE_ACTION,
+      handle: ({ initiativeId }, by) => this.pausing.resume(initiativeId, by),
+      response: (outcome: InitiativePauseOutcome) =>
+        initiativePauseResponse(this.initiatives, outcome),
+      words: async ({ initiative, taskIds }: InitiativePauseOutcome) =>
+        `The Initiative "${initiative.name}" goes on, with ${taskIds.length} of its Tasks resumed.`,
+    });
+  }
+
+  /** Takes no Author and keeps no History: nothing to record. */
+  private setInitiativeEngine(): AnyWorkActionHandler {
+    return handler({
+      action: SET_INITIATIVE_ENGINE_ACTION,
+      handle: ({ initiativeId, engineId }) => this.initiatives.setEngine(initiativeId, engineId),
+      response: (initiative: Initiative) => initiativeResponse(this.initiatives, initiative),
+      words: async (initiative) =>
+        `The Initiative "${initiative.name}" has the engine as given now.`,
+    });
+  }
+
+  /** Takes no Author and keeps no History: nothing to record. */
+  private writeInitiativeShortName(): AnyWorkActionHandler {
+    return handler({
+      action: WRITE_INITIATIVE_SHORT_NAME_ACTION,
+      handle: ({ initiativeId, shortName }) =>
+        this.initiatives.writeShortName(initiativeId, shortName),
+      response: (initiative: Initiative) => initiativeResponse(this.initiatives, initiative),
+      words: async (initiative) =>
+        `The Initiative "${initiative.name}" has the Short name as given now.`,
+    });
+  }
 }
 
 /** A Task Start left started or queued, with its place in the queue when it is. */
@@ -681,6 +836,10 @@ interface ResolvedConflicts extends StartedOrQueued {
 interface TaskBeforeAndAfter {
   readonly before: Task;
   readonly task: Task;
+}
+
+function titled(tasks: readonly Task[]): string {
+  return tasks.map(({ title }) => `"${title}"`).join(", ");
 }
 
 function stateWords(task: Task): string {

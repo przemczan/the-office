@@ -43,9 +43,9 @@ export abstract class OfficeActionRoutes {
 
 /**
  * The base of a module's controller of Office actions (the Office action convention): one route
- * per declared action, its method and path from the declaration, answering 200 with what `answer`
- * gives for its input and the signed-in user. The module's controller extends it under its own
- * `@Controller()` and refusal filters.
+ * per declared action, its method and path from the declaration, answering its status (200 unless
+ * it declares 201) with what `answer` gives for its input and the signed-in user. The module's
+ * controller extends it under its own `@Controller()` and refusal filters.
  */
 export function officeActionRoutes(
   actions: readonly OfficeAction[],
@@ -67,7 +67,7 @@ export function officeActionRoutes(
       action.name,
       descriptor,
     );
-    HttpCode(HttpStatus.OK)(Routes.prototype, action.name, descriptor);
+    HttpCode(action.status ?? HttpStatus.OK)(Routes.prototype, action.name, descriptor);
     OfficeActionInput(action)(Routes.prototype, action.name, 0);
     SignedIn()(Routes.prototype, action.name, 1);
   }
