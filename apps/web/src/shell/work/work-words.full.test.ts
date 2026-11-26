@@ -45,6 +45,15 @@ describe("authorName", () => {
     expect(authorName({ kind: "person", roleKey: "cto" }, roles, SIGNED_IN.id)).toBe("Grace");
   });
 
+  it("names the user who asked the person, You for the signed-in user", () => {
+    expect(
+      authorName({ kind: "person", roleKey: "cto", askedBy: BY_ANN }, roles, SIGNED_IN.id),
+    ).toBe("Grace, asked by Ann Lee");
+    expect(
+      authorName({ kind: "person", roleKey: "cto", askedBy: BY_YOU }, roles, SIGNED_IN.id),
+    ).toBe("Grace, asked by you");
+  });
+
   it("keeps You on a record from before users existed", () => {
     expect(authorName({ kind: "user", user: null }, roles, SIGNED_IN.id)).toBe("You");
   });

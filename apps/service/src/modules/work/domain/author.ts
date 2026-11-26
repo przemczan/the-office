@@ -13,7 +13,20 @@ export interface UserRef {
  */
 export type Author =
   | { readonly kind: "user"; readonly user: UserRef | null }
-  | { readonly kind: "person"; readonly roleKey: string };
+  | {
+      readonly kind: "person";
+      readonly roleKey: string;
+      /** The user who asked for what the person did: the one whose message their Thread answered. */
+      readonly askedBy?: UserRef;
+      /** The user who allowed the held call the person made, where it was held for approval. */
+      readonly allowedBy?: UserRef;
+    };
+
+/** The user behind an Author: the user themselves, or the one who asked the person; undefined if none. */
+export function userBehind(author: Author): UserRef | undefined {
+  if (author.kind === "user") return author.user ?? undefined;
+  return author.allowedBy ?? author.askedBy;
+}
 
 /** The user as the Author of what they did. */
 export function byTheUser(user: UserRef): Author {
@@ -22,7 +35,10 @@ export function byTheUser(user: UserRef): Author {
 
 /** The Author as a record names them: "the user Ann Lee", or "the user" before users existed. */
 export function authorWords(author: Author): string {
-  if (author.kind === "person") return `the person in the Role ${author.roleKey}`;
+  if (author.kind === "person") {
+    const person = `the person in the Role ${author.roleKey}`;
+    return author.askedBy ? `${person}, asked by ${author.askedBy.name}` : person;
+  }
   return author.user ? `the user ${author.user.name}` : "the user";
 }
 

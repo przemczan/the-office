@@ -16,3 +16,4 @@ export { EngineSettingsService } from "./application/engine-settings-service.js"
 export { anOfficeToolCall } from "./ports/office-tool.fixtures.js";
 // So a check pastes a real picture into a Thread.
 export { aPlainPng } from "./adapters/claude-code/png.fixtures.js";
+export { RUN_EVERY_CALL } from "./ports/office-tool-ruling.fixtures.js";

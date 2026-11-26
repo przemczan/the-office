@@ -19,6 +19,7 @@ import { SHAPING_OFFICE_TOOLS } from "../conversations/initiative-thread-records
 import { CHOOSE_PIPELINE } from "./shaping-office-tools.js";
 import { ANN_LEE } from "../../domain/work.fixtures.js";
 import { ANN_LEE as ANN_LEE_USER } from "../../../conversations/index.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -57,7 +58,7 @@ afterEach(async () => {
 });
 
 function call(input: Record<string, unknown>) {
-  const [tool] = work.app.get(OfficeToolRegistry).named([CHOOSE_PIPELINE]);
+  const [tool] = work.app.get(OfficeToolRegistry).named([CHOOSE_PIPELINE], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${CHOOSE_PIPELINE}.`);
   return tool.run(input, anOfficeToolCall(SESSION));
 }

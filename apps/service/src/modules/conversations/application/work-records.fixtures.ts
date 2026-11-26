@@ -13,6 +13,7 @@ export const NO_WORK_RECORDS: WorkRecordSource = {
   initiativeName: () => Promise.resolve(undefined),
   projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
   ideaRecord: () => Promise.resolve(undefined),
+  isOwnWork: () => Promise.resolve(false),
 };
 
 /** Every Task Work is asked about is there, titled and in the Project as given. */

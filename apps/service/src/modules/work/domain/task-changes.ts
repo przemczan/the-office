@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { Author, UserRef } from "./author.js";
+import { userBehind as userBehindAuthor, type Author, type UserRef } from "./author.js";
 import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js";
 import { dropReasonProblems, keptDropReason, type DropReason } from "./drop-reason.js";
 import {
@@ -38,6 +38,7 @@ import {
   byWayBack,
   userBehind,
   type BranchReset,
+  type PersonAuthor,
   type StateChange,
   type StateChangeCause,
 } from "./state-change.js";
@@ -665,16 +666,35 @@ function resumed(task: Task, by: StateChangeCause): TaskChange<TaskResumed> {
 /**
  * Restart from… (spec 2.4.5): the user's way back on a Task Paused by their own Pause or Stop, which
  * goes on In progress as Resume does (`TaskResumed`, which the walk reacts to, Pipelines having set
- * the Stage it goes on from), its History naming the Stage. Refused as `restartProblems` says.
+ * the Stage it goes on from), its History naming the Stage, and the person who restarted it at the
+ * user's request, if one did. Refused as `restartProblems` says.
  */
 export function restartTask(
   task: Task,
   holds: WayBackHolds,
-  restart: { readonly stageName: string; readonly user: UserRef },
+  restart: {
+    readonly stageName: string;
+    readonly user: UserRef;
+    readonly person?: PersonAuthor | undefined;
+  },
 ): TaskChange<TaskResumed> {
   const problems = restartProblems(task, holds);
   if (problems.length > 0) throw new TaskRefused(problems);
-  return resumed(task, byWayBack(restart.user, { kind: "restart", stageName: restart.stageName }));
+  const step = { kind: "restart", stageName: restart.stageName } as const;
+  return resumed(task, byWayBack(restart.user, step, restart.person));
+}
+
+/**
+ * Who takes a way back, as its move records them: the user, or the person with the user who asked
+ * them (or allowed their call). Refused when no user is behind the Author.
+ */
+export function wayBackTakenBy(by: Author): {
+  readonly user: UserRef;
+  readonly person: PersonAuthor | undefined;
+} {
+  const user = userBehindAuthor(by);
+  if (!user) throw new TaskRefused(["The Office doesn't know which user asked for this."]);
+  return { user, person: by.kind === "person" ? by : undefined };
 }
 
 /** What a Start over did to the Task's branch, as Pipelines answers it. */
@@ -685,6 +705,8 @@ export interface StartingOver {
   /** The local ref keeping the branch's old head; undefined when none was kept. */
   readonly keptRef: string | undefined;
   readonly user: UserRef;
+  /** The person who started it over at the user's request; undefined when the user did. */
+  readonly person?: PersonAuthor | undefined;
 }
 
 function branchResetOf({ resetTo, keptRef }: StartingOver): BranchReset | null {
@@ -705,10 +727,11 @@ export function startTaskOver(
 ): TaskChange<TaskStartedOver> {
   const problems = startOverProblems(task, holds);
   if (problems.length > 0) throw new TaskRefused(problems);
-  const by = byWayBack(startingOver.user, {
-    kind: "start-over",
-    branchReset: branchResetOf(startingOver),
-  });
+  const by = byWayBack(
+    startingOver.user,
+    { kind: "start-over", branchReset: branchResetOf(startingOver) },
+    startingOver.person,
+  );
   const stateChanged = new TaskStateChanged(task.id, task.state, "ready");
   return withStateChange(
     {
@@ -736,6 +759,8 @@ export function startTaskOver(
 /** How the user reopens a Task: who, when, and the Start over of a Task that had started. */
 export interface Reopening {
   readonly user: UserRef;
+  /** The person who reopened it at the user's request; undefined when the user did. */
+  readonly person?: PersonAuthor | undefined;
   readonly at: Date;
   /** The Start over Pipelines made of a Task that had started; undefined for one that hadn't. */
   readonly startedOver: StartingOver | undefined;
@@ -758,10 +783,10 @@ export function reopenTask(
 ): TaskChange<TaskReopened> {
   const problems = reopenProblems(task, to, grounds);
   if (problems.length > 0) throw new TaskRefused(problems);
-  const { user, at, startedOver } = reopening;
+  const { user, person, at, startedOver } = reopening;
   const state: Task["state"] =
     to === "ready" ? "ready" : grounds.initiative?.state === "shaping" ? "shaping" : "backlog";
-  const restored = restoreTask(task, at, { kind: "user", user });
+  const restored = restoreTask(task, at, person ?? { kind: "user", user });
   const from = restored?.task ?? task;
   const planning: Partial<Task> =
     state === "ready"
@@ -772,11 +797,15 @@ export function reopenTask(
           markedPlanned: false,
           hasPlanningThread: false,
         };
-  const by = byWayBack(user, {
-    kind: "reopen",
-    droppedAs: task.dropReason ?? null,
-    startedOver: startedOver ? { branchReset: branchResetOf(startedOver) } : null,
-  });
+  const by = byWayBack(
+    user,
+    {
+      kind: "reopen",
+      droppedAs: task.dropReason ?? null,
+      startedOver: startedOver ? { branchReset: branchResetOf(startedOver) } : null,
+    },
+    person,
+  );
   const stateChanged = new TaskStateChanged(task.id, task.state, state);
   return withStateChange(
     {

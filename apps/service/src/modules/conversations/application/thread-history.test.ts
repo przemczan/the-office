@@ -87,6 +87,7 @@ beforeAll(async () => {
           : { taskIds: [], initiativeIds: [] },
       ),
     ideaRecord: () => Promise.resolve(undefined),
+    isOwnWork: () => Promise.resolve(false),
   });
   history = app.get(ThreadHistory);
   repository = app.get(ThreadRepository);

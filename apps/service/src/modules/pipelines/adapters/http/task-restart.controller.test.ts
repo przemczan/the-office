@@ -41,14 +41,14 @@ async function pausedTask(): Promise<string> {
 }
 
 describe("POST /api/tasks/:id/restart", () => {
-  it("restarts the paused Task from the chosen Stage with the feedback, answering 204", async () => {
+  it("restarts the paused Task from the chosen Stage with the feedback, answering 200", async () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
     const taskId = await pausedTask();
 
     const response = await post(taskId, { stageKey: "ship", feedback: "Build it again." });
     await pipelines.app.get(StageInterpreter).walked(taskId);
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
     const runs = await runsOf(pipelines, taskId);
     expect(runs.map(({ stageKey }) => stageKey)).toEqual(["implement", "ship", "ship"]);
     expect(runs[1]?.restart).toMatchObject({ stageKey: "ship", feedback: "Build it again." });

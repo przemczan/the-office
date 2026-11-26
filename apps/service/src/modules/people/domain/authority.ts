@@ -52,6 +52,11 @@ export const AUTHORITY_GROUPS = [
 ] as const;
 export type AuthorityGroup = (typeof AUTHORITY_GROUPS)[number];
 
+/** Whether `key` is a group of the catalog, as the Office tools of other modules name theirs. */
+export function isAuthorityGroup(key: string): key is AuthorityGroup {
+  return (AUTHORITY_GROUPS as readonly string[]).includes(key);
+}
+
 /** A Hard switch's values, and Proposal: the person drafts it and the user applies it. */
 export type AuthorityValue = HardSwitchValue | { readonly kind: "proposal" };
 export type AuthorityValueKind = AuthorityValue["kind"];

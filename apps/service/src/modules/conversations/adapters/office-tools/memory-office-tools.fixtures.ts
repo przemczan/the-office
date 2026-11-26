@@ -10,6 +10,7 @@ import { REMEMBER_TOOL } from "../../domain/session-instructions.js";
 import type { Thread } from "../../domain/thread.js";
 import { ThreadRepository } from "../../ports/thread-repository.js";
 import { MemoryOfficeTools } from "./memory-office-tools.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 // What memory-office-tools.test.ts and memory-office-tools.full.test.ts share.
 
@@ -33,7 +34,7 @@ export function toolWith(thread: Thread | undefined, refusal?: string) {
   } as unknown as ThreadRepository;
   const registry = new OfficeToolRegistry();
   new MemoryOfficeTools(registry, memory, threads).onModuleInit();
-  const [tool] = registry.named([REMEMBER_TOOL]);
+  const [tool] = registry.named([REMEMBER_TOOL], RUN_EVERY_CALL);
   if (!tool) throw new Error("remember is not registered.");
   return { tool, written };
 }

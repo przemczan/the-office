@@ -1626,6 +1626,7 @@ export class ThreadRunner implements OnModuleDestroy {
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
       toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
       approvalHold: this.approvalHolds.of(id),
+      officeToolRuling: this.approvalHolds.ruling,
       turnLabel: `${card.name} in ${threadWords(thread)}`,
       telemetry: threadTelemetry(thread, roleKey, place),
     };

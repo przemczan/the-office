@@ -4,7 +4,7 @@ import { RestartRefused } from "../domain/restart-refused.js";
 import { runsOfLatestStart } from "../domain/start-over.js";
 import type { HoldingUser, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
-import { StartedTasks } from "../ports/started-tasks.js";
+import { StartedTasks, type RestartingPerson } from "../ports/started-tasks.js";
 import { TaskRecords } from "../ports/task-records.js";
 import { StageGit } from "./stage-git.js";
 import { TaskStagesService } from "./task-stages-service.js";
@@ -12,14 +12,14 @@ import { TaskStagesService } from "./task-stages-service.js";
 /** What the user restarts a Task from: a Stage of its Pipeline, by key, with optional feedback. */
 export interface RestartChoice {
   readonly stageKey: string;
-  readonly feedback: string | undefined;
+  readonly feedback?: string | undefined;
 }
 
 /**
- * The user's Restart from… on a Task they paused or stopped (spec §2.4.5, "Restart from"): the held
- * run keeps the restart, its uncommitted edits discarded, and the Task goes on In progress, the walk
- * running the chosen Stage next and going on from it by its routes (`nextMove`). It is the user's
- * alone: no Office tool calls it.
+ * Restart from… on a Task the user paused or stopped (spec §2.4.5, "Restart from"): the held run
+ * keeps the restart, its uncommitted edits discarded, and the Task goes on In progress, the walk
+ * running the chosen Stage next and going on from it by its routes (`nextMove`). The user's click
+ * and the `restart_task_from` Office tool both call it (`PipelinesOfficeActions`).
  */
 @Injectable()
 export class TaskRestarts {
@@ -31,8 +31,16 @@ export class TaskRestarts {
     private readonly stageGit: StageGit,
   ) {}
 
-  /** Restarts the Task from the chosen Stage; refused (`RestartRefused`) with every reason. */
-  async restart(taskId: string, choice: RestartChoice, byUser: HoldingUser): Promise<void> {
+  /**
+   * Restarts the Task from the chosen Stage for `byUser`, by `person` when they restart it at the
+   * user's request; refused (`RestartRefused`) with every reason.
+   */
+  async restart(
+    taskId: string,
+    choice: RestartChoice,
+    byUser: HoldingUser,
+    person?: RestartingPerson,
+  ): Promise<void> {
     const feedback = choice.feedback?.trim() || undefined;
     const by = { userId: byUser.userId, name: byUser.name };
     if (!(await this.taskStages.find(taskId))) {
@@ -61,7 +69,7 @@ export class TaskRestarts {
       await this.stageGit.discardHeld({ run: held, earlierRuns: runs.slice(0, -1) }, task);
       return stage.name;
     });
-    await this.tasks.restart(taskId, { stageName, by });
+    await this.tasks.restart(taskId, { stageName, by, person });
   }
 }
 

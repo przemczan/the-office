@@ -34,6 +34,7 @@ import { InMemoryActionRepository } from "./ports/action-repository.fixtures.js"
 import { Git } from "./ports/git.js";
 import { ProjectRepository } from "./ports/project-repository.js";
 import { OwnProjects, REPOSITORY, type SignedInGitHub } from "./pull-request-watch.fixtures.js";
+import { RUN_EVERY_CALL } from "../engine/index.fixtures.js";
 
 export { REPOSITORY } from "./pull-request-watch.fixtures.js";
 
@@ -133,7 +134,7 @@ export class CiRunTestbed {
 
   /** The Office tool of `name`, as a session would call it. */
   tool(name: string) {
-    const [tool] = this.app.get(OfficeToolRegistry).named([name]);
+    const [tool] = this.app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
     if (!tool) throw new Error(`No Office tool ${name}.`);
     return tool;
   }

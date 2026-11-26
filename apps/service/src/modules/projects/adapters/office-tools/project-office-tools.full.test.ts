@@ -6,6 +6,7 @@ import type { RepositoriesByUrl } from "../../application/repositories-by-url.js
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { LIST_PROJECTS, ProjectOfficeTools, READ_REPOSITORY } from "./project-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 function toolsOver(everyone: ProjectRecords["everyone"]): ProjectOfficeTools {
   return new ProjectOfficeTools(
@@ -55,10 +56,9 @@ describe("list_projects", () => {
 
     tools.onModuleInit();
 
-    expect(registry.named([LIST_PROJECTS, READ_REPOSITORY]).map(({ name }) => name)).toEqual([
-      LIST_PROJECTS,
-      READ_REPOSITORY,
-    ]);
+    expect(
+      registry.named([LIST_PROJECTS, READ_REPOSITORY], RUN_EVERY_CALL).map(({ name }) => name),
+    ).toEqual([LIST_PROJECTS, READ_REPOSITORY]);
   });
 });
 

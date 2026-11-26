@@ -218,6 +218,7 @@ export class AppModule {
       taskUsage: TaskTokens,
       stageContextLimitDefaults: ContextPolicySettingsService,
       taskThreadSessions: ThreadRunner,
+      sessionPeople: ThreadService,
       proposalDrafts: ProposalService,
       stageRoleEngines: PipelineRoleCapabilityChecks,
       roleEngineCascade: EngineCascade,

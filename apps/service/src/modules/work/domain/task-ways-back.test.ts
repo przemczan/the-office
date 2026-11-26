@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserRef } from "./author.js";
 import { taskHistoryLines } from "./record-edits.js";
-import type { StateChange } from "./state-change.js";
+import type { PersonAuthor, StateChange } from "./state-change.js";
 import { reopenTask, restartTask, startTaskOver } from "./task-changes.js";
 import {
   TaskReopened,
@@ -22,6 +22,7 @@ import {
 import { ANN_LEE, anInitiative, aPlannedTask, aTask } from "./work.fixtures.js";
 
 const ANN: UserRef = { userId: "00000000-0000-4000-8000-0000000005e1", name: "Ann Lee" };
+const DEVELOPER: PersonAuthor = { kind: "person", roleKey: "developer", askedBy: ANN };
 const FREE: WayBackHolds = { initiativePaused: false, alarmHoldsResume: false };
 const NO_INITIATIVE: ReopenGrounds = { initiative: undefined, initiativeTasks: [] };
 const KEPT_REF = "refs/office/started-over/task-1/1";
@@ -60,6 +61,18 @@ describe("Restart from…", () => {
     expect(change.event).toEqual(new TaskResumed(paused.id));
     expect(historyLineOf(change)).toBe(
       "Paused → In progress, by the user Ann Lee: Restarted from Build",
+    );
+  });
+
+  it("names the person who restarted it at the user's request, keeping the person's cause", () => {
+    const change = restartTask(paused, FREE, { stageName: "Build", user: ANN, person: DEVELOPER });
+
+    expect(change.stateChange?.by).toEqual({
+      ...DEVELOPER,
+      wayBack: { kind: "restart", stageName: "Build" },
+    });
+    expect(historyLineOf(change)).toBe(
+      "Paused → In progress, by the person in the Role developer, asked by Ann Lee: Restarted from Build",
     );
   });
 
@@ -189,6 +202,19 @@ describe("Reopen…", () => {
     );
     expect(historyLineOf(change)).toBe(
       "Dropped → Backlog, by the user Ann Lee: Reopened (dropped as Won't fix)",
+    );
+  });
+
+  it("names the person who reopened it, Restoring an archived one in their name", () => {
+    const archived = { ...dropped, archivedAt: new Date("2026-11-21T00:00:00.000Z") };
+    const change = reopenTask(archived, "backlog", NO_INITIATIVE, {
+      ...reopening,
+      person: DEVELOPER,
+    });
+
+    expect(change.task).toMatchObject({ archivedAt: undefined, restoredBy: DEVELOPER });
+    expect(historyLineOf(change)).toBe(
+      "Dropped → Backlog, by the person in the Role developer, asked by Ann Lee: Reopened (dropped as Won't fix)",
     );
   });
 

@@ -37,6 +37,39 @@ export const authorityGroupSchema = z.enum([
 ]);
 export type AuthorityGroup = z.infer<typeof authorityGroupSchema>;
 
+/**
+ * Spec §6 › Tool areas: the nine areas a session loads together and the Role card's Authority shows,
+ * each with the groups and single tools inside it. A group in no area (the followed groups and
+ * Approve held calls and apply Proposals) holds no Office action.
+ */
+export const AUTHORITY_AREA_GROUPS = {
+  work: ["taskRecords", "movingWork", "gatesAndRuns", "continueAtGateOnOwnWork"],
+  initiatives: ["initiativeRecords", "runningAnInitiative"],
+  ideas: ["ideas", "captureIdea"],
+  projectsAndSettings: [
+    "changeProjectSettings",
+    "publishingSettings",
+    "projectSettings",
+    "projectUpkeep",
+    "secretValues",
+  ],
+  peopleAndRoles: ["changeRoles", "memoryAndAvatar"],
+  library: ["skills", "mcpServers", "pipelinesAndStageTemplates", "promptTemplates"],
+  officeSettings: ["officeSettings"],
+  testInstancesAndDevices: ["testInstances", "projectDevices"],
+  operations: ["fireAlarm", "checks", "updatesAndRestarts"],
+} as const satisfies Record<string, readonly AuthorityGroup[]>;
+
+export const authorityAreaKeySchema = z.enum(
+  Object.keys(AUTHORITY_AREA_GROUPS) as [keyof typeof AUTHORITY_AREA_GROUPS],
+);
+export type AuthorityAreaKey = z.infer<typeof authorityAreaKeySchema>;
+
+/** Whether `group` is one of `area`'s groups or single tools in the catalog. */
+export function isGroupOfArea(area: AuthorityAreaKey, group: AuthorityGroup): boolean {
+  return (AUTHORITY_AREA_GROUPS[area] as readonly AuthorityGroup[]).includes(group);
+}
+
 /** A Consult value names the Role to consult by its key. */
 export const authorityValueSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("allowed") }),

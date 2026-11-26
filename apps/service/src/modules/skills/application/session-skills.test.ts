@@ -29,6 +29,7 @@ import { SkillsModule } from "../skills.module.js";
 import { RoleSkills } from "./role-skills.js";
 import { SessionSkills, type PreparedSkills } from "./session-skills.js";
 import { SkillLibrary } from "./skill-library.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 /** The library's folder, doing what the test asks while a skill's files are read. */
 class LibraryFolderWhileReading extends FilesystemLibraryFolder {
@@ -536,6 +537,7 @@ async function firstTurnTokens(
     id: randomUUID(),
     settings: {
       engineId: "claude-code",
+      officeToolRuling: RUN_EVERY_CALL,
       turnLabel: "Jim in a chat",
       folder: worktree,
       environment: Object.fromEntries(

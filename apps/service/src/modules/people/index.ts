@@ -53,6 +53,7 @@ export { MemoryService } from "./application/memory-service.js";
 export { MemoryTaskTitles, type MemoryTaskTitleSource } from "./application/memory-task-titles.js";
 export { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./domain/role-events.js";
 export {
+  ASK_ME,
   hardSwitchInEffect,
   HARD_SWITCH_LABELS,
   type HardSwitches,
@@ -64,6 +65,7 @@ export {
   authorityWithHardSwitches,
   hardSwitchesOf,
   type Authority,
+  isAuthorityGroup,
   type AuthorityGroup,
   type AuthorityInEffect,
   type AuthoritySetting,

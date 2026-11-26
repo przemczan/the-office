@@ -1,13 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { UserRef } from "../domain/author.js";
+import type { Author } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import { isInitiativePaused } from "../domain/initiative-pause.js";
 import type { Task } from "../domain/task.js";
 import {
   reopenTask,
   startTaskOver,
+  wayBackTakenBy,
   type StartingOver,
   type TaskChange,
 } from "../domain/task-changes.js";
@@ -78,13 +79,14 @@ export class TaskWaysBack {
    * Refused while the fire alarm, its engine's usage window or its paused Initiative holds it, and
    * when its work has left the workstation.
    */
-  async startOver(id: string, resetBranch: boolean, by: UserRef): Promise<Task> {
+  async startOver(id: string, resetBranch: boolean, by: Author): Promise<Task> {
+    const { user, person } = wayBackTakenBy(by);
     const task = await this.tasks.read(id);
     const work = this.startOvers.registered;
     refuse(startOverProblems(task, await this.tasks.wayBackHolds(task)));
     refuse((await work.refusals(id)).map(startOverRefusalWords));
-    const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by });
-    const startingOver: StartingOver = { resetBranch, resetTo, keptRef, user: by };
+    const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
+    const startingOver: StartingOver = { resetBranch, resetTo, keptRef, user, person };
     // The alarm holds no Start over (a Ready Task doesn't walk); its Initiative is read as held.
     const { task: changed, event } = await this.change(task, (held, initiativePaused) =>
       startTaskOver(held, { initiativePaused, alarmHoldsResume: false }, startingOver),
@@ -99,7 +101,8 @@ export class TaskWaysBack {
    * its branch and the same refusal once its work has left the workstation. In an active Initiative,
    * it waits in front of its Project's Publishing Task again while that hasn't started.
    */
-  async reopen(id: string, to: ReopenTo, resetBranch: boolean, by: UserRef): Promise<Task> {
+  async reopen(id: string, to: ReopenTo, resetBranch: boolean, by: Author): Promise<Task> {
+    const { user, person } = wayBackTakenBy(by);
     const task = await this.tasks.read(id);
     const work = this.startOvers.registered;
     refuse(reopenProblems(task, to, await this.reopenGrounds(task)));
@@ -107,10 +110,10 @@ export class TaskWaysBack {
     let startedOver: StartingOver | undefined;
     if (hadStarted) {
       refuse(await work.refusals(id));
-      const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by });
-      startedOver = { resetBranch, resetTo, keptRef, user: by };
+      const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
+      startedOver = { resetBranch, resetTo, keptRef, user, person };
     }
-    const reopening = { user: by, at: new Date(), startedOver };
+    const reopening = { user, person, at: new Date(), startedOver };
     const { task: reopened, event } =
       task.initiativeId === undefined
         ? await this.repository.update(id, (held) =>

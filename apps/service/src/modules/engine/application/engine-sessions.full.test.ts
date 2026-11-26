@@ -64,6 +64,7 @@ import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowSamples } from "./usage-window-samples.js";
 import { UsageWindowReadings } from "./usage-window-readings.js";
 import { UsageWindowState } from "./usage-window-state.js";
+import { RUN_EVERY_CALL } from "../ports/office-tool-ruling.fixtures.js";
 
 // What engine-sessions.test.ts and engine-sessions.full.test.ts share.
 
@@ -101,6 +102,7 @@ const LAB: ApiEngine = {
 
 const SETTINGS: SessionSettings = {
   engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+  officeToolRuling: RUN_EVERY_CALL,
   folder: "/work/task-1",
   environment: {},
   model: "claude-haiku-5-5",

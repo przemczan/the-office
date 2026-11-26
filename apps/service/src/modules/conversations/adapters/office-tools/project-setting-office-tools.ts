@@ -22,6 +22,7 @@ import {
 } from "../../../projects/index.js";
 import { HeldCalls } from "../../application/held-calls.js";
 import { canonicalCall } from "../../domain/canonical-call.js";
+import { latestWriter } from "../../domain/message.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
 import {
   CHANGE_PROJECT_SETTINGS_TOOL,
@@ -324,12 +325,15 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
       };
     }
     const person = await this.roleCards.find(outcome.roleKey);
+    const writer = latestWriter(await this.threads.messages(thread.id));
+    const asked = writer ? { askedBy: { userId: writer.userId, name: writer.name } } : {};
     const by: SettingChangedBy = {
       kind: "person",
       roleKey: outcome.roleKey,
       name: person?.card.name ?? outcome.roleKey,
       title: person?.card.title ?? outcome.roleKey,
       taskId: thread.home.taskId,
+      ...asked,
     };
     return this.apply(project, this.steps(project, sections, commands, targets), by);
   }

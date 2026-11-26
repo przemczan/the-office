@@ -1,5 +1,16 @@
 import type { GateDropReason } from "../domain/stage-run.js";
 
+/**
+ * The person who restarts a Task by its Office tool: the Role they fill, the user who asked them
+ * and, for a call held for approval, the user who allowed it.
+ */
+export interface RestartingPerson {
+  readonly kind: "person";
+  readonly roleKey: string;
+  readonly askedBy?: { readonly userId: string; readonly name: string };
+  readonly allowedBy?: { readonly userId: string; readonly name: string };
+}
+
 /** The states the walk reads a Task in and moves it between. */
 export type WalkTaskState = "in-progress" | "waiting-on-you" | "done" | "dropped";
 
@@ -144,13 +155,15 @@ export abstract class StartedTasks {
 
   /**
    * The user's Restart from… `stageName`: the Paused Task goes on In progress as a Resume does
-   * (`TaskResumed`), its History naming the Stage and the user; refused as `restartProblems` says.
+   * (`TaskResumed`), its History naming the Stage and the user, or the person who restarted it at
+   * the user's request; refused as `restartProblems` says.
    */
   abstract restart(
     taskId: string,
     restart: {
       readonly stageName: string;
       readonly by: { readonly userId: string; readonly name: string };
+      readonly person?: RestartingPerson | undefined;
     },
   ): Promise<StartedTask>;
 

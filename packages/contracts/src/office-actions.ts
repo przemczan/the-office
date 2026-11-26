@@ -1,32 +1,40 @@
 import type { z } from "zod";
-import type { DutyKey } from "./people.js";
+import {
+  authorityAreaKeySchema,
+  authorityGroupSchema,
+  isGroupOfArea,
+  type AuthorityAreaKey,
+  type AuthorityGroup,
+  type AuthorityValue,
+} from "./authority.js";
 
-/** The records an Office action acts on, as the user sees them. */
-export type OfficeActionRecord = "task" | "initiative" | "idea" | "project" | "role" | "skill";
+/** What an Office action changes, as the user sees it: every subject a user changes. */
+export type OfficeActionSubjectKind =
+  | "task"
+  | "initiative"
+  | "idea"
+  | "project"
+  | "role"
+  | "skill"
+  | "mcp-server"
+  | "pipeline"
+  | "stage-template"
+  | "office-setting"
+  | "test-instance";
+
+/** The one subject a call of an Office action changes, by its kind and its id. */
+export interface OfficeActionSubject {
+  readonly kind: OfficeActionSubjectKind;
+  readonly id: string;
+}
 
 /** The HTTP methods an Office action's route takes: each changes something. */
 export type OfficeActionMethod = "POST" | "PUT" | "DELETE";
 
 /**
- * The records a person creates in a Thread with an Office tool: create_task, capture_idea and
- * create_initiative.
- */
-export type CreatedRecord = "task" | "idea" | "initiative";
-
-/**
- * Who gets an Office action's tool, exactly one kind of cover (spec 5.4.1, "Office actions"):
- * - `duties`: a person holding one of them, in every Thread the user talks to them in;
- * - `creators`: whoever can create the record in the Thread, wherever its create tool is offered,
- *   so a person can fix what they made. Never in an Agent Stage.
- */
-export type OfficeActionCover =
-  | { readonly kind: "duties"; readonly duties: readonly [DutyKey, ...DutyKey[]] }
-  | { readonly kind: "creators"; readonly record: CreatedRecord };
-
-/**
- * One thing the user can do on a record, declared once (the Office action convention, spec 5.4):
- * the route the web calls and the Office tool Agents call both come from it, and both call the
- * one handler of the module that owns the record.
+ * One thing the user can do, declared once (the Office action convention, spec 5.4): the route the
+ * web calls and the Office tool Agents call both come from it, and both call the one handler of
+ * the module that owns the subject.
  */
 export interface OfficeAction<
   Input extends z.ZodObject = z.ZodObject,
@@ -34,7 +42,6 @@ export interface OfficeAction<
 > {
   /** The Office tool's name, in snake_case, unique among Office tools. */
   readonly name: string;
-  readonly record: OfficeActionRecord;
   /** What the Agent reads to decide when to call it, in the UI's own words. */
   readonly description: string;
   /**
@@ -46,11 +53,20 @@ export interface OfficeAction<
   readonly answer: Answer;
   /** Under `/api`, its path parameters written `:name`. */
   readonly route: { readonly method: OfficeActionMethod; readonly path: string };
+  /** The tool area it belongs to (spec 6 › Tool areas). */
+  readonly area: AuthorityAreaKey;
   /**
-   * Who gets its tool (`OfficeActionCover`). Whether a call is allowed is the handler's domain
-   * rules, the same for the user and Agents.
+   * The group or single tool of that area whose Authority setting rules it. Whether a call is
+   * allowed beyond that is the handler's domain rules, the same for the user and Agents.
    */
-  readonly coveredBy: OfficeActionCover;
+  readonly group: AuthorityGroup;
+  /**
+   * What the action starts at on a card with no setting for its group, when that differs from the
+   * group's own default; left out, the group's default rules.
+   */
+  readonly defaultAuthority?: AuthorityValue;
+  /** The subject a call with this input changes, so the ruling tells own work from others'. */
+  subject(input: z.output<Input>): OfficeActionSubject;
 }
 
 /** Declares an Office action, refusing one whose path names a parameter its input doesn't have. */
@@ -68,9 +84,18 @@ export function officeAction<Input extends z.ZodObject, Answer extends z.ZodType
       `The Office action ${action.name} is a DELETE, so its path names all its input.`,
     );
   }
-  // The tuple type keeps duties non-empty for typed callers; this refuses an empty one cast past it.
-  if (action.coveredBy.kind === "duties" && action.coveredBy.duties.length === 0) {
-    throw new Error(`The Office action ${action.name} names no duty that covers it.`);
+  if (!authorityAreaKeySchema.safeParse(action.area).success) {
+    throw new Error(`The Office action ${action.name}'s area ${action.area} isn't in the catalog.`);
+  }
+  if (!authorityGroupSchema.safeParse(action.group).success) {
+    throw new Error(
+      `The Office action ${action.name}'s group ${action.group} isn't in the catalog.`,
+    );
+  }
+  if (!isGroupOfArea(action.area, action.group)) {
+    throw new Error(
+      `The Office action ${action.name}'s group ${action.group} isn't in the area ${action.area}.`,
+    );
   }
   return action;
 }

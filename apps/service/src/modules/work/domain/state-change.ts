@@ -39,14 +39,30 @@ export interface UserWayBack {
   readonly wayBack: WayBackStep;
 }
 
-/** The user's way back, as the cause of the move it makes. */
-export function byWayBack(user: UserRef, wayBack: WayBackStep): UserWayBack {
-  return { kind: "user", user, wayBack };
+/** A person as an Author: the Role they fill, and the users who asked for and allowed what they did. */
+export type PersonAuthor = Extract<Author, { readonly kind: "person" }>;
+
+/**
+ * A move a person made by a way back, at a user's request: their Author's cause with the step,
+ * which a release that doesn't know `wayBack` reads as the person alone.
+ */
+export type PersonWayBack = PersonAuthor & { readonly wayBack: WayBackStep };
+
+/**
+ * A way back as the cause of the move it makes: the user's own, or, when `person` took it as an
+ * Office action, the person's, the user being the one who asked them.
+ */
+export function byWayBack(
+  user: UserRef,
+  wayBack: WayBackStep,
+  person?: PersonAuthor,
+): UserWayBack | PersonWayBack {
+  return person ? { ...person, wayBack } : { kind: "user", user, wayBack };
 }
 
 /**
- * Who or what moved a Task between states: the user, or a person, as an Author, the user's by a
- * way back with its step; its Pipeline, as a
+ * Who or what moved a Task between states: the user, or a person, as an Author, either by a way
+ * back with its step; its Pipeline, as a
  * Stage waits on the user, completes or drops it; the fire alarm; the queue, starting it as its turn
  * came, with who queued it (null for a start kept before that was); its engine's usage window, used up or reset; auto mode, marking it Ready with what it confirmed first; or The Office itself, for the
  * reason it gives.
@@ -54,6 +70,7 @@ export function byWayBack(user: UserRef, wayBack: WayBackStep): UserWayBack {
 export type StateChangeCause =
   | Author
   | UserWayBack
+  | PersonWayBack
   | { readonly kind: "pipeline" }
   | { readonly kind: "fire-alarm" }
   | { readonly kind: "queue"; readonly queuedBy: Author | null }
@@ -85,11 +102,10 @@ export interface StateChange {
 export function stateChangeCauseWords(cause: StateChangeCause): string {
   switch (cause.kind) {
     case "user":
+    case "person":
       return "wayBack" in cause
         ? `${authorWords(cause)}: ${wayBackWords(cause.wayBack)}`
         : authorWords(cause);
-    case "person":
-      return authorWords(cause);
     case "pipeline":
       return "its Pipeline";
     case "fire-alarm":

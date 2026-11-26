@@ -1,12 +1,17 @@
 import type { ApprovalCall } from "../../engine/index.js";
 import {
   sessionRole,
-  type AuthorityValue,
-  type HardSwitchKey,
+  type AuthorityGroup,
+  type AuthoritySetting,
   type RoleCards,
 } from "../../people/index.js";
 import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
-import { oneOptionAnswer, type Decision, type DecisionDraft } from "../domain/decision.js";
+import {
+  oneOptionAnswer,
+  type AnswerGivenBy,
+  type Decision,
+  type DecisionDraft,
+} from "../domain/decision.js";
 import { aDecision } from "../domain/decision.fixtures.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { aThread } from "../domain/thread.fixtures.js";
@@ -37,8 +42,8 @@ export const request: HeldCallRequest = {
 
 export interface Setup {
   /** The value of the caller's Authority row `switchKey`, Change Project settings when left out. */
-  readonly setting: AuthorityValue;
-  readonly switchKey?: HardSwitchKey;
+  readonly setting: AuthoritySetting;
+  readonly switchKey?: AuthorityGroup;
   /** The Roles someone fills besides the caller's. */
   readonly hired?: readonly string[];
   /** The hired people who may be consulted, by the key of their Role. */
@@ -101,13 +106,20 @@ export function heldCallsWith({
   );
   return {
     heldCalls: new HeldCalls(roleCards, threads, consultations, approvalHolds),
+    roleCards,
+    threads,
+    approvalHolds,
     opened,
     putTo,
   };
 }
 
 /** An approval of `words` (the held call when left out), answered with the option at `option`. */
-export function anApproval(option: number, words: string = CALL): Decision {
+export function anApproval(
+  option: number,
+  words: string = CALL,
+  givenBy: AnswerGivenBy = {},
+): Decision {
   return aDecision({
     kind: "approval",
     questions: [
@@ -118,7 +130,11 @@ export function anApproval(option: number, words: string = CALL): Decision {
         recommendation: { option: 0, reason: "It needs doing." },
       },
     ],
-    answer: { ...oneOptionAnswer(option), answeredAt: new Date("2026-10-25T09:05:00.000Z") },
+    answer: {
+      ...oneOptionAnswer(option),
+      ...givenBy,
+      answeredAt: new Date("2026-10-25T09:05:00.000Z"),
+    },
   });
 }
 

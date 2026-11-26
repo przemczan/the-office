@@ -2,10 +2,11 @@ import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
 import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
 import { OfficeToolRegistry } from "../../engine/index.js";
-import { CARETAKER, Duties, RoleCards } from "../../people/index.js";
+import { CARETAKER, Duties, isAuthorityGroup, RoleCards } from "../../people/index.js";
 import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import type { Brief } from "../domain/brief.js";
 import { canCall } from "../domain/consult.js";
+import { offeredTools } from "../domain/office-tool-ruling.js";
 import {
   caretakerChatInstructions,
   chatInstructions,
@@ -19,7 +20,6 @@ import {
   chatOfficeTools,
   consultationOfficeTools,
   personToolsRule,
-  recordsCreatedWith,
   threadOfficeTools,
   type HeldDuties,
   type SessionPerson,
@@ -142,9 +142,8 @@ export class SessionPlaces {
   ) {}
 
   /**
-   * Every Thread the user talks to a person in also gets the Office actions' tools their held
-   * duties cover, and those of the records its tools create (spec 5.4.1); a Stage's Thread does its
-   * Stage's work only, so gets none. Its
+   * Every Thread the user talks to a person in also gets the Office actions' tools their Authority
+   * doesn't rule Never (spec 5.4.1); a Stage's Thread does its Stage's work only, so gets none. Its
    * instructions render with the templates' texts as they are now, so a resumed session gets the
    * current text too. Every session reads the knowledge base its Brief names, never changing it.
    * `logBefore` is the id of the message the session answers, once it is logged
@@ -154,26 +153,38 @@ export class SessionPlaces {
     const held = await this.duties.heldBy(thread.roleKey);
     const home = await this.homePlace(thread, held, logBefore);
     const prompts = await this.promptTemplates.textsOf(SESSION_INSTRUCTION_TEMPLATES);
-    const actionTools = thread.stageThread ? [] : this.actionTools(held, home.officeTools);
+    const officeTools = await this.offeredTools(thread, held, home.officeTools);
     return {
       ...home,
       readableFolders: [...this.knowledgeBase.readableFolders, ...home.readableFolders],
-      officeTools: [...home.officeTools, ...actionTools],
+      officeTools,
       heldDuties: held,
       instructions: (person) => home.instructions(prompts, person),
     };
   }
 
   /**
-   * The Office actions' tools a Thread the user talks in adds to its home's: those the person's
-   * held duties cover, and those covered by whoever creates a record the home's tools create.
+   * The Office tools the session is offered: its home's, and for a Thread the user talks in every
+   * Office action's tool beside them, all but those its person's Authority rules Never (spec 6 ›
+   * Tool areas). A Stage's fixed list is narrowed the same way, never widened (spec 2.3.1).
    */
-  private actionTools(held: HeldDuties, homeTools: readonly string[]): string[] {
-    const covered = new Set([
-      ...this.tools.coveredBy(held),
-      ...this.tools.coveredByCreatorsOf(recordsCreatedWith(homeTools)),
-    ]);
-    return [...covered].filter((name) => !homeTools.includes(name));
+  private async offeredTools(
+    thread: Thread,
+    held: HeldDuties,
+    homeTools: readonly string[],
+  ): Promise<string[]> {
+    const card = await this.roleCards.find(thread.roleKey);
+    if (!card) return [...homeTools];
+    const actionTools = this.tools.actionTools();
+    const groupOf = new Map(
+      actionTools.flatMap(({ name, group }) =>
+        isAuthorityGroup(group) ? [[name, group] as const] : [],
+      ),
+    );
+    const named = thread.stageThread
+      ? [...homeTools]
+      : [...new Set([...homeTools, ...actionTools.map(({ name }) => name)])];
+    return offeredTools(named, groupOf, card.authority, held);
   }
 
   private async homePlace(

@@ -18,6 +18,7 @@ import {
   ENVIRONMENT_CHECK_TOOL_TIMEOUT_MS,
   EnvironmentCheckOfficeTools,
 } from "./environment-check-office-tools.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 const SESSION = "session-1";
 const TASK = "task-1";
@@ -107,7 +108,7 @@ function setup({
     } as unknown as WorkRecords,
     stops,
   ).onModuleInit();
-  const [tool] = registry.named([RUN_ENVIRONMENT_CHECK_TOOL]);
+  const [tool] = registry.named([RUN_ENVIRONMENT_CHECK_TOOL], RUN_EVERY_CALL);
   if (!tool) throw new Error("run_environment_check is not registered.");
   const run = (input: { project?: string; task?: string }, session = SESSION) =>
     tool.run({ why: "To see it works.", ...input }, anOfficeToolCall(session));

@@ -28,6 +28,7 @@ import {
   type NewProject,
   type TaskBaseLookup,
 } from "../../projects/index.js";
+import type { UserRef } from "../domain/author.js";
 import type { AccountWindowsReading, UsedUpWindowReading } from "../domain/cap-waits.js";
 import {
   FIRE_ALARM_OFF,
@@ -616,6 +617,13 @@ export class SessionPeopleForTests extends SessionPeople {
 
   async personInSession(sessionId: string): Promise<string | undefined> {
     return sessionId === UNKNOWN_SESSION ? undefined : (this.people.get(sessionId) ?? "planner");
+  }
+
+  /** The user who asked in each session a test names; none in any other. */
+  readonly askedBy = new Map<string, UserRef>();
+
+  async askedByInSession(sessionId: string): Promise<UserRef | undefined> {
+    return this.askedBy.get(sessionId);
   }
 }
 

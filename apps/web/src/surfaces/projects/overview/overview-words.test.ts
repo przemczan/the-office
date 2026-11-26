@@ -208,6 +208,21 @@ describe("settingChangeWords", () => {
       sentence({ kind: "person", roleKey: "devops", name: "Nina", title: "Devops", taskId: "t-1" }),
     ).toBe("Nina (Devops) changed Commands");
   });
+
+  it("names the user who asked the person for the change beside the person", () => {
+    const by = {
+      kind: "person",
+      roleKey: "devops",
+      name: "Nina",
+      title: "Devops",
+      taskId: "t-1",
+      askedBy: { userId: "user-ann", name: "Ann Lee" },
+    } as const;
+
+    expect(settingChangeWords(aSettingChange("change", { by })).who).toBe(
+      "Nina (Devops), asked by Ann Lee",
+    );
+  });
 });
 
 /** A setting change's line read as one sentence, made `by`. */

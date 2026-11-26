@@ -100,10 +100,12 @@ import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskPublishing } from "./task-publishing.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
 import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
+import { SessionPeople } from "./session-people.js";
 import { TaskThreadSessions } from "./task-thread-sessions.js";
 import { TaskUsage } from "./task-usage.js";
 import { StageContextLimitDefaults } from "./stage-context-limit-defaults.js";
 import type { ContextLimits } from "../domain/stage-context-limits.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 /** Run environments' check and write in memory: valid unless a test puts what the next gives. */
 @Injectable()
@@ -772,6 +774,7 @@ export class StageThreadsForTests extends StageThreads {
       id: randomUUID(),
       settings: {
         engineId: engine,
+        officeToolRuling: RUN_EVERY_CALL,
         turnLabel: `Someone in the Stage ${request.stageName}`,
         folder: request.folder,
         environment: request.environment,
@@ -966,6 +969,20 @@ export class TaskThreadSessionsForTests extends TaskThreadSessions {
   endWaiting(taskId: string): Promise<void> {
     this.observe?.(taskId);
     return Promise.resolve();
+  }
+}
+
+/** Each session is the Developer's, asked by nobody until a test says who. */
+@Injectable()
+export class SessionPeopleForTests extends SessionPeople {
+  asked: { readonly userId: string; readonly name: string } | undefined = undefined;
+
+  personInSession(): Promise<string | undefined> {
+    return Promise.resolve("developer");
+  }
+
+  askedByInSession(): Promise<{ readonly userId: string; readonly name: string } | undefined> {
+    return Promise.resolve(this.asked);
   }
 }
 
@@ -1486,6 +1503,7 @@ export class PipelinesPortsForTestsModule {
       TaskUsageForTests,
       StageContextLimitDefaultsForTests,
       TaskThreadSessionsForTests,
+      SessionPeopleForTests,
       ProposalDraftsForTests,
       StageRoleEnginesForTests,
       RoleEngineCascadeForTests,

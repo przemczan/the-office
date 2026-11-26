@@ -1,5 +1,7 @@
+import { AUTHORITY_AREA_GROUPS } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  AUTHORITY_AREAS,
   AUTHORITY_GROUPS,
   authorityInEffect,
   authorityProblems,
@@ -20,6 +22,16 @@ const ownAllowedOthersAskMe: AuthoritySetting = {
   own: ALLOWED,
   others: ASK_ME,
 };
+
+describe("the Authority's tool areas", () => {
+  it("hold the same groups, in the same order, as the contracts' catalog the Office actions name", () => {
+    const named = AUTHORITY_AREAS.filter(({ label }) => label !== null).map(({ rows }) =>
+      rows.map(({ group }) => group),
+    );
+
+    expect(named).toEqual(Object.values(AUTHORITY_AREA_GROUPS));
+  });
+});
 
 describe("authorityProblems", () => {
   // Spec §6 › The trust anchor: a capped row takes Proposal, Ask me or Never only.

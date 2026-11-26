@@ -8,6 +8,7 @@ import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
 import { LIST_PEOPLE, PeopleOfficeTools, READ_ROLE } from "./people-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { toolsOver } from "./people-office-tools.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 describe("list_people", () => {
   it("says so when nobody is hired", async () => {
@@ -182,9 +183,8 @@ describe("People's Office tools", () => {
       {} as Duties,
     ).onModuleInit();
 
-    expect(registry.named([LIST_PEOPLE, READ_ROLE]).map(({ name }) => name)).toEqual([
-      LIST_PEOPLE,
-      READ_ROLE,
-    ]);
+    expect(
+      registry.named([LIST_PEOPLE, READ_ROLE], RUN_EVERY_CALL).map(({ name }) => name),
+    ).toEqual([LIST_PEOPLE, READ_ROLE]);
   });
 });

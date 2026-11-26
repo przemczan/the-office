@@ -73,6 +73,7 @@ import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
+import { RunEveryOfficeToolCall } from "./approval-holds.fixtures.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
@@ -251,6 +252,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
+      RunEveryOfficeToolCall,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
@@ -346,6 +348,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     initiativeName: () => Promise.resolve(undefined),
     projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
     ideaRecord: () => Promise.resolve(undefined),
+    isOwnWork: () => Promise.resolve(false),
   });
   threads = app.get(ThreadService);
   decisions = app.get(DecisionService);

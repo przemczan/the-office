@@ -190,7 +190,7 @@
 - `office-process.ts`: EventLoopDelay, OfficeProcess, NodeOfficeProcess
 - `request-recording.ts`: RequestDurations, recordRequests
 - `statement-shape.ts`: READ_LENGTH, StatementShape, statementShapeOf
-- `system-health-recorder.ts`: HEALTH_READING_INTERVAL_MS, HEALTH_READINGS_KEPT, HEALTH_READING_JOB, HealthReading, SlowestRoute, SlowestQuery, SystemHealthLastHour, QueryListener, SystemHealthRecorder
+- `system-health-recorder.ts`: HEALTH_READING_INTERVAL_MS, HEALTH_READINGS_KEPT, HEALTH_READING_JOB, HealthReading, SlowestRoute, SlowestQuery, SystemHealthLastHour, QueryListener, RequestListener, SystemHealthRecorder
 - `system-health.fixtures.ts`: FakeOfficeProcess, START, RecorderForTests, recorderForTests
 - `system-health.module.ts`: SystemHealthModule
 - Tests: call-site.test.ts, request-recording.test.ts, statement-shape.full.test.ts, statement-shape.test.ts, system-health-recorder-cost.test.ts, system-health-recorder.full.test.ts, system-health-recorder.test.ts

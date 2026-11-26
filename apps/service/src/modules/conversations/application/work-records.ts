@@ -1,3 +1,4 @@
+import type { OfficeToolSubject } from "../../engine/index.js";
 import { Injectable } from "@nestjs/common";
 
 /**
@@ -33,6 +34,11 @@ export interface WorkRecordSource {
   /** The Tasks in the Project, archived ones too, and the Initiatives spanning it, by their ids. */
   projectWork(projectId: string): Promise<ProjectWork>;
   ideaRecord(ideaId: string): Promise<string | undefined>;
+  /**
+   * Whether the subject is the person's own work (spec 6 › Authority): a Task, Idea or Initiative
+   * they created, or a Task they worked a Stage of. False for any other subject.
+   */
+  isOwnWork(roleKey: string, subject: OfficeToolSubject): Promise<boolean>;
 }
 
 /** What names a Thread on a Task in a list: the Task's title and its Project. */
@@ -107,6 +113,10 @@ export class WorkRecords implements WorkRecordSource {
 
   ideaRecord(ideaId: string): Promise<string | undefined> {
     return this.registered().ideaRecord(ideaId);
+  }
+
+  isOwnWork(roleKey: string, subject: OfficeToolSubject): Promise<boolean> {
+    return this.registered().isOwnWork(roleKey, subject);
   }
 
   private registered(): WorkRecordSource {

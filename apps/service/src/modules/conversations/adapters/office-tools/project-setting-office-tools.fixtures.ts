@@ -12,9 +12,11 @@ import {
 } from "../../../projects/index.js";
 import type { HeldCallOutcome, HeldCallRequest, HeldCalls } from "../../application/held-calls.js";
 import { CHANGE_PROJECT_SETTINGS_TOOL } from "../../domain/session-instructions.js";
-import { aThread } from "../../domain/thread.fixtures.js";
+import { aThread, aUserMessage } from "../../domain/thread.fixtures.js";
+import { ANN_LEE } from "../../domain/user.fixtures.js";
 import type { ThreadRepository } from "../../ports/thread-repository.js";
 import { ProjectSettingOfficeTools } from "./project-setting-office-tools.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 // What the change_project_settings tool's tests share.
 
@@ -29,6 +31,7 @@ export const BY_NINA: SettingChangedBy = {
   name: "Nina",
   title: "Devops",
   taskId: TASK,
+  askedBy: ANN_LEE,
 };
 
 type Project = Awaited<ReturnType<ProjectService["read"]>>;
@@ -201,6 +204,7 @@ export function toolsOn(
   const threads = {
     findBySession: (sessionId: string) =>
       Promise.resolve(sessionId === SESSION ? thread : undefined),
+    messages: () => Promise.resolve([aUserMessage(thread, "Set up Shop's environment.")]),
   } as unknown as ThreadRepository;
   const roleCards = {
     find: () => Promise.resolve({ card: { name: "Nina", title: "Devops" } }),
@@ -216,7 +220,7 @@ export function toolsOn(
     threads,
     roleCards,
   ).onModuleInit();
-  const [tool] = registry.named([CHANGE_PROJECT_SETTINGS_TOOL]);
+  const [tool] = registry.named([CHANGE_PROJECT_SETTINGS_TOOL], RUN_EVERY_CALL);
   if (!tool) throw new Error(`${CHANGE_PROJECT_SETTINGS_TOOL} is not registered.`);
   return { tool };
 }

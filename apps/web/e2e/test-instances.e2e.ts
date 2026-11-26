@@ -219,6 +219,8 @@ test("the Initiative page launches a Hosted test instance, opens it, shows its l
   page,
   context,
 }) => {
+  // A real launch, which may take 30 seconds alone, then opening, the log and a stop.
+  test.setTimeout(60_000);
   const repository = await createTemporaryRepository();
   let initiativeId: string | undefined;
   try {
@@ -384,6 +386,8 @@ async function buildProject(page: Page, repository: TemporaryRepository): Promis
 test("the Initiative page builds a Build to install test instance, downloads its file and shows its QR code", async ({
   page,
 }) => {
+  // A real build, which may take 60 seconds alone, then its download and QR code.
+  test.setTimeout(90_000);
   const repository = await createTemporaryRepository();
   let initiativeId: string | undefined;
   try {

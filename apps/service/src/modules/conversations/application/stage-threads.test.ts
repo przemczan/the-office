@@ -87,6 +87,7 @@ import { OfficeInstructionsRepository } from "../ports/office-instructions-repos
 import { OfficeInstructions } from "./office-instructions.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
+import { RunEveryOfficeToolCall } from "./approval-holds.fixtures.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
@@ -104,6 +105,7 @@ import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postg
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
 import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -237,6 +239,7 @@ async function startOn(
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
+      RunEveryOfficeToolCall,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
@@ -1325,7 +1328,7 @@ describe("propose_bug_task on a Stage", () => {
     expect(asked).toBeUndefined();
     const [thread] = await repository.listIn({ kind: "task", taskId: request.taskId });
     const sessionId = thread?.session?.id ?? "";
-    const [tool] = app.get(OfficeToolRegistry).named([PROPOSE_BUG_TASK_TOOL]);
+    const [tool] = app.get(OfficeToolRegistry).named([PROPOSE_BUG_TASK_TOOL], RUN_EVERY_CALL);
 
     expect(await tool?.run({ ...PROPOSED, projectId: "nowhere" }, { sessionId } as never)).toEqual({
       text: 'There is no Project "nowhere".',

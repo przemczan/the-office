@@ -331,7 +331,8 @@ export class PlanningOfficeTools implements OnModuleInit {
     if (roleKey === undefined) {
       throw new WorkToolRefused("This session is nobody's, so it plans no Task.");
     }
-    return { kind: "person", roleKey };
+    const askedBy = await this.sessionPeople.askedByInSession(sessionId);
+    return askedBy ? { kind: "person", roleKey, askedBy } : { kind: "person", roleKey };
   }
 }
 

@@ -39,6 +39,7 @@ import { RoleSkills } from "./role-skills.js";
 import { SessionSkills, type PreparedSkills } from "./session-skills.js";
 import { SkillLibrary } from "./skill-library.js";
 import { SKILL_USE_PRUNE } from "./skill-uses.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
 
@@ -168,6 +169,7 @@ function settingsOn(
 ): SessionSettings {
   return {
     ...engine,
+    officeToolRuling: RUN_EVERY_CALL,
     folder: checkout.path,
     environment: {},
     effort: "low",

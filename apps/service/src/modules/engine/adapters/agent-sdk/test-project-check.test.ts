@@ -34,6 +34,7 @@ import type { SessionEvent, ToolCallEvent } from "../../ports/session-events.js"
 import { NoLanguageServers } from "../scripted/no-language-servers.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
 import { AgentSdkEngine } from "./agent-sdk-engine.js";
+import { RUN_EVERY_CALL } from "../../ports/office-tool-ruling.fixtures.js";
 
 /**
  * Task 06's check on the Test Project: a read-only session in a worktree of it reads a file, is
@@ -123,6 +124,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           id: sessionId,
           settings: {
             engineId: "claude-code",
+            officeToolRuling: RUN_EVERY_CALL,
             turnLabel: "Jim in a chat",
             folder: worktree,
             environment: Object.fromEntries(

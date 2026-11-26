@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 import {
   publishResultSchema,
   stagePositionSchema,
@@ -235,13 +236,33 @@ export type SendBack = z.infer<typeof sendBackSchema>;
 /**
  * POST /tasks/:id/restart, Restart from… a Task the user paused or stopped: any Stage of its
  * Pipeline, later ones too, with optional feedback. The held run ends, its uncommitted edits
- * discarded, and the Task goes on In progress from that Stage. Answers 204.
+ * discarded, and the Task goes on In progress from that Stage. Answers an empty object.
  */
 export const taskRestartSchema = z.object({
   stageKey: z.string().min(1),
   feedback: z.string().trim().optional(),
 });
 export type TaskRestart = z.infer<typeof taskRestartSchema>;
+
+/** Office action: Restart from… a Task the user paused or stopped. */
+export const RESTART_TASK_FROM_ACTION = officeAction({
+  name: "restart_task_from",
+  description:
+    "Restarts a Paused Task from a Stage of its Pipeline, later ones too, with optional feedback: the held run ends, its uncommitted edits are discarded, and the Task goes on In progress from that Stage.",
+  input: z.object({
+    taskId: z.uuid().describe("The id of the Task."),
+    stageKey: z.string().min(1).describe("The key of the Stage the Task goes on from."),
+    feedback: z.string().trim().optional().describe("Feedback to brief the Stage with."),
+  }),
+  answer: z.object({}),
+  route: { method: "POST", path: "/tasks/:taskId/restart" },
+  area: "work",
+  group: "gatesAndRuns",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** The Office actions Pipelines carries out. */
+export const PIPELINES_OFFICE_ACTIONS = [RESTART_TASK_FROM_ACTION] as const;
 
 /** What a refused Gate action answers: every reason, also joined into Nest's `message`. */
 export const gateRefusalSchema = z.object({

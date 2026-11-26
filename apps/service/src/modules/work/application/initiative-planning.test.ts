@@ -54,6 +54,7 @@ import {
   startWorkApplication,
   type WorkApplication,
 } from "../work-application.fixtures.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 const prompts = defaultWorkPrompts();
 const INITIATIVE_PLANNING_OPENING = initiativePlanningOpening(prompts);
@@ -139,7 +140,7 @@ async function planned(initiativeId: string, autoMode: boolean): Promise<Initiat
 }
 
 function call(name: string, input: Record<string, unknown>, sessionId = SESSION) {
-  const [tool] = work.app.get(OfficeToolRegistry).named([name]);
+  const [tool] = work.app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${name}.`);
   return tool.run(input, anOfficeToolCall(sessionId));
 }

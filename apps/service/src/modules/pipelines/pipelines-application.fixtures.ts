@@ -46,6 +46,7 @@ import {
   TaskPublishingForTests,
   TaskRecordsForTests,
   TaskScreenshotsForTests,
+  SessionPeopleForTests,
   TaskThreadSessionsForTests,
 } from "./ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
@@ -163,6 +164,7 @@ async function startOn(
         taskUsage: TaskUsageForTests,
         stageContextLimitDefaults: StageContextLimitDefaultsForTests,
         taskThreadSessions: TaskThreadSessionsForTests,
+        sessionPeople: SessionPeopleForTests,
         proposalDrafts: ProposalDraftsForTests,
         stageRoleEngines: StageRoleEnginesForTests,
         roleEngineCascade: RoleEngineCascadeForTests,

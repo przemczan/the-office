@@ -80,7 +80,7 @@ beforeAll(async () => {
       { provide: RoleCards, useValue: { find: () => Promise.resolve(undefined) } },
       {
         provide: OfficeToolRegistry,
-        useValue: { coveredBy: () => [], coveredByCreatorsOf: () => [] },
+        useValue: { actionTools: () => [] },
       },
     ],
   }));

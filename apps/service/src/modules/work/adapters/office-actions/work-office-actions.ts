@@ -17,7 +17,9 @@ import {
   REMOVE_DEPENDENCY_ACTION,
   RESTORE_IDEA_ACTION,
   RESTORE_INITIATIVE_ACTION,
+  REOPEN_TASK_ACTION,
   RESTORE_TASK_ACTION,
+  START_TASK_OVER_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
   WORK_OFFICE_ACTIONS,
   WRITE_INITIATIVE_OUTCOME_ACTION,
@@ -30,6 +32,7 @@ import { InitiativeMembership } from "../../application/initiative-membership.js
 import { InitiativeService } from "../../application/initiative-service.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
+import { TaskWaysBack } from "../../application/task-ways-back.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
@@ -78,6 +81,7 @@ export class WorkOfficeActions implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly tasks: TaskService,
+    private readonly waysBack: TaskWaysBack,
     private readonly planning: PlanningService,
     private readonly ideas: IdeaService,
     private readonly initiatives: InitiativeService,
@@ -100,6 +104,8 @@ export class WorkOfficeActions implements OnModuleInit {
         this.dropTask(),
         this.archiveTask(),
         this.restoreTask(),
+        this.startTaskOver(),
+        this.reopenTask(),
         this.editIdea(),
         this.dropIdea(),
         this.restoreIdea(),
@@ -118,11 +124,11 @@ export class WorkOfficeActions implements OnModuleInit {
   onModuleInit(): void {
     for (const each of this.handlers.values()) {
       this.registry.register(
-        officeActionTool(each.action, (input, { sessionId }) =>
+        officeActionTool(each.action, (input, { sessionId, allowedBy }) =>
           answered(async () => {
             const result = await each.handle(
               input,
-              await personInSession(this.sessionPeople, sessionId),
+              await personInSession(this.sessionPeople, sessionId, allowedBy),
             );
             return each.words(result, input);
           }),
@@ -297,6 +303,25 @@ export class WorkOfficeActions implements OnModuleInit {
       response: (task: Task) => this.responses.task(task),
       words: async (task) =>
         `"${task.title}" is in the Archive now, off the board, ${stateWords(task)}.`,
+    });
+  }
+
+  private startTaskOver(): AnyWorkActionHandler {
+    return handler({
+      action: START_TASK_OVER_ACTION,
+      handle: ({ taskId, resetBranch }, by) => this.waysBack.startOver(taskId, resetBranch, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is started over, ${stateWords(task)}.`,
+    });
+  }
+
+  private reopenTask(): AnyWorkActionHandler {
+    return handler({
+      action: REOPEN_TASK_ACTION,
+      handle: ({ taskId, to, resetBranch }, by) =>
+        this.waysBack.reopen(taskId, to, resetBranch, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) => `"${task.title}" is reopened, ${stateWords(task)}.`,
     });
   }
 

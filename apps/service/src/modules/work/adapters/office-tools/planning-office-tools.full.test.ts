@@ -30,6 +30,7 @@ import {
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 import { ANN_LEE } from "../../domain/work.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -72,7 +73,7 @@ async function aTaskInPlanning(): Promise<Task> {
 
 /** Calls the Office tool as the Planner's session on the Task would. */
 function call(name: string, input: Record<string, unknown>, sessionId = SESSION) {
-  const [tool] = work.app.get(OfficeToolRegistry).named([name]);
+  const [tool] = work.app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${name}.`);
   return tool.run(input, anOfficeToolCall(sessionId));
 }

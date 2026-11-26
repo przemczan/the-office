@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { Logger, type INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  type AuthorityGroup,
   ANSWER_DECISION_TOOL,
   MESSAGE_IMAGE_BYTES,
   messageCommand,
@@ -34,7 +35,6 @@ import {
   ScriptedEngine,
   ScriptedEngineModule,
   type Engine,
-  type OfficeToolCover,
   type SessionScript,
 } from "../../engine/index.js";
 import {
@@ -130,6 +130,7 @@ import { OfficeInstructionsRepository } from "../ports/office-instructions-repos
 import { OfficeInstructions } from "./office-instructions.js";
 import { FireAlarmLifts, HELD_BY_THE_FIRE_ALARM } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
+import { RunEveryOfficeToolCall } from "./approval-holds.fixtures.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
@@ -156,6 +157,7 @@ import {
   PromptTemplateRepositoryForTests,
 } from "../../prompt-templates/index.fixtures.js";
 import { CHAT_INSTRUCTIONS, HANDOVER_REQUEST } from "../domain/session-instruction-templates.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 /** Who holds each duty: their default Roles, until a test moves one. */
 let duties: DutiesStandIn;
@@ -408,6 +410,7 @@ async function startOn(
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
+      RunEveryOfficeToolCall,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
@@ -483,6 +486,7 @@ async function startOn(
     initiativeName: () => Promise.resolve(undefined),
     projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
     ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
+    isOwnWork: () => Promise.resolve(false),
   });
   messageImages = new MessageImagesInMemory();
   app.get(MessageImages).provide(messageImages);
@@ -2895,7 +2899,7 @@ describe("a Decision", () => {
     const opened = await plannerAnswering();
     await answered(opened.id, 3);
     const session = (await threads.read(opened.id)).session?.id ?? "";
-    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL]);
+    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL], RUN_EVERY_CALL);
 
     const result = await tool?.run(
       {
@@ -2922,7 +2926,7 @@ describe("a Decision", () => {
     await runner.send(chat.id, "Hello.", ANN_LEE);
     await answered(chat.id, 3);
     const chatSession = (await threads.read(chat.id)).session?.id ?? "";
-    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL]);
+    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL], RUN_EVERY_CALL);
     const input = {
       context: "",
       questions: [
@@ -3388,7 +3392,7 @@ async function answerDecisionWith(
   sessionId: string,
   input: Record<string, unknown>,
 ): Promise<{ readonly text: string; readonly isError: boolean } | undefined> {
-  const [tool] = app.get(OfficeToolRegistry).named([ANSWER_DECISION_TOOL]);
+  const [tool] = app.get(OfficeToolRegistry).named([ANSWER_DECISION_TOOL], RUN_EVERY_CALL);
   return tool?.run(input, anOfficeToolCall(sessionId));
 }
 
@@ -4917,7 +4921,7 @@ function standInsFor(names: readonly string[]): void {
   const registry = app.get(OfficeToolRegistry);
   for (const name of names) {
     try {
-      registry.named([name]);
+      registry.named([name], RUN_EVERY_CALL);
     } catch {
       registry.register({
         name,
@@ -4929,31 +4933,22 @@ function standInsFor(names: readonly string[]): void {
   }
 }
 
-/** Registers a stand-in for an Office action's tool, covered by `coveringDuties`. */
-function actionStandIn(name: string, coveringDuties: readonly string[]): void {
-  coveredStandIn(name, { kind: "duties", duties: coveringDuties });
-}
-
-/** Registers a stand-in for an Office action's tool, covered by whoever creates `record`. */
-function creatorsActionStandIn(name: string, record: string): void {
-  coveredStandIn(name, { kind: "creators", record });
-}
-
-function coveredStandIn(name: string, coveredBy: OfficeToolCover): void {
+/** Registers a stand-in for an Office action's tool, ruled by the Authority group `group`. */
+function actionStandIn(name: string, group: AuthorityGroup = "taskRecords"): void {
   app.get(OfficeToolRegistry).register({
     name,
     description: `Stands in for ${name}.`,
     input: z.object({}),
-    coveredBy,
+    authority: { group, subject: () => ({ kind: "task", id: "x" }) },
     run: () => Promise.resolve({ text: "Nothing.", isError: false }),
   });
 }
 
-/** Stands in for an Office action of each record its creators get. */
+/** Stands in for an Office action of each record. */
 function creatorsActionStandIns(): void {
-  creatorsActionStandIn("change_task_title", "task");
-  creatorsActionStandIn("edit_idea", "idea");
-  creatorsActionStandIn("write_initiative_outcome", "initiative");
+  actionStandIn("change_task_title");
+  actionStandIn("edit_idea", "ideas");
+  actionStandIn("write_initiative_outcome", "initiativeRecords");
 }
 
 /** The Office tools of the Thread's `index`th session, by name. */
@@ -5016,12 +5011,12 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     ]);
   });
 
-  it("give a person the Office actions' tools their held duties cover, after the chat's own, and nobody else", async () => {
+  it("give a person every Office action's tool, after the chat's own", async () => {
     duties.set("shapes-initiatives", roleKey);
     await startWith(started(...aTurn("brief", "Hello.")), started(...aTurn("brief", "Hello.")));
     standInsFor([CREATE_INITIATIVE_TOOL]);
-    actionStandIn("take_out_of_initiative", ["shapes-initiatives", "plans"]);
-    actionStandIn("onboard_the_project", ["onboards-projects"]);
+    actionStandIn("take_out_of_initiative");
+    actionStandIn("onboard_the_project");
     const shaper = await threads.startInChat(roleKey);
     await runner.send(shaper.id, "Take the banner out of the sync.", ANN_LEE);
     await answered(shaper.id, 3);
@@ -5037,14 +5032,21 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
       CONSULT_TOOL,
       OPEN_DECISION_TOOL,
       "take_out_of_initiative",
+      "onboard_the_project",
     ]);
-    expect(toolsOf(1)).toEqual([...PERSON_OFFICE_TOOLS, CONSULT_TOOL, OPEN_DECISION_TOOL]);
+    expect(toolsOf(1)).toEqual([
+      ...PERSON_OFFICE_TOOLS,
+      CONSULT_TOOL,
+      OPEN_DECISION_TOOL,
+      "take_out_of_initiative",
+      "onboard_the_project",
+    ]);
   });
 
   it("give a person's Thread on a Task the Office actions' tools their duties cover, and a Stage's Thread none", async () => {
     duties.set("plans", roleKey);
     await startWith();
-    actionStandIn("add_dependency", ["shapes-initiatives", "plans"]);
+    actionStandIn("add_dependency");
     const places = app.get(SessionPlaces);
 
     const persons = await places.of(await storedThreadOnATask());
@@ -5092,11 +5094,11 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
       OPEN_DECISION_TOOL,
       "change_task_title",
       "edit_idea",
+      "write_initiative_outcome",
     ]);
     expect(defaultPerson.officeTools).toEqual(
-      expect.arrayContaining(["edit_idea", "write_initiative_outcome"]),
+      expect.arrayContaining(["change_task_title", "edit_idea", "write_initiative_outcome"]),
     );
-    expect(defaultPerson.officeTools).not.toContain("change_task_title");
   });
 
   it("give a Consultation the Office actions of the records it creates, and a Stage's Thread none", async () => {
@@ -5122,7 +5124,7 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     expect(consulted.officeTools).toEqual(
       expect.arrayContaining(["change_task_title", "edit_idea"]),
     );
-    expect(consulted.officeTools).not.toContain("write_initiative_outcome");
+    expect(consulted.officeTools).toContain("write_initiative_outcome");
     expect(stages.officeTools).not.toContain("change_task_title");
     expect(stages.officeTools).not.toContain("edit_idea");
   });
@@ -5320,7 +5322,14 @@ describe("the Caretaker's chat", () => {
 
 /** A session's options but its holds, which are functions made for each move. */
 function withoutHolds(options: object | undefined): object {
-  return { ...options, toolHold: undefined, approvalHold: undefined };
+  // Each move's tools are the registry's, each wrapped in its own ruling, so only their names compare.
+  const tools = (options as { officeTools?: readonly { name: string }[] } | undefined)?.officeTools;
+  return {
+    ...options,
+    officeTools: tools?.map(({ name }) => name),
+    toolHold: undefined,
+    approvalHold: undefined,
+  };
 }
 
 describe("a Thread's Sub-agents and Processes", () => {

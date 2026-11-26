@@ -6,6 +6,7 @@ import type { ProposedChange } from "../../domain/proposal.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
 import { PromptTemplateProposals } from "../proposals/prompt-template-proposals.js";
 import { PromptTemplateOfficeTools } from "./prompt-template-office-tools.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 // What prompt-template-office-tools.test.ts and its full run share.
 
@@ -54,7 +55,7 @@ export function promptTemplateTools(templates: PromptTemplates) {
   const registry = new OfficeToolRegistry();
   new PromptTemplateOfficeTools(registry, templates, proposals).onModuleInit();
   const tool = (name: string) => {
-    const [named] = registry.named([name]);
+    const [named] = registry.named([name], RUN_EVERY_CALL);
     if (!named) throw new Error(`${name} is not registered.`);
     return named;
   };

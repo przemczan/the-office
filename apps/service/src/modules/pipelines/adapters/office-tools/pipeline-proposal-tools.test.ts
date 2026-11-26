@@ -45,6 +45,7 @@ import {
   LINUX_CHECK,
   projectPipelineRequests,
 } from "../http/project-pipeline-library.controller.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 // The test database is shared by every test file: these tests make Pipelines and Projects of their
 // own, under names no one else uses, and never change the built-ins.
@@ -75,7 +76,7 @@ const { anOfficeWidePipeline, aProject, added } = projectPipelineRequests(
 );
 
 function propose(tool: string, input: Record<string, unknown>) {
-  const [officeTool] = pipelines.app.get(OfficeToolRegistry).named([tool]);
+  const [officeTool] = pipelines.app.get(OfficeToolRegistry).named([tool], RUN_EVERY_CALL);
   if (!officeTool) throw new Error(`No Office tool ${tool}.`);
   return officeTool.run(input, anOfficeToolCall("devops-chat"));
 }
@@ -961,7 +962,7 @@ describe("the Pipeline Office tools' inputs", () => {
   it("convert to a JSON Schema, the recursive condition group by reference, as the API engines take it", () => {
     const schemas = pipelines.app
       .get(OfficeToolRegistry)
-      .named(tools)
+      .named(tools, RUN_EVERY_CALL)
       .map((officeTool) => ({
         name: officeTool.name,
         schema: JSON.stringify(z.toJSONSchema(officeTool.input, { io: "input" })),
@@ -975,7 +976,7 @@ describe("the Pipeline Office tools' inputs", () => {
 
   it("are listed by an MCP server, as the Claude Code engines and Codex's endpoint list them", async () => {
     const server = new McpServer({ name: "office", version: "1.0.0" });
-    for (const officeTool of pipelines.app.get(OfficeToolRegistry).named(tools)) {
+    for (const officeTool of pipelines.app.get(OfficeToolRegistry).named(tools, RUN_EVERY_CALL)) {
       server.registerTool(
         officeTool.name,
         { description: officeTool.description, inputSchema: officeTool.input.shape },

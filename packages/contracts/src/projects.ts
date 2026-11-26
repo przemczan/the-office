@@ -973,6 +973,8 @@ export const settingChangedBySchema = z.discriminatedUnion("kind", [
     name: z.string(),
     title: z.string(),
     taskId: z.string(),
+    /** The user who asked the person for the change. */
+    askedBy: userRefSchema.optional(),
   }),
 ]);
 export type SettingChangedBy = z.infer<typeof settingChangedBySchema>;

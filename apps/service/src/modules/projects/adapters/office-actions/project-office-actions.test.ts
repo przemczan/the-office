@@ -7,12 +7,13 @@ import {
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
-import { FOLLOW_YOUR_AUTHORITY, OfficeToolRegistry } from "../../../engine/index.js";
+import { OfficeToolRegistry } from "../../../engine/index.js";
 import { FakeGitHub, signedInWithGitHubForTests } from "../../../github/index.fixtures.js";
 import { ActionWorkflows } from "../../application/action-workflows.js";
 import { CiRunTestbed, REPOSITORY } from "../../ci-run-watch.fixtures.js";
 import type { Project } from "../../domain/project.js";
 import { REAL_GIT_TEST } from "../git/temporary-repository.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 const FAILED_RUN = 4242;
 
@@ -83,17 +84,13 @@ async function refusalOf(response: Response): Promise<readonly string[]> {
 }
 
 describe("the rerun_ci_run Office tool", REAL_GIT_TEST, () => {
-  it("is registered, covered by onboarding Projects, and says the Role's authority gates it", () => {
+  it("is registered with the group its Authority rules it by", () => {
     const registry = testbed.app.get(OfficeToolRegistry);
 
-    expect(registry.coveredBy(["onboards-projects"])).toEqual([
-      RERUN_CI_RUN_ACTION.name,
-      START_WORKFLOW_ACTION.name,
-    ]);
-    expect(registry.named([RERUN_CI_RUN_ACTION.name])).toEqual([
+    expect(registry.named([RERUN_CI_RUN_ACTION.name], RUN_EVERY_CALL)).toEqual([
       expect.objectContaining({
-        description: `${RERUN_CI_RUN_ACTION.description} ${FOLLOW_YOUR_AUTHORITY}`,
-        coveredBy: RERUN_CI_RUN_ACTION.coveredBy,
+        description: RERUN_CI_RUN_ACTION.description,
+        authority: expect.objectContaining({ group: RERUN_CI_RUN_ACTION.group }),
       }),
     ]);
   });

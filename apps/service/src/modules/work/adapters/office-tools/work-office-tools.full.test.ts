@@ -50,6 +50,7 @@ import {
 } from "./work-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { ANN_LEE, anInitiative, BEN_ITO } from "../../domain/work.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 const CREATED_INITIATIVE_SHAPING_OPENING = shapingOpeningOf(
   defaultWorkPrompts(),
@@ -83,7 +84,7 @@ afterEach(async () => {
 
 /** Calls the Office tool as a chat session of the Planner would. */
 function call(name: string, input: Record<string, unknown>, sessionId = "planner-session") {
-  const [tool] = work.app.get(OfficeToolRegistry).named([name]);
+  const [tool] = work.app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${name}.`);
   return tool.run(input, anOfficeToolCall(sessionId));
 }
@@ -190,7 +191,7 @@ describe("create_task", () => {
   });
 
   it("takes an optional Plan, with its files and estimate, and an optional Definition of Done", () => {
-    const [tool] = work.app.get(OfficeToolRegistry).named([CREATE_TASK]);
+    const [tool] = work.app.get(OfficeToolRegistry).named([CREATE_TASK], RUN_EVERY_CALL);
     const schema = z.toJSONSchema(tool!.input) as {
       properties: Record<string, unknown>;
       required: string[];
@@ -381,7 +382,7 @@ describe("found while working on", () => {
 
   it("takes taskId as optional on both tools", () => {
     for (const name of [CREATE_TASK, CAPTURE_IDEA_TOOL]) {
-      const [tool] = work.app.get(OfficeToolRegistry).named([name]);
+      const [tool] = work.app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
       const schema = z.toJSONSchema(tool!.input) as {
         properties: Record<string, unknown>;
         required: string[];
@@ -406,7 +407,7 @@ async function created(name: string) {
 
 describe("create_initiative", () => {
   it("takes a title and an outcome, both required, and nothing else", () => {
-    const [tool] = work.app.get(OfficeToolRegistry).named([CREATE_INITIATIVE]);
+    const [tool] = work.app.get(OfficeToolRegistry).named([CREATE_INITIATIVE], RUN_EVERY_CALL);
     const schema = z.toJSONSchema(tool!.input) as {
       properties: Record<string, unknown>;
       required: string[];

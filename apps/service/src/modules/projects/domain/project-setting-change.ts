@@ -26,6 +26,8 @@ export type SettingChangedBy =
       readonly name: string;
       readonly title: string;
       readonly taskId: string;
+      /** The user who asked the person for the change, where their Thread has one. */
+      readonly askedBy?: SettingChangeUser;
     };
 
 /**

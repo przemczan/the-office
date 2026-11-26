@@ -1,13 +1,5 @@
 import type { z } from "zod";
 
-/**
- * Who gets an Office action's tool, as its declaration says (the contracts' `OfficeActionCover`):
- * a holder of one of the duties, or whoever creates the record in the Thread.
- */
-export type OfficeToolCover =
-  | { readonly kind: "duties"; readonly duties: readonly string[] }
-  | { readonly kind: "creators"; readonly record: string };
-
 /** The session's Office rules' decision on a command line: run it, or refuse it in these words. */
 export type CommandJudgement =
   { readonly allowed: true } | { readonly allowed: false; readonly reason: string };
@@ -26,6 +18,17 @@ export interface OfficeToolCall {
    * hook would decide it. For a tool that runs a command line the Agent wrote.
    */
   judgeCommand(commandLine: string): Promise<CommandJudgement>;
+  /**
+   * The user whose Allow once let this call run, when the ruling step held it for approval: the
+   * tool records them beside the person on the change it makes.
+   */
+  readonly allowedBy?: OfficeToolUser;
+}
+
+/** A user as an Office tool's change records them: their id and their name as it was then. */
+export interface OfficeToolUser {
+  readonly userId: string;
+  readonly name: string;
 }
 
 /** A picture an Office tool answers with, such as an image Attachment. */
@@ -48,6 +51,20 @@ export interface OfficeToolResult {
   readonly pictures?: readonly OfficeToolPicture[];
 }
 
+/** What the ruling step reads of an Office action's tool to rule a call (spec 5.4.1). */
+export interface OfficeToolAuthority {
+  /** The key of the Authority group that rules the tool, from the catalog the contracts hold. */
+  readonly group: string;
+  /** The subject a call with this input changes, so own work is told from others'. */
+  subject(input: unknown): OfficeToolSubject;
+}
+
+/** The record a call changes, by its kind and id. */
+export interface OfficeToolSubject {
+  readonly kind: string;
+  readonly id: string;
+}
+
 /**
  * A tool The Office gives Agents, run in-process by the service (spec §5.4), such as opening a
  * Decision or writing a Handover note.
@@ -59,11 +76,10 @@ export interface OfficeTool<Input extends z.ZodObject = z.ZodObject> {
   readonly description: string;
   readonly input: Input;
   /**
-   * For an Office action's tool, its declared cover: the duties whose holder
-   * gets it (`OfficeToolRegistry.coveredBy`), or the record whose creators get it
-   * (`OfficeToolRegistry.coveredByCreatorsOf`). Undefined for any other tool, which a session gets
-   * only by name.
+   * For an Office action's tool, the group of the Authority that rules it and the subject a call
+   * changes. Undefined for any other tool, which a session gets only by name and every call of
+   * which runs.
    */
-  readonly coveredBy?: OfficeToolCover;
+  readonly authority?: OfficeToolAuthority;
   run(input: z.output<Input>, call: OfficeToolCall): Promise<OfficeToolResult>;
 }

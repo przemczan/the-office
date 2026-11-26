@@ -2,17 +2,16 @@ export { EngineSessions, type StandInOptions } from "./application/engine-sessio
 export { EngineRefused } from "./domain/engine-refused.js";
 export type { EngineCapability } from "./ports/agent-engine.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
-export {
-  FOLLOW_YOUR_AUTHORITY,
-  officeActionTool,
-} from "./adapters/office-tools/office-action-tool.js";
+export { officeActionTool } from "./adapters/office-tools/office-action-tool.js";
+export type { OfficeToolRuled, OfficeToolRuling } from "./ports/office-tool-ruling.js";
 export type {
   CommandJudgement,
   OfficeTool,
   OfficeToolCall,
-  OfficeToolCover,
+  OfficeToolAuthority,
   OfficeToolPicture,
   OfficeToolResult,
+  OfficeToolSubject,
 } from "./ports/office-tool.js";
 export {
   UsageWindowState,

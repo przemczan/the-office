@@ -55,6 +55,7 @@ import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { CLAUDE_CODE_PICTURE_LIMIT } from "../claude-code/office-tools.js";
 import { aNoisyPng, aPlainPng } from "../claude-code/png.fixtures.js";
 import { sdkMcpConfig, sdkOptions } from "./sdk-options.js";
+import { RUN_EVERY_CALL } from "../../ports/office-tool-ruling.fixtures.js";
 
 /**
  * These tests run real sessions on the user's login, which cost quota, so they run only when asked:
@@ -221,6 +222,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         id: randomUUID(),
         settings: {
           ...options(folder),
+          officeToolRuling: RUN_EVERY_CALL,
           engineId: "claude-code",
           officeTools: ["note"],
           turnLabel: "Jim in a chat",

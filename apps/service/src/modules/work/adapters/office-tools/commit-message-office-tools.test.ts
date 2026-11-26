@@ -16,6 +16,7 @@ import { startWorkApplication, type WorkApplication } from "../../work-applicati
 import { INITIATIVE_PLANNING_OFFICE_TOOLS } from "../conversations/initiative-thread-records.js";
 import { PLANNING_OFFICE_TOOLS } from "../conversations/task-thread-records.js";
 import { WRITE_COMMIT_MESSAGE } from "./commit-message-office-tools.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -50,7 +51,7 @@ afterEach(async () => {
 });
 
 function call(input: Record<string, unknown>, sessionId = SESSION) {
-  const [tool] = work.app.get(OfficeToolRegistry).named([WRITE_COMMIT_MESSAGE]);
+  const [tool] = work.app.get(OfficeToolRegistry).named([WRITE_COMMIT_MESSAGE], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${WRITE_COMMIT_MESSAGE}.`);
   return tool.run(input, anOfficeToolCall(sessionId));
 }

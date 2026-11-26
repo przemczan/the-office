@@ -32,52 +32,48 @@ export interface WriteRouteRegister {
   readonly knownGaps: readonly KnownGapRoute[];
 }
 
-const PROJECT_SETTINGS_BY_AGENTS = "6-permissions-and-safety.md#project-settings-by-agents";
-const LINKING = "2.10-users-and-signing-in.md#linking";
+const THE_USERS_ALONE = "6-permissions-and-safety.md#the-users-alone";
 const NOT_YET_IN_SPEC = "the user's alone by the analysis; spec 6 doesn't say so yet";
 
 const USERS_ALONE: readonly UsersAloneRoute[] = [
   // Work: Tasks.
-  { route: "POST /tasks/:id/restart", specHeading: "screens/task-page.md#run-controls" },
-  { route: "POST /tasks/:id/start-over", specHeading: "screens/task-page.md#run-controls" },
-  { route: "POST /tasks/:id/reopen", specHeading: "2.1.3-tasks.md#reopen" },
   {
     route: "POST /tasks/:id/branch-deletion",
-    specHeading: "5.5-git-and-isolation.md#deleting-by-hand",
+    specHeading: THE_USERS_ALONE,
   },
   {
     route: "POST /initiatives/:id/projects/:projectId/branch-deletion",
-    specHeading: "5.5-git-and-isolation.md#deleting-by-hand",
+    specHeading: THE_USERS_ALONE,
   },
 
   // Decisions, Proposals, Threads.
-  { route: "POST /proposals/:id/apply", specHeading: "2.2-people.md#caretaker" },
-  { route: "PUT /threads/:id/allow-changes", specHeading: "2.4.1-threads.md#allow-changes" },
+  { route: "POST /proposals/:id/apply", specHeading: THE_USERS_ALONE },
+  { route: "PUT /threads/:id/allow-changes", specHeading: THE_USERS_ALONE },
 
   // Projects and their settings: by Proposal or on the Project page.
-  { route: "PUT /projects/:id/publishing-mode", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /projects/:id/before-publishing-command", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /projects/:id/after-publishing-command", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /projects/:id/delete-merged-branches", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /projects/:id/issue-settings", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /projects/:id/server-values/:serverName", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /projects/:id/engine", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /projects/:id/default-pipeline", specHeading: PROJECT_SETTINGS_BY_AGENTS },
+  { route: "PUT /projects/:id/publishing-mode", specHeading: THE_USERS_ALONE },
+  { route: "PUT /projects/:id/before-publishing-command", specHeading: THE_USERS_ALONE },
+  { route: "PUT /projects/:id/after-publishing-command", specHeading: THE_USERS_ALONE },
+  { route: "PUT /projects/:id/delete-merged-branches", specHeading: THE_USERS_ALONE },
+  { route: "PUT /projects/:id/issue-settings", specHeading: THE_USERS_ALONE },
+  { route: "PUT /projects/:id/server-values/:serverName", specHeading: THE_USERS_ALONE },
+  { route: "PUT /projects/:id/engine", specHeading: THE_USERS_ALONE },
+  { route: "PUT /projects/:id/default-pipeline", specHeading: THE_USERS_ALONE },
   {
     route: "POST /projects/:id/actions/:key/runs",
-    specHeading: "2.15-actions.md#who-starts-an-action",
+    specHeading: THE_USERS_ALONE,
   },
 
   // Pipelines: Project Pipelines are among the Project settings above.
-  { route: "POST /project-pipelines", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "PUT /project-pipelines/:id", specHeading: PROJECT_SETTINGS_BY_AGENTS },
-  { route: "DELETE /project-pipelines/:id", specHeading: PROJECT_SETTINGS_BY_AGENTS },
+  { route: "POST /project-pipelines", specHeading: THE_USERS_ALONE },
+  { route: "PUT /project-pipelines/:id", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /project-pipelines/:id", specHeading: THE_USERS_ALONE },
 
   // The user's own account.
-  { route: "DELETE /account/linked-identities/github", specHeading: LINKING },
-  { route: "DELETE /account/linked-identities/google", specHeading: LINKING },
-  { route: "DELETE /account/linked-identities/openid-connect", specHeading: LINKING },
-  { route: "DELETE /account/passkeys/:id", specHeading: LINKING },
+  { route: "DELETE /account/linked-identities/github", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /account/linked-identities/google", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /account/linked-identities/openid-connect", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /account/passkeys/:id", specHeading: THE_USERS_ALONE },
 ];
 
 const NO_ACTION: readonly NoActionRoute[] = [

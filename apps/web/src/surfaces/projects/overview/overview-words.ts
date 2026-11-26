@@ -177,7 +177,12 @@ export function settingChangeWords({ by, summary }: ProjectSettingChange): Setti
         ? { who: "A Proposal", what: summary }
         : { who: by.user.name, what: `${summary} by Proposal` };
     case "person":
-      return { who: `${by.name} (${by.title})`, what: summary };
+      return {
+        who: by.askedBy
+          ? `${by.name} (${by.title}), asked by ${by.askedBy.name}`
+          : `${by.name} (${by.title})`,
+        what: summary,
+      };
   }
 }
 

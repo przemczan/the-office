@@ -49,6 +49,7 @@ import { ModelPrices } from "./model-prices.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineModelLists } from "./engine-model-lists.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
+import type { OfficeToolRuling } from "../ports/office-tool-ruling.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { UsageWindowReadings } from "./usage-window-readings.js";
@@ -65,6 +66,8 @@ import {
 export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine" | "languageServers"> &
   EngineModel & {
     readonly officeTools: readonly string[];
+    /** Rules every call of those tools, whichever engine makes it (spec 5.4.1 › One ruling step). */
+    readonly officeToolRuling: OfficeToolRuling;
     /** What the caller tags the session's engine calls with, beside the engine's own attributes. */
     readonly telemetry?: SessionTelemetry;
     /**
@@ -310,6 +313,7 @@ export class EngineSessions {
       telemetry: _telemetry,
       engineId: _engineId,
       turnLabel: _turnLabel,
+      officeToolRuling,
       ...settings
     }: SessionSettings,
     languageServers: SessionOptions["languageServers"],
@@ -317,7 +321,7 @@ export class EngineSessions {
     return {
       ...settings,
       engine,
-      officeTools: this.officeTools.named(settings.officeTools),
+      officeTools: this.officeTools.named(settings.officeTools, officeToolRuling),
       languageServers,
     };
   }

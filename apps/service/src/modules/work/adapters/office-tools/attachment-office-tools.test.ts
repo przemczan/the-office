@@ -22,6 +22,7 @@ import {
   SessionTasksForTests,
   TaskGatesForTests,
 } from "../../ports/work-ports.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 /** A Stage's session on the test's Task, of the person the fixtures name "planner". */
 const SESSION = "stage-session";
@@ -48,7 +49,7 @@ async function startAttaching(
 /** Runs the Office tool `name` in the session, on whatever app `current` gives. */
 function officeToolCaller(current: () => WorkApplication) {
   return function call(name: string, input: Record<string, unknown>, sessionId = SESSION) {
-    const [tool] = current().app.get(OfficeToolRegistry).named([name]);
+    const [tool] = current().app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
     if (!tool) throw new Error(`No Office tool ${name}.`);
     return tool.run(tool.input.parse(input), anOfficeToolCall(sessionId));
   };

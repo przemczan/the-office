@@ -157,7 +157,7 @@ export function descriptionForKind(description: string, from: TaskKind, to: Task
 
 /**
  * "You" for the signed-in user, another user's name, or the person's first name when their Role is
- * known.
+ * known, followed by "asked by" the user who asked them where the record keeps one.
  */
 export function authorName(
   author: Author,
@@ -165,7 +165,10 @@ export function authorName(
   signedInUserId: string | undefined,
 ): string {
   if (author.kind === "user") return userName(author.user, signedInUserId);
-  return roles?.find((role) => role.key === author.roleKey)?.card.name ?? author.roleKey;
+  const person = roles?.find((role) => role.key === author.roleKey)?.card.name ?? author.roleKey;
+  return author.askedBy
+    ? `${person}, asked by ${userName(author.askedBy, signedInUserId, "you")}`
+    : person;
 }
 
 /** Who made a Task, as `authorName` says an Author: The Office for one it made by itself. */

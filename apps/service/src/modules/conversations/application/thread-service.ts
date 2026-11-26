@@ -3,7 +3,8 @@ import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
-import type { Message, MessageDraft } from "../domain/message.js";
+import { latestWriter, type Message, type MessageDraft } from "../domain/message.js";
+import type { UserRef } from "../domain/user.js";
 import { isPersonsThread, type ContextOverride, type Thread } from "../domain/thread.js";
 import {
   chooseOverride,
@@ -224,6 +225,16 @@ export class ThreadService {
    */
   async personInSession(sessionId: string): Promise<string | undefined> {
     return (await this.repository.findBySession(sessionId))?.session?.roleKey;
+  }
+
+  /**
+   * The user who wrote the newest user message of the Thread that has the engine session
+   * `sessionId` now; undefined when no user wrote one or no Thread has the session.
+   */
+  async askedByInSession(sessionId: string): Promise<UserRef | undefined> {
+    const thread = await this.repository.findBySession(sessionId);
+    if (!thread) return undefined;
+    return latestWriter(await this.repository.messages(thread.id)) ?? undefined;
   }
 
   /**

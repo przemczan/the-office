@@ -10,6 +10,7 @@ import { AttachmentService } from "../../application/attachment-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { ANN_LEE } from "../../domain/work.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -39,7 +40,9 @@ describe("the images of a Thread's messages", () => {
 
     const stored = await images.store({ kind: "thread", threadId }, aPicture("screen.png"));
     const attachment = await work.app.get(AttachmentService).read(stored.attachmentId);
-    const [readAttachment] = work.app.get(OfficeToolRegistry).named(["read_attachment"]);
+    const [readAttachment] = work.app
+      .get(OfficeToolRegistry)
+      .named(["read_attachment"], RUN_EVERY_CALL);
     const read = await readAttachment?.run(
       { attachmentId: stored.attachmentId },
       anOfficeToolCall("chat-session"),

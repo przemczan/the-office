@@ -39,7 +39,7 @@ describe("the change_project_settings tool", () => {
     expect(changes).toEqual([]);
   });
 
-  it("applies every section at once when Allowed, in order, each recorded as the session's person on its Task", async () => {
+  it("applies every section at once when Allowed, in order, each recorded as the session's person on its Task, asked by the Thread's user", async () => {
     const { tool, changes, holds } = toolsWith("allowed");
 
     const result = await runOf(tool, EVERY_SECTION);

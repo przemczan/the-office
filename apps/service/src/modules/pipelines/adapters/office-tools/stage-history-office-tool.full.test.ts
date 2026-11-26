@@ -14,6 +14,7 @@ import {
   type PipelinesApplication,
 } from "../../pipelines-application.fixtures.js";
 import { aCommandRun } from "../../ports/pipelines-ports.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 let pipelines: PipelinesApplication;
 
@@ -36,7 +37,9 @@ const tests = goingBackOnFailure(
 );
 
 function readStageHistory(input: Record<string, unknown>) {
-  const [tool] = pipelines.app.get(OfficeToolRegistry).named([READ_STAGE_HISTORY_TOOL]);
+  const [tool] = pipelines.app
+    .get(OfficeToolRegistry)
+    .named([READ_STAGE_HISTORY_TOOL], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${READ_STAGE_HISTORY_TOOL}.`);
   return tool.run(input, anOfficeToolCall("devops-chat"));
 }

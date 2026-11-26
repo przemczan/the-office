@@ -78,6 +78,7 @@ import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructio
 import { OfficeInstructionsRepository } from "../ports/office-instructions-repository.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
+import { RunEveryOfficeToolCall } from "./approval-holds.fixtures.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
@@ -95,6 +96,7 @@ import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postg
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
 import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 /** The Role holding Onboards and repairs Projects by default. */
 const DEVOPS = "devops";
@@ -213,6 +215,7 @@ async function startOn(
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
+      RunEveryOfficeToolCall,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
@@ -1295,7 +1298,7 @@ describe("StageDecisions", () => {
 /** Calls the Office tool as the Stage Thread's session would, outside a scripted turn. */
 async function callInStage(threadId: string, name: string, input: Record<string, unknown>) {
   const sessionId = (await threadOf(threadId)).session?.id ?? "";
-  const [tool] = app.get(OfficeToolRegistry).named([name]);
+  const [tool] = app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${name}.`);
   return tool.run(tool.input.parse(input), anOfficeToolCall(sessionId));
 }
@@ -1331,6 +1334,7 @@ describe("Office tools on a Stage", () => {
       initiativeName: () => Promise.resolve(undefined),
       projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
       ideaRecord: () => Promise.resolve(undefined),
+      isOwnWork: () => Promise.resolve(false),
     });
     const { stageThread } = await aStageRun(request);
     const { threadId } = stageThread;

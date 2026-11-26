@@ -1,3 +1,4 @@
+import type { OfficeToolSubject } from "../../../engine/index.js";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   WorkRecords,
@@ -7,6 +8,7 @@ import {
 } from "../../../conversations/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaRecords } from "../../application/idea-records.js";
+import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
@@ -14,6 +16,8 @@ import { IdeaNotFound } from "../../domain/idea-not-found.js";
 import { planningThreadOf } from "../../domain/initiative.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
+import type { Author } from "../../domain/author.js";
+import { TaskThreads } from "../../ports/task-threads.js";
 
 /**
  * Gives Conversations the records of the Tasks, Initiatives and Ideas the user mentions in a chat,
@@ -31,10 +35,39 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
     private readonly initiatives: InitiativeService,
     private readonly ideaRecords: IdeaRecords,
     private readonly attachments: AttachmentService,
+    private readonly ideas: IdeaService,
+    private readonly taskThreads: TaskThreads,
   ) {}
 
   onModuleInit(): void {
     this.records.provide(this);
+  }
+
+  async isOwnWork(roleKey: string, { kind, id }: OfficeToolSubject): Promise<boolean> {
+    try {
+      switch (kind) {
+        case "task":
+          return (
+            createdBy(roleKey, (await this.tasks.read(id)).createdBy) ||
+            (await this.taskThreads.titlesOnTasksWith(roleKey)).some(({ taskId }) => taskId === id)
+          );
+        case "initiative":
+          return createdBy(roleKey, (await this.initiatives.read(id)).createdBy);
+        case "idea":
+          return createdBy(roleKey, (await this.ideas.read(id)).capturedBy);
+        default:
+          return false;
+      }
+    } catch (error) {
+      if (
+        error instanceof TaskNotFound ||
+        error instanceof InitiativeNotFound ||
+        error instanceof IdeaNotFound
+      ) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async taskRecord(taskId: string): Promise<string | undefined> {
@@ -134,4 +167,8 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
       throw error;
     }
   }
+}
+
+function createdBy(roleKey: string, author: Author): boolean {
+  return author.kind === "person" && author.roleKey === roleKey;
 }

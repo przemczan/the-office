@@ -3,6 +3,7 @@ import { RoleNotFound, type RoleService } from "../../../people/index.js";
 import type { HeldCallOutcome, HeldCalls } from "../../application/held-calls.js";
 import { CHANGE_ROLE_TOOL } from "../../domain/session-instructions.js";
 import { RoleOfficeTools } from "./role-office-tools.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 // What role-office-tools.test.ts and role-office-tools.full.test.ts share.
 
@@ -32,7 +33,7 @@ export function toolWith(outcome: HeldCallOutcome) {
   } as unknown as HeldCalls;
   const registry = new OfficeToolRegistry();
   new RoleOfficeTools(registry, roles, heldCalls).onModuleInit();
-  const [tool] = registry.named([CHANGE_ROLE_TOOL]);
+  const [tool] = registry.named([CHANGE_ROLE_TOOL], RUN_EVERY_CALL);
   if (!tool) throw new Error("change_role is not registered.");
   return { tool, reworded, holds };
 }

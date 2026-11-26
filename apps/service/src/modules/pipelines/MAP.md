@@ -126,7 +126,6 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `POST /tasks/:id/gate/continue`: TaskGateController.continue
 - `POST /tasks/:id/gate/send-back`: TaskGateController.sendBack
 - `POST /tasks/:id/gate/drop`: TaskGateController.drop
-- `POST /tasks/:id/restart`: TaskRestartController.restart
 - `GET /tasks/:id/stages`: TaskStagesController.read
 - `GET /tasks/:id/stage-runs/:runId/command-outputs`: TaskStagesController.commandOutputs
 - `PUT /tasks/:id/stages`: TaskStagesController.edit
@@ -172,6 +171,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `pipeline-library.controller.fixtures.ts`: anEdit
 - `pipeline-library.controller.ts`: PipelineLibraryController
 - `pipeline-responses.ts`: toPipelineResponse, toPipelineUseResponse, toProjectPipelineResponse, toStageTemplateResponse, toLinkedStageResponse, toStageProblemResponse, toTaskStagesResponse
+- `pipelines-office-actions.controller.ts`: PipelinesOfficeActionsController
 - `pipelines.controller.ts`: PipelinesController
 - `project-pipeline-library.controller.fixtures.ts`: LINUX_CHECK, aNewProjectPipeline, projectPipelineRequests
 - `project-pipeline-library.controller.ts`: ProjectPipelineLibraryController
@@ -184,10 +184,13 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `stand-in-choices.controller.ts`: StandInChoicesController
 - `task-engine-cascade.controller.ts`: TaskEngineCascadeController
 - `task-gate.controller.ts`: TaskGateController
-- `task-restart.controller.ts`: TaskRestartController
 - `task-stages.controller.fixtures.ts`: tests
 - `task-stages.controller.ts`: TaskStagesController
 - Tests: pipeline-library.controller.full.test.ts, pipeline-library.controller.test.ts, pipelines.controller.test.ts, project-pipeline-library.controller.full.test.ts, project-pipeline-library.controller.test.ts, stage-templates.controller.full.test.ts, stage-templates.controller.test.ts, task-engine-cascade.controller.test.ts, task-gate.controller.test.ts, task-restart.controller.test.ts, task-stages.controller.full.test.ts, task-stages.controller.test.ts
+
+### adapters/office-actions/
+
+- `pipelines-office-actions.ts`: PipelinesOfficeActions
 
 ### adapters/office-tools/
 
@@ -349,12 +352,13 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `known-people.ts`: KnownPerson, KnownPeople
 - `pipeline-initiatives.ts`: PipelineInitiative, PipelineInitiatives
 - `pipeline-repository.ts`: PipelineRepository
-- `pipelines-ports.fixtures.ts`: RunEnvironmentDefinitionsForTests, TaskConsultationsForTests, StageRoleEnginesForTests, RoleEngineCascadeForTests, ProjectDefaultsForTests, PipelineInitiativesForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadMessageForTests, StageThreadMessagesForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, StageContextLimitDefaultsForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, recordedRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
+- `pipelines-ports.fixtures.ts`: RunEnvironmentDefinitionsForTests, TaskConsultationsForTests, StageRoleEnginesForTests, RoleEngineCascadeForTests, ProjectDefaultsForTests, PipelineInitiativesForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadMessageForTests, StageThreadMessagesForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, StageContextLimitDefaultsForTests, TaskThreadSessionsForTests, SessionPeopleForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, recordedRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
 - `project-defaults.ts`: ProjectDefault, ProjectDefaults
 - `project-pipeline-repository.ts`: ProjectPipelineRepository
 - `proposal-drafts.ts`: ProposedPipelineChange, ProposedStageTemplateChange, ProjectPipelineFields, ProposedProjectPipelineChange, ProposedLibraryChange, ProposalDrafts
 - `role-engine-cascade.ts`: TaskSessionPlace, RoleEngineCascade
 - `run-environment-definitions.ts`: RunEnvironmentDefinitionFile, RunEnvironmentDefinitionWriting, RunEnvironmentDefinitions, RunEnvironmentDefinitionCommit
+- `session-people.ts`: SessionPeople
 - `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-context-limit-defaults.ts`: StageContextLimitDefaults
 - `stage-decisions.ts`: StageDecisionRequest, OpenedStageDecision, StageDecisions
@@ -364,7 +368,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `stage-thread-messages.ts`: StageRunThreadWindow, StageThreadMessages
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageContextLimits, StageContextLimitPassed, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads
 - `started-tasks.fixtures.ts`: OwnProjectsStartedTasks, ownProjectsStartedTasks
-- `started-tasks.ts`: WalkTaskState, StartedTask, UsageWindowRefusal, StandInTakingOver, TaskBlocker, ResumedOrDroppedBy, StartedTasks
+- `started-tasks.ts`: RestartingPerson, WalkTaskState, StartedTask, UsageWindowRefusal, StandInTakingOver, TaskBlocker, ResumedOrDroppedBy, StartedTasks
 - `task-commands.ts`: ScriptCommandKind, ScriptCommandResult, PublishingLine, CommandWait, TaskCommandOptions, AgentCommandOptions, TaskCommands
 - `task-consultations.ts`: TaskConsultation, TaskConsultations
 - `task-git.ts`: WorktreeHead, TaskGit

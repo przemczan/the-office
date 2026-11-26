@@ -17,6 +17,7 @@ import {
   DROP_TASK_ACTION,
   EDIT_IDEA_ACTION,
   REMOVE_DEPENDENCY_ACTION,
+  REOPEN_TASK_ACTION,
   RESTORE_IDEA_ACTION,
   RESTORE_INITIATIVE_ACTION,
   RESTORE_TASK_ACTION,
@@ -32,7 +33,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
-import { FOLLOW_YOUR_AUTHORITY, OfficeToolRegistry } from "../../../engine/index.js";
+import { OfficeToolRegistry } from "../../../engine/index.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
@@ -47,6 +48,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { ANN_LEE } from "../../domain/work.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -121,7 +123,7 @@ async function aTaskInNoInitiative(title = "Offline banner"): Promise<Task> {
 
 /** Calls the action's Office tool in `sessionId`, as a session of that person would. */
 function callTool(name: string, input: Record<string, unknown>, sessionId = SHAPER_SESSION) {
-  const [tool] = work.app.get(OfficeToolRegistry).named([name]);
+  const [tool] = work.app.get(OfficeToolRegistry).named([name], RUN_EVERY_CALL);
   if (!tool) throw new Error(`No Office tool ${name}.`);
   return tool.run(input, anOfficeToolCall(sessionId));
 }
@@ -132,41 +134,24 @@ async function refusalOf(response: Response): Promise<readonly string[]> {
 }
 
 describe("the derived Office tools", () => {
-  it("cover each action by its declared duties, and say the Role's authority gates them", () => {
+  it("carry each action's description, input and the group and subject its Authority rules by", () => {
     const registry = work.app.get(OfficeToolRegistry);
 
-    expect(registry.coveredBy(["shapes-initiatives"])).toEqual(ACTIONS.map(({ name }) => name));
-    expect(registry.coveredBy(["plans"])).toEqual(ACTIONS.map(({ name }) => name));
-    expect(registry.coveredBy(["reviews", "implements"])).toEqual([]);
     for (const action of [
       ...ACTIONS,
       ...TASK_CREATORS_ACTIONS,
       ...IDEA_CREATORS_ACTIONS,
       ...INITIATIVE_CREATORS_ACTIONS,
     ]) {
-      const [tool] = registry.named([action.name]);
+      const [tool] = registry.named([action.name], RUN_EVERY_CALL);
       expect(tool).toMatchObject({
-        description: `${action.description} ${FOLLOW_YOUR_AUTHORITY}`,
-        coveredBy: action.coveredBy,
+        description: action.description,
+        authority: { group: action.group },
         input: action.input,
       });
     }
   });
-
-  it("cover the edits of a record by whoever can create one of its kind", () => {
-    const registry = work.app.get(OfficeToolRegistry);
-
-    expect(registry.coveredByCreatorsOf(["task"])).toEqual(names(TASK_CREATORS_ACTIONS));
-    expect(registry.coveredByCreatorsOf(["idea"])).toEqual(names(IDEA_CREATORS_ACTIONS));
-    expect(registry.coveredByCreatorsOf(["initiative"])).toEqual(
-      names(INITIATIVE_CREATORS_ACTIONS),
-    );
-  });
 });
-
-function names(actions: readonly { name: string }[]): string[] {
-  return actions.map(({ name }) => name);
-}
 
 describe("add_to_initiative and take_out_of_initiative", () => {
   it("add a Task to an active Initiative and take it out through the route, keeping its state", async () => {
@@ -564,7 +549,7 @@ describe("a Task's History", () => {
     const task = await aTaskInNoInitiative();
     await callTool(CHANGE_TASK_TITLE_ACTION.name, { taskId: task.id, title: "Renamed" });
 
-    const [tool] = work.app.get(OfficeToolRegistry).named(["read_task"]);
+    const [tool] = work.app.get(OfficeToolRegistry).named(["read_task"], RUN_EVERY_CALL);
     const record = (await tool?.run({ taskId: task.id }, anOfficeToolCall(SHAPER_SESSION)))?.text;
     const lines = (record ?? "").slice((record ?? "").indexOf("History:")).split("\n");
 
@@ -596,6 +581,30 @@ describe("drop_task, archive_task and restore_task", () => {
       dropReason: { kind: "duplicate", taskId: original.id },
       archivedAt: undefined,
       restoredBy: CTO,
+    });
+  });
+
+  it("reopen a Task by reopen_task as the person's way back, with the users who asked and allowed it", async () => {
+    const task = await aTaskInNoInitiative();
+    await callTool(DROP_TASK_ACTION.name, { taskId: task.id });
+    const ann = { userId: "00000000-0000-4000-8000-0000000005e1", name: "Ann Lee" };
+    work.app.get(SessionPeopleForTests).askedBy.set(SHAPER_SESSION, ann);
+    const [tool] = work.app
+      .get(OfficeToolRegistry)
+      .named([REOPEN_TASK_ACTION.name], RUN_EVERY_CALL);
+    const ben = { userId: "00000000-0000-4000-8000-0000000000be", name: "Ben Ito" };
+
+    const reopened = await tool?.run(
+      { taskId: task.id, to: "backlog", resetBranch: false },
+      { ...anOfficeToolCall(SHAPER_SESSION), allowedBy: ben },
+    );
+
+    expect(reopened?.isError).toBe(false);
+    expect((await work.app.get(TaskService).stateChangesOf(task.id)).at(-1)?.by).toMatchObject({
+      ...CTO,
+      askedBy: ann,
+      allowedBy: ben,
+      wayBack: { kind: "reopen", startedOver: null },
     });
   });
 

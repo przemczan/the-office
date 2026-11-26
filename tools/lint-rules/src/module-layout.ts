@@ -46,7 +46,7 @@ export function placeOf(workspacePath: string): Place {
 }
 
 export function isTestFile(workspacePath: string): boolean {
-  return /\.test\.[cm]?[jt]sx?$/.test(workspacePath);
+  return /\.(test|fixtures)\.[cm]?[jt]sx?$/.test(workspacePath);
 }
 
 function isLayer(folder: string): folder is Layer {

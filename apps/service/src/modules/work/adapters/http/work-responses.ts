@@ -269,9 +269,19 @@ export function toOwnerResponse(owner: AttachmentOwner): AttachmentOwnerResponse
 }
 
 function toAuthorResponse(author: Author): AuthorResponse {
-  return author.kind === "user"
-    ? { kind: "user", user: author.user && { userId: author.user.userId, name: author.user.name } }
-    : { kind: "person", roleKey: author.roleKey };
+  if (author.kind === "user") {
+    return {
+      kind: "user",
+      user: author.user && { userId: author.user.userId, name: author.user.name },
+    };
+  }
+  const { roleKey, askedBy, allowedBy } = author;
+  return {
+    kind: "person",
+    roleKey,
+    ...(askedBy && { askedBy: { userId: askedBy.userId, name: askedBy.name } }),
+    ...(allowedBy && { allowedBy: { userId: allowedBy.userId, name: allowedBy.name } }),
+  };
 }
 
 export function toSavedViewResponse(savedView: SavedView): SavedViewResponse {

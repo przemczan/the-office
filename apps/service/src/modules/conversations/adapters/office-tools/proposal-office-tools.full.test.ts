@@ -20,6 +20,7 @@ import {
 } from "../../domain/session-instructions.js";
 import { ProposalOfficeTools } from "./proposal-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 const tester = { role: { key: "tester", card: aProposedCard() } };
 /** The person's effort High on Claude Code, with its default model. */
@@ -61,7 +62,7 @@ function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL, instructionsNo
   } as unknown as Duties;
   const registry = new OfficeToolRegistry();
   new ProposalOfficeTools(registry, proposals, roles, officeInstructions, duties).onModuleInit();
-  const [tool] = registry.named([name]);
+  const [tool] = registry.named([name], RUN_EVERY_CALL);
   if (!tool) throw new Error(`${name} is not registered.`);
   return { tool, drafted };
 }

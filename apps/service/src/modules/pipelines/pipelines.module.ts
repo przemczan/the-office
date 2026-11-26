@@ -9,7 +9,9 @@ import { PipelineLibraryController } from "./adapters/http/pipeline-library.cont
 import { ProjectPipelineLibraryController } from "./adapters/http/project-pipeline-library.controller.js";
 import { StageTemplateLibraryController } from "./adapters/http/stage-template-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
-import { TaskRestartController } from "./adapters/http/task-restart.controller.js";
+import { PipelinesOfficeActionsController } from "./adapters/http/pipelines-office-actions.controller.js";
+import { PipelinesOfficeActions } from "./adapters/office-actions/pipelines-office-actions.js";
+import { SessionPeople } from "./ports/session-people.js";
 import { TaskEngineCascadeController } from "./adapters/http/task-engine-cascade.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
@@ -98,6 +100,7 @@ export interface PipelinesModuleOptions {
   readonly taskUsage: Type<TaskUsage>;
   readonly stageContextLimitDefaults: Type<StageContextLimitDefaults>;
   readonly taskThreadSessions: Type<TaskThreadSessions>;
+  readonly sessionPeople: Type<SessionPeople>;
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly stageRoleEngines: Type<StageRoleEngines>;
   /** People's engine cascade, for the engines a Task's Roles run on. */
@@ -130,6 +133,7 @@ export class PipelinesModule {
     taskUsage,
     stageContextLimitDefaults,
     taskThreadSessions,
+    sessionPeople,
     proposalDrafts,
     stageRoleEngines,
     roleEngineCascade,
@@ -153,7 +157,7 @@ export class PipelinesModule {
         TaskStagesController,
         TaskEngineCascadeController,
         TaskGateController,
-        TaskRestartController,
+        PipelinesOfficeActionsController,
         PipelineLibraryController,
         ProjectPipelineLibraryController,
         StageTemplateLibraryController,
@@ -174,6 +178,7 @@ export class PipelinesModule {
         { provide: TaskUsage, useExisting: taskUsage },
         { provide: StageContextLimitDefaults, useExisting: stageContextLimitDefaults },
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
+        { provide: SessionPeople, useExisting: sessionPeople },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: StageRoleEngines, useExisting: stageRoleEngines },
         { provide: RoleEngineCascade, useExisting: roleEngineCascade },
@@ -217,6 +222,7 @@ export class PipelinesModule {
         StandInChoices,
         StandInSwitches,
         PipelineOfficeTools,
+        PipelinesOfficeActions,
         PipelinesPromptTemplates,
         PipelinesWebEvents,
       ],

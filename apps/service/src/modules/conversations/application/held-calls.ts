@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import type { ApprovalCall } from "../../engine/index.js";
+import type { ApprovalCall, OfficeToolRuled } from "../../engine/index.js";
 import {
   hardSwitchInEffect,
   HARD_SWITCH_LABELS,
@@ -8,21 +8,22 @@ import {
   type HardSwitchValue,
 } from "../../people/index.js";
 import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
-import { isApproval, onlyChoice } from "../domain/decision.js";
+import { isApproval, onlyChoice, type Decision } from "../domain/decision.js";
 import { heldCallRuling } from "../domain/held-call.js";
 import { mcpToolCallWords } from "../domain/mcp-tool-call.js";
 import type { Thread } from "../domain/thread.js";
+import type { UserRef } from "../domain/user.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { Consultations } from "./consultations.js";
 
 /**
- * What becomes of a call behind a Hard switch: it runs now, as made by the person filling `roleKey`,
- * is refused, or waits on approval.
+ * What becomes of a call behind a Hard switch: it runs now, as made by the person filling `roleKey`
+ * and allowed by `allowedBy` when it used up a user's approval, is refused, or waits on approval.
  */
 export type HeldCallOutcome =
-  | { readonly kind: "proceed"; readonly roleKey: string }
+  | { readonly kind: "proceed"; readonly roleKey: string; readonly allowedBy?: UserRef }
   | { readonly kind: "refused"; readonly reason: string }
   | { readonly kind: "held"; readonly waitingOn: string };
 
@@ -37,7 +38,7 @@ export interface HeldCallRequest {
 }
 
 /** What a held call is put to the approver with, behind whichever setting holds it. */
-type HeldCall = Omit<HeldCallRequest, "switchKey">;
+export type HeldCall = Omit<HeldCallRequest, "switchKey">;
 
 /**
  * Holds the calls behind the enforced Hard switches, each its named group of the caller's Authority
@@ -76,6 +77,28 @@ export class HeldCalls implements OnModuleInit {
   }
 
   /**
+   * A call of an Office tool whose Authority setting, as ruled for this call, holds it for approval
+   * (`toolRuling`): it runs now, with the user whose approval it used up, or it is held in the
+   * words the Agent reads instead of the tool's answer. The approval is of this person in this
+   * Thread for this `call`, which the caller words in canonical form; it covers one run.
+   */
+  async holdToolCall(
+    sessionId: string,
+    tool: string,
+    setting: HardSwitchValue,
+    request: HeldCall,
+  ): Promise<OfficeToolRuled> {
+    const thread = await this.threads.findBySession(sessionId);
+    if (!thread) return { kind: "hold", words: "The Office doesn't know this session's Thread." };
+    const outcome = await this.holdBehind(thread, request, tool, setting);
+    const words = heldCallWords(outcome);
+    if (words !== undefined) return { kind: "hold", words };
+    return outcome.kind === "proceed" && outcome.allowedBy
+      ? { kind: "run", allowedBy: outcome.allowedBy }
+      : { kind: "run" };
+  }
+
+  /**
    * A call of an MCP tool whose setting, as the session was given it, asks for approval: undefined
    * when it runs now, else the words the Agent reads instead of the tool's answer.
    */
@@ -94,14 +117,7 @@ export class HeldCalls implements OnModuleInit {
       tool,
       call.setting,
     );
-    switch (outcome.kind) {
-      case "proceed":
-        return undefined;
-      case "refused":
-        return outcome.reason;
-      case "held":
-        return `The call waits on ${outcome.waitingOn}, as a Decision in this Thread. End your turn now: their answer comes as your next message, and after "Allow once" you make the same call, with the same input, which then runs once.`;
-    }
+    return heldCallWords(outcome);
   }
 
   private async holdBehind(
@@ -115,7 +131,8 @@ export class HeldCalls implements OnModuleInit {
     const proceed: HeldCallOutcome = { kind: "proceed", roleKey: thread.roleKey };
     if (ruling.kind === "proceed") return proceed;
     if (ruling.kind === "refuse") return refused(ruling.reason);
-    if (await this.spentApprovalIn(thread.id, request.call)) return proceed;
+    const spent = await this.spentApprovalIn(thread.id, request.call);
+    if (spent) return spent.allowedBy ? { ...proceed, allowedBy: spent.allowedBy } : proceed;
     try {
       const consultant = await this.consultations.put(request.sessionId, {
         kind: "approval",
@@ -136,18 +153,45 @@ export class HeldCalls implements OnModuleInit {
     }
   }
 
-  /** Uses up the first approval of this call that was granted and not used yet. */
-  private async spentApprovalIn(threadId: string, call: string): Promise<boolean> {
+  /** Uses up the first approval of this call that was granted and not used yet, if there is one. */
+  private async spentApprovalIn(
+    threadId: string,
+    call: string,
+  ): Promise<SpentApproval | undefined> {
     const question = approvalQuestion(call);
     for (const decision of await this.threads.decisionsIn(threadId)) {
       const choice = onlyChoice(decision);
       const given = decision.answer?.kind === "submitted" ? decision.answer.answers[0] : undefined;
       const chosen = given?.kind === "option" ? choice?.options[given.option] : undefined;
       if (isApproval(decision) && choice?.question === question && chosen === APPROVAL_OPTIONS[0]) {
-        if (await this.threads.spendApproval(decision.id)) return true;
+        if (await this.threads.spendApproval(decision.id)) {
+          return { allowedBy: userWhoAllowed(decision) };
+        }
       }
     }
-    return false;
+    return undefined;
+  }
+}
+
+/** An approval a call used up, with the user who gave it, if a user did. */
+interface SpentApproval {
+  readonly allowedBy: UserRef | undefined;
+}
+
+/** The user who gave an approval: themselves, or by a person they asked; none for a Consultant. */
+function userWhoAllowed({ answer }: Decision): UserRef | undefined {
+  return answer?.user ?? answer?.atUsersRequest?.user ?? undefined;
+}
+
+/** What the Agent reads of a held call's outcome: nothing when it runs now. */
+function heldCallWords(outcome: HeldCallOutcome): string | undefined {
+  switch (outcome.kind) {
+    case "proceed":
+      return undefined;
+    case "refused":
+      return outcome.reason;
+    case "held":
+      return `The call waits on ${outcome.waitingOn}, as a Decision in this Thread. End your turn now: their answer comes as your next message, and after "Allow once" you make the same call, with the same input, which then runs once.`;
   }
 }
 

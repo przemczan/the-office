@@ -22,6 +22,7 @@ import {
 } from "../work-application.fixtures.js";
 import { FireAlarmService } from "./fire-alarm-service.js";
 import { PlanningAfterRestart } from "./planning-after-restart.js";
+import { RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 
 const prompts = defaultWorkPrompts();
 const PLANNING_AFTER_RESTART_OPENING = planningAfterRestartOpening(prompts);
@@ -106,7 +107,7 @@ async function anInitiativeInPlanning(): Promise<{
   const sessions = work.app.get(SessionInitiativesForTests);
   sessions.initiatives.set(SESSION, shaped.id);
   sessions.threads.set(SESSION, threadId);
-  const [startPlanning] = work.app.get(OfficeToolRegistry).named([START_PLANNING]);
+  const [startPlanning] = work.app.get(OfficeToolRegistry).named([START_PLANNING], RUN_EVERY_CALL);
   await startPlanning?.run({ taskId: task.id }, anOfficeToolCall(SESSION));
   return { initiativeId: shaped.id, threadId };
 }

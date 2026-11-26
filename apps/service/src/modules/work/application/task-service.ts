@@ -7,7 +7,7 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import { EngineModels, EngineReferenceLock, type EngineId } from "../../engine/index.js";
 import type { Author, UserRef } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
-import { BY_THE_PIPELINE, type StateChange } from "../domain/state-change.js";
+import { BY_THE_PIPELINE, type PersonAuthor, type StateChange } from "../domain/state-change.js";
 import {
   historyOf,
   withTaskEdits,
@@ -699,19 +699,28 @@ export class TaskService {
   /**
    * The user's Restart from… `stageName`, which Pipelines has set the walk to go on from: the Paused
    * Task goes on In progress as a Resume does, TaskResumed telling Pipelines to walk on, its History
-   * naming the Stage and the user. Refused as `restartProblems` says, judged again holding its
-   * Initiative and the Task; an alarm sounded ASAP meanwhile holds it as it holds a Resume.
+   * naming the Stage and the user, or the person who restarted it at the user's request. Refused as
+   * `restartProblems` says, judged again holding its Initiative and the Task; an alarm sounded ASAP
+   * meanwhile holds it as it holds a Resume.
    */
   async restart(
     id: string,
-    { stageName, by }: { readonly stageName: string; readonly by: UserRef },
+    {
+      stageName,
+      by,
+      person,
+    }: {
+      readonly stageName: string;
+      readonly by: UserRef;
+      readonly person?: PersonAuthor | undefined;
+    },
   ): Promise<Task> {
     const alarm = await this.fireAlarm.read();
     const { task, event } = await this.changeWithItsInitiative(id, (held, initiativePaused) =>
       restartTask(
         held,
         { initiativePaused, alarmHoldsResume: holdsResume(alarm, held) },
-        { stageName, user: by },
+        { stageName, user: by, person },
       ),
     );
     if (event && (await this.alarmStopsEveryWalk())) return this.update(id, pauseTaskForAlarm);

@@ -344,26 +344,6 @@ export const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies
  */
 export const CREATE_INITIATIVE_TOOL = "create_initiative";
 
-/** The records a person creates in a Thread with an Office tool. */
-type CreatedRecord = "task" | "idea" | "initiative";
-
-/** The Office tool each record is created with in a Thread. */
-const CREATE_TOOLS: Readonly<Record<CreatedRecord, string>> = {
-  task: "create_task",
-  idea: "capture_idea",
-  initiative: CREATE_INITIATIVE_TOOL,
-};
-
-/**
- * The records a session creates with the Office tools it is given: whoever creates one also gets
- * the Office actions covered by its creators, to fix what they made (spec 5.4.1, "Office actions").
- */
-export function recordsCreatedWith(officeTools: readonly string[]): CreatedRecord[] {
-  return Object.entries(CREATE_TOOLS).flatMap(([record, createTool]) =>
-    officeTools.includes(createTool) ? [record as CreatedRecord] : [],
-  );
-}
-
 /**
  * The Office tools that read and draft changes to how The Office works: the Office settings with
  * the Office instructions, Role cards and Prompt templates, each change a Proposal the user applies
