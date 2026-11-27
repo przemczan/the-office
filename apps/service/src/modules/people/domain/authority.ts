@@ -197,6 +197,15 @@ export function authorityRow(group: AuthorityGroup): AuthorityRow {
   return found;
 }
 
+/**
+ * What a row's value is held to: on a capped row (the trust anchor, Users alone) Allowed and Consult
+ * read as Ask me, so a card edited by hand past the Role card's own checks still holds the call.
+ */
+export function heldToCap(group: AuthorityGroup, value: AuthorityValue): AuthorityValue {
+  if (authorityRow(group).cap === null) return value;
+  return value.kind === "allowed" || value.kind === "consult" ? ASK_ME : value;
+}
+
 const ALL_VALUE_KINDS: readonly AuthorityValueKind[] = [
   "allowed",
   "consult",

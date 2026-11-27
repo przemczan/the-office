@@ -198,17 +198,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     agent: "partial",
     note: "write_bug_details, planning Threads only",
   },
-  {
-    route: "POST /tasks/:id/gate/continue",
-    agent: "gap",
-    note: "a Gate: for the permissions design",
-  },
-  {
-    route: "POST /tasks/:id/gate/send-back",
-    agent: "gap",
-    note: "a Gate: for the permissions design",
-  },
-  { route: "POST /tasks/:id/gate/drop", agent: "gap", note: "a Gate: for the permissions design" },
 
   // Work: Ideas, Initiatives, Attachments, views.
   { route: "POST /ideas", agent: "tool", note: "capture_idea (hand-written)" },

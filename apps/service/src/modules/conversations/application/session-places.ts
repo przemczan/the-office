@@ -184,7 +184,12 @@ export class SessionPlaces {
     const named = thread.stageThread
       ? [...homeTools]
       : [...new Set([...homeTools, ...actionTools.map(({ name }) => name)])];
-    return offeredTools(named, groupOf, card.authority, held);
+    const ownWorkGroupOf = new Map(
+      actionTools.flatMap(({ name, onOwnWork }) =>
+        onOwnWork !== undefined && isAuthorityGroup(onOwnWork) ? [[name, onOwnWork] as const] : [],
+      ),
+    );
+    return offeredTools(named, groupOf, card.authority, held, ownWorkGroupOf);
   }
 
   private async homePlace(

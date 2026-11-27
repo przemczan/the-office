@@ -299,16 +299,26 @@ export type GateDropReason =
   | { readonly kind: "other"; readonly text: string };
 
 /**
+ * The person who acted at a Gate by their Office tool, for the user who asked them: the Role they
+ * fill and, for a call held for approval, the user who allowed it.
+ */
+export interface GatePerson {
+  readonly roleKey: string;
+  readonly askedBy: HoldingUser;
+  readonly allowedBy?: HoldingUser;
+}
+
+/**
  * What the user did at a Gate (spec §2.3): let the work continue, with notes every later Agent Stage
  * is briefed with or none, send it back with feedback to an earlier Agent Stage, or drop the Task,
- * with the reason they gave, if any. `byUser` is who acted, undefined for an action kept before
- * users existed.
+ * with the reason they gave, if any. `byUser` is the user it was for, undefined for an action kept
+ * before users existed; `person` is who acted for them, when a person did.
  */
 export type GateAction = (
   | { readonly kind: "continue"; readonly feedback?: string }
   | { readonly kind: "send-back"; readonly stageKey: string; readonly feedback: string }
   | { readonly kind: "drop"; readonly reason?: GateDropReason }
-) & { readonly byUser?: HoldingUser };
+) & { readonly byUser?: HoldingUser; readonly person?: GatePerson };
 
 /**
  * The feedback a Gate sent the work back with, which the run of the Stage it went back to carries

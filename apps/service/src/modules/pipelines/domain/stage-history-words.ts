@@ -460,7 +460,7 @@ function handoverNoteLines(outcome: StageOutcome | undefined): string[] {
 
 function gateActionLines(stages: readonly Stage[], action: GateAction | undefined): string[] {
   if (!action) return [];
-  const user = holdingUserWords(action.byUser);
+  const user = gateActorWords(action);
   switch (action.kind) {
     case "continue":
       return action.feedback === undefined
@@ -473,6 +473,16 @@ function gateActionLines(stages: readonly Stage[], action: GateAction | undefine
     case "drop":
       return [`At the Gate ${user} dropped the Task.`];
   }
+}
+
+/**
+ * Who acted at a Gate: "the user Ann Lee", or "the person in the Role cto, asked by the user Ann
+ * Lee," (and "allowed by the user Bo Ek," for a call held for approval) when a person acted.
+ */
+function gateActorWords({ byUser, person }: GateAction): string {
+  if (!person) return holdingUserWords(byUser);
+  const allowed = person.allowedBy ? `, allowed by ${holdingUserWords(person.allowedBy)}` : "";
+  return `the person in the Role ${person.roleKey}, asked by ${holdingUserWords(person.askedBy)}${allowed},`;
 }
 
 const WALK_DECISION_WORDS: Readonly<Record<WalkDecisionKind, string>> = {

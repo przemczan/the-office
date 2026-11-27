@@ -114,4 +114,29 @@ describe("offeredTools", () => {
     ]);
     expect(offeredTools(["add_dependency"], groupOf, authority, [])).toEqual([]);
   });
+
+  it("keeps a tool with a row of its own on own work offered while that row isn't Never", () => {
+    const gates = {
+      gatesAndRuns: { kind: "never" },
+      continueAtGateOnOwnWork: { kind: "ask-me" },
+    } as unknown as AuthorityInEffect;
+    const gateGroup = new Map<string, AuthorityGroup>([["continue_at_gate", "gatesAndRuns"]]);
+    const ownWork = new Map<string, AuthorityGroup>([
+      ["continue_at_gate", "continueAtGateOnOwnWork"],
+    ]);
+
+    expect(offeredTools(["continue_at_gate"], gateGroup, gates, [], ownWork)).toEqual([
+      "continue_at_gate",
+    ]);
+    expect(offeredTools(["continue_at_gate"], gateGroup, gates, [])).toEqual([]);
+    expect(
+      offeredTools(
+        ["continue_at_gate"],
+        gateGroup,
+        { ...gates, continueAtGateOnOwnWork: { kind: "never" } },
+        [],
+        ownWork,
+      ),
+    ).toEqual([]);
+  });
 });

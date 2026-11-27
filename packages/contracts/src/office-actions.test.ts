@@ -24,6 +24,10 @@ function anAction(area: AuthorityAreaKey, group: AuthorityGroup) {
   });
 }
 
+function withOwnWork(onOwnWork: AuthorityGroup) {
+  return officeAction({ ...anAction("work", "gatesAndRuns"), onOwnWork });
+}
+
 describe("an Office action's area and group", () => {
   it("are declared from the authority catalog", () => {
     const action = anAction("work", "taskRecords");
@@ -31,6 +35,12 @@ describe("an Office action's area and group", () => {
     expect(action.area).toBe("work");
     expect(action.group).toBe("taskRecords");
     expect(action.subject({ taskId: "t1" })).toEqual({ kind: "task", id: "t1" });
+  });
+
+  it("takes an own-work row of its area, and refuses one the catalog or the area lacks", () => {
+    expect(withOwnWork("continueAtGateOnOwnWork").onOwnWork).toBe("continueAtGateOnOwnWork");
+    expect(() => withOwnWork("nowhere" as AuthorityGroup)).toThrow("isn't in the catalog");
+    expect(() => withOwnWork("ideas")).toThrow("isn't in the area work");
   });
 
   it("refuses an area the catalog doesn't have", () => {

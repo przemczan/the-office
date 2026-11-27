@@ -257,7 +257,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 - `message.ts`: Message, MessageDraft, USERS_OWN_MESSAGE_KINDS, latestWriter, StageWorkClosing, HeldBy, UsageWindowUsedUpLine, usageWindowUsedUpWords, ModelGaveWayLine, modelGaveWayWords, StageContextLimitLine, StageSessionRestartedLine, EngineSwitchedLine, engineSwitchedWords, MessageDelivery, MessageImage, IdeaCard, OfficeStatusCard
 - `office-instructions-version-not-found.ts`: OfficeInstructionsVersionNotFound
 - `office-instructions.ts`: OfficeInstructionsVersion, NO_OFFICE_INSTRUCTIONS, versionAfter
-- `office-tool-ruling.ts`: ToolRuling, valueOnSubject, atLeastProposal, isOffered, toolRuling, officeToolCallWords, offeredTools
+- `office-tool-ruling.ts`: ToolRuling, valueOnSubject, ownWorkValue, atLeastProposal, isOffered, toolRuling, officeToolCallWords, offeredTools
 - `open-page.ts`: OpenPage, OpenPageRecord, OpenPageGiving, openPageToGive, sameOpenPage, briefWithOpenPageRecord, withOpenPageRecord
 - `people-working.ts`: TaskPeopleWorking, worksIn, peopleWorkingOnTasks
 - `proposal-changes.ts`: ProposalChange, applyProposal, declineProposal, declineProposalOnItsOwn

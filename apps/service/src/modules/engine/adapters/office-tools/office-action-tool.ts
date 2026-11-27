@@ -23,6 +23,7 @@ export function officeActionTool<Input extends z.ZodObject>(
     input: action.input,
     authority: {
       group: action.group,
+      ...(action.onOwnWork && { onOwnWork: action.onOwnWork }),
       title: action.title,
       subject: (input) => action.subject(action.input.parse(input)),
       ...(floor && { floor: (input: unknown) => floor(action.input.parse(input)) }),

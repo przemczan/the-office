@@ -1,24 +1,32 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
+  CONTINUE_AT_GATE_ACTION,
+  DROP_AT_GATE_ACTION,
   EDIT_TASK_STAGES_ACTION,
   PIPELINES_OFFICE_ACTIONS,
   RESTART_TASK_FROM_ACTION,
+  SEND_BACK_AT_GATE_ACTION,
   SWITCH_TO_STAND_IN_ACTION,
   type OfficeAction,
 } from "@the-office/contracts";
 import type { z } from "zod";
 import { officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
+import { GateService } from "../../application/gate-service.js";
 import { StandInSwitches } from "../../application/stand-in-switches.js";
 import { TaskRestarts } from "../../application/task-restarts.js";
 import { TaskStagesService } from "../../application/task-stages-service.js";
 import { withGivenLimits } from "../../domain/flow.js";
+import { GateRefused } from "../../domain/gate-refused.js";
 import { RestartRefused } from "../../domain/restart-refused.js";
-import type { HoldingUser } from "../../domain/stage-run.js";
+import type { GatePerson, HoldingUser } from "../../domain/stage-run.js";
 import { StagesEditRefused } from "../../domain/stages-edit-refused.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import type { RestartingPerson } from "../../ports/started-tasks.js";
 import { toTaskStagesResponse } from "../http/pipeline-responses.js";
 
+type ContinueAtGate = z.output<typeof CONTINUE_AT_GATE_ACTION.input>;
+type SendBackAtGate = z.output<typeof SEND_BACK_AT_GATE_ACTION.input>;
+type DropAtGate = z.output<typeof DROP_AT_GATE_ACTION.input>;
 type RestartTaskFrom = z.output<typeof RESTART_TASK_FROM_ACTION.input>;
 type EditTaskStages = z.output<typeof EDIT_TASK_STAGES_ACTION.input>;
 type SwitchToStandIn = z.output<typeof SWITCH_TO_STAND_IN_ACTION.input>;
@@ -36,6 +44,7 @@ type PersonInSession = RestartingPerson & { readonly askedBy: HoldingUser };
 export class PipelinesOfficeActions implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
+    private readonly gates: GateService,
     private readonly restarts: TaskRestarts,
     private readonly taskStages: TaskStagesService,
     private readonly standInSwitches: StandInSwitches,
@@ -43,6 +52,33 @@ export class PipelinesOfficeActions implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
+    this.registry.register(
+      officeActionTool(CONTINUE_AT_GATE_ACTION, (input, { sessionId, allowedBy }) =>
+        this.answered(async () => {
+          const person = await this.personInSession(sessionId, allowedBy);
+          await this.continueAtGate(input, userBehind(person), gatePersonOf(person));
+          return "The Task goes on past the Gate.";
+        }),
+      ),
+    );
+    this.registry.register(
+      officeActionTool(SEND_BACK_AT_GATE_ACTION, (input, { sessionId, allowedBy }) =>
+        this.answered(async () => {
+          const person = await this.personInSession(sessionId, allowedBy);
+          await this.sendBackAtGate(input, userBehind(person), gatePersonOf(person));
+          return `The Task goes back to the Stage "${input.stageKey}".`;
+        }),
+      ),
+    );
+    this.registry.register(
+      officeActionTool(DROP_AT_GATE_ACTION, (input, { sessionId, allowedBy }) =>
+        this.answered(async () => {
+          const person = await this.personInSession(sessionId, allowedBy);
+          await this.dropAtGate(input, userBehind(person), gatePersonOf(person));
+          return "The Task is dropped.";
+        }),
+      ),
+    );
     this.registry.register(
       officeActionTool(RESTART_TASK_FROM_ACTION, (input, { sessionId, allowedBy }) =>
         this.answered(async () => {
@@ -78,6 +114,12 @@ export class PipelinesOfficeActions implements OnModuleInit {
     }
     // The route parsed the input with the action's schema.
     switch (action.name) {
+      case CONTINUE_AT_GATE_ACTION.name:
+        return toTaskStagesResponse(await this.continueAtGate(input as ContinueAtGate, by));
+      case SEND_BACK_AT_GATE_ACTION.name:
+        return toTaskStagesResponse(await this.sendBackAtGate(input as SendBackAtGate, by));
+      case DROP_AT_GATE_ACTION.name:
+        return toTaskStagesResponse(await this.dropAtGate(input as DropAtGate, by));
       case RESTART_TASK_FROM_ACTION.name:
         await this.restartTaskFrom(input as RestartTaskFrom, by);
         return {};
@@ -86,6 +128,26 @@ export class PipelinesOfficeActions implements OnModuleInit {
       default:
         return await this.switchToStandIn(input as SwitchToStandIn, by);
     }
+  }
+
+  private continueAtGate(
+    { taskId, feedback }: ContinueAtGate,
+    by: HoldingUser,
+    person?: GatePerson,
+  ) {
+    return this.gates.continue(taskId, by, feedback, person);
+  }
+
+  private sendBackAtGate(
+    { taskId, stageKey, feedback }: SendBackAtGate,
+    by: HoldingUser,
+    person?: GatePerson,
+  ) {
+    return this.gates.sendBack(taskId, by, stageKey, feedback, person);
+  }
+
+  private dropAtGate({ taskId, reason }: DropAtGate, by: HoldingUser, person?: GatePerson) {
+    return this.gates.drop(taskId, by, reason, person);
   }
 
   private restartTaskFrom(
@@ -113,7 +175,11 @@ export class PipelinesOfficeActions implements OnModuleInit {
     try {
       return { text: await run(), isError: false };
     } catch (error) {
-      if (error instanceof RestartRefused || error instanceof StagesEditRefused) {
+      if (
+        error instanceof RestartRefused ||
+        error instanceof StagesEditRefused ||
+        error instanceof GateRefused
+      ) {
         return { text: error.message, isError: true };
       }
       throw error;
@@ -143,4 +209,9 @@ export class PipelinesOfficeActions implements OnModuleInit {
 /** The user a person's call is for: the one who allowed it, else the one who asked. */
 function userBehind(person: PersonInSession): HoldingUser {
   return person.allowedBy ?? person.askedBy;
+}
+
+/** The person as a Gate's action keeps them. */
+function gatePersonOf({ roleKey, askedBy, allowedBy }: PersonInSession): GatePerson {
+  return { roleKey, askedBy, ...(allowedBy && { allowedBy }) };
 }

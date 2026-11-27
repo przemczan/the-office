@@ -28,6 +28,20 @@ describe("a Gate action in the Stage history", () => {
     );
   });
 
+  it("names the person who acted, the user who asked them and the user who allowed it", () => {
+    const bo = { userId: "00000000-0000-4000-8000-0000000005e2", name: "Bo Ek" };
+    const person = { roleKey: "cto", askedBy: ann, allowedBy: bo };
+
+    expect(wordsOf({ kind: "continue", byUser: bo, person })).toContain(
+      "At the Gate the person in the Role cto, asked by the user Ann Lee, allowed by the user Bo Ek, let the work continue.",
+    );
+    expect(
+      wordsOf({ kind: "drop", byUser: ann, person: { roleKey: "cto", askedBy: ann } }),
+    ).toContain(
+      "At the Gate the person in the Role cto, asked by the user Ann Lee, dropped the Task.",
+    );
+  });
+
   it("reads as the user for an action kept before users existed", () => {
     expect(wordsOf({ kind: "drop" })).toContain("At the Gate the user dropped the Task.");
   });

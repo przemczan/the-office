@@ -35,6 +35,7 @@
 - An edit of a Task's Stages and the walk's start of each run take one per-Task lock (`TaskStagesService.holding`), and the walk reads the Stages afresh each move: start a run anywhere else and an edit can change the Stage under it.
 - `POST /tasks/:id/stages/check` takes an optional `pipelineId`, the Pipeline the editor's draft follows: a Task with no Pipeline yet, or one swapped to before Save, is checked as if it followed it (`TaskStagesService.review`, through `ownOrCopied` and `forTask`, which refuse a Broken one or another Project's). Without it the check reads the Task's own Pipeline and refuses a Task with none. A refusal answers as `PUT /tasks/:id/stages` does (`StagesEditRefusalsFilter`, 422). Saving still needs the Pipeline set first (`PUT /tasks/:id/pipeline`).
 - The walk is worked out from the Stage runs (`nextMove` in `domain/pipeline-walk.ts`): a Gate action, an answer or a send-back is data on a run, replayed, not a call.
+- The Gate choices (Continue, Send back, Drop; `GateService`) are Office actions of Work › Gates and runs, `continue_at_gate`, `send_back_at_gate` and `drop_at_gate`, derived into `PipelinesOfficeActionsController`'s routes (`POST /tasks/:taskId/gate/…`, `GateRefusalsFilter` answering a refusal as 422 with every reason) and the tools of `PipelinesOfficeActions`. A person's call keeps `GateAction.person` (their Role's key, who asked, who allowed) beside `byUser` (the user behind it), fields only, as the previous release replays runs; the Stage history words it "At the Gate the person in the Role cto, asked by the user …". `continue_at_gate` declares `onOwnWork: continueAtGateOnOwnWork`: Conversations' ruling reads that capped row (held to Ask me even where a card stores Allowed) on a Task the person created or worked a Stage of, and Gates and runs on any other.
 - Restart from… (spec §2.4.5, `TaskRestarts`, `POST /tasks/:id/restart`, refusals `RestartRefused` as 422 like a Gate's) is data too: `stage_runs.restart` on the held run (the Task's latest, ended), which `nextMove` honours before however the run ended (`restartFrom`: no route followed, so no times used; the Definition of Done check still runs entering a Publish), and `stage_runs.restarted` on the run it ran, which `agentStageWork` words with the Prompt template `pipelines.stage-restarted` (appended after the routes out, so a user-edited Stage's message template needs no new variable). `heldRun`, `answeredQuestion` and `heldRunChoice` ignore a restarted held run, whose edits `StageGit.discardHeld` dropped; `stagesProgress` shows it stopped and the Stages a restart to a later one jumped over `skipped`. Work moves the Task (`StartedTasks.restartProblems`, `restart`).
 - Start over (spec §2.4.5) is Pipelines' part of Work's `TaskStartOvers` (`TaskStartOverWork`): `stage_runs.started_over` on the last run before it marks every run up to it as history only. Read the walk's runs through `runsOfLatestStart` (`domain/start-over.ts`): `walkOver` does, and so do the interpreter, `progressOf`, `TaskStagesService`'s checks, `GateService`, `AlarmResumes` and `StageRouteChoices`, so the next Start's first Stage opens a fresh session and brings the branch to the base; a run's number still counts every run (`allRuns.length`). `StageProgress.runs` keeps every run, `earlierStart` naming the earlier ones. A reset goes through `TaskGit.resetBranchToBase` (old head under `refs/office/started-over/<task id>/<n>`); refused once `workLeftTheWorkstation`.
 - Reported met is one rule, `reportedMet`, over all the Task's runs in their order; a Stage's own `runs` won't do, as a loop's later run can sit under an earlier Stage. `GET /tasks/:id/stages` answers it as `definitionOfDoneMet`, beside each outcome's own report: read that one, never work it out from the outcomes. Both fold every done Agent report oldest first (`definitionOfDoneReports`): a statement stays met once reported until a report lists it in `definitionOfDoneNoLongerMet`, so a report leaving it out takes nothing back. Out of reach (`reportedOutOfReach`) adds up the same way, counting only statements not Reported met; it shows in the Definition of Done Decision (`definitionOfDoneNotMet`), whose question carries those statements apart from the unmet ones, and at the Gate that is the check.
@@ -124,9 +125,6 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `GET /stage-templates/:id`: StageTemplatesController.read
 - `GET /stand-in-choices`: StandInChoicesController.list
 - `GET /tasks/:id/engine-cascade`: TaskEngineCascadeController.read
-- `POST /tasks/:id/gate/continue`: TaskGateController.continue
-- `POST /tasks/:id/gate/send-back`: TaskGateController.sendBack
-- `POST /tasks/:id/gate/drop`: TaskGateController.drop
 - `GET /tasks/:id/stages`: TaskStagesController.read
 - `GET /tasks/:id/stage-runs/:runId/command-outputs`: TaskStagesController.commandOutputs
 - `POST /tasks/:id/stages/check`: TaskStagesController.check
@@ -183,15 +181,14 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `stages-edit-refusals.filter.ts`: StagesEditRefusalsFilter
 - `stand-in-choices.controller.ts`: StandInChoicesController
 - `task-engine-cascade.controller.ts`: TaskEngineCascadeController
-- `task-gate.controller.ts`: TaskGateController
 - `task-stages.controller.fixtures.ts`: tests
 - `task-stages.controller.ts`: TaskStagesController
-- Tests: pipeline-library.controller.full.test.ts, pipeline-library.controller.test.ts, pipelines.controller.test.ts, project-pipeline-library.controller.full.test.ts, project-pipeline-library.controller.test.ts, stage-templates.controller.full.test.ts, stage-templates.controller.test.ts, task-engine-cascade.controller.test.ts, task-gate.controller.test.ts, task-restart.controller.test.ts, task-stages.controller.full.test.ts, task-stages.controller.test.ts
+- Tests: pipeline-library.controller.full.test.ts, pipeline-library.controller.test.ts, pipelines.controller.test.ts, project-pipeline-library.controller.full.test.ts, project-pipeline-library.controller.test.ts, stage-templates.controller.full.test.ts, stage-templates.controller.test.ts, task-engine-cascade.controller.test.ts, task-restart.controller.test.ts, task-stages.controller.full.test.ts, task-stages.controller.test.ts
 
 ### adapters/office-actions/
 
 - `pipelines-office-actions.ts`: PipelinesOfficeActions
-- Tests: pipelines-office-actions.test.ts
+- Tests: gate-office-actions.test.ts, pipelines-office-actions.test.ts
 
 ### adapters/office-tools/
 
@@ -329,7 +326,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `stage-run-changes.ts`: NewStageRun, startStageRun, heldRunChoice, endStageRun, NamedEngine, engineSwitched
 - `stage-run-events.ts`: StageRunStarted, StageRunThreadOpened, StageRunWaiting, StageRunEngineSwitched, StageAwaitsStandInChoice, StandInChoicesChanged, StageRunEnded, StopHeldAsPause, BudgetReached, WentBackToStage, NoRetriesLeft, RouteLimitReached, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `stage-run.fixtures.ts`: aStageRun
-- `stage-run.ts`: StageRecommendation, StageDecision, OutOfReachStatement, StageOutcome, RefusedTurn, StandInChoice, EngineSwitch, StageInterruption, AskedInterruption, PublishedWork, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, StageRunContext, addTokens, StageOutcomeStatus, HoldingUser, CarriedFailure, GateDropReason, GateAction, SentBack, TaskRestart, Restarted, StartedOver, StageDecisionKind, WalkAnswer, StageRunDecision, StageRunStandIn, AgentRunDecision, WalkRunDecision, WalkDecisionKind, ChosenRoute, StageRun
+- `stage-run.ts`: StageRecommendation, StageDecision, OutOfReachStatement, StageOutcome, RefusedTurn, StandInChoice, EngineSwitch, StageInterruption, AskedInterruption, PublishedWork, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, StageRunContext, addTokens, StageOutcomeStatus, HoldingUser, CarriedFailure, GateDropReason, GatePerson, GateAction, SentBack, TaskRestart, Restarted, StartedOver, StageDecisionKind, WalkAnswer, StageRunDecision, StageRunStandIn, AgentRunDecision, WalkRunDecision, WalkDecisionKind, ChosenRoute, StageRun
 - `stage-runs-file.ts`: StageRunsFileOutcome, StageRunsFileStatement, StageRunsFileRun, StageRunsFile, StageRunsFileTask, stageRunsFile
 - `stage-staffing.ts`: RoleFilling, RoleFillingsByWorker, fillingKey, dutyLabel, staffedStages, dutiesToStaff, staffedRole, unstaffedWords, staffingProblems, stageStaffingProblem
 - `stage-template-events.ts`: StageTemplateAdded, StageTemplateSaved, StageTemplateRemoved

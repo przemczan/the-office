@@ -5,7 +5,7 @@ import { asFlow } from "../domain/flow.js";
 import { gateActionProblems, waitingGateRun } from "../domain/gate.js";
 import { GateRefused } from "../domain/gate-refused.js";
 import type { TaskProgress } from "../domain/stage-progress.js";
-import type { GateAction, GateDropReason, HoldingUser } from "../domain/stage-run.js";
+import type { GateAction, GateDropReason, GatePerson, HoldingUser } from "../domain/stage-run.js";
 import { GateContinued, GateDropped, SentBackFromGate } from "../domain/stage-run-events.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
@@ -33,12 +33,14 @@ export class GateService {
     taskId: string,
     byUser: HoldingUser,
     feedback?: string,
+    person?: GatePerson,
   ): Promise<TaskProgress | undefined> {
     const notes = feedback?.trim();
-    return this.act(
-      taskId,
-      notes ? { kind: "continue", feedback: notes, byUser } : { kind: "continue", byUser },
-    );
+    return this.act(taskId, {
+      kind: "continue",
+      ...(notes ? { feedback: notes } : {}),
+      ...actors(byUser, person),
+    });
   }
 
   sendBack(
@@ -46,8 +48,14 @@ export class GateService {
     byUser: HoldingUser,
     stageKey: string,
     feedback: string,
+    person?: GatePerson,
   ): Promise<TaskProgress | undefined> {
-    return this.act(taskId, { kind: "send-back", stageKey, feedback: feedback.trim(), byUser });
+    return this.act(taskId, {
+      kind: "send-back",
+      stageKey,
+      feedback: feedback.trim(),
+      ...actors(byUser, person),
+    });
   }
 
   /**
@@ -59,6 +67,7 @@ export class GateService {
     taskId: string,
     byUser: HoldingUser,
     reason?: GateDropReason,
+    person?: GatePerson,
   ): Promise<TaskProgress | undefined> {
     if (reason?.kind === "duplicate") {
       if (reason.taskId === taskId) {
@@ -68,7 +77,11 @@ export class GateService {
         throw new GateRefused([`There is no Task ${reason.taskId}.`]);
       }
     }
-    return this.act(taskId, reason ? { kind: "drop", reason, byUser } : { kind: "drop", byUser });
+    return this.act(taskId, {
+      kind: "drop",
+      ...(reason ? { reason } : {}),
+      ...actors(byUser, person),
+    });
   }
 
   /** The Task's Stages after the action; refused with the reasons when the Gate doesn't allow it. */
@@ -96,4 +109,12 @@ function gateEvent(taskId: string, gateKey: string, action: GateAction): DomainE
     case "drop":
       return new GateDropped(taskId, gateKey);
   }
+}
+
+/** Who acted, as a Gate's action keeps them: the user, and the person who acted for them. */
+function actors(
+  byUser: HoldingUser,
+  person: GatePerson | undefined,
+): { byUser: HoldingUser; person?: GatePerson } {
+  return person ? { byUser, person } : { byUser };
 }

@@ -64,6 +64,7 @@ export {
   authorityInEffect,
   authorityWithHardSwitches,
   hardSwitchesOf,
+  heldToCap,
   type Authority,
   isAuthorityGroup,
   type AuthorityGroup,

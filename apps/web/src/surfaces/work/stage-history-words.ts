@@ -321,9 +321,15 @@ export function startedOverWords({
 /** The divider before a Stage's runs of an earlier start, before the latest Start over. */
 export const EARLIER_START_WORDS = "Earlier start";
 
-/** "You sent back to Implement": what the user did at a Gate's run. */
+/**
+ * "You sent back to Implement": what the user did at a Gate's run; for a person's choice, "The
+ * person in the Role cto, asked by Ann Lee, sent back to Implement".
+ */
 export function gateChoiceWords(action: GateAction, names: StageNames): string {
-  return `You ${gateActionWords(action, names)}`;
+  const { person } = action;
+  if (!person) return `You ${gateActionWords(action, names)}`;
+  const allowed = person.allowedBy ? `, allowed by ${person.allowedBy}` : "";
+  return `The person in the Role ${person.roleKey}, asked by ${person.askedBy}${allowed}, ${gateActionWords(action, names)}`;
 }
 
 /** How a command came out: "passed", "failed". */

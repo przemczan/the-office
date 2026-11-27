@@ -8,7 +8,6 @@ import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.j
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
 import { ProjectPipelineLibraryController } from "./adapters/http/project-pipeline-library.controller.js";
 import { StageTemplateLibraryController } from "./adapters/http/stage-template-library.controller.js";
-import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { PipelinesOfficeActionsController } from "./adapters/http/pipelines-office-actions.controller.js";
 import { PipelinesOfficeActions } from "./adapters/office-actions/pipelines-office-actions.js";
 import { SessionPeople } from "./ports/session-people.js";
@@ -156,7 +155,6 @@ export class PipelinesModule {
       controllers: [
         TaskStagesController,
         TaskEngineCascadeController,
-        TaskGateController,
         PipelinesOfficeActionsController,
         PipelineLibraryController,
         ProjectPipelineLibraryController,

@@ -67,6 +67,12 @@ export interface OfficeAction<
    */
   readonly group: AuthorityGroup;
   /**
+   * The single tool whose Authority setting rules a call on the person's own work instead of
+   * `group` (spec 6 › Authority), such as Continue at a Gate on own work; left out, `group` rules
+   * every call.
+   */
+  readonly onOwnWork?: AuthorityGroup;
+  /**
    * What the action starts at on a card with no setting for its group, when that differs from the
    * group's own default; left out, the group's default rules.
    */
@@ -102,6 +108,18 @@ export function officeAction<Input extends z.ZodObject, Answer extends z.ZodType
     throw new Error(
       `The Office action ${action.name}'s group ${action.group} isn't in the area ${action.area}.`,
     );
+  }
+  if (action.onOwnWork !== undefined) {
+    if (!authorityGroupSchema.safeParse(action.onOwnWork).success) {
+      throw new Error(
+        `The Office action ${action.name}'s own-work row ${action.onOwnWork} isn't in the catalog.`,
+      );
+    }
+    if (!isGroupOfArea(action.area, action.onOwnWork)) {
+      throw new Error(
+        `The Office action ${action.name}'s own-work row ${action.onOwnWork} isn't in the area ${action.area}.`,
+      );
+    }
   }
   return action;
 }

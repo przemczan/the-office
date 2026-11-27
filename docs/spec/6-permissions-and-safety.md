@@ -60,7 +60,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **Ask me and Proposal grant the same reach:** both need the user's click, so moving a setting between them grants nothing and takes nothing away.
   - Ask me: the Agent waits, then repeats the call, which runs straight after Allow once, in the person's name with the approving user recorded; it fits actions the Agent's work goes on from (start a Task, install).
   - Proposal: the Agent goes on at once, and the change runs when the user applies it, in the applying user's name; it fits changes the user reviews whole (cards, settings, Pipelines).
-- **A domain rule is the floor:** what nobody may do stays a refusal in the handler for every setting, Allowed included (an Agent never Drops work that has started); a setting never lifts a domain rule.
+- **A domain rule is the floor:** what nobody may do stays a refusal in the handler for every setting, Allowed included (`drop_task` and `drop_initiative` never Drop work that has started); a setting never lifts a domain rule.
 - **Authority isn't written in words:** the Role's instructions carry the job's guidance, never "decide alone, consult first, ask the user", and no tool description reminds the Agent to follow its authority; the setting says it and The Office enforces it.
 - **The preset's default or set:** each setting either follows its preset's default or is set, which stays as it is ([2.2](2.2-people.md#presets)); the defaults are in [Authority by role](#authority-by-role).
 - Each Office action declares its area, its group and its default authority, which the Authority by role table is built from ([5.4.1](5.4.1-engine-kinds.md#office-actions)).

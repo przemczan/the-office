@@ -430,6 +430,12 @@ describe("a run's other words", () => {
       "You continued, with notes",
     );
     expect(gateChoiceWords({ kind: "drop" }, names)).toBe("You dropped the Task");
+    expect(
+      gateChoiceWords(
+        { kind: "drop", person: { roleKey: "cto", askedBy: "Ann Lee", allowedBy: "Bo Ek" } },
+        names,
+      ),
+    ).toBe("The person in the Role cto, asked by Ann Lee, allowed by Bo Ek, dropped the Task");
   });
 
   it("says what a command came to, and why it ran when that isn't plain", () => {

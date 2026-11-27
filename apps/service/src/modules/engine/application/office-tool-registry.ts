@@ -40,9 +40,21 @@ export class OfficeToolRegistry {
   }
 
   /** Every Office action's tool, in the order registered, with the group of the Authority that rules it. */
-  actionTools(): { readonly name: string; readonly group: string }[] {
+  actionTools(): {
+    readonly name: string;
+    readonly group: string;
+    readonly onOwnWork?: string;
+  }[] {
     return [...this.tools.values()].flatMap(({ name, authority }) =>
-      authority === undefined ? [] : [{ name, group: authority.group }],
+      authority === undefined
+        ? []
+        : [
+            {
+              name,
+              group: authority.group,
+              ...(authority.onOwnWork && { onOwnWork: authority.onOwnWork }),
+            },
+          ],
     );
   }
 

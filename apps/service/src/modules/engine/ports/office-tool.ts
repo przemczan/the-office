@@ -55,6 +55,11 @@ export interface OfficeToolResult {
 export interface OfficeToolAuthority {
   /** The key of the Authority group that rules the tool, from the catalog the contracts hold. */
   readonly group: string;
+  /**
+   * The single tool whose setting rules a call on the person's own work instead of `group`, such
+   * as Continue at a Gate on own work; undefined when `group` rules every call.
+   */
+  readonly onOwnWork?: string;
   /** What the action is called as the user reads it, such as "Start a Task". */
   readonly title: string;
   /** The subject a call with this input changes, so own work is told from others'. */

@@ -8,6 +8,7 @@ import {
   stageProblemSchema,
   stageSchema,
 } from "./stages.js";
+import { dropSchema } from "./work.js";
 
 /** Where End stands on the flow editor's canvas; absent, right of the right-most Stage. */
 const endPositionField = { endPosition: stagePositionSchema.optional() };
@@ -209,13 +210,34 @@ export const stageRunCommandOutputsSchema = z.object({ outputs: z.array(z.string
 export type StageRunCommandOutputs = z.infer<typeof stageRunCommandOutputsSchema>;
 
 /**
+ * The person who acted at a Gate by their Office tool: the Role they fill, the user who asked them
+ * and, for a call held for approval, the user who allowed it, each by their name then.
+ */
+export const gatePersonSchema = z.object({
+  roleKey: z.string(),
+  askedBy: z.string(),
+  allowedBy: z.string().optional(),
+});
+export type GatePerson = z.infer<typeof gatePersonSchema>;
+
+/**
  * What the user did at a Gate: let the work continue, with notes for the Agent Stages after it or
- * none, send it back to an earlier Agent Stage with their feedback, or drop the Task.
+ * none, send it back to an earlier Agent Stage with their feedback, or drop the Task. `person` is
+ * set when a person acted for the user, by their Office tool.
  */
 export const gateActionSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("continue"), feedback: z.string().optional() }),
-  z.object({ kind: z.literal("send-back"), stageKey: z.string(), feedback: z.string() }),
-  z.object({ kind: z.literal("drop") }),
+  z.object({
+    kind: z.literal("continue"),
+    feedback: z.string().optional(),
+    person: gatePersonSchema.optional(),
+  }),
+  z.object({
+    kind: z.literal("send-back"),
+    stageKey: z.string(),
+    feedback: z.string(),
+    person: gatePersonSchema.optional(),
+  }),
+  z.object({ kind: z.literal("drop"), person: gatePersonSchema.optional() }),
 ]);
 export type GateAction = z.infer<typeof gateActionSchema>;
 
@@ -567,8 +589,63 @@ export const SWITCH_TO_STAND_IN_ACTION = officeAction({
   subject: ({ runIds }) => ({ kind: "stage-run", id: runIds[0] as string }),
 });
 
+/** Office action: Continue at a Gate, the work goes on to the Stage after it. */
+export const CONTINUE_AT_GATE_ACTION = officeAction({
+  name: "continue_at_gate",
+  title: "Continue at a Gate",
+  description:
+    "Continues a Task waiting at a Gate: the work goes on to the Stage after the Gate, with optional notes every later Agent Stage is briefed with. On a Task you created or worked a Stage of, it is ruled by your Authority for Continue at a Gate on own work, which always needs the user's approval.",
+  input: z.object({
+    taskId: z.uuid().describe("The id of the Task."),
+    feedback: continueAtGateSchema.shape.feedback.describe("Notes for the later Agent Stages."),
+  }),
+  answer: taskStagesSchema,
+  route: { method: "POST", path: "/tasks/:taskId/gate/continue" },
+  area: "work",
+  group: "gatesAndRuns",
+  onOwnWork: "continueAtGateOnOwnWork",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Send back at a Gate, an earlier Agent Stage runs again with the feedback. */
+export const SEND_BACK_AT_GATE_ACTION = officeAction({
+  name: "send_back_at_gate",
+  title: "Send back at a Gate",
+  description:
+    "Sends a Task waiting at a Gate back to an earlier Agent Stage, which runs again with your feedback; it uses no round of any loop.",
+  input: z.object({
+    taskId: z.uuid().describe("The id of the Task."),
+    stageKey: sendBackSchema.shape.stageKey.describe("The key of the earlier Agent Stage."),
+    feedback: sendBackSchema.shape.feedback.describe("What should change."),
+  }),
+  answer: taskStagesSchema,
+  route: { method: "POST", path: "/tasks/:taskId/gate/send-back" },
+  area: "work",
+  group: "gatesAndRuns",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Office action: Drop at a Gate. */
+export const DROP_AT_GATE_ACTION = officeAction({
+  name: "drop_at_gate",
+  title: "Drop at a Gate",
+  description: "Drops a Task waiting at a Gate, with the reason you give, if any.",
+  input: z.object({
+    taskId: z.uuid().describe("The id of the Task."),
+    reason: dropSchema.shape.reason.describe("Why the Task is dropped."),
+  }),
+  answer: taskStagesSchema,
+  route: { method: "POST", path: "/tasks/:taskId/gate/drop" },
+  area: "work",
+  group: "gatesAndRuns",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
 /** The Office actions Pipelines carries out. */
 export const PIPELINES_OFFICE_ACTIONS = [
+  CONTINUE_AT_GATE_ACTION,
+  SEND_BACK_AT_GATE_ACTION,
+  DROP_AT_GATE_ACTION,
   RESTART_TASK_FROM_ACTION,
   EDIT_TASK_STAGES_ACTION,
   SWITCH_TO_STAND_IN_ACTION,

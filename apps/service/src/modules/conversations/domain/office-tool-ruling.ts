@@ -8,6 +8,7 @@ import {
   type AuthoritySetting,
   type AuthorityValue,
   type HardSwitchValue,
+  heldToCap,
 } from "../../people/index.js";
 
 /** What the person's Authority makes of a call of an Office tool (spec 6 › Authority). */
@@ -26,6 +27,11 @@ export type ToolRuling =
 export function valueOnSubject(setting: AuthoritySetting, ownWork: boolean): AuthorityValue {
   if (setting.kind !== "own-and-others") return setting;
   return ownWork ? setting.own : setting.others;
+}
+
+/** The value of a row that rules calls on the person's own work, held to the row's cap. */
+export function ownWorkValue(group: AuthorityGroup, setting: AuthoritySetting): AuthorityValue {
+  return heldToCap(group, valueOnSubject(setting, true));
 }
 
 /** The value as a call under a floor of Proposal reads it: Allowed becomes Proposal, the rest stay. */
@@ -79,10 +85,14 @@ export function offeredTools(
   groupOf: ReadonlyMap<string, AuthorityGroup>,
   authority: AuthorityInEffect,
   held: HeldDuties,
+  ownWorkGroupOf: ReadonlyMap<string, AuthorityGroup> = new Map(),
 ): string[] {
   const grantedByDuty = dutyActionTools(held);
   return names.filter((name) => {
     const group = groupOf.get(name);
-    return group === undefined || grantedByDuty.has(name) || isOffered(authority[group]);
+    if (group === undefined || grantedByDuty.has(name) || isOffered(authority[group])) return true;
+    // A tool with a row of its own on own work is offered while that row isn't Never.
+    const ownWorkGroup = ownWorkGroupOf.get(name);
+    return ownWorkGroup !== undefined && isOffered(authority[ownWorkGroup]);
   });
 }

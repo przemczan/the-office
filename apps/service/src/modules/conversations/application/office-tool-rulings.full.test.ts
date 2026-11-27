@@ -51,6 +51,20 @@ function aTaskTool(
   };
 }
 
+/** A stand-in for Continue at a Gate: Gates and runs, with its own row on the person's own work. */
+function aGateTool(ran: unknown[], calls: OfficeToolCall[], name: string): OfficeTool {
+  return {
+    ...aTaskTool(ran, calls, name),
+    authority: {
+      group: "gatesAndRuns",
+      // Send back and Drop follow the group alone.
+      ...(name === "continue_at_gate" && { onOwnWork: "continueAtGateOnOwnWork" }),
+      title: "Continue at a Gate",
+      subject: (given) => ({ kind: "task", id: (given as { taskId: string }).taskId }),
+    },
+  };
+}
+
 /** A stand-in for the tool of an Office action of Change Project settings, whose subject is its Project. */
 function aProjectTool(ran: unknown[], calls: OfficeToolCall[], name: string): OfficeTool {
   return {
@@ -70,6 +84,23 @@ function aProjectTool(ran: unknown[], calls: OfficeToolCall[], name: string): Of
   };
 }
 
+function toolOf(
+  group: AuthorityGroup,
+  ran: unknown[],
+  calls: OfficeToolCall[],
+  name: string,
+  hooks?: ToolHooks,
+): OfficeTool {
+  switch (group) {
+    case "taskRecords":
+      return aTaskTool(ran, calls, name, hooks);
+    case "gatesAndRuns":
+      return aGateTool(ran, calls, name);
+    default:
+      return aProjectTool(ran, calls, name);
+  }
+}
+
 interface Rulings extends Pick<Setup, "hired" | "consultants" | "answered" | "thread"> {
   readonly setting: AuthoritySetting;
   /** The Tasks the person created, whose work is their own. */
@@ -79,6 +110,8 @@ interface Rulings extends Pick<Setup, "hired" | "consultants" | "answered" | "th
   /** The Authority group that rules the tool, Task records when left out. */
   readonly group?: AuthorityGroup;
   readonly hooks?: ToolHooks;
+  /** Other rows of the card, stored as given. */
+  readonly otherRows?: Setup["otherRows"];
   /** Gives the tool a draft of its change, so a Proposal can be made of it. */
   readonly withDraft?: boolean;
   /** Stands in for the Proposals' service. */
@@ -91,11 +124,12 @@ function rulingsWith({
   toolName = TOOL_NAME,
   group = "taskRecords",
   hooks,
+  otherRows,
   withDraft = false,
   proposals = {},
   ...setup
 }: Rulings) {
-  const held = heldCallsWith({ ...setup, switchKey: group });
+  const held = heldCallsWith({ ...setup, switchKey: group, ...(otherRows && { otherRows }) });
   const work = {
     isOwnWork: (_roleKey: string, { id }: { id: string }) => Promise.resolve(ownTasks.includes(id)),
   } as unknown as WorkRecords;
@@ -113,10 +147,7 @@ function rulingsWith({
   );
   const ran: unknown[] = [];
   const calls: OfficeToolCall[] = [];
-  const tool =
-    group === "taskRecords"
-      ? aTaskTool(ran, calls, toolName, hooks)
-      : aProjectTool(ran, calls, toolName);
+  const tool = toolOf(group, ran, calls, toolName, hooks);
   registry.register(
     withDraft
       ? {
@@ -376,6 +407,76 @@ describe("the ruling of an Office tool call", () => {
 
       await expect(callWith(input)).resolves.toMatchObject({ isError: true });
       expect(ran).toHaveLength(0);
+    });
+  });
+
+  describe("a tool with a row of its own on the person's own work (Continue at a Gate)", () => {
+    const gate = { toolName: "continue_at_gate", group: "gatesAndRuns" } as const;
+    const gateInput = { taskId: "task-1" };
+
+    it("holds a call on own work at Ask me whatever Gates and runs says", async () => {
+      const { callWith, ran, opened } = rulingsWith({
+        ...gate,
+        setting: ALLOWED,
+        otherRows: { continueAtGateOnOwnWork: ASK_ME },
+        ownTasks: ["task-1"],
+      });
+
+      await expect(callWith(gateInput)).resolves.toMatchObject({ isError: true });
+      expect(ran).toHaveLength(0);
+      expect(opened).toHaveLength(1);
+    });
+
+    it("holds a call on own work even where a hand-edited card stores Allowed or Consult", async () => {
+      for (const stored of [ALLOWED, CONSULT_CTO]) {
+        const { callWith, ran, opened } = rulingsWith({
+          ...gate,
+          setting: ALLOWED,
+          otherRows: { continueAtGateOnOwnWork: stored },
+          ownTasks: ["task-1"],
+        });
+
+        await expect(callWith(gateInput)).resolves.toMatchObject({ isError: true });
+        expect(ran).toHaveLength(0);
+        expect(opened).toHaveLength(1);
+      }
+    });
+
+    it("rules a call on own work Never by its own row, though Gates and runs is Allowed", async () => {
+      const { callWith, ran } = rulingsWith({
+        ...gate,
+        setting: ALLOWED,
+        otherRows: { continueAtGateOnOwnWork: NEVER },
+        ownTasks: ["task-1"],
+      });
+
+      await expect(callWith(gateInput)).resolves.toMatchObject({ isError: true });
+      expect(ran).toHaveLength(0);
+    });
+
+    it("rules a call on another's work by Gates and runs", async () => {
+      const { callWith, ran } = rulingsWith({
+        ...gate,
+        setting: ALLOWED,
+        otherRows: { continueAtGateOnOwnWork: NEVER },
+        ownTasks: ["task-2"],
+      });
+
+      await expect(callWith(gateInput)).resolves.toMatchObject({ isError: false });
+      expect(ran).toHaveLength(1);
+    });
+
+    it("rules Send back and Drop, which have no own-work row, by Gates and runs alone", async () => {
+      const { callWith, ran } = rulingsWith({
+        toolName: "send_back_at_gate",
+        group: "gatesAndRuns",
+        setting: ALLOWED,
+        otherRows: { continueAtGateOnOwnWork: NEVER },
+        ownTasks: ["task-1"],
+      });
+
+      await expect(callWith(gateInput)).resolves.toMatchObject({ isError: false });
+      expect(ran).toHaveLength(1);
     });
   });
 });

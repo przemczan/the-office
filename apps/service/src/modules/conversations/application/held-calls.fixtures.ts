@@ -44,6 +44,8 @@ export interface Setup {
   /** The value of the caller's Authority row `switchKey`, Change Project settings when left out. */
   readonly setting: AuthoritySetting;
   readonly switchKey?: AuthorityGroup;
+  /** Other rows of the caller's Authority, stored as given. */
+  readonly otherRows?: Partial<Record<AuthorityGroup, AuthoritySetting>>;
   /** The Roles someone fills besides the caller's. */
   readonly hired?: readonly string[];
   /** The hired people who may be consulted, by the key of their Role. */
@@ -59,6 +61,7 @@ export interface Setup {
 export function heldCallsWith({
   setting,
   switchKey = "changeProjectSettings",
+  otherRows = {},
   hired = [],
   consultants = [],
   answered = [],
@@ -69,7 +72,9 @@ export function heldCallsWith({
   const opened: DecisionDraft[] = [];
   const putTo: (string | undefined)[] = [];
   const spent = new Set<string>();
-  const card = aPlannerCard({ authority: { ...aPlannerCard().authority, [switchKey]: setting } });
+  const card = aPlannerCard({
+    authority: { ...aPlannerCard().authority, ...otherRows, [switchKey]: setting },
+  });
   const roleCards = {
     find: () => Promise.resolve(sessionRole("planner", 1, card, { kind: "ask-me" })),
     hiredKeys: () => Promise.resolve(new Set(["planner", ...hired])),

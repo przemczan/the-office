@@ -316,15 +316,24 @@ function toStageRunEngineResponse({
 }
 
 function toGateActionResponse(action: GateAction): GateActionResponse {
+  const person = action.person && {
+    person: {
+      roleKey: action.person.roleKey,
+      askedBy: action.person.askedBy.name,
+      ...(action.person.allowedBy && { allowedBy: action.person.allowedBy.name }),
+    },
+  };
   switch (action.kind) {
     case "continue":
-      return action.feedback === undefined
-        ? { kind: "continue" }
-        : { kind: "continue", feedback: action.feedback };
+      return {
+        kind: "continue",
+        ...(action.feedback !== undefined && { feedback: action.feedback }),
+        ...person,
+      };
     case "drop":
-      return { kind: "drop" };
+      return { kind: "drop", ...person };
     case "send-back":
-      return { kind: "send-back", stageKey: action.stageKey, feedback: action.feedback };
+      return { kind: "send-back", stageKey: action.stageKey, feedback: action.feedback, ...person };
   }
 }
 

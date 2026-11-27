@@ -17,6 +17,7 @@ import type { Thread } from "../domain/thread.js";
 import {
   atLeastProposal,
   officeToolCallWords,
+  ownWorkValue,
   toolRuling,
   valueOnSubject,
 } from "../domain/office-tool-ruling.js";
@@ -78,10 +79,21 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
       );
     }
     const setting = session.authority[authority.group];
+    const ownWorkGroup = authority.onOwnWork;
+    if (ownWorkGroup !== undefined && !isAuthorityGroup(ownWorkGroup)) {
+      throw new Error(
+        `${name} names the Authority group ${ownWorkGroup}, which isn't in the catalog.`,
+      );
+    }
+    // A tool with a row of its own on own work reads that row there, held to its cap.
     const ownWork =
-      setting.kind === "own-and-others" && (await this.work.isOwnWork(thread.roleKey, subject));
+      (ownWorkGroup !== undefined || setting.kind === "own-and-others") &&
+      (await this.work.isOwnWork(thread.roleKey, subject));
     const dutyHolder = dutyActionTools(await this.duties.heldBy(thread.roleKey)).has(name);
-    const value = valueOnSubject(setting, ownWork);
+    const value =
+      ownWork && ownWorkGroup !== undefined
+        ? ownWorkValue(ownWorkGroup, session.authority[ownWorkGroup])
+        : valueOnSubject(setting, ownWork);
     const floored = (await authority.floor?.(input)) === "proposal";
     const ruling = toolRuling(floored ? atLeastProposal(value) : value, dutyHolder);
     if (ruling.kind === "never") return { kind: "never" };
