@@ -107,16 +107,27 @@ describe("the duties' job settings", () => {
     expect(jobSettingsOf(["plans"])).toHaveProperty("initiativeRecords");
     expect(jobSettingsOf(["shapes-initiatives"])).toHaveProperty("taskRecords");
     expect(jobSettingsOf(["onboards-projects"])).toHaveProperty("projectUpkeep", ALLOWED);
-    expect(jobSettingsOf(["onboards-projects"])).toMatchObject({
-      proposeProjectCommands: PROPOSAL,
-      proposeTestTargets: PROPOSAL,
-      proposeActions: PROPOSAL,
-    });
+    // The holder reaches the Proposals of the retired tools through Change Project settings.
+    expect(jobSettingsOf(["onboards-projects"])).toMatchObject({ changeProjectSettings: PROPOSAL });
     expect(jobSettingsOf(["default-person-to-talk-to"])).toMatchObject({
       postLinkCard: ALLOWED,
       showOfficeStatus: ALLOWED,
       changeRoles: PROPOSAL,
     });
+  });
+
+  it("keeps the default holder of Onboards and repairs Projects at Change Project settings Proposal or better, as the retired Proposal tools reached", () => {
+    const duty = DUTIES.find(({ key }) => key === "onboards-projects");
+    if (!duty) throw new Error("The duty.");
+
+    const holds = authorityInEffect(duty.defaultRoleKey, {}).changeProjectSettings;
+
+    expect(holds.kind).not.toBe("never");
+    expect(duty.jobSettings).toMatchObject({ changeProjectSettings: PROPOSAL });
+    // A holder whose card leaves it Never is offered Proposal.
+    expect(
+      jobSettingsMissingOn("developer", { changeProjectSettings: NEVER }, "onboards-projects"),
+    ).toMatchObject({ changeProjectSettings: PROPOSAL });
   });
 
   it("put a capped row at Proposal, never Allowed", () => {
@@ -164,7 +175,7 @@ describe("jobSettingsMissingOn", () => {
     });
   });
 
-  it("names every row of Onboards and repairs Projects a Developer's card leaves Never, and none it set freer", () => {
+  it("names every row of Onboards and repairs Projects a Developer's card leaves Never, and none it set freer, such as a Developer's Consult on Change Project settings", () => {
     const missing = jobSettingsMissingOn(
       "developer",
       { projectUpkeep: ASK_ME },
@@ -175,9 +186,6 @@ describe("jobSettingsMissingOn", () => {
       publishingSettings: PROPOSAL,
       projectSettings: PROPOSAL,
       pipelinesAndStageTemplates: PROPOSAL,
-      proposeProjectCommands: PROPOSAL,
-      proposeTestTargets: PROPOSAL,
-      proposeActions: PROPOSAL,
     });
   });
 

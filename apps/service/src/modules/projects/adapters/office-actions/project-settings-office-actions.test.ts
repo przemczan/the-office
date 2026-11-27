@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import {
   baseBranchFetchSchema,
+  CHANGE_AFTER_PUBLISHING_COMMAND_ACTION,
+  CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION,
   CHANGE_DEFAULT_PIPELINE_ACTION,
+  CHANGE_DELETE_MERGED_BRANCHES_ACTION,
+  CHANGE_ISSUE_SETTINGS_ACTION,
+  CHANGE_PUBLISHING_MODE_ACTION,
   CHANGE_KIND_DEFAULT_PIPELINE_ACTION,
   CHANGE_PROJECT_ENGINE_ACTION,
   CHANGE_PROJECT_FEATURES_ACTION,
@@ -155,6 +160,8 @@ describe("the settings and upkeep actions on the Projects module", () => {
     readonly body?: Record<string, unknown>;
     /** What the Agent gives besides the Project, where the route's path holds some of it. */
     readonly toolInput?: Record<string, unknown>;
+    /** The tool records who acted, so its call comes from the developer in an Agent Stage. */
+    readonly asPerson?: true;
     readonly words: (project: ProjectResponse) => string;
     readonly changed: (project: ProjectResponse) => unknown;
     readonly expected: unknown;
@@ -235,6 +242,57 @@ describe("the settings and upkeep actions on the Projects module", () => {
       expected: "string",
     },
     {
+      action: CHANGE_PUBLISHING_MODE_ACTION,
+      method: "PUT",
+      path: "publishing-mode",
+      body: { publishingMode: "merge" },
+      words: ({ name }) => `"${name}" publishes as merge now.`,
+      changed: ({ publishingMode }) => publishingMode,
+      expected: "merge",
+    },
+    {
+      action: CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION,
+      method: "PUT",
+      path: "before-publishing-command",
+      body: { commandLine: "npm run before" },
+      words: ({ name }) => `Before publishing, "${name}" runs its new command line.`,
+      changed: ({ beforePublishingCommand }) => beforePublishingCommand,
+      expected: "npm run before",
+    },
+    {
+      action: CHANGE_AFTER_PUBLISHING_COMMAND_ACTION,
+      method: "PUT",
+      path: "after-publishing-command",
+      body: { commandLine: "npm run after" },
+      words: ({ name }) => `After publishing, "${name}" runs its new command line.`,
+      changed: ({ afterPublishingCommand }) => afterPublishingCommand,
+      expected: "npm run after",
+    },
+    {
+      action: CHANGE_DELETE_MERGED_BRANCHES_ACTION,
+      method: "PUT",
+      path: "delete-merged-branches",
+      body: { on: true },
+      words: ({ name }) => `"${name}" deletes a Task's branch once it is merged now.`,
+      changed: ({ deleteMergedBranches }) => deleteMergedBranches,
+      expected: true,
+    },
+    {
+      action: CHANGE_ISSUE_SETTINGS_ACTION,
+      asPerson: true,
+      method: "PUT",
+      path: "issue-settings",
+      body: {
+        autoImportLabel: null,
+        closeOnDone: true,
+        commentOnStartAndDone: true,
+        closeOnDrop: true,
+      },
+      words: ({ name }) => `The GitHub issue switches of "${name}" are changed as given.`,
+      changed: ({ issueSettings }) => issueSettings.closeOnDone,
+      expected: true,
+    },
+    {
       action: REMOVE_PROJECT_IMAGE_ACTION,
       method: "DELETE",
       path: "images/icon/light",
@@ -246,7 +304,17 @@ describe("the settings and upkeep actions on the Projects module", () => {
   ];
 
   describe.each(CHANGES)("$action.name", (change) => {
-    const { action, method, path, body = {}, toolInput = body, words, changed, expected } = change;
+    const {
+      action,
+      method,
+      path,
+      body = {},
+      toolInput = body,
+      asPerson,
+      words,
+      changed,
+      expected,
+    } = change;
 
     it("answers its route with the Project as the API shows it", async () => {
       const project = await addProject();
@@ -260,11 +328,12 @@ describe("the settings and upkeep actions on the Projects module", () => {
     });
 
     it("answers the Agent in plain words, after the same change", async () => {
+      givePeopleInSessions(app);
       const project = await addProject();
 
       const answer = await toolOf(action).run(
         { ...toolInput, projectId: project.id },
-        anOfficeToolCall("s-1"),
+        asPerson ? ALLOWED_STAGE_CALL : anOfficeToolCall("s-1"),
       );
 
       expect(answer).toEqual({ isError: false, text: words(project) });
@@ -284,6 +353,16 @@ describe("the settings and upkeep actions on the Projects module", () => {
 
       expect(draft?.subject).toEqual({ kind: "project", id: project.id, title: project.name });
     });
+  });
+
+  it.each([
+    CHANGE_PUBLISHING_MODE_ACTION,
+    CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION,
+    CHANGE_AFTER_PUBLISHING_COMMAND_ACTION,
+    CHANGE_DELETE_MERGED_BRANCHES_ACTION,
+    CHANGE_ISSUE_SETTINGS_ACTION,
+  ])("holds $name to the cap of Publishing settings", (action) => {
+    expect(toolOf(action).authority?.group).toBe("publishingSettings");
   });
 
   it("shows a Proposal the field a change gives, before and after", async () => {
@@ -471,7 +550,7 @@ describe("the settings and upkeep actions on the Projects module", () => {
       });
     });
 
-    it("refuses an Agent a value for a secret, saving nothing, and rules the call out up front", async () => {
+    it("rules a secret's value by Secret values and shows it by name only", async () => {
       const project = await addProject();
       const serverName = await addMcpServer(app);
       const input = {
@@ -484,17 +563,37 @@ describe("the settings and upkeep actions on the Projects module", () => {
       };
       const tool = toolOf(CHANGE_SERVER_VALUES_ACTION);
 
-      const answer = await tool.run(input, anOfficeToolCall("s-1"));
-      const upFront = await tool.authority?.check?.(input, anOfficeToolCall("s-1"));
+      const groups = await tool.authority?.groupsOf?.(input);
+      const redacted = await tool.redact?.(input);
+      const drafted = await tool.draft?.(input);
 
-      const refusal = `GITHUB_TOKEN of ${serverName} is a secret: a secret's value is the user's to set, on the Project page.`;
-      expect(answer).toEqual({ isError: true, text: refusal });
-      expect(upFront).toBe(refusal);
+      expect(groups).toEqual(["secretValues"]);
+      expect(redacted?.hasSecret).toBe(true);
+      expect(JSON.stringify(redacted)).not.toContain(SECRET);
+      expect(JSON.stringify(drafted)).not.toContain(SECRET);
+      expect(drafted?.fields).toContainEqual(
+        expect.objectContaining({ form: "secret", before: null, after: null }),
+      );
+    });
+
+    it("sets a secret's value as the call gives it, and answers without it", async () => {
+      const project = await addProject();
+      const serverName = await addMcpServer(app);
+
+      const answer = await toolOf(CHANGE_SERVER_VALUES_ACTION).run(
+        {
+          projectId: project.id,
+          serverName,
+          serverValues: [{ name: "GITHUB_TOKEN", projectValue: SECRET }],
+        },
+        anOfficeToolCall("s-1"),
+      );
+
+      expect(answer.isError).toBe(false);
       expect(JSON.stringify(answer)).not.toContain(SECRET);
-      expect((await valuesOf(url, project.id, serverName))?.serverValues).toEqual([
-        expect.objectContaining({ name: "GITHUB_TOKEN", projectValueSet: false }),
-        expect.objectContaining({ name: "GITHUB_HOST", projectValueSet: false }),
-      ]);
+      expect((await valuesOf(url, project.id, serverName))?.serverValues).toContainEqual(
+        expect.objectContaining({ name: "GITHUB_TOKEN", projectValueSet: true }),
+      );
     });
 
     it("lets an Agent keep or clear a secret, as no value of it is given", async () => {

@@ -190,7 +190,13 @@ export class ProposalService {
           by,
           stored.id,
         );
-        return applyProposal(stored, thread, change, new Date(), by);
+        return applyProposal(
+          stored,
+          thread,
+          await this.appliers.withoutSecrets(change),
+          new Date(),
+          by,
+        );
       });
     } catch (error) {
       // Kept apart from the refused apply, which saves nothing: the card then reads Out of date.
@@ -204,9 +210,16 @@ export class ProposalService {
   /** The user `by` declines the Proposal ("Not now"): nothing changes but who declined it. */
   async decline(id: string, by: UserRef): Promise<Proposal> {
     const thread = await this.threadOf(id);
-    return this.change(id, (stored) =>
-      Promise.resolve(declineProposal(stored, thread, new Date(), by)),
-    );
+    return this.change(id, async (stored) => {
+      const declined = declineProposal(stored, thread, new Date(), by);
+      return {
+        ...declined,
+        proposal: {
+          ...declined.proposal,
+          change: await this.appliers.withoutSecrets(declined.proposal.change),
+        },
+      };
+    });
   }
 
   /**
@@ -230,9 +243,16 @@ export class ProposalService {
   private async declineOnItsOwn(id: string, because: ProposalDeclinedBecause): Promise<void> {
     const thread = await this.threadOf(id);
     try {
-      await this.change(id, (stored) =>
-        Promise.resolve(declineProposalOnItsOwn(stored, thread, new Date(), because)),
-      );
+      await this.change(id, async (stored) => {
+        const declined = declineProposalOnItsOwn(stored, thread, new Date(), because);
+        return {
+          ...declined,
+          proposal: {
+            ...declined.proposal,
+            change: await this.appliers.withoutSecrets(declined.proposal.change),
+          },
+        };
+      });
     } catch (error) {
       if (!(error instanceof ProposalRefused)) throw error;
     }

@@ -50,12 +50,7 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
   { route: "POST /proposals/:id/apply", specHeading: THE_USERS_ALONE },
   { route: "PUT /threads/:id/allow-changes", specHeading: THE_USERS_ALONE },
 
-  // Projects and their settings: by Proposal or on the Project page.
-  { route: "PUT /projects/:id/publishing-mode", specHeading: THE_USERS_ALONE },
-  { route: "PUT /projects/:id/before-publishing-command", specHeading: THE_USERS_ALONE },
-  { route: "PUT /projects/:id/after-publishing-command", specHeading: THE_USERS_ALONE },
-  { route: "PUT /projects/:id/delete-merged-branches", specHeading: THE_USERS_ALONE },
-  { route: "PUT /projects/:id/issue-settings", specHeading: THE_USERS_ALONE },
+  // Projects: running an Action.
   {
     route: "POST /projects/:id/actions/:key/runs",
     specHeading: THE_USERS_ALONE,
@@ -107,7 +102,7 @@ const NO_ACTION: readonly NoActionRoute[] = [
   },
   {
     route: "POST /projects/:id/test-targets/chat",
-    reason: "Opens the onboarding holder's chat, which drafts with propose_test_targets.",
+    reason: "Opens the onboarding holder's chat, which drafts with change_project_settings.",
   },
 
   // Written by hand, one tool for the call: the route is the user's, the tool the person's.

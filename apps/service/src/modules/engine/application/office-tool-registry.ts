@@ -5,6 +5,7 @@ import type {
   OfficeTool,
   OfficeToolApplication,
   OfficeToolChangedField,
+  OfficeToolRedactedInput,
   OfficeToolResult,
   OfficeToolSubject,
 } from "../ports/office-tool.js";
@@ -67,6 +68,16 @@ export class OfficeToolRegistry {
     if (!tool?.draft) return undefined;
     const { subject, fields, fingerprint } = await tool.draft(tool.input.parse(input));
     return { subject, fields, fingerprint: fingerprintOf(fingerprint) };
+  }
+
+  /**
+   * The call's input without its Secret values, as cards show it (`OfficeTool.redact`); the input as
+   * given for a tool whose input holds none or that no module registered.
+   */
+  async redact(name: string, input: unknown): Promise<OfficeToolRedactedInput> {
+    const tool = this.tools.get(name);
+    if (!tool?.redact) return { shown: input as Record<string, unknown>, hasSecret: false };
+    return tool.redact(tool.input.parse(input));
   }
 
   /** Carries out a call the user applied from a Proposal, as that user (`OfficeTool.applyFor`). */

@@ -4,9 +4,6 @@ import {
 } from "../../engine/index.js";
 import {
   CHANGE_PROJECT_SETTINGS_TOOL,
-  PROPOSE_ACTIONS_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL,
   RUN_ENVIRONMENT_CHECK_TOOL,
 } from "../../conversations/index.js";
 import type { DutyKey } from "../../people/index.js";
@@ -136,7 +133,7 @@ const onboard: SeededPipeline = {
       key: "onboard",
       name: "Onboard",
       duty: ONBOARDS_PROJECTS,
-      brief: `Make the Project build and test in a fresh worktree. Set its commands with ${CHANGE_PROJECT_SETTINGS_TOOL} when they are missing or wrong. Once its commands and test targets are set, add with ${CHANGE_PROJECT_SETTINGS_TOOL} the Actions its repository suggests, such as a manual release Workflow or an install of a debug build. Without that tool, propose the same with ${PROPOSE_PROJECT_COMMANDS_TOOL} and ${PROPOSE_ACTIONS_TOOL}; an Action that leaves the workstation is always proposed. Run ${RUN_ENVIRONMENT_CHECK_TOOL} until it passes before you end.`,
+      brief: `Make the Project build and test in a fresh worktree. Set its commands with ${CHANGE_PROJECT_SETTINGS_TOOL} when they are missing or wrong. Once its commands and test targets are set, add with ${CHANGE_PROJECT_SETTINGS_TOOL} the Actions its repository suggests, such as a manual release Workflow or an install of a debug build. Your Role card's Authority rules each change, so one may come back as a Proposal the user applies with a click: an Action that leaves the workstation and a Secret variable's value are ruled alike. Set Publishing with change_publishing_mode, change_before_publishing_command and change_after_publishing_command. Run ${RUN_ENVIRONMENT_CHECK_TOOL} until it passes before you end.`,
       session: "fresh",
       budget: 150_000,
       optional: false,
@@ -250,7 +247,7 @@ const setUpTestTargets: SeededPipeline = {
       key: "set-up-test-targets",
       name: "Set up test targets",
       duty: ONBOARDS_PROJECTS,
-      brief: `Read the repository's manifests and their scripts, its Gradle files and wrapper, its own start and build scripts and .devcontainer/, and change no file. Name only the entry points spec 2.12 allows: a file in the repository with its arguments, a script the package manifest lists, a Gradle task through the repository's wrapper, or a .devcontainer/ service (Hosted only); never a command line or inline shell. End with ${CHANGE_PROJECT_SETTINGS_TOOL}, giving every target at once, or with ${PROPOSE_TEST_TARGETS_TOOL} without it.`,
+      brief: `Read the repository's manifests and their scripts, its Gradle files and wrapper, its own start and build scripts and .devcontainer/, and change no file. Name only the entry points spec 2.12 allows: a file in the repository with its arguments, a script the package manifest lists, a Gradle task through the repository's wrapper, or a .devcontainer/ service (Hosted only); never a command line or inline shell. End with ${CHANGE_PROJECT_SETTINGS_TOOL}, giving every target at once; your Role card's Authority rules it, so it may come back as a Proposal the user applies with a click.`,
       session: "fresh",
       budget: 100_000,
       optional: false,

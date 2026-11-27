@@ -1,8 +1,8 @@
+import { handWrittenGroupOf } from "./hand-written-tool-groups.js";
 import {
   CAPTURE_IDEA_TOOL,
   OPEN_DECISION_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL as CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL as CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL as CONTRACT_PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL as CONTRACT_PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL as CONTRACT_PROPOSE_SKILL_INSTALL_TOOL,
@@ -11,8 +11,6 @@ import {
   PROPOSE_PROMPT_TEMPLATE_RESET_TOOL as CONTRACT_PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
   PROPOSE_PROMPT_TEMPLATE_TOOL as CONTRACT_PROPOSE_PROMPT_TEMPLATE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL as CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL as CONTRACT_PROPOSE_TEST_TARGETS_TOOL,
-  PROPOSE_ACTIONS_TOOL as CONTRACT_PROPOSE_ACTIONS_TOOL,
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -29,7 +27,6 @@ import {
   POST_LINK_CARD_TOOL,
   READ_ROLE_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL,
@@ -38,8 +35,6 @@ import {
   PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
   PROPOSE_PROMPT_TEMPLATE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL,
-  PROPOSE_ACTIONS_TOOL,
   READ_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
   READING_OFFICE_TOOLS,
@@ -217,12 +212,9 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools()).toContain(PROPOSE_SKILL_TOOL);
   });
 
-  it("offers drafting Project commands, test targets, Actions, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates, as the Authority leaves each", () => {
+  it("offers drafting Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates, as the Authority leaves each", () => {
     expect(chatOfficeTools()).toEqual(
       expect.arrayContaining([
-        PROPOSE_PROJECT_COMMANDS_TOOL,
-        PROPOSE_TEST_TARGETS_TOOL,
-        PROPOSE_ACTIONS_TOOL,
         PROPOSE_LIBRARY_PIPELINE_TOOL,
         PROPOSE_PROJECT_PIPELINE_TOOL,
         PROPOSE_STAGE_TEMPLATE_TOOL,
@@ -238,10 +230,15 @@ describe("chatOfficeTools", () => {
     expect(new Set(chatOfficeTools()).size).toBe(chatOfficeTools().length);
   });
 
+  it("offers none of the retired tools of the commands, test targets and Actions Proposals, which change_project_settings ruled Proposal replaces", () => {
+    for (const retired of ["propose_project_commands", "propose_test_targets", "propose_actions"]) {
+      expect(chatOfficeTools()).not.toContain(retired);
+      expect(STAGE_AUTHORITY_OFFICE_TOOLS).not.toContain(retired);
+      expect(handWrittenGroupOf(retired)).toBeUndefined();
+    }
+  });
+
   it("names the Proposal tools as the web does", () => {
-    expect(PROPOSE_PROJECT_COMMANDS_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL);
-    expect(PROPOSE_TEST_TARGETS_TOOL).toBe(CONTRACT_PROPOSE_TEST_TARGETS_TOOL);
-    expect(PROPOSE_ACTIONS_TOOL).toBe(CONTRACT_PROPOSE_ACTIONS_TOOL);
     expect(PROPOSE_LIBRARY_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(PROPOSE_PROJECT_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_PIPELINE_TOOL);
     expect(PROPOSE_STAGE_TEMPLATE_TOOL).toBe(CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL);

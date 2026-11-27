@@ -1,26 +1,12 @@
-import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   DEFAULT_PORT_VARIABLE,
   MEMORY_PER_SERVICE_MEGABYTES,
-  PROPOSE_TEST_TARGETS_TOOL,
   entryPointSchema,
   gigabytesOf,
 } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
-import {
-  ProjectNotFound,
-  ProjectRefused,
-  ProjectService,
-  TestTargets,
-  type ProposedTestTargetFields,
-} from "../../../projects/index.js";
-import { ProposalService } from "../../application/proposal-service.js";
+import { type ProposedTestTargetFields } from "../../../projects/index.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
-import { refusedToTheAgent } from "./refused-to-the-agent.js";
-
-const DRAFTED =
-  "The Proposal is in this Thread as a card, with each test target's values now and as proposed; nothing changes until the user applies it, and it is refused if those values change first. Don't wait for it: tell the user what you propose and why, in a line or two, and name any Secret variable whose value they type on the Project page once it is applied.";
 
 /** A test target as an Office tool takes it, whole. */
 export const targetInput = z.object({
@@ -98,76 +84,6 @@ export const targetInput = z.object({
 });
 
 export type TargetInput = z.infer<typeof targetInput>;
-
-/**
- * The Office tool whoever onboards Projects drafts a change to a Project's test targets with (spec
- * §2.12, "Writing test targets"), a Proposal the user applies with a click. Like every Proposal
- * tool it changes nothing itself, so it sits behind no Hard switch, and returns at once.
- */
-@Injectable()
-export class TestTargetOfficeTools implements OnModuleInit {
-  constructor(
-    private readonly registry: OfficeToolRegistry,
-    private readonly proposals: ProposalService,
-    private readonly projects: ProjectService,
-    private readonly testTargets: TestTargets,
-  ) {}
-
-  onModuleInit(): void {
-    this.registry.register({
-      name: PROPOSE_TEST_TARGETS_TOOL,
-      description:
-        "Drafts a change to a Project's test targets as a Proposal the user applies with a click, all or nothing: targets to add or change by key, each given whole, and targets to remove. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. A value the user set changes only when changeUserSet names it. It returns at once. When you have change_project_settings, change the test targets with it instead.",
-      input: z.object({
-        project: z.string().describe("The Project's id, as list_projects gives it."),
-        targets: z
-          .array(targetInput)
-          .default([])
-          .describe("Targets to add, or to change by their key, each whole."),
-        removeTargets: z
-          .array(z.string())
-          .optional()
-          .describe("The keys of the targets to remove."),
-        changeUserSet: z
-          .array(z.string())
-          .optional()
-          .describe(
-            "Each value the user set that this changes on purpose, as key.field, such as web.port; field is one of name, kind, entryPoint, port, portVariable, outputPatterns, variables, secretVariables, commandsBefore, memoryMegabytes, buildTargetKey and projectDeviceId. Removing a target changes each of its values. A value the user set that isn't named here is refused, so read the targets first and name only what you mean to change.",
-          ),
-      }),
-      run: async ({ project: projectId, targets, removeTargets, changeUserSet }, { sessionId }) => {
-        const project = await this.projects.find(projectId.trim());
-        if (!project) return { text: `The Office has no Project "${projectId}".`, isError: true };
-        return refusedToTheAgent(async () => {
-          const changes = await this.proposed(project.id, {
-            targets: proposedTargets(targets),
-            removeTargets,
-            changeUserSet,
-          });
-          await this.proposals.draft(sessionId, {
-            kind: "test-targets",
-            projectId: project.id,
-            changes,
-          });
-          return DRAFTED;
-        });
-      },
-    });
-  }
-
-  private async proposed(
-    projectId: string,
-    given: Parameters<TestTargets["propose"]>[1],
-  ): ReturnType<TestTargets["propose"]> {
-    try {
-      return await this.testTargets.propose(projectId, given);
-    } catch (error) {
-      if (error instanceof ProjectRefused) throw new ProposalRefused(error.reasons);
-      if (error instanceof ProjectNotFound) throw new ProposalRefused([error.message]);
-      throw error;
-    }
-  }
-}
 
 /** Each target as Projects takes it, refused when it lacks its kind's own field. */
 export function proposedTargets(targets: readonly TargetInput[]): ProposedTestTargetFields[] {

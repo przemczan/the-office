@@ -114,7 +114,7 @@ const WEB = {
   kind: "hosted",
   entryPoint: { kind: "repository-file", path: "src/index.ts", arguments: [] },
   port: 5173,
-  secretVariables: ["STRIPE_KEY"],
+  secretVariables: [{ name: "STRIPE_KEY" }],
 };
 
 const BUILD_APP = {
@@ -177,6 +177,36 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
     expect(
       web && "secretVariables" in web ? web.secretVariables.map(({ name }) => name) : [],
     ).toEqual(["STRIPE_KEY"]);
+  });
+
+  it("rotates a Secret variable's value, recorded by its name only", async () => {
+    const projects = app.get(ProjectService, { strict: false });
+    await projects.changeEnvironment(
+      projectId,
+      {
+        set: [{ name: "API_TOKEN", value: SECRET_VALUE, secret: true }],
+        unset: [],
+        prependPath: [],
+      },
+      { kind: "user", user: { userId: "user-ann", name: "Ann" } },
+    );
+    const { tool } = tools();
+
+    const result = await runOf(tool, {
+      project: projectId,
+      environmentVariables: {
+        variables: [{ name: "API_TOKEN", value: "rotated-value", secret: true }],
+      },
+      why: "Rotated.",
+    });
+
+    expect(result.isError).toBe(false);
+    const [record] = await latest(1);
+    expect(record?.by).toEqual(BY_NINA);
+    expect(JSON.stringify(record)).not.toContain("rotated-value");
+    expect((await projects.read(projectId)).environment.set).toEqual([
+      { name: "API_TOKEN", value: "rotated-value", secret: true },
+    ]);
   });
 
   it("turns Run environment On after the sections before it, with no definition on the base branch", async () => {

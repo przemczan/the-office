@@ -66,6 +66,7 @@ export {
 } from "./domain/hard-switches.js";
 export {
   authorityInEffect,
+  authorityRow,
   authorityWithHardSwitches,
   hardSwitchesOf,
   heldToCap,

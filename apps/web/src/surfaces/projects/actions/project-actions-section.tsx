@@ -444,7 +444,12 @@ function OpenAction({
 function OpenProposals({ projectId }: { readonly projectId: string }): ReactNode {
   const open = useQuery(proposalQueries.open()).data ?? [];
   const shown = open.filter(
-    ({ change }: Proposal) => change.kind === "actions" && change.projectId === projectId,
+    ({ change }: Proposal) =>
+      (change.kind === "actions" && change.projectId === projectId) ||
+      (change.kind === "office-action" &&
+        change.action === "change_project_settings" &&
+        change.subject.id === projectId &&
+        change.fields.some((field) => field.label === "Actions")),
   );
   if (shown.length === 0) return null;
   return (

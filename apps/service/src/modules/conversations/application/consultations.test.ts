@@ -101,13 +101,7 @@ const duties = new DutiesStandIn();
  * tools a Role from scratch has at Never, which their Authority leaves out.
  */
 function consultationToolsOfARoleFromScratch(): string[] {
-  const neverFromScratch = new Set([
-    "propose_project_commands",
-    "propose_test_targets",
-    "propose_actions",
-    "post_link_card",
-    "show_office_status",
-  ]);
+  const neverFromScratch = new Set(["post_link_card", "show_office_status"]);
   return consultationOfficeTools(
     { caretaker: false },
     { canCall: true, onTask: false, runEnvironment: false },

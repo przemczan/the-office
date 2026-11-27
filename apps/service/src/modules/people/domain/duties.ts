@@ -76,9 +76,7 @@ export const DUTIES = [
       projectSettings: PROPOSAL,
       projectUpkeep: ALLOWED,
       pipelinesAndStageTemplates: PROPOSAL,
-      proposeProjectCommands: PROPOSAL,
-      proposeTestTargets: PROPOSAL,
-      proposeActions: PROPOSAL,
+      changeProjectSettings: PROPOSAL,
     },
   },
   {

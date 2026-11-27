@@ -89,6 +89,24 @@ export abstract class RoleRepository {
   ): Promise<RoleUpdate>;
 
   /**
+   * The keys of every Role whose current card version still holds a row of the retired
+   * `propose_project_commands`, `propose_test_targets` or `propose_actions` tools at Proposal, in the
+   * order they were hired.
+   */
+  abstract rolesWithRetiredProposalRows(): Promise<readonly string[]>;
+
+  /**
+   * Applies `change` to the Role as stored, holding it against other changes, when its current card
+   * version still holds such a row, and saves the new card version, which holds none. Saves nothing
+   * when `change` returns undefined or the rows are gone meanwhile; throws RoleNotFound when the
+   * Role was never hired.
+   */
+  abstract moveProjectSettingProposalsOver(
+    key: string,
+    change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
+  ): Promise<RoleUpdate>;
+
+  /**
    * Applies `change`, which lets the person go or hires them back, to the Role as stored, holding
    * it against other changes. Throws RoleNotFound when the Role was never hired.
    */

@@ -1,6 +1,11 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
+  CHANGE_AFTER_PUBLISHING_COMMAND_ACTION,
+  CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION,
   CHANGE_DEFAULT_PIPELINE_ACTION,
+  CHANGE_DELETE_MERGED_BRANCHES_ACTION,
+  CHANGE_ISSUE_SETTINGS_ACTION,
+  CHANGE_PUBLISHING_MODE_ACTION,
   CHANGE_KIND_DEFAULT_PIPELINE_ACTION,
   CHANGE_PROJECT_ENGINE_ACTION,
   CHANGE_PROJECT_FEATURES_ACTION,
@@ -29,6 +34,8 @@ import {
   officeActionDraft,
   officeActionTool,
   OfficeToolRegistry,
+  type OfficeTool,
+  type OfficeToolRedactedInput,
   type OfficeToolResult,
   type OfficeToolUser,
 } from "../../../engine/index.js";
@@ -46,6 +53,7 @@ import { SessionPeople } from "../../application/session-people.js";
 import { WorkflowStarts, type WorkflowStarted } from "../../application/workflow-starts.js";
 import { byTheUser, type ActedBy } from "../../domain/acted-by.js";
 import { ensureRerunnable, type CiRunJobs } from "../../domain/ci-run.js";
+import type { IssueUser } from "../../domain/issue-settings.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
@@ -56,6 +64,9 @@ import { ProjectRepository } from "../../ports/project-repository.js";
 import { PullRequestRepository } from "../../ports/pull-request-repository.js";
 import { toProjectResponse } from "../http/project-responses.js";
 import { toProjectMcpServerValuesResponse } from "../http/project-server-values-responses.js";
+
+/** The Authority group that rules a call giving a secret's value. */
+const SECRET_VALUES_GROUP = "secretValues";
 
 /**
  * Who asks an action of Projects: the signed-in user's own request, or an Agent's call (a Proposal
@@ -137,6 +148,11 @@ export class ProjectOfficeActions implements OnModuleInit {
         this.changeDefaultPipeline(),
         this.changeKindDefaultPipeline(),
         this.changeServerValues(),
+        this.changePublishingMode(),
+        this.changeBeforePublishingCommand(),
+        this.changeAfterPublishingCommand(),
+        this.changeDeleteMergedBranches(),
+        this.changeIssueSettings(),
         this.fetchBaseBranch(),
         this.importIssues(),
         this.closePullRequest(),
@@ -168,20 +184,8 @@ export class ProjectOfficeActions implements OnModuleInit {
           },
         },
       );
-      // A secret's value is refused up front, so no approval is spent on it and no Proposal shows it.
       this.registry.register(
-        each.action.name === CHANGE_SERVER_VALUES_ACTION.name && tool.authority
-          ? {
-              ...tool,
-              authority: {
-                ...tool.authority,
-                check: async (input) =>
-                  (await this.secretsRefusal(CHANGE_SERVER_VALUES_ACTION.input.parse(input)))?.join(
-                    " ",
-                  ),
-              },
-            }
-          : tool,
+        each.action.name === CHANGE_SERVER_VALUES_ACTION.name ? this.withSecrets(tool) : tool,
       );
     }
   }
@@ -376,12 +380,8 @@ export class ProjectOfficeActions implements OnModuleInit {
   private changeServerValues(): AnyProjectActionHandler {
     return handler({
       action: CHANGE_SERVER_VALUES_ACTION,
-      handle: async ({ projectId, serverName, serverValues }, { asker }) => {
+      handle: async ({ projectId, serverName, serverValues }) => {
         const project = await this.projectService.read(projectId);
-        if (asker === "agent") {
-          const refusal = await this.secretsRefusal({ projectId, serverName, serverValues });
-          if (refusal) throw new ProjectRefused(refusal);
-        }
         const edits = serverValues.map(({ name, projectValue }) => ({
           name,
           ...(projectValue !== undefined && { projectValue }),
@@ -400,30 +400,131 @@ export class ProjectOfficeActions implements OnModuleInit {
   }
 
   /**
-   * Why an Agent may not make this change: a value given for a Server value that is a secret is the
-   * user's to set (until Secret values for Agents). Undefined when every value given is plain.
+   * The Server values call's tool, ruled by Secret values besides Project settings when it gives a
+   * secret's value, and showing that value by name only everywhere a card shows the call.
    */
-  private async secretsRefusal({
+  private withSecrets(tool: OfficeTool): OfficeTool {
+    return {
+      ...tool,
+      ...(tool.authority && {
+        authority: {
+          ...tool.authority,
+          groupsOf: async (input) =>
+            (await this.secretsGiven(CHANGE_SERVER_VALUES_ACTION.input.parse(input))).length > 0
+              ? [SECRET_VALUES_GROUP]
+              : [],
+        },
+      }),
+      redact: (input) => this.withoutSecretValues(CHANGE_SERVER_VALUES_ACTION.input.parse(input)),
+      // Drafted from the call as shown: the secret named by its field only, never its value.
+      draft: async (input) => {
+        const call = CHANGE_SERVER_VALUES_ACTION.input.parse(input);
+        const { shown } = await this.withoutSecretValues(call);
+        const drafted = await this.draftOf(CHANGE_SERVER_VALUES_ACTION, shown);
+        const secrets = await this.secretsGiven(call);
+        return {
+          ...drafted,
+          fields: [
+            ...drafted.fields,
+            ...secrets.map((name) => ({
+              label: `${name} (Secret value)`,
+              before: null,
+              after: null,
+              form: "secret" as const,
+            })),
+          ],
+        };
+      },
+    };
+  }
+
+  private async withoutSecretValues(
+    call: z.output<typeof CHANGE_SERVER_VALUES_ACTION.input>,
+  ): Promise<OfficeToolRedactedInput> {
+    const secrets = new Set(await this.secretsGiven(call));
+    return {
+      hasSecret: secrets.size > 0,
+      shown: {
+        ...call,
+        serverValues: call.serverValues.map((each) =>
+          secrets.has(each.name) ? { name: each.name } : each,
+        ),
+      },
+    };
+  }
+
+  /** The names of the Server values this call gives a value for that are secrets. */
+  private async secretsGiven({
     projectId,
     serverName,
     serverValues,
-  }: z.output<typeof CHANGE_SERVER_VALUES_ACTION.input>): Promise<readonly string[] | undefined> {
+  }: z.output<typeof CHANGE_SERVER_VALUES_ACTION.input>): Promise<readonly string[]> {
     const given = serverValues.filter(({ projectValue }) => projectValue !== undefined);
-    if (given.length === 0) return undefined;
+    if (given.length === 0) return [];
     const known = (await this.serverValues.of(projectId)).find(
       (each) => each.serverName === serverName,
     );
-    const secrets = given
+    return given
       .map(({ name }) => name)
       .filter((name) =>
         known?.serverValues.some(
           ({ serverValue }) => serverValue.name === name && serverValue.secret,
         ),
       );
-    if (secrets.length === 0) return undefined;
-    return [
-      `${secrets.join(", ")} of ${serverName} ${secrets.length === 1 ? "is a secret" : "are secrets"}: a secret's value is the user's to set, on the Project page.`,
-    ];
+  }
+
+  private changePublishingMode(): AnyProjectActionHandler {
+    return handler({
+      action: CHANGE_PUBLISHING_MODE_ACTION,
+      handle: ({ projectId, publishingMode }) =>
+        this.projectService.changePublishingMode(projectId, publishingMode),
+      response: (project: Project) => this.respond(project),
+      words: (project) => `"${project.name}" publishes as ${project.publishingMode} now.`,
+    });
+  }
+
+  private changeBeforePublishingCommand(): AnyProjectActionHandler {
+    return handler({
+      action: CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION,
+      handle: ({ projectId, commandLine }) =>
+        this.projectService.changePublishingLine(projectId, "beforePublishingCommand", commandLine),
+      response: (project: Project) => this.respond(project),
+      words: (project) => `Before publishing, "${project.name}" runs its new command line.`,
+    });
+  }
+
+  private changeAfterPublishingCommand(): AnyProjectActionHandler {
+    return handler({
+      action: CHANGE_AFTER_PUBLISHING_COMMAND_ACTION,
+      handle: ({ projectId, commandLine }) =>
+        this.projectService.changePublishingLine(projectId, "afterPublishingCommand", commandLine),
+      response: (project: Project) => this.respond(project),
+      words: (project) => `After publishing, "${project.name}" runs its new command line.`,
+    });
+  }
+
+  private changeDeleteMergedBranches(): AnyProjectActionHandler {
+    return handler({
+      action: CHANGE_DELETE_MERGED_BRANCHES_ACTION,
+      handle: ({ projectId, on }) => this.projectService.changeDeleteMergedBranches(projectId, on),
+      response: (project: Project) => this.respond(project),
+      words: (project) =>
+        `"${project.name}" ${project.deleteMergedBranches ? "deletes" : "keeps"} a Task's branch once it is merged now.`,
+    });
+  }
+
+  private changeIssueSettings(): AnyProjectActionHandler {
+    return handler({
+      action: CHANGE_ISSUE_SETTINGS_ACTION,
+      handle: async ({ projectId, ...settings }, caller) =>
+        this.projectService.changeIssueSettings(
+          projectId,
+          settings,
+          issueUserOf(await caller.actedBy(), settings.autoImportLabel),
+        ),
+      response: (project: Project) => this.respond(project),
+      words: (project) => `The GitHub issue switches of "${project.name}" are changed as given.`,
+    });
   }
 
   private fetchBaseBranch(): AnyProjectActionHandler {
@@ -542,10 +643,37 @@ function valuesOf(action: OfficeAction, project: Project): Record<string, unknow
       return { useProjectSkills: project.useProjectSkills };
     case CHANGE_DEFAULT_PIPELINE_ACTION.name:
       return { defaultPipeline: project.defaultPipeline };
+    case CHANGE_PUBLISHING_MODE_ACTION.name:
+      return { publishingMode: project.publishingMode };
+    case CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION.name:
+      return { commandLine: project.beforePublishingCommand };
+    case CHANGE_AFTER_PUBLISHING_COMMAND_ACTION.name:
+      return { commandLine: project.afterPublishingCommand };
+    case CHANGE_DELETE_MERGED_BRANCHES_ACTION.name:
+      return { on: project.deleteMergedBranches };
+    case CHANGE_ISSUE_SETTINGS_ACTION.name: {
+      const { autoImportLabel, closeOnDone, commentOnStartAndDone, closeOnDrop } =
+        project.issueSettings;
+      return { autoImportLabel, closeOnDone, commentOnStartAndDone, closeOnDrop };
+    }
     default:
       // Nothing of the Project changes by the rest, or what they change isn't one field.
       return {};
   }
+}
+
+/**
+ * The user the auto-import label is recorded as set by: the user, or the one behind the person's
+ * call. Refused for a label no user stands behind, as the Tasks it imports name their creator.
+ */
+function issueUserOf(actedBy: ActedBy, label: string | null): IssueUser {
+  const user =
+    actedBy.kind === "user" ? actedBy.user : (actedBy.askedBy ?? actedBy.allowedBy ?? undefined);
+  if (user) return { userId: user.userId, name: user.name };
+  if (label === null) return { userId: "", name: "" };
+  throw new ProjectRefused([
+    "The auto-import label needs a user behind the call, as its Tasks name their creator: ask the user to ask for it in this Thread.",
+  ]);
 }
 
 /** Projects' refusals answer the Agent in words it can act on; anything else fails the call. */

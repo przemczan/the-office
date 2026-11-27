@@ -240,9 +240,10 @@ async function assignOnly(key: string, duties: readonly DutyKey[]): Promise<void
 
 describe("AuthorityMoveOver, giving the duties' jobs", () => {
   it("gives a holder whose card leaves a row of its job Never one new version naming no user, with only those rows", async () => {
-    const key = await aHolder({ projectUpkeep: NEVER, projectSettings: NEVER }, [
-      "onboards-projects",
-    ]);
+    const key = await aHolder(
+      { projectUpkeep: NEVER, projectSettings: NEVER, changeProjectSettings: NEVER },
+      ["onboards-projects"],
+    );
 
     await moveOver.giveDutiesJobs();
 
@@ -253,9 +254,7 @@ describe("AuthorityMoveOver, giving the duties' jobs", () => {
       projectSettings: PROPOSAL,
       // A capped row at Proposal, never Allowed.
       publishingSettings: PROPOSAL,
-      proposeProjectCommands: PROPOSAL,
-      proposeTestTargets: PROPOSAL,
-      proposeActions: PROPOSAL,
+      changeProjectSettings: PROPOSAL,
     });
     // Ask me stays Ask me: only a Never row takes the job's setting.
     expect(after?.card.authority.pipelinesAndStageTemplates).toBeUndefined();
@@ -318,9 +317,7 @@ describe("AuthorityMoveOver, giving the duties' jobs", () => {
     const gives = await aHolder(
       {
         publishingSettings: PROPOSAL,
-        proposeProjectCommands: PROPOSAL,
-        proposeTestTargets: PROPOSAL,
-        proposeActions: PROPOSAL,
+        changeProjectSettings: PROPOSAL,
       },
       ["onboards-projects"],
     );

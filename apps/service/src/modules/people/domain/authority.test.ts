@@ -64,16 +64,11 @@ describe("authorityProblems", () => {
     },
   );
 
-  it("takes only Allowed or Never on a single tool that runs at once, and Proposal or Never on one that drafts", () => {
+  it("takes only Allowed or Never on a single tool that runs at once", () => {
     expect(authorityProblems("developer", { postLinkCard: ASK_ME }, CONSULTABLE)).toEqual([
       "post_link_card takes Allowed or Never only.",
     ]);
     expect(authorityProblems("developer", { postLinkCard: ALLOWED }, CONSULTABLE)).toEqual([]);
-    expect(authorityProblems("developer", { proposeActions: ALLOWED }, CONSULTABLE)).toEqual([
-      "propose_actions takes Proposal or Never only.",
-    ]);
-    expect(authorityProblems("developer", { proposeActions: PROPOSAL }, CONSULTABLE)).toEqual([]);
-    expect(authorityProblems("developer", { proposeTestTargets: NEVER }, CONSULTABLE)).toEqual([]);
   });
 
   it("takes own and others' values on a record row only", () => {

@@ -40,7 +40,7 @@ async function aSetUpTaskMadeBefore(projectId: string): Promise<string> {
         title: "Set up test targets",
         pipelineId: "set-up-test-targets",
         plan: "Propose the test targets.",
-        definitionOfDone: ["A propose_test_targets Proposal holds them."],
+        definitionOfDone: ["A Proposal of the test targets holds them."],
       },
       { order: orderAfter(takenOrders), createdBy: ANN_LEE },
       new Date(),

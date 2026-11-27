@@ -110,7 +110,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   - It is one row of its own, in no area, shown after the areas beside the followed groups ([Tool areas](#tool-areas)).
   - Ask me and Proposal here amount to putting the same thing to the user, so every preset leaves it at Never.
 - **Continue at a Gate on the person's own work:** Continue at a Gate of a Task the person created or worked a Stage of ([own work](#authority)); Send back and Drop at a Gate aren't passing the Gate, so they follow the Gates and runs group.
-- **Secret values:** the values of a Project's Secret variables and of an MCP server's secret Server values, which the card, an approval card and a Proposal show by name only.
+- **Secret values:** the values of a Project's Secret variables and of an MCP server's secret Server values, which the card, an approval card and a Proposal show by name only, and which are not kept readable once a Proposal is applied or declined.
+  - It rules `change_server_values` given a secret value, and the Secret variables' values of `change_project_settings`, besides the group of the section.
 
 ## The user's alone
 
@@ -131,7 +132,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   - scheduling or cancelling an Office update or restart: Operations › Updates and restarts;
   - closing a pull request: Projects and settings › Project upkeep;
   - saved views: Work › Moving work;
-  - the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back and Actions that leave the workstation: Projects and settings › Publishing settings, under [the trust anchor's cap](#the-trust-anchor), as they decide what leaves the workstation;
+  - the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back and Actions that leave the workstation: Projects and settings › Publishing settings, under [the trust anchor's cap](#the-trust-anchor), as they decide what leaves the workstation; each is an Office action, ruled Proposal, Ask me or Never, never Allowed;
   - a Project's other settings: Projects and settings › Project settings, which holds the Project limit, the mark, the feature switches, Use this Project's skills and a skill's use, Icon and Logo from the repository (and removing one), the Engine, the Default Pipeline (and per Kind), Project Pipelines (create, change, delete), Server values that aren't secret, Onboard again and Set up run environment;
   - looking after a Project: Projects and settings › Project upkeep, which holds fetching the base branch, importing GitHub issues, closing a pull request, re-running CI and starting a Workflow.
 
@@ -145,7 +146,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   | Work | Task records; Moving work; Gates and runs; Continue at a Gate on own work (a single tool, [trust anchor](#the-trust-anchor)) |
   | Initiatives | Initiative records; Running an Initiative |
   | Ideas | Ideas; `capture_idea` (a single row; the tool loads with Core) |
-  | Projects and settings | Change Project settings (a Hard switch); Publishing settings (capped); Project settings; Project upkeep; Secret values (trust anchor); `propose_project_commands`, `propose_test_targets`, `propose_actions` (single tools, Proposal or Never) |
+  | Projects and settings | Change Project settings (a Hard switch); Publishing settings (capped); Project settings; Project upkeep; Secret values (trust anchor) |
   | People and Roles | Change Roles (a Hard switch, trust anchor); Memory and Avatar |
   | Library | Skills; MCP servers (their Secret values in the trust anchor); Pipelines and Stage templates; Prompt templates |
   | Office settings | Office settings; `post_link_card`, `show_office_status` (single tools, Allowed or Never) |
@@ -158,7 +159,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   - Office settings: `propose_office_setting`; Prompt templates: `propose_prompt_template`, `propose_prompt_template_reset`;
   - Pipelines and Stage templates: `propose_library_pipeline`, `propose_stage_template`; Project settings: `propose_project_pipeline`, `propose_project`;
   - Skills: `propose_skill`, `propose_skill_install`, `propose_skill_update`; Initiative records: `create_initiative`; Task records: `create_task`;
-  - Run installs: `run_environment_check`; Ideas › `capture_idea`; the five single tools above in their own rows.
+  - Run installs: `run_environment_check`; Ideas › `capture_idea`; `post_link_card` and `show_office_status` in their own rows.
 - **Core** is loaded in every session from the start; it isn't an area and isn't one settable group:
   - the reading tools (`read_*`, `list_*`, `read_attachment`, `read_stage_history`, `read_threads`), `read_office_instructions`, `list_prompt_templates`, `read_prompt_template`, `read_repository`, `list_source_skills` and `read_skill_update` among them;
   - `consult`, `answer_consultation` in a Consultation, and `open_decision` where the Thread opens Decisions;
@@ -173,19 +174,26 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 ## Project settings by Agents
 
 - **Change Project settings** is a group in Projects and settings, one of the [Hard switches](#hard-switches), holding one Office tool, `change_project_settings`, which changes a Project's everyday settings by the Project page's rules, in optional sections, at least one per call:
-  - environment variables: plain variables, Variables to remove and Folders in front of PATH; Secret variables are refused and kept as they are;
+  - environment variables: plain variables, Variables to remove and Folders in front of PATH; Secret variables' values are ruled by Secret values, and each is named only;
   - install and Install inputs;
-  - commands: add, change by key, remove; Before and After publishing are refused;
-  - test targets: add, change by key or remove; Secret variables by name only, a value already set kept;
-  - Actions: add, change by key or remove; one marked Leaves the workstation is refused, pointing to `propose_actions`;
+  - commands: add, change by key, remove; Before and After publishing are Publishing settings and refused here, set by `change_before_publishing_command` and `change_after_publishing_command`;
+  - test targets: add, change by key or remove; Secret variables by name only, their values ruled by Secret values, a value already set kept;
+  - Actions: add, change by key or remove; one marked Leaves the workstation is ruled by Publishing settings;
   - Run environment: On or Off, with no check of the base branch's `.devcontainer/` ([2.3.1](2.3.1-stages.md#script-stages-in-the-run-environment)).
 - The sections apply in that order, Run environment last, each through the Projects method and Project setting change the Project page's save uses; a section refused leaves the ones before it applied, and the answer names them.
 - Every refusal that needs no section applied is made by the tool's check before the call is held, and again on its repeat after Allow once, so no approval is spent on a call refused up front ([5.4.1 One ruling step](5.4.1-engine-kinds.md#one-ruling-step)).
-- **The ruling:** one call is one held call, ruled by the one ruling step with the Project as its subject: Allowed applies it at once with no card; Consult _person_ and Ask me hold it on one approval card listing every change, Secret variables by name only; Proposal drafts it as one Proposal ([Authority](#authority)).
+- **The ruling, by section:** a call is ruled by the strictest of the groups its sections touch, from strictest to loosest Never, Proposal, Ask me, Consult _person_, Allowed:
+  - a section's group is Change Project settings, except Secret variables' values, which Secret values rule, and an Action that leaves the workstation, which Publishing settings rule;
+  - a section at Never is refused up front, naming it, and nothing is applied, held or drafted;
+  - Allowed applies it at once with no card; Consult _person_ and Ask me hold it on one approval card listing every change; Proposal drafts one Proposal with every section's fields ([Authority](#authority)).
+- **Secret values on a card:** a Secret value is shown by name only, on an approval card, on a Proposal and on its card, and is not kept readable once the Proposal is applied or declined.
 - **Who gets it:** every Thread the user talks to the person in, a chat included, and their Agent Stages, unless the setting is Never ([2.2](2.2-people.md#setting-a-project-up)); a Stage's list never adds a tool the person's Authority doesn't give.
 - In a Consultation, a held call is put as [A Consultation's permissions](#a-consultations-permissions) says.
-- **Settings outside the group:** the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back and Actions that leave the workstation are Publishing settings, capped ([The user's alone](#the-users-alone)); the other settings above ([The user's alone](#the-users-alone), "Not the user's alone") are Project settings, each an Office action sharing its route's handler; a Server value that is a secret is refused to an Agent until Secret values are given to Agents; Secret variables' values are in the [trust anchor](#the-trust-anchor).
-- The Proposal tools (`propose_project_commands`, `propose_test_targets`, `propose_actions`) draft those settings, each with a single row of its own (Proposal or Never) that decides only whether it is offered, until the Project setting actions take their place, ruled Proposal.
+- **Settings outside the group, each an Office action sharing its route's handler:**
+  - Publishing settings: `change_publishing_mode`, `change_before_publishing_command`, `change_after_publishing_command`, `change_delete_merged_branches` and `change_issue_settings`, capped ([The user's alone](#the-users-alone));
+  - Secret values: `change_server_values` given a secret value, besides the group of its own ([the trust anchor](#the-trust-anchor));
+  - Project settings: the other settings ([The user's alone](#the-users-alone), "Not the user's alone").
+- `propose_project_commands`, `propose_test_targets` and `propose_actions` are retired: their sections of `change_project_settings` draft the same changes as one Proposal wherever its group rules Proposal; Proposals of their kinds that are open still apply ([5.4.1](5.4.1-engine-kinds.md#office-actions)).
 - **The record:** every change of a Project's commands, test targets, Actions, environment or Run environment is kept as a Project setting change, in the same transaction as the change, by the Project page's saves, an applied Proposal and `change_project_settings` alike.
   - It holds the Project, the setting, a short summary naming what changed by name only (never a Secret variable's value), who made it and when.
   - Who made it is a user; a Proposal a user applied, with the person who proposed it; or a person by Role, name and title, with the Task (none from a chat), the user who asked beside them and, for a call held at Ask me or Consult _person_, the user who allowed it, as History names them ([2.1.3](2.1.3-tasks.md#history)).
@@ -406,9 +414,6 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 | Projects and settings › Project settings | Never | Never | Never | Never | Proposal | Never | Ask me |
 | Projects and settings › Project upkeep | Never | Never | Never | Never | Allowed | Never | Ask me |
 | Projects and settings › Secret values (capped) | Never | Never | Never | Never | Never | Never | Never |
-| Projects and settings › `propose_project_commands` | Never | Never | Never | Never | Proposal | Never | Never |
-| Projects and settings › `propose_test_targets` | Never | Never | Never | Never | Proposal | Never | Never |
-| Projects and settings › `propose_actions` | Never | Never | Never | Never | Proposal | Never | Never |
 | **People and Roles** › Change Roles (capped) | Never | Never | Never | Never | Never | Proposal | Never |
 | People and Roles › Memory and Avatar | Ask me | Never | Never | Ask me | Ask me | Ask me | Ask me |
 | **Library** › Skills | Proposal | Proposal | Proposal | Proposal | Proposal | Proposal | Proposal |
@@ -431,8 +436,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **The Caretaker** has its own fixed Authority ([2.2](2.2-people.md#caretaker)).
 - The Change Project settings, Run installs and Publish outside the Pipeline rows are the values the Hard switches had; the Planner and the Reviewer keep Never for Change Project settings.
 - The Office Manager's Change Roles is Proposal, equal in reach to Ask me ([Authority](#authority)), and it keeps "never alone" on starting, stopping and moving work as Ask me.
-- Devops keeps CI re-runs and Workflow starts (Project upkeep, Allowed) and its Pipeline, command, test target and Action Proposals.
-- A Role hired from scratch starts every group at Ask me, except Library › Skills at Proposal and `capture_idea` at Allowed, and every capped row and every single tool that has no Ask me (`post_link_card`, `show_office_status`, `propose_project_commands`, `propose_test_targets`, `propose_actions`) at Never; "From scratch" is The Office's default, which a set value overrides.
+- Devops keeps CI re-runs and Workflow starts (Project upkeep, Allowed) and its Pipeline Proposals; its commands, test targets and Actions are sections of `change_project_settings`, which its card has Allowed.
+- A Role hired from scratch starts every group at Ask me, except Library › Skills at Proposal and `capture_idea` at Allowed, and every capped row and every single tool that has no Ask me (`post_link_card`, `show_office_status`) at Never; "From scratch" is The Office's default, which a set value overrides.
 
 ### A missing authority value
 

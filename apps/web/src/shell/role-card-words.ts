@@ -146,9 +146,6 @@ export const AUTHORITY_ROW_LABELS: Readonly<Record<AuthorityGroup, string>> = {
   publishingSettings: "Publishing settings",
   projectSettings: "Project settings",
   projectUpkeep: "Project upkeep",
-  proposeProjectCommands: "propose_project_commands",
-  proposeTestTargets: "propose_test_targets",
-  proposeActions: "propose_actions",
   secretValues: "Secret values",
   changeRoles: "Change Roles",
   memoryAndAvatar: "Memory and Avatar",
@@ -378,6 +375,7 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   "hardSwitches.changeProjectSettings": HARD_SWITCH_LABELS.changeProjectSettings,
   authorityMovedOver: "Authority from the Hard switches and duties",
   authorityFromDutiesHeld: "Authority from the duties held",
+  projectSettingProposalsMovedOver: "Change Project settings from the retired Proposal tools",
   ...(Object.fromEntries(
     authorityGroupSchema.options.map((group) => [
       `authority.${group}`,
@@ -595,7 +593,11 @@ export function changeLine(change: RoleCardFieldChange, names: FieldValueNames):
   if (LONG_TEXT_FIELDS.has(change.field)) return `${label} edited`;
   if (change.field === "engineSettingsMovedOver") return movedOverLine(change, names);
   // Made from the Hard switches and duties: the card's rows show what it came to.
-  if (change.field === "authorityMovedOver" || change.field === "authorityFromDutiesHeld") {
+  if (
+    change.field === "authorityMovedOver" ||
+    change.field === "authorityFromDutiesHeld" ||
+    change.field === "projectSettingProposalsMovedOver"
+  ) {
     return label;
   }
   return `${label} ${fieldValueText(change.field, change.from, names)} → ${fieldValueText(change.field, change.to, names)}`;

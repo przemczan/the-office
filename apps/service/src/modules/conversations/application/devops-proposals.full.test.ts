@@ -8,15 +8,12 @@ import type { INestApplication } from "@nestjs/common";
 import {
   actionListSchema,
   markLabelFor,
-  PROPOSE_ACTIONS_TOOL,
   offBoardTaskStartSchema,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL,
   pipelineListSchema,
   pipelineSchema,
   projectListSchema,
@@ -51,10 +48,19 @@ import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../engine
 import { EngineCascade, RoleCards } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { ownProjectsStartedTasks } from "../../pipelines/index.fixtures.js";
-import { TaskWorktrees } from "../../projects/index.js";
+import {
+  ProjectActions,
+  ProjectRefused,
+  ProjectService,
+  proposedCommands,
+  TaskWorktrees,
+  TestTargets,
+} from "../../projects/index.js";
+import { proposedTargets, targetInput } from "../adapters/office-tools/test-target-office-tools.js";
 import { SkillLibrary } from "../../skills/index.js";
 import { ownProjectsQueue } from "../../work/index.fixtures.js";
 import { DevopsChat, NINA_DUTIES, NINA_ROLE_CARDS } from "../adapters/http/devops-chat.fixtures.js";
+import type { ProposedChange } from "../domain/proposal.js";
 import { LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL } from "../domain/session-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { noProjectBases } from "../ports/project-bases.fixtures.js";
@@ -123,24 +129,42 @@ describe("Devops' Proposals, through the scripted engine", () => {
     const pipeline = await aPipeline();
     const stages = narrowedToTest(withLint(pipeline.stages));
 
-    const drafted = await chat.ninaProposes(
-      [
-        PROPOSE_PROJECT_COMMANDS_TOOL,
-        {
-          project: project.id,
-          change: {
-            installInputs: [".nvmrc"],
-            commands: [
-              { key: "test", name: "Test", kind: "test", commandLine: "npm run test:all" },
-              { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
-              { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" },
-            ],
-            removeCommands: ["build"],
+    // The commands' Proposal is of a kind whose tool is retired: one drafted before still applies.
+    const commandsDraft = await chat.ninaDrafts(
+      await commandsProposalOf(project, {
+        installInputs: [".nvmrc"],
+        commands: [
+          {
+            key: "test",
+            name: "Test",
+            kind: "test",
+            commandLine: "npm run test:all",
+            rerunCommandLine: "",
           },
-        },
-      ],
-      [PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: pipeline.id, stages }],
+          {
+            key: "lint",
+            name: "Lint",
+            kind: "lint",
+            commandLine: "npm run lint",
+            rerunCommandLine: "",
+          },
+          {
+            key: "test-e2e",
+            name: "End to end",
+            kind: "test",
+            commandLine: "npm run e2e",
+            rerunCommandLine: "",
+          },
+        ],
+        removeCommands: ["build"],
+      }),
     );
+    const [pipelineProposal] = await chat.ninaProposes([
+      PROPOSE_LIBRARY_PIPELINE_TOOL,
+      { pipeline: pipeline.id, stages },
+    ]);
+    if (!pipelineProposal) throw new Error("A Proposal of a Pipeline.");
+    const drafted = [commandsDraft, pipelineProposal];
 
     expect(drafted.map(({ change }) => change)).toEqual([
       {
@@ -201,14 +225,31 @@ describe("Devops' Proposals, through the scripted engine", () => {
     }
     expect(projectSchema.parse(await chat.read(`/projects/${project.id}`))).toMatchObject({
       commands: [
-        { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
-        { key: "test", name: "Test", kind: "test", commandLine: "npm run test:all" },
-        { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" },
+        {
+          key: "lint",
+          name: "Lint",
+          kind: "lint",
+          commandLine: "npm run lint",
+          rerunCommandLine: "",
+        },
+        {
+          key: "test",
+          name: "Test",
+          kind: "test",
+          commandLine: "npm run test:all",
+          rerunCommandLine: "",
+        },
+        {
+          key: "test-e2e",
+          name: "End to end",
+          kind: "test",
+          commandLine: "npm run e2e",
+          rerunCommandLine: "",
+        },
       ],
       installInputs: [".nvmrc"],
     });
     // Projects records the change as the Proposal's, applied by the signed-in user.
-    const [commandsDraft] = drafted;
     expect(
       projectSettingChangesSchema.parse(await chat.read(`/projects/${project.id}/setting-changes`))
         .changes,
@@ -218,7 +259,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
         summary: "changed Commands",
         by: {
           kind: "proposal",
-          proposalId: commandsDraft?.id,
+          proposalId: commandsDraft.id,
           user: { userId: SIGNED_IN_FOR_TESTS.userId, name: SIGNED_IN_FOR_TESTS.name },
         },
       }),
@@ -309,18 +350,25 @@ describe("Devops' Proposals, through the scripted engine", () => {
   it("refuses a Proposal whose values changed since it was drafted, which stays open and changes nothing", async () => {
     const project = await aProject();
     const pipeline = await aPipeline();
-    const drafted = await chat.ninaProposes(
-      [
-        PROPOSE_PROJECT_COMMANDS_TOOL,
-        {
-          project: project.id,
-          change: {
-            commands: [{ key: "test", name: "Test", kind: "test", commandLine: "vitest run" }],
+    const commandsDraft = await chat.ninaDrafts(
+      await commandsProposalOf(project, {
+        commands: [
+          {
+            key: "test",
+            name: "Test",
+            kind: "test",
+            commandLine: "vitest run",
+            rerunCommandLine: "",
           },
-        },
-      ],
-      [PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: pipeline.id, stages: withLint(pipeline.stages) }],
+        ],
+      }),
     );
+    const [pipelineProposal] = await chat.ninaProposes([
+      PROPOSE_LIBRARY_PIPELINE_TOOL,
+      { pipeline: pipeline.id, stages: withLint(pipeline.stages) },
+    ]);
+    if (!pipelineProposal) throw new Error("A Proposal of a Pipeline.");
+    const drafted = [commandsDraft, pipelineProposal];
     // The user edits both by hand first.
     await chat.api("PUT", `/projects/${project.id}/commands/test`, {
       name: "Test",
@@ -482,7 +530,13 @@ describe("Devops' Proposals, through the scripted engine", () => {
         installCommand: "npm ci",
         commands: [
           { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          {
+            key: "lint",
+            name: "Lint",
+            kind: "lint",
+            commandLine: "npm run lint",
+            rerunCommandLine: "",
+          },
           { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
         ],
         installInputs: [],
@@ -532,7 +586,13 @@ describe("Devops' Proposals, through the scripted engine", () => {
         installCommand: "npm ci",
         commands: [
           { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          {
+            key: "lint",
+            name: "Lint",
+            kind: "lint",
+            commandLine: "npm run lint",
+            rerunCommandLine: "",
+          },
           { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
         ],
         installInputs: [],
@@ -1069,34 +1129,26 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
     await putTargets(project, [WEB]);
     const before = await targetsOf(project);
 
-    const unnamed = await chat.ninaCalls(PROPOSE_TEST_TARGETS_TOOL, {
-      project: project.id,
-      targets: [{ ...WEB, port: 3000 }],
-    });
-    expect(unnamed.isError).toBe(true);
-    expect(unnamed.text).toContain("The user set web.port");
+    // The Proposal is of a kind whose tool is retired: one drafted before still applies.
+    const unnamed = await targetsProposalFailure(project, { targets: [{ ...WEB, port: 3000 }] });
+    expect(unnamed).toContain("The user set web.port");
 
-    const refused = await chat.ninaCalls(PROPOSE_TEST_TARGETS_TOOL, {
-      project: project.id,
+    const refused = await targetsProposalFailure(project, {
       targets: [{ ...ANDROID, commandsBefore: ["seed"], memoryMegabytes: 700 }],
     });
-    expect(refused.isError).toBe(true);
-    expect(refused.text).toContain(
+    expect(refused).toContain(
       `Test target "android": The command seed in its commands before the entry point isn't one of the Project's commands.`,
     );
-    expect(refused.text).toContain(
+    expect(refused).toContain(
       `Test target "android": Its memory per service is between 0.5 GB and 64 GB, in steps of 0.5 GB.`,
     );
 
-    const [drafted] = await chat.ninaProposes([
-      PROPOSE_TEST_TARGETS_TOOL,
-      {
-        project: project.id,
+    const drafted = await chat.ninaDrafts(
+      await targetsProposalOf(project, {
         targets: [{ ...WEB, port: 3000 }, ANDROID],
         changeUserSet: ["web.port"],
-      },
-    ]);
-    if (!drafted) throw new Error("A Proposal of test targets.");
+      }),
+    );
     expect(drafted.change).toEqual({
       kind: "test-targets",
       projectId: project.id,
@@ -1137,11 +1189,12 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
   it("refuses to apply test targets whose values changed since they were drafted, changing nothing", async () => {
     const project = await aProject(await aRepositoryWithScripts());
     await putTargets(project, [WEB]);
-    const [drafted] = await chat.ninaProposes([
-      PROPOSE_TEST_TARGETS_TOOL,
-      { project: project.id, targets: [{ ...WEB, port: 3000 }], changeUserSet: ["web.port"] },
-    ]);
-    if (!drafted) throw new Error("A Proposal of test targets.");
+    const drafted = await chat.ninaDrafts(
+      await targetsProposalOf(project, {
+        targets: [{ ...WEB, port: 3000 }],
+        changeUserSet: ["web.port"],
+      }),
+    );
     await putTargets(project, [{ ...WEB, port: 8080 }]);
     const before = await targetsOf(project);
 
@@ -1185,11 +1238,10 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
     expect((await testTargetsChatOf(project)).chat?.threadId).toBe(again?.threadId);
     if (!again) throw new Error("A chat asked again.");
 
-    const [drafted] = await chat.ninaProposesIn(again.threadId, [
-      PROPOSE_TEST_TARGETS_TOOL,
-      { project: project.id, targets: [WEB] },
-    ]);
-    if (!drafted) throw new Error("A Proposal of test targets.");
+    const drafted = await chat.ninaDrafts(
+      await targetsProposalOf(project, { targets: [WEB] }),
+      again.threadId,
+    );
     await vi.waitFor(async () => {
       expect((await testTargetsChatOf(project)).chat).toEqual({
         threadId: again.threadId,
@@ -1243,29 +1295,23 @@ describe("Devops' Proposals of Actions, through the scripted engine", () => {
     await putActions(project, [BUILD]);
     const before = await actionsOf(project);
 
-    const unnamed = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
-      project: project.id,
+    // The Proposal is of a kind whose tool is retired: one drafted before still applies.
+    const unnamed = await actionsProposalFailure(project, {
       actions: [{ ...BUILD, name: "Build the web app" }],
     });
-    expect(unnamed.isError).toBe(true);
-    expect(unnamed.text).toContain("The user set build-web.name");
+    expect(unnamed).toContain("The user set build-web.name");
 
-    const refused = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
-      project: project.id,
+    const refused = await actionsProposalFailure(project, {
       actions: [{ ...LINT, settings: { ...LINT.settings, commandKey: "deploy" } }],
     });
-    expect(refused.isError).toBe(true);
-    expect(refused.text).toContain("deploy");
+    expect(refused).toContain("deploy");
 
-    const [drafted] = await chat.ninaProposes([
-      PROPOSE_ACTIONS_TOOL,
-      {
-        project: project.id,
+    const drafted = await chat.ninaDrafts(
+      await actionsProposalOf(project, {
         actions: [{ ...BUILD, name: "Build the web app" }, LINT],
         changeUserSet: ["build-web.name"],
-      },
-    ]);
-    if (!drafted) throw new Error("A Proposal of Actions.");
+      }),
+    );
     expect(drafted.change).toEqual({
       kind: "actions",
       projectId: project.id,
@@ -1301,15 +1347,12 @@ describe("Devops' Proposals of Actions, through the scripted engine", () => {
   it("refuses to apply Actions whose values changed since they were drafted, changing nothing", async () => {
     const project = await aProject();
     await putActions(project, [BUILD]);
-    const [drafted] = await chat.ninaProposes([
-      PROPOSE_ACTIONS_TOOL,
-      {
-        project: project.id,
+    const drafted = await chat.ninaDrafts(
+      await actionsProposalOf(project, {
         actions: [{ ...BUILD, name: "Build the web app" }],
         changeUserSet: ["build-web.name"],
-      },
-    ]);
-    if (!drafted) throw new Error("A Proposal of Actions.");
+      }),
+    );
     await putActions(project, [
       { ...BUILD, settings: { ...BUILD.settings, timeLimitMinutes: 30 } },
     ]);
@@ -1329,25 +1372,20 @@ describe("Devops' Proposals of Actions, through the scripted engine", () => {
     const project = await aProject();
     await putActions(project, [BUILD, { ...LINT, leavesTheWorkstation: true }]);
 
-    const cleared = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
-      project: project.id,
+    const cleared = await actionsProposalFailure(project, {
       actions: [LINT],
       changeUserSet: ["lint.leavesTheWorkstation"],
     });
-    expect(cleared.isError).toBe(true);
-    expect(cleared.text).toContain(
+    expect(cleared).toContain(
       `Action "lint": A Proposal may mark an Action Leaves the workstation, never clear the mark; only the user clears it.`,
     );
 
-    const [drafted] = await chat.ninaProposes([
-      PROPOSE_ACTIONS_TOOL,
-      {
-        project: project.id,
+    const drafted = await chat.ninaDrafts(
+      await actionsProposalOf(project, {
         actions: [{ ...BUILD, leavesTheWorkstation: true }],
         changeUserSet: ["build-web.leavesTheWorkstation"],
-      },
-    ]);
-    if (!drafted) throw new Error("A Proposal of Actions.");
+      }),
+    );
     expect(drafted.change).toMatchObject({
       kind: "actions",
       changes: { actions: [{ key: "build-web", userSet: ["leavesTheWorkstation"] }] },
@@ -1366,11 +1404,7 @@ describe("Devops' Proposals of Actions, through the scripted engine", () => {
 
   it("refuses drafting and applying Actions while the Project has them switched off", async () => {
     const project = await aProject();
-    const [drafted] = await chat.ninaProposes([
-      PROPOSE_ACTIONS_TOOL,
-      { project: project.id, actions: [BUILD] },
-    ]);
-    if (!drafted) throw new Error("A Proposal of Actions.");
+    const drafted = await chat.ninaDrafts(await actionsProposalOf(project, { actions: [BUILD] }));
     const off = await chat.api("PUT", `/projects/${project.id}/features`, {
       features: { actions: false },
     });
@@ -1381,15 +1415,75 @@ describe("Devops' Proposals of Actions, through the scripted engine", () => {
     expect(await chat.reasonsOf(applied)).toEqual([switchedOff]);
     expect((await chat.readProposal(drafted.id)).status.kind).toBe("open");
 
-    const refused = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
-      project: project.id,
-      actions: [LINT],
-    });
-    expect(refused).toEqual({ text: expect.stringContaining(switchedOff), isError: true });
+    expect(await actionsProposalFailure(project, { actions: [LINT] })).toContain(switchedOff);
     expect(await actionsOf(project)).toEqual([]);
     // The whole app, a real repository and two chat sessions: slow under a full run.
   }, 60_000);
 });
+
+/** What a `project-commands` Proposal holds for `change`, as the retired tool drafted it. */
+async function commandsProposalOf(
+  project: Project,
+  change: Parameters<typeof proposedCommands>[1],
+): Promise<ProposedChange> {
+  const found = await app.get(ProjectService, { strict: false }).find(project.id);
+  if (!found) throw new Error("The Project is gone.");
+  return {
+    kind: "project-commands",
+    projectId: project.id,
+    changes: proposedCommands(found, change),
+  };
+}
+
+type TargetsGiven = {
+  readonly targets: readonly unknown[];
+  readonly removeTargets?: readonly string[];
+  readonly changeUserSet?: readonly string[];
+};
+
+async function targetsProposalOf(project: Project, given: TargetsGiven): Promise<ProposedChange> {
+  const changes = await app.get(TestTargets, { strict: false }).propose(project.id, {
+    targets: proposedTargets(given.targets.map((target) => targetInput.parse(target))),
+    removeTargets: given.removeTargets,
+    changeUserSet: given.changeUserSet,
+  });
+  return { kind: "test-targets", projectId: project.id, changes };
+}
+
+/** The reasons Projects refuses `given` for, in words. */
+async function targetsProposalFailure(project: Project, given: TargetsGiven): Promise<string> {
+  const refused = await targetsProposalOf(project, given).then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+  return refusalText(refused);
+}
+
+type ActionsGiven = {
+  readonly actions: readonly unknown[];
+  readonly changeUserSet?: readonly string[];
+};
+
+async function actionsProposalOf(project: Project, given: ActionsGiven): Promise<ProposedChange> {
+  const changes = await app.get(ProjectActions, { strict: false }).propose(project.id, {
+    actions: given.actions as never,
+    changeUserSet: given.changeUserSet,
+  });
+  return { kind: "actions", projectId: project.id, changes };
+}
+
+async function actionsProposalFailure(project: Project, given: ActionsGiven): Promise<string> {
+  const refused = await actionsProposalOf(project, given).then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+  return refusalText(refused);
+}
+
+function refusalText(error: unknown): string {
+  if (error instanceof ProjectRefused) return error.reasons.join("\n");
+  throw new Error(`Expected Projects to refuse it, got ${String(error)}.`);
+}
 
 /** Who set a value an applied Proposal of Nina's changed. */
 function setterOf(proposalId: string) {
@@ -1553,7 +1647,13 @@ async function aProject(onRepository?: string): Promise<Project> {
     installCommand: "npm ci",
     commands: [
       { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+      {
+        key: "lint",
+        name: "Lint",
+        kind: "lint",
+        commandLine: "npm run lint",
+        rerunCommandLine: "",
+      },
       { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
     ],
     installInputs: ["package-lock.json"],

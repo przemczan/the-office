@@ -257,7 +257,7 @@ describe("the built-in Pipelines", () => {
     });
   });
 
-  it("set up test targets in one Agent Stage that changes no file, names only the entry points spec 2.12 allows and ends with change_project_settings, or propose_test_targets without it, with no Publish", () => {
+  it("set up test targets in one Agent Stage that changes no file, names only the entry points spec 2.12 allows and ends with change_project_settings, ruled by the Role card's Authority, with no Publish", () => {
     const stages = builtInPipelines.find(({ id }) => id === SET_UP_TEST_TARGETS_PIPELINE)!.stages;
 
     expect(stages).toHaveLength(1);
@@ -266,11 +266,11 @@ describe("the built-in Pipelines", () => {
     expect(stages[0].brief).toContain("change no file");
     expect(stages[0].brief).toContain("entry points spec 2.12 allows");
     expect(stages[0].brief).toContain(
-      "End with change_project_settings, giving every target at once, or with propose_test_targets without it.",
+      "End with change_project_settings, giving every target at once; your Role card's Authority rules it, so it may come back as a Proposal the user applies with a click.",
     );
   });
 
-  it("onboards a Project setting its commands and then its Actions with the change tools, proposing them without those tools", () => {
+  it("onboards a Project setting its commands and then its Actions with change_project_settings, ruled by the Role card's Authority", () => {
     const onboard = builtInPipelines.find(({ id }) => id === ONBOARD_PIPELINE)!.stages[0];
 
     expect(onboard).toMatchObject({ kind: "agent", key: "onboard" });
@@ -282,7 +282,7 @@ describe("the built-in Pipelines", () => {
       "Once its commands and test targets are set, add with change_project_settings the Actions its repository suggests",
     );
     expect(onboard.brief).toContain(
-      "Without that tool, propose the same with propose_project_commands and propose_actions; an Action that leaves the workstation is always proposed.",
+      "Your Role card's Authority rules each change, so one may come back as a Proposal the user applies with a click: an Action that leaves the workstation and a Secret variable's value are ruled alike. Set Publishing with change_publishing_mode, change_before_publishing_command and change_after_publishing_command.",
     );
     expect(onboard.brief).toContain("Run run_environment_check until it passes before you end.");
   });

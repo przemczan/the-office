@@ -35,9 +35,6 @@ const TABLE: Readonly<Record<AuthorityGroup, readonly string[]>> = {
   projectSettings: ["N", "N", "N", "N", "P", "N", "Q"],
   projectUpkeep: ["N", "N", "N", "N", "A", "N", "Q"],
   secretValues: ["N", "N", "N", "N", "N", "N", "N"],
-  proposeProjectCommands: ["N", "N", "N", "N", "P", "N", "N"],
-  proposeTestTargets: ["N", "N", "N", "N", "P", "N", "N"],
-  proposeActions: ["N", "N", "N", "N", "P", "N", "N"],
   changeRoles: ["N", "N", "N", "N", "N", "P", "N"],
   memoryAndAvatar: ["Q", "N", "N", "Q", "Q", "Q", "Q"],
   skills: ["P", "P", "P", "P", "P", "P", "P"],
@@ -106,16 +103,9 @@ describe("the values a row takes", () => {
     expect(valuesTakenBy("checks")).toEqual(["allowed", "consult", "ask-me", "proposal", "never"]);
   });
 
-  it("gives the single tools that run at once Allowed or Never, and those that draft Proposal or Never", () => {
+  it("gives the single tools that run at once Allowed or Never", () => {
     for (const group of ["postLinkCard", "showOfficeStatus"] as const) {
       expect(valuesTakenBy(group)).toEqual(["allowed", "never"]);
-    }
-    for (const group of [
-      "proposeProjectCommands",
-      "proposeTestTargets",
-      "proposeActions",
-    ] as const) {
-      expect(valuesTakenBy(group)).toEqual(["proposal", "never"]);
     }
   });
 });

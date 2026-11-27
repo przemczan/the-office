@@ -40,7 +40,8 @@ const CAPABILITY_KEYS = [
  * `authorityMovedOver` says the card's Authority was made from its Hard switches and duties; each
  * `authority.<group>` goes from a setting, or null at the preset's default, to another;
  * `authorityFromDutiesHeld` says rows of the card's Authority were given what the duties it holds
- * need, by the second move-over. The
+ * need, by the second move-over; `projectSettingProposalsMovedOver`, the third, says Change Project
+ * settings was set to Proposal in place of the retired Proposal tools' rows. The
  * `hardSwitches.*` fields are named only by entries saved before the card had an Authority.
  */
 export type RoleCardField =
@@ -56,6 +57,7 @@ export type RoleCardField =
   | `hardSwitches.${HardSwitchKey}`
   | "authorityMovedOver"
   | "authorityFromDutiesHeld"
+  | "projectSettingProposalsMovedOver"
   | `authority.${AuthorityGroup}`;
 
 /** A Role override of none read as the Office default. */

@@ -8,6 +8,7 @@ import {
   type EngineModel,
 } from "../../engine/index.js";
 import { authorityMovedOver, instructionsMovedOver } from "./authority-move-over.js";
+import { authorityInEffect, PROPOSAL } from "./authority.js";
 import { jobSettingsOfDutiesMissingOn } from "./duty-jobs.js";
 import type { Avatar } from "./avatar.js";
 import { isBuiltIn } from "./caretaker.js";
@@ -325,6 +326,38 @@ export function authorityFromDutiesHeldOf(
   const authority = { ...role.card.authority, ...missing };
   const changes: RoleCardFieldChange[] = [
     { field: "authorityFromDutiesHeld", from: null, to: null },
+    ...authorityChanges(role.card.authority, authority),
+  ];
+  const changed: Role = {
+    ...role,
+    card: { ...role.card, authority },
+    cardVersion: role.cardVersion + 1,
+    cardSavedAt: savedAt,
+    cardProposedBy: undefined,
+    cardSavedBy: null,
+  };
+  return { role: changed, event: new RoleCardChanged(changed, changes) };
+}
+
+/**
+ * The third move-over (spec 5.4.1, "Per-kind Proposal tools fold in"): the tools
+ * `propose_project_commands`, `propose_test_targets` and `propose_actions` are retired, and `change_project_settings`
+ * ruled Proposal takes their place. A Role whose card kept one of their rows at Proposal and leaves
+ * Change Project settings Never would lose that reach, so it is set to Proposal. Undefined when the
+ * card leaves Change Project settings freer than Never, so nothing else changes. Its Changes say
+ * the Proposal rows were moved over, first, then the row set. The version names no user and nobody
+ * proposed it.
+ */
+export function projectSettingProposalsMovedOverOf(
+  role: Role,
+  savedAt: Date,
+): RoleChange<RoleCardChanged> | undefined {
+  if (authorityInEffect(role.key, role.card.authority).changeProjectSettings.kind !== "never") {
+    return undefined;
+  }
+  const authority = { ...role.card.authority, changeProjectSettings: PROPOSAL };
+  const changes: RoleCardFieldChange[] = [
+    { field: "projectSettingProposalsMovedOver", from: null, to: null },
     ...authorityChanges(role.card.authority, authority),
   ];
   const changed: Role = {

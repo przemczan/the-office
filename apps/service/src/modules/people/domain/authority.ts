@@ -34,9 +34,6 @@ export const AUTHORITY_GROUPS = [
   "projectSettings",
   "projectUpkeep",
   "secretValues",
-  "proposeProjectCommands",
-  "proposeTestTargets",
-  "proposeActions",
   "changeRoles",
   "memoryAndAvatar",
   "skills",
@@ -56,6 +53,23 @@ export const AUTHORITY_GROUPS = [
   "approveHeldCallsAndApplyProposals",
 ] as const;
 export type AuthorityGroup = (typeof AUTHORITY_GROUPS)[number];
+
+/**
+ * The rows of an earlier release's catalog that no longer are (spec 5.4.1, "Per-kind Proposal
+ * tools fold in"): a stored card may still hold them, and none is read.
+ */
+export const RETIRED_AUTHORITY_GROUPS = [
+  "proposeProjectCommands",
+  "proposeTestTargets",
+  "proposeActions",
+] as const;
+
+/** `authority` as the catalog reads it: a row that no longer is one, from a card saved before, left out. */
+export function withoutRetiredRows<Rows extends object>(authority: Rows): Rows {
+  return Object.fromEntries(
+    Object.entries(authority).filter(([key]) => isAuthorityGroup(key)),
+  ) as Rows;
+}
 
 /** Whether `key` is a group of the catalog, as the Office tools of other modules name theirs. */
 export function isAuthorityGroup(key: string): key is AuthorityGroup {
@@ -131,9 +145,6 @@ function row(
 /** A single tool that runs at once or is not offered. */
 const ALLOWED_OR_NEVER: readonly AuthorityValueKind[] = ["allowed", "never"];
 
-/** A single tool that drafts a Proposal or is not offered. */
-const PROPOSAL_OR_NEVER: readonly AuthorityValueKind[] = ["proposal", "never"];
-
 /** The Role card's Authority section (spec §6 › Tool areas), in its order. */
 export const AUTHORITY_AREAS: readonly AuthorityArea[] = [
   {
@@ -164,11 +175,6 @@ export const AUTHORITY_AREAS: readonly AuthorityArea[] = [
       row("projectSettings", "Project settings"),
       row("projectUpkeep", "Project upkeep"),
       row("secretValues", "Secret values", { cap: "trust-anchor" }),
-      row("proposeProjectCommands", "propose_project_commands", {
-        onlyValues: PROPOSAL_OR_NEVER,
-      }),
-      row("proposeTestTargets", "propose_test_targets", { onlyValues: PROPOSAL_OR_NEVER }),
-      row("proposeActions", "propose_actions", { onlyValues: PROPOSAL_OR_NEVER }),
     ],
   },
   {
@@ -273,9 +279,6 @@ export const FROM_SCRATCH_AUTHORITY: AuthorityInEffect = {
   skills: PROPOSAL,
   captureIdea: ALLOWED,
   // The single tools that take no Ask me are Never until the card sets them.
-  proposeProjectCommands: NEVER,
-  proposeTestTargets: NEVER,
-  proposeActions: NEVER,
   postLinkCard: NEVER,
   showOfficeStatus: NEVER,
 };
@@ -337,9 +340,6 @@ const PRESET_AUTHORITY: Readonly<Record<string, AuthorityInEffect>> = {
     publishingSettings: PROPOSAL,
     projectSettings: PROPOSAL,
     projectUpkeep: ALLOWED,
-    proposeProjectCommands: PROPOSAL,
-    proposeTestTargets: PROPOSAL,
-    proposeActions: PROPOSAL,
     memoryAndAvatar: ASK_ME,
     mcpServers: PROPOSAL,
     pipelinesAndStageTemplates: PROPOSAL,

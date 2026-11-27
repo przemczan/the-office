@@ -28,7 +28,6 @@ import {
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
   PROPOSE_PROMPT_TEMPLATE_TOOL,
@@ -208,7 +207,6 @@ describe("chatOfficeTools", () => {
         PROPOSE_LIBRARY_PIPELINE_TOOL,
         PROPOSE_PROJECT_PIPELINE_TOOL,
         PROPOSE_STAGE_TEMPLATE_TOOL,
-        PROPOSE_PROJECT_COMMANDS_TOOL,
         READ_REPOSITORY_TOOL,
         RUN_ENVIRONMENT_CHECK_TOOL,
         CREATE_INITIATIVE_TOOL,
@@ -460,7 +458,7 @@ describe("calling a person", () => {
     );
 
     expect(tools).toEqual(
-      expect.arrayContaining(["propose_project_commands", "read_repository", "create_task"]),
+      expect.arrayContaining(["propose_library_pipeline", "read_repository", "create_task"]),
     );
     expect(tools).not.toContain("change_role");
     expect(tools).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
@@ -506,7 +504,7 @@ describe("a chat's instructions, by the duties held, and its tools, by none", ()
       "show_office_status",
       READ_REPOSITORY_TOOL,
       CREATE_INITIATIVE_TOOL,
-      "propose_project_commands",
+      "propose_library_pipeline",
     ]) {
       expect(chatOfficeTools()).toContain(tool);
       expect(consultation).toContain(tool);

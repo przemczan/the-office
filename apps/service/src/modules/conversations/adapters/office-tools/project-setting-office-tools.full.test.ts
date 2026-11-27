@@ -9,6 +9,14 @@ const TEST_E2E = {
   rerunCommandLine: "",
 };
 
+const WEB = {
+  key: "web",
+  name: "Web",
+  kind: "hosted",
+  entryPoint: { kind: "package-script", manifest: "package.json", script: "dev", arguments: [] },
+  port: 5173,
+};
+
 describe("the change_project_settings tool's refusals", () => {
   it("refuses every problem it can find up front at once, asking nobody", async () => {
     const { tool, changes } = toolsWith();
@@ -26,7 +34,6 @@ describe("the change_project_settings tool's refusals", () => {
           },
         ],
       },
-      actions: { removeActions: ["release"] },
       runEnvironment: "off",
       why: "Everything.",
     });
@@ -34,7 +41,6 @@ describe("the change_project_settings tool's refusals", () => {
     expect(result.isError).toBe(true);
     expect(result.text).toContain('The Project has no command with the key "e2e".');
     expect(result.text).toContain('Test target "web" is Hosted, so it needs a port.');
-    expect(result.text).toContain('Action "release" leaves the workstation.');
     expect(changes).toEqual([]);
   });
 });
@@ -78,7 +84,7 @@ describe("its install and commands", () => {
   });
 
   it.each(["beforePublishingCommand", "afterPublishingCommand"])(
-    "refuses %s, pointing to propose_project_commands, asking nobody",
+    "has no field %s, which is the action change_before_publishing_command's",
     async (line) => {
       const { tool, changes } = toolsWith();
 
@@ -89,7 +95,7 @@ describe("its install and commands", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.text).toContain("propose_project_commands");
+      expect(result.text).toMatch(/^Nothing to change/);
       expect(changes).toEqual([]);
     },
   );
@@ -183,6 +189,13 @@ describe("its test targets", () => {
   });
 });
 
+const groupsOf = async (given: unknown) => {
+  const { tool } = toolsWith();
+  return tool.authority?.groupsOf?.(
+    tool.input.parse({ project: "shop", why: "x", ...(given as object) }),
+  );
+};
+
 describe("its Actions", () => {
   const LINT = {
     key: "lint-all",
@@ -208,56 +221,111 @@ describe("its Actions", () => {
 
   it.each([
     ["adding one marked", { actions: [{ ...LINT, leavesTheWorkstation: true }] }],
-    [
-      "adding a Workflow",
-      {
+    ["marking one", { actions: [{ ...LINT, key: "build-app", leavesTheWorkstation: true }] }],
+    ["removing one marked", { removeActions: ["release"] }],
+  ])(
+    "applies %s, an Action that leaves the workstation, recorded as the person's",
+    async (_, given) => {
+      const { tool, changes } = toolsWith();
+
+      const result = await runOf(tool, { project: "shop", actions: given, why: "Ship." });
+
+      expect(result.isError).toBe(false);
+      expect(changes.map(({ method }) => method)).toEqual(["actions.change"]);
+      expect(changes[0]?.args.at(-1)).toEqual(BY_NINA);
+    },
+  );
+
+  it("marks an Action added as a Workflow as leaving the workstation, whatever was given", async () => {
+    const { tool, changes } = toolsWith();
+
+    await runOf(tool, {
+      project: "shop",
+      actions: {
         actions: [
           { key: "deploy", name: "Deploy", kind: "workflow", settings: { file: "deploy.yml" } },
         ],
       },
-    ],
-    ["marking one", { actions: [{ ...LINT, key: "build-app", leavesTheWorkstation: true }] }],
-    [
-      "changing one marked, or clearing its mark",
-      {
-        actions: [
-          { key: "release", name: "Ship", kind: "workflow", settings: { file: "release.yml" } },
-        ],
-      },
-    ],
-    ["removing one marked", { removeActions: ["release"] }],
-  ])("refuses %s, pointing to propose_actions, asking nobody", async (_, given) => {
-    const { tool, changes } = toolsWith();
-
-    const result = await runOf(tool, {
-      project: "shop",
-      actions: given,
-      runEnvironment: "off",
-      why: "Ship.",
+      why: "Deploy.",
     });
 
-    expect(result.isError).toBe(true);
-    expect(result.text).toContain("leave");
-    expect(result.text).toContain("propose_actions");
-    expect(changes).toEqual([]);
+    const kept = (changes[0]?.args[1] ?? []) as Array<{
+      key: string;
+      leavesTheWorkstation: boolean;
+    }>;
+    expect(kept.find(({ key }) => key === "deploy")?.leavesTheWorkstation).toBe(true);
+  });
+
+  describe("the Authority groups it touches", () => {
+    it.each([
+      ["adding one marked", { actions: [{ ...LINT, leavesTheWorkstation: true }] }],
+      [
+        "adding a Workflow",
+        {
+          actions: [
+            { key: "deploy", name: "Deploy", kind: "workflow", settings: { file: "deploy.yml" } },
+          ],
+        },
+      ],
+      ["marking one", { actions: [{ ...LINT, key: "build-app", leavesTheWorkstation: true }] }],
+      [
+        "changing one marked, or clearing its mark",
+        {
+          actions: [
+            { key: "release", name: "Ship", kind: "workflow", settings: { file: "release.yml" } },
+          ],
+        },
+      ],
+      ["removing one marked", { removeActions: ["release"] }],
+    ])("is Publishing settings for %s", async (_, given) => {
+      await expect(groupsOf({ actions: given })).resolves.toEqual(["publishingSettings"]);
+    });
+
+    it.each([
+      ["adding one that stays", { actions: [LINT] }],
+      ["removing one that stays", { removeActions: ["build-app"] }],
+    ])("is Change Project settings alone for %s", async (_, given) => {
+      await expect(groupsOf({ actions: given })).resolves.toEqual([]);
+    });
+
+    it("adds Secret values for a Secret variable's value, an environment variable's or a test target's", async () => {
+      await expect(
+        groupsOf({
+          environmentVariables: { variables: [{ name: "API_TOKEN", value: "new", secret: true }] },
+        }),
+      ).resolves.toEqual(["secretValues"]);
+      await expect(
+        groupsOf({
+          testTargets: {
+            targets: [{ ...WEB, secretVariables: [{ name: "STRIPE_KEY", value: "sk" }] }],
+          },
+        }),
+      ).resolves.toEqual(["secretValues"]);
+    });
+
+    it("leaves Secret values out for a Secret variable kept without a value", async () => {
+      await expect(
+        groupsOf({ environmentVariables: { variables: [{ name: "API_TOKEN", secret: true }] } }),
+      ).resolves.toEqual([]);
+      await expect(
+        groupsOf({
+          testTargets: {
+            targets: [{ ...WEB, secretVariables: [{ name: "STRIPE_KEY", value: "" }] }],
+          },
+        }),
+      ).resolves.toEqual([]);
+    });
   });
 });
 
 describe("its Environment variables", () => {
-  it("keeps the lists left out, and refuses one marked secret", async () => {
+  it("keeps the lists left out", async () => {
     const { tool, changes } = toolsWith();
 
     await runOf(tool, {
       project: "shop",
       environmentVariables: { prependPath: ["/opt/node/bin"] },
       why: "Node.",
-    });
-    const refused = await runOf(tool, {
-      project: "shop",
-      environmentVariables: {
-        variables: [{ name: "NEW_TOKEN", value: "abcdefgh", secret: true }],
-      },
-      why: "A token.",
     });
 
     expect(changes[0]?.args[1]).toEqual({
@@ -268,9 +336,46 @@ describe("its Environment variables", () => {
       unset: ["NODE_OPTIONS"],
       prependPath: ["/opt/node/bin"],
     });
-    expect(refused.isError).toBe(true);
-    expect(refused.text).not.toContain("abcdefgh");
-    expect(changes).toHaveLength(1);
+  });
+
+  it("sets a Secret variable's value, and keeps the value of one given without", async () => {
+    const { tool, changes } = toolsWith();
+
+    await runOf(tool, {
+      project: "shop",
+      environmentVariables: {
+        variables: [
+          { name: "NEW_TOKEN", value: "abcdefgh", secret: true },
+          { name: "API_TOKEN", secret: true },
+          { name: "GREETING", value: "hi" },
+        ],
+      },
+      why: "A token.",
+    });
+
+    expect(changes[0]?.args[1]).toMatchObject({
+      set: [
+        { name: "NEW_TOKEN", value: "abcdefgh", secret: true },
+        { name: "API_TOKEN", secret: true },
+        { name: "GREETING", value: "hi", secret: false },
+      ],
+    });
+    expect(changes[0]?.args[1]).not.toHaveProperty("set.1.value");
+  });
+
+  it("refuses a plain value for a Secret variable's name, guiding to secret true", async () => {
+    const { tool, changes } = toolsWith();
+
+    const result = await runOf(tool, {
+      project: "shop",
+      environmentVariables: { variables: [{ name: "API_TOKEN", value: "another-token" }] },
+      why: "Rotated.",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain("API_TOKEN is a Secret variable");
+    expect(result.text).not.toContain("another-token");
+    expect(changes).toEqual([]);
   });
 });
 

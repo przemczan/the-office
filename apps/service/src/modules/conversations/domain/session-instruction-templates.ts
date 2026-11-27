@@ -11,9 +11,6 @@ import {
   OFFICE_INSTRUCTIONS_LEAD_IN,
   OFFICE_PROPOSALS_RULE,
   OFFICE_SETUP_RULE,
-  PROPOSE_ACTIONS_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL,
   READ_REPOSITORY_RULE,
   RUN_ENVIRONMENT_CHECK_TOOL,
   WRITING_FOR_THE_USER_RULE,
@@ -25,7 +22,7 @@ import {
  * What whoever onboards and repairs Projects does in their chat when the user asks them to set a
  * Project up: the work, with their tools, never a list of steps for the user.
  */
-const CHAT_SETUP_BY_THE_HOLDER = `When the user asks you to set a Project up for them, such as its commands or its run environment, do it with your tools rather than listing steps for them: check it with ${RUN_ENVIRONMENT_CHECK_TOOL} and draft what it needs with ${PROPOSE_PROJECT_COMMANDS_TOOL}, ${PROPOSE_TEST_TARGETS_TOOL} or ${PROPOSE_ACTIONS_TOOL}, which the user applies with a click. A Project's settings you change yourself, as your Authority allows, with ${CHANGE_PROJECT_SETTINGS_TOOL}.`;
+const CHAT_SETUP_BY_THE_HOLDER = `When the user asks you to set a Project up for them, such as its commands or its run environment, do it with your tools rather than listing steps for them: check it with ${RUN_ENVIRONMENT_CHECK_TOOL} and change what it needs with ${CHANGE_PROJECT_SETTINGS_TOOL}: your Authority rules it, so a change is made at once, or drafted as a Proposal the user applies with a click.`;
 
 /**
  * What anyone else does in their chat when the user asks them to set a Project up: call whoever

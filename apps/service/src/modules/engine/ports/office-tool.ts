@@ -78,10 +78,25 @@ export interface OfficeToolAuthority {
    */
   floor?(input: unknown): Promise<"proposal" | undefined>;
   /**
+   * Every Authority group the call touches, when more than `group` (a call that changes sections
+   * ruled apart): the call is ruled by the strictest of them, Never, Proposal, Ask me, Consult,
+   * Allowed in that order, and refused up front, naming it, when one is Never. It only reads.
+   */
+  groupsOf?(input: unknown): Promise<readonly string[]>;
+  /**
    * What a call changes, one plain line each, as the approval card lists them; the call's input is
    * shown instead when the tool has none. It only reads, and names Secret variables by name only.
    */
   approvalLines?(input: unknown, call: OfficeToolCall): Promise<readonly string[]>;
+}
+
+/**
+ * A call's input as every card, approval and Proposal shows it: each Secret value emptied, its name
+ * kept, so the input still reads as the tool's own; `hasSecret` says whether the call gave one.
+ */
+export interface OfficeToolRedactedInput {
+  readonly shown: Readonly<Record<string, unknown>>;
+  readonly hasSecret: boolean;
 }
 
 /** The record a call changes, by its kind and id. */
@@ -113,10 +128,14 @@ export interface OfficeToolDraft {
   readonly fingerprint: unknown;
 }
 
-/** The user an Office tool's change is made for, and the person who proposed it, by their Role's key. */
+/**
+ * The user an Office tool's change is made for, and the person who proposed it, by their Role's key;
+ * `proposalId` is the applied Proposal's own, for a tool that records which Proposal set what.
+ */
 export interface OfficeToolApplication {
   readonly user: OfficeToolUser;
   readonly proposedBy: string;
+  readonly proposalId?: string;
 }
 
 /**
@@ -136,6 +155,11 @@ export interface OfficeTool<Input extends z.ZodObject = z.ZodObject> {
    */
   readonly authority?: OfficeToolAuthority;
   run(input: z.output<Input>, call: OfficeToolCall): Promise<OfficeToolResult>;
+  /**
+   * For a tool whose input can hold a Secret value: the input without it (`OfficeToolRedactedInput`).
+   * Left out, the input holds none. It only reads.
+   */
+  redact?(input: z.output<Input>): Promise<OfficeToolRedactedInput>;
   /**
    * For an Office action's tool that can be proposed: what a call with this input changes, as it
    * stands now. Left out, a call ruled Proposal is held as Ask me.

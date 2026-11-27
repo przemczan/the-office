@@ -807,9 +807,6 @@ describe("StageThreads", () => {
           authority: {
             projectSettings: never,
             pipelinesAndStageTemplates: never,
-            proposeProjectCommands: never,
-            proposeTestTargets: never,
-            proposeActions: never,
             skills: never,
             runInstalls: never,
           },

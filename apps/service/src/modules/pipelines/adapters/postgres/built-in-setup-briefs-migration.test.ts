@@ -114,7 +114,8 @@ describe("migration 0216", () => {
   it.each(REWORDED)(
     "rewords the built-in $key Stage's brief, in the library, its template and open Tasks",
     async ({ pipeline, key, oldBrief, newBrief }) => {
-      expect(briefIn(builtIn(pipeline)?.stages ?? [], key)).toBe(newBrief);
+      // 0228 rewords the Onboard and Set up test targets briefs again: only this one is still the built-in's.
+      expect(briefIn(builtIn(pipeline)?.stages ?? [], key) === newBrief).toBe(key === "set-up");
 
       const after = await rolledBackMigration(database, async (transaction) => {
         await transaction.execute(

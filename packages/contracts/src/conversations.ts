@@ -578,13 +578,22 @@ export const CAPTURE_IDEA_TOOL = "capture_idea";
 /** The Office tool the Office Manager shows the Office status with, hidden alike behind its card. */
 export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 
-/** The Office tool Devops drafts a Proposal of a Project's commands with, hidden alike. */
+/**
+ * The retired Office tool that drafted a Proposal of a Project's commands, which
+ * `change_project_settings` replaces; a Thread that holds its call keeps it hidden behind the card.
+ */
 export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 
-/** The Office tool Devops drafts a Proposal of a Project's test targets with, hidden alike. */
+/**
+ * The retired Office tool that drafted a Proposal of a Project's test targets, which
+ * `change_project_settings` replaces; a Thread that holds its call keeps it hidden behind the card.
+ */
 export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
 
-/** The Office tool Devops drafts a Proposal of a Project's Actions with, hidden alike. */
+/**
+ * The retired Office tool that drafted a Proposal of a Project's Actions, which
+ * `change_project_settings` replaces; a Thread that holds its call keeps it hidden behind the card.
+ */
 export const PROPOSE_ACTIONS_TOOL = "propose_actions";
 
 /** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */

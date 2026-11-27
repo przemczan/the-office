@@ -1205,14 +1205,14 @@ export const CLOSE_PULL_REQUEST_ACTION = officeAction({
 });
 
 /**
- * Office action: a MCP server's Server values on a Project. A secret's value isn't one an Agent
- * can set (until Secret values for Agents).
+ * Office action: a MCP server's Server values on a Project. A call that gives a secret's value is
+ * ruled by Secret values, held to the trust anchor's cap.
  */
 export const CHANGE_SERVER_VALUES_ACTION = officeAction({
   name: "change_server_values",
   title: "Change a Project's Server values",
   description:
-    "Sets the Project's own values for one MCP server's Server values; a value not given is cleared, so the Office-wide value applies, and a value given without text keeps the one kept. A Server value that is a secret is refused: the user sets those.",
+    "Sets the Project's own values for one MCP server's Server values; a value not given is cleared, so the Office-wide value applies, and a value given without text keeps the one kept. A Server value that is a secret is a Secret value: it is ruled by its own setting, and shows by name only.",
   input: projectServerValuesChangeSchema.extend({
     projectId: projectIdInput,
     serverName: z.string().min(1).describe("The MCP server's name."),
@@ -1222,6 +1222,71 @@ export const CHANGE_SERVER_VALUES_ACTION = officeAction({
   area: "projectsAndSettings",
   group: "projectSettings",
   subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+const publishingSettingsAction = {
+  area: "projectsAndSettings",
+  group: "publishingSettings",
+  subject: ({ projectId }: { projectId: string }) => ({ kind: "project" as const, id: projectId }),
+} as const;
+
+/** Office action: the Publishing mode, held to the cap of Publishing settings. */
+export const CHANGE_PUBLISHING_MODE_ACTION = officeAction({
+  name: "change_publishing_mode",
+  title: "Change a Project's Publishing mode",
+  description:
+    "Sets how Publish lands a Task of the Project: push and pull request, or merge into the base branch.",
+  input: publishingModeChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/publishing-mode" },
+  ...publishingSettingsAction,
+});
+
+/** Office action: the command Publish runs before it lands a Task. */
+export const CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION = officeAction({
+  name: "change_before_publishing_command",
+  title: "Change a Project's Before publishing command",
+  description:
+    "Sets the command line Publish runs before it lands a Task of the Project; blank for none.",
+  input: beforePublishingCommandChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/before-publishing-command" },
+  ...publishingSettingsAction,
+});
+
+/** Office action: the command Publish runs after it lands a Task. */
+export const CHANGE_AFTER_PUBLISHING_COMMAND_ACTION = officeAction({
+  name: "change_after_publishing_command",
+  title: "Change a Project's After publishing command",
+  description:
+    "Sets the command line Publish runs after it lands a Task of the Project; blank for none.",
+  input: afterPublishingCommandChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/after-publishing-command" },
+  ...publishingSettingsAction,
+});
+
+/** Office action: Delete branches once merged. */
+export const CHANGE_DELETE_MERGED_BRANCHES_ACTION = officeAction({
+  name: "change_delete_merged_branches",
+  title: "Change a Project's Delete branches once merged",
+  description: "Turns on or off deleting a Task's branch once its work is merged.",
+  input: deleteMergedBranchesChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/delete-merged-branches" },
+  ...publishingSettingsAction,
+});
+
+/** Office action: the GitHub issue switches, the auto-import label included. */
+export const CHANGE_ISSUE_SETTINGS_ACTION = officeAction({
+  name: "change_issue_settings",
+  title: "Change a Project's GitHub issues write-back",
+  description:
+    "Sets the Project's GitHub issue switches whole: the label whose open issues are imported by themselves (null for none), closing an issue when its Task is Done or Dropped, and commenting on it when the Task starts and is Done.",
+  input: issueSettingsSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/issue-settings" },
+  ...publishingSettingsAction,
 });
 
 /** Projects' Office actions of the settings and the upkeep, each declared above. */
@@ -1237,6 +1302,11 @@ export const PROJECT_SETTINGS_OFFICE_ACTIONS = [
   CHANGE_DEFAULT_PIPELINE_ACTION,
   CHANGE_KIND_DEFAULT_PIPELINE_ACTION,
   CHANGE_SERVER_VALUES_ACTION,
+  CHANGE_PUBLISHING_MODE_ACTION,
+  CHANGE_BEFORE_PUBLISHING_COMMAND_ACTION,
+  CHANGE_AFTER_PUBLISHING_COMMAND_ACTION,
+  CHANGE_DELETE_MERGED_BRANCHES_ACTION,
+  CHANGE_ISSUE_SETTINGS_ACTION,
   FETCH_BASE_BRANCH_ACTION,
   IMPORT_ISSUES_ACTION,
   CLOSE_PULL_REQUEST_ACTION,

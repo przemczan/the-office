@@ -1,31 +1,21 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseFilters } from "@nestjs/common";
 import {
   addProjectSchema,
-  afterPublishingCommandChangeSchema,
-  beforePublishingCommandChangeSchema,
   commandChangeSchema,
   environmentChangeSchema,
-  issueSettingsSchema,
   installCommandChangeSchema,
   installInputsChangeSchema,
   projectCommandSchema,
-  publishingModeChangeSchema,
-  deleteMergedBranchesChangeSchema,
   projectSkillListSchema,
   type AddProject,
-  type AfterPublishingCommandChange,
-  type BeforePublishingCommandChange,
   type CommandChange,
   type EnvironmentChange,
   type InstallCommandChange,
   type InstallInputsChange,
-  type IssueSettings as IssueSettingsChange,
   type Project as ProjectResponse,
   type ProjectRemoteNeeds,
   type RemoteNeeds as RemoteNeedsResponse,
   type ProjectCommand,
-  type PublishingModeChange,
-  type DeleteMergedBranchesChange,
   type ProjectSkill,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -137,44 +127,6 @@ export class ProjectsController {
     return this.respond(await this.projects.changeEnvironment(id, environment, byUser(signedIn)));
   }
 
-  @Put(":id/publishing-mode")
-  async changePublishingMode(
-    @Param("id") id: string,
-    @Body(new ContractPipe(publishingModeChangeSchema)) { publishingMode }: PublishingModeChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changePublishingMode(id, publishingMode));
-  }
-
-  @Put(":id/delete-merged-branches")
-  async changeDeleteMergedBranches(
-    @Param("id") id: string,
-    @Body(new ContractPipe(deleteMergedBranchesChangeSchema)) { on }: DeleteMergedBranchesChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeDeleteMergedBranches(id, on));
-  }
-
-  @Put(":id/before-publishing-command")
-  async changeBeforePublishingCommand(
-    @Param("id") id: string,
-    @Body(new ContractPipe(beforePublishingCommandChangeSchema))
-    { commandLine }: BeforePublishingCommandChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(
-      await this.projects.changePublishingLine(id, "beforePublishingCommand", commandLine),
-    );
-  }
-
-  @Put(":id/after-publishing-command")
-  async changeAfterPublishingCommand(
-    @Param("id") id: string,
-    @Body(new ContractPipe(afterPublishingCommandChangeSchema))
-    { commandLine }: AfterPublishingCommandChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(
-      await this.projects.changePublishingLine(id, "afterPublishingCommand", commandLine),
-    );
-  }
-
   /**
    * Which part of the Office identity the base branch's remote needs, read from the repository
    * each time; apart from the record, so a list of Projects runs no git.
@@ -190,16 +142,6 @@ export class ProjectsController {
   async skills(@Param("id") id: string): Promise<ProjectSkill[]> {
     const project = await this.projects.read(id);
     return projectSkillListSchema.parse(await this.projectSkills.of(project.id, project.path));
-  }
-
-  /** The GitHub issue switches; a label set records the user as who set it. */
-  @Put(":id/issue-settings")
-  async changeIssueSettings(
-    @Param("id") id: string,
-    @Body(new ContractPipe(issueSettingsSchema)) settings: IssueSettingsChange,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeIssueSettings(id, settings, userOf(signedIn)));
   }
 }
 

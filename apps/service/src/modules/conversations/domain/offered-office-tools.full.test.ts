@@ -71,9 +71,6 @@ const FORMER_DUTY_TOOLS = {
   ],
   plans: ["add_dependency", "remove_dependency", "add_to_initiative", "take_out_of_initiative"],
   "onboards-projects": [
-    "propose_project_commands",
-    "propose_test_targets",
-    "propose_actions",
     "propose_library_pipeline",
     "propose_project_pipeline",
     "propose_stage_template",
@@ -123,9 +120,6 @@ describe("the Office tools a person is offered", () => {
       projectSettings: NEVER,
       pipelinesAndStageTemplates: NEVER,
       projectUpkeep: NEVER,
-      proposeProjectCommands: NEVER,
-      proposeTestTargets: NEVER,
-      proposeActions: NEVER,
       runInstalls: NEVER,
     });
 
@@ -142,7 +136,7 @@ describe("the Office tools a person is offered", () => {
     // A Role from scratch, whose single tools are Never, is offered none of the duty's single tools.
     const offered = chatOf("release-manager", authorityInEffect("release-manager", {}));
 
-    for (const tool of ["post_link_card", "show_office_status", "propose_project_commands"]) {
+    for (const tool of ["post_link_card", "show_office_status"]) {
       expect(offered).not.toContain(tool);
     }
     expect(offered).toContain("create_task");
@@ -159,7 +153,7 @@ describe("the Office tools a person is offered", () => {
       { stageThread: true },
     );
 
-    expect(offered).toContain("propose_project_commands");
+    expect(offered).toContain("propose_library_pipeline");
     expect(offered).not.toContain("propose_project");
     expect(offered).not.toContain("propose_project_pipeline");
     expect(offered).not.toContain("rerun_ci_run");
@@ -249,9 +243,6 @@ describe("the Caretaker's tools", () => {
       "post_link_card",
       "show_office_status",
       "create_initiative",
-      "propose_project_commands",
-      "propose_test_targets",
-      "propose_actions",
       "propose_project",
       "propose_skill_install",
       "propose_skill_update",

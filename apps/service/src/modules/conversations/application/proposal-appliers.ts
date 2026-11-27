@@ -35,6 +35,11 @@ export interface ProposalApplier<Kind extends ProposedChangeKind> {
    * applying it does. Absent when every kept change reads as it is.
    */
   shown?(change: ProposedChanges[Kind]): ProposedChanges[Kind];
+  /**
+   * The change without the Secret values it holds, as a Proposal keeps it once applied or declined:
+   * nothing readable stays. Absent when no change of the kind holds one.
+   */
+  withoutSecrets?(change: ProposedChanges[Kind]): Promise<ProposedChanges[Kind]>;
 }
 
 /** How the module that owns an Office setting sees to Proposals of it, and the value it has now. */
@@ -225,7 +230,7 @@ export class ProposalAppliers {
       case "skill":
         return this.applierOf("skill").apply(change, proposedBy, appliedBy);
       case "office-action":
-        return this.applierOf("office-action").apply(change, proposedBy, appliedBy);
+        return this.applierOf("office-action").apply(change, proposedBy, appliedBy, proposalId);
       default:
         return Promise.reject(new ProposalRefused([UNKNOWN_KIND_REASON]));
     }
@@ -247,6 +252,12 @@ export class ProposalAppliers {
       default:
         return change;
     }
+  }
+
+  /** The change with no Secret value left in it, by the module that owns its kind. */
+  async withoutSecrets(change: ProposedChange): Promise<ProposedChange> {
+    if (change.kind !== "office-action") return change;
+    return (await this.appliers["office-action"]?.withoutSecrets?.(change)) ?? change;
   }
 
   private applierOf<Kind extends ProposedChangeKind>(kind: Kind): ProposalApplier<Kind> {

@@ -340,7 +340,10 @@ export type RoleEngineCascade = z.infer<typeof roleEngineCascadeSchema>;
  * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
  * `authorityMovedOver` says the card's Authority was made from its Hard switches and duties; each
  * `authority.<group>` goes from a setting, or null at the preset's default, to another;
- * `authorityFromDutiesHeld` says rows were given what the duties the person holds need. The
+ * `authorityFromDutiesHeld` says rows were given what the duties the person holds need;
+ * `projectSettingProposalsMovedOver` says Change Project settings was set to Proposal where the card
+ * kept Proposal rows of the retired `propose_project_commands`, `propose_test_targets` and
+ * `propose_actions` tools. The
  * `hardSwitches.*` fields are named only by entries saved before the card had an Authority.
  */
 export const roleCardFieldSchema = z.enum([
@@ -367,6 +370,7 @@ export const roleCardFieldSchema = z.enum([
   "hardSwitches.changeProjectSettings",
   "authorityMovedOver",
   "authorityFromDutiesHeld",
+  "projectSettingProposalsMovedOver",
   ...authorityGroupSchema.options.map((group) => `authority.${group}` as const),
 ]);
 export type RoleCardField = z.infer<typeof roleCardFieldSchema>;

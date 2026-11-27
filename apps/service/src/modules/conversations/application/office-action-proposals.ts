@@ -24,7 +24,9 @@ export class OfficeActionProposals implements OnModuleInit {
   onModuleInit(): void {
     this.appliers.register("office-action", {
       problemsWith: (change) => this.problemsWith(change),
-      apply: (change, proposedBy, appliedBy) => this.apply(change, proposedBy, appliedBy),
+      apply: (change, proposedBy, appliedBy, proposalId) =>
+        this.apply(change, proposedBy, appliedBy, proposalId),
+      withoutSecrets: (change) => this.withoutSecrets(change),
     });
   }
 
@@ -38,6 +40,7 @@ export class OfficeActionProposals implements OnModuleInit {
     change: ProposedOfficeAction,
     proposedBy: string,
     appliedBy: UserRef,
+    proposalId: string | undefined,
   ): Promise<ProposedOfficeAction> {
     // Out of date is judged on the call as drafted, the edited card being the user's own.
     const now = await this.registry.draft(change.action, change.input);
@@ -52,10 +55,20 @@ export class OfficeActionProposals implements OnModuleInit {
       {
         user: { userId: appliedBy.userId, name: appliedBy.name },
         proposedBy,
+        ...(proposalId !== undefined && { proposalId }),
       },
     );
     if (isError) throw new ProposalRefused([text]);
     return change;
+  }
+
+  /** The call as drafted and as edited, each with its Secret values emptied: none stays readable. */
+  private async withoutSecrets(change: ProposedOfficeAction): Promise<ProposedOfficeAction> {
+    const { shown, hasSecret } = await this.registry.redact(change.action, change.input);
+    const edited =
+      change.editedInput && (await this.registry.redact(change.action, change.editedInput));
+    if (!hasSecret && !edited?.hasSecret) return change;
+    return { ...change, input: shown, ...(edited && { editedInput: edited.shown }) };
   }
 
   private async personNamed(roleKey: string): Promise<string> {

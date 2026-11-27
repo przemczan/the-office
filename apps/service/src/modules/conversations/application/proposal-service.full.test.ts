@@ -1162,6 +1162,54 @@ describe("a Proposal of an Office action", () => {
     expect(task.applied).toEqual([]);
   });
 
+  describe("whose input holds a Secret value", () => {
+    const SECRET = "agent-typed-secret";
+    const NAME = "change_task_token";
+
+    /** Drafts a call of a stand-in tool that reports the token as a Secret value. */
+    async function draftsToken(): Promise<Proposal> {
+      app.get(OfficeToolRegistry).register({
+        ...task.tool(),
+        name: NAME,
+        input: z.object({ taskId: z.string(), title: z.string(), token: z.string() }),
+        redact: (input) =>
+          Promise.resolve({ shown: { ...input, token: "" }, hasSecret: input.token !== "" }),
+      });
+      const input = { taskId: "task-1", title: "New title", token: SECRET };
+      const drafted = await app.get(OfficeToolRegistry).draft(NAME, input);
+      if (!drafted) throw new Error("Nothing to draft.");
+      return proposals.draft(sessionId, {
+        kind: "office-action",
+        action: NAME,
+        title: "Change a token",
+        input,
+        editedInput: { ...input, title: "Edited title" },
+        ...drafted,
+        outOfDate: false,
+      });
+    }
+
+    it("keeps it out of the stored Proposal once it is applied", async () => {
+      const proposal = await draftsToken();
+
+      await proposals.apply(proposal.id, ANN_LEE);
+
+      const stored = await proposals.read(proposal.id);
+      expect(stored.status.kind).toBe("applied");
+      expect(JSON.stringify(stored)).not.toContain(SECRET);
+    });
+
+    it("keeps it out of the stored Proposal once it is declined", async () => {
+      const proposal = await draftsToken();
+
+      await proposals.decline(proposal.id, ANN_LEE);
+
+      const stored = await proposals.read(proposal.id);
+      expect(stored.status.kind).toBe("declined");
+      expect(JSON.stringify(stored)).not.toContain(SECRET);
+    });
+  });
+
   it("declines an older open Proposal on the same subject once a newer one is applied", async () => {
     const older = await draftsTitle("task-1", "First");
     await new Promise((resolve) => setTimeout(resolve, 5));

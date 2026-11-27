@@ -227,15 +227,6 @@ export const POST_LINK_CARD_TOOL = "post_link_card";
 /** The Office tool a person shows the Office status with, which Notifications registers. */
 export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 
-/** The Office tool a person drafts a Proposal of a Project's commands with; named as above. */
-export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
-
-/** The Office tool a person drafts a Proposal of a Project's test targets with; named as above. */
-export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
-
-/** The Office tool a person drafts a Proposal of a Project's Actions with; named as above. */
-export const PROPOSE_ACTIONS_TOOL = "propose_actions";
-
 /**
  * The Office tool a person drafts a Proposal of a library Pipeline's Stages with, which Pipelines
  * registers.
@@ -317,9 +308,6 @@ const AUTHORITY_FOLLOWING_OFFICE_TOOLS = [
   PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
   PROPOSE_PROJECT_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL,
-  PROPOSE_ACTIONS_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
   RUN_ENVIRONMENT_CHECK_TOOL,
@@ -347,13 +335,10 @@ export const CHAT_OFFICE_TOOLS = [...PERSON_OFFICE_TOOLS, OPEN_DECISION_TOOL] as
 /**
  * The Office tools an Agent Stage's session may add to its Stage's list, each only as its person's
  * Authority leaves it offered: a Stage never adds a tool the Authority doesn't give (spec 2.3.1, 6).
- * These are the Project setup tools (the Proposals of commands, test targets, Actions, Pipelines and
- * Stage templates, a Project to onboard, skills from a Source, the environment check).
+ * These are the Project setup tools (the Proposals of Pipelines and Stage templates, a Project to
+ * onboard, skills from a Source, the environment check).
  */
 export const STAGE_AUTHORITY_OFFICE_TOOLS = [
-  PROPOSE_PROJECT_COMMANDS_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL,
-  PROPOSE_ACTIONS_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,

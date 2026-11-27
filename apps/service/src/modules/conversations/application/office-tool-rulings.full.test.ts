@@ -24,7 +24,7 @@ const CONSULT_CTO = { kind: "consult", role: "cto" } as const;
 
 const TOOL_NAME = "change_task_title";
 
-type ToolHooks = Pick<OfficeToolAuthority, "check" | "approvalLines" | "floor">;
+type ToolHooks = Pick<OfficeToolAuthority, "check" | "approvalLines" | "floor" | "groupsOf">;
 
 /** A stand-in for the tool of an Office action of Task records, whose subject is its Task. */
 function aTaskTool(
@@ -66,7 +66,12 @@ function aGateTool(ran: unknown[], calls: OfficeToolCall[], name: string): Offic
 }
 
 /** A stand-in for the tool of an Office action of Change Project settings, whose subject is its Project. */
-function aProjectTool(ran: unknown[], calls: OfficeToolCall[], name: string): OfficeTool {
+function aProjectTool(
+  ran: unknown[],
+  calls: OfficeToolCall[],
+  name: string,
+  hooks: ToolHooks = {},
+): OfficeTool {
   return {
     name,
     description: "Changes a Project's settings.",
@@ -75,6 +80,7 @@ function aProjectTool(ran: unknown[], calls: OfficeToolCall[], name: string): Of
       group: "changeProjectSettings",
       title: "Change Project settings",
       subject: (input) => ({ kind: "project", id: (input as { project: string }).project }),
+      ...hooks,
     },
     run: (input, call) => {
       ran.push(input);
@@ -97,7 +103,7 @@ function toolOf(
     case "gatesAndRuns":
       return aGateTool(ran, calls, name);
     default:
-      return aProjectTool(ran, calls, name);
+      return aProjectTool(ran, calls, name, hooks);
   }
 }
 
@@ -171,6 +177,20 @@ function rulingsWith({
 }
 
 const input = { taskId: "task-1", title: "New title" };
+
+const touching = (...groups: string[]) => ({ groupsOf: () => Promise.resolve(groups) });
+const rulesOf = (
+  hooks: ToolHooks,
+  otherRows: NonNullable<Setup["otherRows"]>,
+  setting: AuthoritySetting = ALLOWED,
+) =>
+  rulingsWith({
+    toolName: "change_project_settings",
+    group: "changeProjectSettings",
+    setting,
+    hooks,
+    otherRows,
+  });
 
 describe("the ruling of an Office tool call", () => {
   it("runs a call when the Authority says Allowed", async () => {
@@ -379,6 +399,57 @@ describe("the ruling of an Office tool call", () => {
     const never = rulingsWith({ setting: NEVER, toolName: "add_dependency" });
     await expect(never.callWith(input)).resolves.toMatchObject({ isError: true });
     expect(never.ran).toHaveLength(0);
+  });
+
+  describe("a call that touches more than its tool's group (Change Project settings)", () => {
+    const project = { project: "shop" };
+    it("is ruled by the strictest group it touches: Allowed, but Secret values at Ask me holds it", async () => {
+      const { callWith, ran, opened } = rulesOf(touching("secretValues"), {
+        secretValues: ASK_ME,
+      });
+
+      await expect(callWith(project)).resolves.toMatchObject({ isError: true });
+      expect(ran).toHaveLength(0);
+      expect(opened).toHaveLength(1);
+    });
+
+    it("runs a call that touches no stricter group, whatever the others say", async () => {
+      const { callWith, ran } = rulesOf(touching(), {
+        secretValues: NEVER,
+        publishingSettings: NEVER,
+      });
+
+      await expect(callWith(project)).resolves.toMatchObject({ isError: false });
+      expect(ran).toHaveLength(1);
+    });
+
+    it.each([
+      ["publishingSettings", ALLOWED],
+      ["secretValues", CONSULT_CTO],
+    ] as const)(
+      "holds a call touching %s as Ask me where a hand-edited card stores it Allowed or Consult",
+      async (group, stored) => {
+        const { callWith, ran, opened } = rulesOf(touching(group), { [group]: stored });
+
+        await expect(callWith(project)).resolves.toMatchObject({ isError: true });
+        expect(ran).toHaveLength(0);
+        expect(opened).toHaveLength(1);
+      },
+    );
+
+    it("refuses up front, naming it, a call that touches a group at Never", async () => {
+      const { callWith, ran, opened } = rulesOf(touching("publishingSettings", "secretValues"), {
+        publishingSettings: NEVER,
+        secretValues: ASK_ME,
+      });
+
+      const answer = await callWith(project);
+
+      expect(answer.isError).toBe(true);
+      expect(answer.text).toContain("Publishing settings is Never on your Role card");
+      expect(ran).toHaveLength(0);
+      expect(opened).toHaveLength(0);
+    });
   });
 
   describe("on the person's own work and others'", () => {

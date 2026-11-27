@@ -1597,6 +1597,13 @@
       "when": 1795769010278,
       "tag": "0227_role_duty_jobs_given",
       "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1795776486402,
+      "tag": "0228_project_setting_proposal_tools_retired",
+      "breakpoints": true
     }
   ]
 }

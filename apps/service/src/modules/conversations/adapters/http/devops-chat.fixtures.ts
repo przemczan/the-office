@@ -1,16 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import {
-  PROPOSE_ACTIONS_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL,
   PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
-  PROPOSE_TEST_TARGETS_TOOL,
   proposalSchema,
   threadRefusalSchema,
   type Proposal,
@@ -29,6 +26,7 @@ import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
+import type { ProposedChange } from "../../domain/proposal.js";
 import { ANN_LEE } from "../../domain/user.fixtures.js";
 
 /** The Role holding Onboards and repairs Projects by default. */
@@ -170,6 +168,31 @@ export class DevopsChat {
     });
   }
 
+  /**
+   * Drafts `change` as a Proposal in Nina's chat Thread, a new one unless `threadId` is a Thread
+   * already started, once her turn ended. The tools of the `project-commands`, `test-targets` and
+   * `actions` kinds are retired, so a Proposal of those kinds only comes from before: this drafts
+   * one as the release before did, and it applies as it did.
+   */
+  async ninaDrafts(change: ProposedChange, threadId?: string): Promise<Proposal> {
+    this.engine.queue([
+      { step: "start", brief: { id: "brief", text: "" } },
+      ...endsTurn("Nothing to draft."),
+    ]);
+    const askedIn = await this.askNina("Tidy up the commands, please.", threadId);
+    const threads = this.app.get(ThreadService, { strict: false });
+    const thread = await vi.waitFor(
+      async () => {
+        const read = await threads.read(askedIn);
+        if (read.state !== "waiting" || !read.session) throw new Error("Still answering.");
+        return { ...read, session: read.session };
+      },
+      { timeout: TOOL_ANSWER_TIMEOUT_MS, interval: 20 },
+    );
+    const proposals = this.app.get(ProposalService, { strict: false });
+    return this.readProposal((await proposals.draft(thread.session.id, change)).id);
+  }
+
   async readProposal(id: string): Promise<Proposal> {
     return proposalSchema.parse(await this.read(`/proposals/${id}`));
   }
@@ -232,9 +255,6 @@ async function expectStatus(response: Response, status: number): Promise<void> {
 }
 
 const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
-  [PROPOSE_PROJECT_COMMANDS_TOOL]: "project-commands",
-  [PROPOSE_TEST_TARGETS_TOOL]: "test-targets",
-  [PROPOSE_ACTIONS_TOOL]: "actions",
   [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
   [PROPOSE_STAGE_TEMPLATE_TOOL]: "stage-template",
   [PROPOSE_PROJECT_PIPELINE_TOOL]: "project-pipeline",

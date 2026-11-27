@@ -435,7 +435,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Proposal ready**: "<Person> proposed them in the chat", with "Apply or dismiss the Proposal below; the list stays as it is until it is applied."
 - It ends once that Thread's Proposal is applied or dismissed, and the button shows again.
 - A "Set up test targets" Task made before, while open, shows in place of the button with its title and state, a link to it, and "Made before test targets were set up in a chat. It works as before; once it is Done or Dropped, the button asks in a chat."
-- **The open Proposal:** while Devops' `propose_test_targets` Proposal waits, its card shows above the list ([decision-card.md](decision-card.md)):
+- **The open Proposal:** while a Proposal of the test targets waits (the old `test-targets` kind, or an office-action Proposal of `change_project_settings` with a "Test targets" field), its card shows above the list; the Test targets chat counts it as open ([decision-card.md](decision-card.md)):
   - each change as it was and as proposed, a removal struck through;
   - each value the user set, which it changes, flagged "You set this";
   - **Apply** (all or nothing) and **Dismiss**; a refused Apply names each value changed since it was drafted.
@@ -527,7 +527,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ### The open Proposal of Actions
 
-- While Devops' `propose_actions` Proposal waits, its card shows above the list, as the test targets' does ([Test targets](#test-targets), [decision-card.md](decision-card.md)): each change as it was and as proposed, a removal struck through, each value the user set flagged "You set this", **Apply** (all or nothing) and **Dismiss**.
+- While a Proposal of Actions waits (the old `actions` kind, or an office-action Proposal of `change_project_settings` with an "Actions" field), its card shows above the list, as the test targets' does ([Test targets](#test-targets), [decision-card.md](decision-card.md)): each change as it was and as proposed, a removal struck through, each value the user set flagged "You set this", **Apply** (all or nothing) and **Dismiss**.
 - A Leaves the workstation mark it adds is flagged "Marks it Leaves the workstation".
 - Rules: [2.15](../2.15-actions.md#defining-actions).
 

@@ -51,12 +51,16 @@ async function drafted(thread: Thread, minute: number, change = SIZE_THRESHOLD):
 }
 
 function proposals(): ProposalService {
-  return new ProposalService(repository, {} as ProposalAppliers, NO_EVENTS);
+  const appliers = { withoutSecrets: (change: ProposedChange) => Promise.resolve(change) };
+  return new ProposalService(repository, appliers as unknown as ProposalAppliers, NO_EVENTS);
 }
 
 /** The Proposals use cases with appliers that carry out every change as drafted. */
 function applyingProposals(): ProposalService {
-  const appliers = { apply: (change: ProposedChange) => Promise.resolve(change) };
+  const appliers = {
+    apply: (change: ProposedChange) => Promise.resolve(change),
+    withoutSecrets: (change: ProposedChange) => Promise.resolve(change),
+  };
   return new ProposalService(repository, appliers as unknown as ProposalAppliers, NO_EVENTS);
 }
 

@@ -123,14 +123,11 @@ describe("the duties' job settings", () => {
     const onboards = duties.find(({ key: duty }) => duty === "onboards-projects");
     expect(onboards?.jobSettings).toMatchObject({
       projectUpkeep: { kind: "allowed" },
-      proposeProjectCommands: { kind: "proposal" },
+      changeProjectSettings: { kind: "proposal" },
     });
-    // A Role from scratch has Publishing settings and the single Proposal tools at Never.
+    // A Role from scratch has Publishing settings at Never.
     expect(onboards?.jobSettingsToGive).toEqual({
       publishingSettings: { kind: "proposal" },
-      proposeProjectCommands: { kind: "proposal" },
-      proposeTestTargets: { kind: "proposal" },
-      proposeActions: { kind: "proposal" },
     });
     expect(duties.find(({ key: duty }) => duty === "implements")?.jobSettings).toEqual({});
   });

@@ -2,7 +2,13 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
-import { authorityWithHardSwitches, hardSwitchesOf } from "../../domain/authority.js";
+import {
+  authorityWithHardSwitches,
+  hardSwitchesOf,
+  isAuthorityGroup,
+  RETIRED_AUTHORITY_GROUPS,
+  withoutRetiredRows,
+} from "../../domain/authority.js";
 import { ASK_ME, type HardSwitches } from "../../domain/hard-switches.js";
 import type { Role, RoleCardVersion } from "../../domain/role.js";
 import type { RoleCard } from "../../domain/role-card.js";
@@ -145,6 +151,35 @@ export class PostgresRoleRepository extends RoleRepository {
     );
   }
 
+  rolesWithRetiredProposalRows(): Promise<readonly string[]> {
+    return readOnce(readKey("roles.withRetiredProposalRows"), async () => {
+      const rows = await this.database
+        .select({ key: roles.key })
+        .from(roles)
+        .innerJoin(roleCardVersions, currentCard)
+        .where(sql`${hasRetiredProposalRow(roleCardVersions.card)}`)
+        .orderBy(asc(roles.hiredAt), asc(roles.key));
+      return rows.map((row) => row.key);
+    });
+  }
+
+  async moveProjectSettingProposalsOver(
+    key: string,
+    change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
+  ): Promise<RoleUpdate> {
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const { role, stored } = await heldRole(transaction, key);
+        // Moved over meanwhile, by another start of the service.
+        if (!holdsRetiredProposalRow(stored)) return { role, event: undefined };
+        const changed = change(role);
+        if (!changed) return { role, event: undefined };
+        await saveVersion(transaction, changed, earlierFieldsOf(stored));
+        return changed;
+      }),
+    );
+  }
+
   rolesToMoveOver(): Promise<readonly string[]> {
     return readOnce(readKey("roles.toMoveOver"), async () => {
       const rows = await this.database
@@ -276,6 +311,22 @@ async function saveVersion(
     .values({ ...currentVersionRow(role, earlier, missing), changes: [...event.changes] });
 }
 
+/** Whether a stored card keeps a retired tool's row at Proposal (spec 5.4.1, "Per-kind Proposal tools fold in"). */
+function holdsRetiredProposalRow({ authority }: StoredRoleCard): boolean {
+  const rows: Readonly<Record<string, { readonly kind?: string } | undefined>> = authority ?? {};
+  return RETIRED_AUTHORITY_GROUPS.some((group) => rows[group]?.kind === "proposal");
+}
+
+/** SQL for `holdsRetiredProposalRow` on a card column. */
+function hasRetiredProposalRow(card: typeof roleCardVersions.card) {
+  return sql.join(
+    RETIRED_AUTHORITY_GROUPS.map(
+      (group) => sql`(${card} -> 'authority' -> ${group} ->> 'kind') = 'proposal'`,
+    ),
+    sql` or `,
+  );
+}
+
 /** The Role as stored, with its current card as kept, locked until `transaction` ends. */
 async function heldRole(
   transaction: Transaction,
@@ -384,7 +435,11 @@ function cardOf(
   return {
     ...card,
     engineSettings: card.engineSettings ?? {},
-    authority: authorityWithHardSwitches(roleKey, authority ?? {}, hardSwitches),
+    authority: authorityWithHardSwitches(
+      roleKey,
+      withoutRetiredRows(authority ?? {}),
+      hardSwitches,
+    ),
   };
 }
 
@@ -402,11 +457,19 @@ function toRole(row: RoleRowSaved, version: RoleCardVersionRow): Role {
   };
 }
 
+/**
+ * Whether a change of the card's history names a field the catalog has: a row of a retired tool
+ * (`authority.proposeActions`) is left out, as the contract's field names no longer hold it.
+ */
+function inTheCatalog({ field }: { readonly field: string }): boolean {
+  return !field.startsWith("authority.") || isAuthorityGroup(field.slice("authority.".length));
+}
+
 function toVersion(row: RoleCardVersionRow): RoleCardVersion {
   return {
     version: row.version,
     card: cardOf(row.roleKey, row.card),
-    changes: row.changes,
+    changes: row.changes.filter(inTheCatalog),
     savedAt: row.savedAt,
     proposedBy: row.proposedBy ?? undefined,
     savedBy: row.savedBy,

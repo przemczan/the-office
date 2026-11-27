@@ -8,8 +8,23 @@ import {
 import { ProposalService } from "../../application/proposal-service.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { ChatNotFound } from "../../domain/chat-not-found.js";
+import type { Proposal } from "../../domain/proposal.js";
 import { ThreadNotFound } from "../../domain/thread-not-found.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
+
+/**
+ * Whether a Proposal drafts the Project's test targets: the old `test-targets` kind, or a
+ * `change_project_settings` call ruled Proposal that has a "Test targets" field.
+ */
+export function draftsTestTargetsOf(change: Proposal["change"], projectId: string): boolean {
+  if (change.kind === "test-targets") return change.projectId === projectId;
+  return (
+    change.kind === "office-action" &&
+    change.action === "change_project_settings" &&
+    change.subject.id === projectId &&
+    change.fields.some((field) => field.label === "Test targets")
+  );
+}
 
 /**
  * Gives Projects the Project page's Set up test targets chat (spec §2.12): a new chat Thread with
@@ -63,7 +78,7 @@ export class ProjectsTestTargetsChatRegistration implements OnModuleInit {
         lastUserMessageAt: lastUser?.at,
         lastMessageAt: last?.at,
         proposals: proposals
-          .filter(({ change }) => change.kind === "test-targets" && change.projectId === projectId)
+          .filter(({ change }) => draftsTestTargetsOf(change, projectId))
           .map(({ status, draftedAt }) => ({ open: status.kind === "open", draftedAt })),
       };
     } catch (error) {

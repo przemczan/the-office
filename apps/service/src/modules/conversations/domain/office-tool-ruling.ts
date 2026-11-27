@@ -1,4 +1,4 @@
-import { canonicalJson } from "../../engine/index.js";
+import { canonicalJson, fingerprintOf } from "../../engine/index.js";
 import {
   ASK_ME,
   type AuthorityGroup,
@@ -67,10 +67,35 @@ export function toolRuling(value: AuthorityValue): ToolRuling {
 
 /**
  * The call in the words its approval is keyed by: the tool and its input in canonical form, so the
- * same call with its fields in another order finds the same approval.
+ * same call with its fields in another order finds the same approval. A call that gives a Secret
+ * value is worded with its input as shown (`shown`, no value in it) and the hash of the whole input,
+ * so the card names the secret only and another value is another call.
  */
-export function officeToolCallWords(action: string, input: unknown): string {
-  return canonicalJson({ action, input });
+export function officeToolCallWords(
+  action: string,
+  input: unknown,
+  secret?: { readonly shown: unknown },
+): string {
+  if (secret === undefined) return canonicalJson({ action, input });
+  return canonicalJson({ action, input: secret.shown, secretsHash: fingerprintOf(input) });
+}
+
+/** How strictly each kind of value rules a call, the strictest first. */
+const STRICTNESS: readonly AuthorityValue["kind"][] = [
+  "never",
+  "proposal",
+  "ask-me",
+  "consult",
+  "allowed",
+];
+
+/** The strictest of the values that rule the sections of one call. */
+export function strictestValue(values: readonly AuthorityValue[]): AuthorityValue {
+  const [strictest] = values.toSorted(
+    (first, second) => STRICTNESS.indexOf(first.kind) - STRICTNESS.indexOf(second.kind),
+  );
+  if (strictest === undefined) throw new Error("A call is ruled by at least one group.");
+  return strictest;
 }
 
 /**

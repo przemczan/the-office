@@ -4952,17 +4952,10 @@ function creatorsActionStandIns(): void {
 
 /**
  * What a Role hired from scratch is offered of `tools`: the single tools it has at Never until its
- * card sets them (a Link card, the Office status and the Proposals of commands, test targets and
- * Actions) are left out, whatever duty it holds.
+ * card sets them (a Link card and the Office status) are left out, whatever duty it holds.
  */
 function offeredToARoleFromScratch(tools: readonly string[]): string[] {
-  const never = new Set([
-    "post_link_card",
-    "show_office_status",
-    "propose_project_commands",
-    "propose_test_targets",
-    "propose_actions",
-  ]);
+  const never = new Set(["post_link_card", "show_office_status"]);
   return tools.filter((name) => !never.has(name));
 }
 
@@ -5014,7 +5007,6 @@ describe("a chat's tools, by their person's Authority, and its instructions, by 
     expect(toolsOf(0)).toEqual(
       expect.arrayContaining(["propose_project", READ_REPOSITORY_TOOL, CONSULT_TOOL]),
     );
-    expect(toolsOf(0)).not.toContain("propose_project_commands");
     expect(engine.sessions[0]?.options.instructions).toContain(
       `Read it only with ${READ_REPOSITORY_TOOL}`,
     );

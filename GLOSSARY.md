@@ -562,11 +562,11 @@ How many run environments may be running together across The Office, 2 by defaul
 _Avoid_: run environment slots, concurrency limit
 
 **Test target**:
-A named entry in a Project's settings for what can be launched on a branch to try the work: a key, a name, a kind and that kind's settings, pointing only to the repository's own entry points (a file, a package script, a Gradle task, a `.devcontainer/` service). Stored in the database only, never in a repository; written on the Project page or by Devops' `propose_test_targets` Proposal, which the user applies.
+A named entry in a Project's settings for what can be launched on a branch to try the work: a key, a name, a kind and that kind's settings, pointing only to the repository's own entry points (a file, a package script, a Gradle task, a `.devcontainer/` service). Stored in the database only, never in a repository; written on the Project page or by a Proposal of `change_project_settings`, which the user applies.
 _Avoid_: preview config, deploy target, environment
 
 **Set up test targets**:
-Setting up a Project's test targets in a chat, never a Task: the Project page's "Ask <Person> to set up test targets", in its Test targets section, starts a chat Thread "Set up test targets: <Project>" with the holder of Onboards and repairs Projects, on the Project's base checkout (read-only, no worktree), its draft waiting in the chat drawer. Devops reads the repository, changes no file and ends with a `propose_test_targets` Proposal in the chat, which the user applies. The page follows that chat until its Proposal is applied or dismissed. The built-in "Set up test targets" Pipeline stays only for the Tasks made on it before.
+Setting up a Project's test targets in a chat, never a Task: the Project page's "Ask <Person> to set up test targets", in its Test targets section, starts a chat Thread "Set up test targets: <Project>" with the holder of Onboards and repairs Projects, on the Project's base checkout (read-only, no worktree), its draft waiting in the chat drawer. Devops reads the repository, changes no file and ends with a `change_project_settings` Proposal in the chat, which the user applies. The page follows that chat until its Proposal is applied or dismissed. The built-in "Set up test targets" Pipeline stays only for the Tasks made on it before.
 _Avoid_: test target wizard, auto-detect targets
 
 **Test instance**:
@@ -594,7 +594,7 @@ A device kept by a Project between uses, added in the Project page's Devices sec
 _Avoid_: saved device, shared device, device pool
 
 **Action**:
-A named entry in a Project's settings that the user runs on demand, outside the Task queue, such as "Install on my phone" or "Release": a Project command, a test target or a Workflow, run from a branch, a Task or an Initiative. Stored in the database only; written on the Project page or by Devops' `propose_actions` Proposal; started only by a signed-in user, never by an Agent. Not an Office action, which is something the user or an Agent does on a record, nor a GitHub Actions run, which is a CI run. See [2.15](docs/spec/2.15-actions.md#action).
+A named entry in a Project's settings that the user runs on demand, outside the Task queue, such as "Install on my phone" or "Release": a Project command, a test target or a Workflow, run from a branch, a Task or an Initiative. Stored in the database only; written on the Project page or by a Proposal of `change_project_settings`; started only by a signed-in user, never by an Agent. Not an Office action, which is something the user or an Agent does on a record, nor a GitHub Actions run, which is a CI run. See [2.15](docs/spec/2.15-actions.md#action).
 _Avoid_: "Project action", job, script
 
 **Action run**:

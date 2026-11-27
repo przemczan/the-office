@@ -7976,10 +7976,11 @@ test(
 );
 
 // The engine replays the last sessions in e2e/sessions.jsonl: Jan in his chat calls Nina with a
-// request, Nina drafts a Proposal of the Project's commands in her Consultation, in her own chat,
-// and answers him, and Jan takes her answer.
+// request, Nina adds a command to the Project with `change_project_settings` in her Consultation,
+// in her own chat, which her Authority lets her do at once, and answers him, and Jan takes her
+// answer.
 test(
-  "a person calls another from their chat: the callee drafts a Proposal in their own chat, and the answer comes back",
+  "a person calls another from their chat: the callee changes the Project with their own Authority, and the answer comes back",
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
@@ -7997,7 +7998,9 @@ test(
 
       await page.goto(`/now?chat=planner&thread=${chatId}`);
       const jan = chatWith(page, "Jan");
-      await expect(jan.getByText("Nina drafted it: apply her Proposal in her chat.")).toBeVisible({
+      await expect(
+        jan.getByText("Nina set it up: the End to end command is in Called up."),
+      ).toBeVisible({
         timeout: 30_000,
       });
       const call = jan.getByRole("region", {
@@ -8007,7 +8010,7 @@ test(
         "Asked Nina to: Add an End to end test command to Called up.",
       );
       await expect(call.locator(".decision-answer-words")).toHaveText(
-        "I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+        "I added the End to end command to Called up.",
       );
       await expect(call.locator(".decision-answered")).toHaveText(
         "Answered by Nina in a Consultation · Open the Consultation",
@@ -8031,10 +8034,12 @@ test(
       await expect(nina).toContainText(
         "Answer, in their own words: I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
       );
-      const proposal = nina.getByRole("region", { name: "Proposal: Change Called up's commands" });
-      await expect(proposal.getByRole("listitem")).toHaveText([
-        "End to end (test-e2e)None: addedTest · npm run e2e",
-      ]);
+      // Her Authority lets her change the Project's commands at once: no Proposal waits.
+      expect(
+        projectSchema
+          .parse(await (await page.request.get(`/api/projects/${project.id}`)).json())
+          .commands.map(({ key }) => key),
+      ).toContain("test-e2e");
       await page.screenshot({
         path: path.join(SCREENSHOTS, "light-1600-consultation-in-the-callee-chat.png"),
       });

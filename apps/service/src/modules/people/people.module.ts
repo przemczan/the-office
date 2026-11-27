@@ -22,6 +22,7 @@ import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
 import { AvatarSources } from "./application/avatar-sources.js";
 import { SessionPeople } from "./application/session-people.js";
 import { AuthorityMoveOver } from "./application/authority-move-over.js";
+import { ProjectSettingProposalsMoveOver } from "./application/project-setting-proposals-move-over.js";
 import { Duties } from "./application/duties.js";
 import { DutyChangeChecks } from "./application/duty-change-checks.js";
 import { EngineSettingsMoveOver } from "./application/engine-settings-move-over.js";
@@ -77,6 +78,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     PeopleEarlierRecords,
     EngineSettingsMoveOver,
     AuthorityMoveOver,
+    ProjectSettingProposalsMoveOver,
   ],
   exports: [
     RoleCards,

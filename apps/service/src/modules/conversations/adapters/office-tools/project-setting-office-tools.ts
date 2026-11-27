@@ -4,6 +4,9 @@ import { z } from "zod";
 import {
   OfficeToolRegistry,
   type OfficeToolCall,
+  type OfficeToolChangedField,
+  type OfficeToolDraft,
+  type OfficeToolRedactedInput,
   type OfficeToolResult,
 } from "../../../engine/index.js";
 import { RoleCards } from "../../../people/index.js";
@@ -25,21 +28,17 @@ import {
 } from "../../../projects/index.js";
 import { latestWriter } from "../../domain/message.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
-import {
-  CHANGE_PROJECT_SETTINGS_TOOL,
-  PROPOSE_ACTIONS_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
-} from "../../domain/session-instructions.js";
+import { CHANGE_PROJECT_SETTINGS_TOOL } from "../../domain/session-instructions.js";
 import { ThreadRepository } from "../../ports/thread-repository.js";
 import { actionInputWith } from "./action-office-tools.js";
 import { proposedTargets, targetInput } from "./test-target-office-tools.js";
 
 type Project = Awaited<ReturnType<ProjectService["read"]>>;
 
-const SECRET_VALUES_ARE_THE_USERS =
-  "Secret variables' values are the user's: they type them on the Project page.";
+const SECRET_VALUES_GROUP = "secretValues";
+const PUBLISHING_SETTINGS_GROUP = "publishingSettings";
 
-const DESCRIPTION = `Changes a Project's everyday settings in one call: give everything a setup needs at once, in the sections it changes, each optional, at least one: environmentVariables, install, installInputs and commands, testTargets, actions, and runEnvironment. They apply in that order, Run environment last; each is changed as the Project page would, recorded in its Recent activity, and if one is refused, those before it stay applied and the answer names them. These stay the user's, so draft them with the Proposal tools (propose_*) or leave them to the Project page: Secret variables' values (only their names go here), the Publishing mode, Before and After publishing (${PROPOSE_PROJECT_COMMANDS_TOOL}), Delete branches once merged, GitHub issues write-back, Server values, the Engine, Actions that leave the workstation (${PROPOSE_ACTIONS_TOOL}), Project Pipelines and the Default Pipeline.`;
+const DESCRIPTION = `Changes a Project's everyday settings in one call: give everything a setup needs at once, in the sections it changes, each optional, at least one: environmentVariables, install, installInputs and commands, testTargets, actions, and runEnvironment. They apply in that order, Run environment last; each is changed as the Project page would, recorded in its Recent activity, and if one is refused, those before it stay applied and the answer names them. A Secret variable's value (an environment variable or a test target's) and an Action that leaves the workstation are ruled by their own rows of your Authority, besides this one, and the strictest of the rows the call touches rules it, so it may be held as a Proposal or for approval: a Secret value is shown by its name only on every card. The Publishing mode, Before and After publishing, Delete branches once merged and GitHub issues write-back, the Server values, the Engine, and the Default Pipeline and Project Pipelines have actions of their own.`;
 
 const commandsInput = z
   .object({
@@ -70,11 +69,19 @@ const testTargetsInput = z
       .array(
         targetInput.extend({
           secretVariables: z
-            .array(z.string())
+            .array(
+              z.object({
+                name: z.string(),
+                value: z
+                  .string()
+                  .optional()
+                  .describe(
+                    "The value to set; left out or empty, the value set now is kept. Giving one is ruled by Secret values.",
+                  ),
+              }),
+            )
             .default([])
-            .describe(
-              "The names of the Secret variables it runs with, names only: a value set is kept; the user types a new one's value on the Project page.",
-            ),
+            .describe("The Secret variables it runs with, each by name, with a value to set."),
         }),
       )
       .default([])
@@ -83,7 +90,7 @@ const testTargetsInput = z
   })
   .optional()
   .describe(
-    "The Project's test targets, by the Project page's rules: targets to add or change by key, each given whole, and targets to remove; the others stay. Secret variables go by name only: a value already set is kept, and the user types a new one on the Project page.",
+    "The Project's test targets, by the Project page's rules: targets to add or change by key, each given whole, and targets to remove; the others stay. A Secret variable's value already set is kept unless a value is given.",
   );
 
 const actionsInput = z
@@ -95,7 +102,7 @@ const actionsInput = z
             .boolean()
             .default(false)
             .describe(
-              `Always false here: an Action that pushes, publishes, deploys or releases leaves the workstation, and is the user's (${PROPOSE_ACTIONS_TOOL}).`,
+              "Whether the Action pushes, publishes, deploys or releases, so leaves the workstation; give its value now when you change an Action. Adding one marked, changing or removing one marked, and setting or clearing the mark are ruled by Publishing settings. A Workflow is always marked.",
             ),
         ),
       )
@@ -108,7 +115,7 @@ const actionsInput = z
   })
   .optional()
   .describe(
-    `The Project's Actions, by the Project page's rules: Actions to add or change by key, each given whole, and Actions to remove; the others stay. An Action that leaves the workstation is the user's: adding one, changing or removing one marked so, and setting or clearing the mark are refused (${PROPOSE_ACTIONS_TOOL}).`,
+    "The Project's Actions, by the Project page's rules: Actions to add or change by key, each given whole, and Actions to remove; the others stay.",
   );
 
 const environmentVariablesInput = z
@@ -117,16 +124,23 @@ const environmentVariablesInput = z
       .array(
         z.object({
           name: z.string(),
-          value: z.string(),
+          value: z
+            .string()
+            .default("")
+            .describe(
+              "The value. For a Secret variable, the value to set: left out or empty, the value set now is kept.",
+            ),
           secret: z
             .boolean()
             .optional()
-            .describe("Never true: Secret variables are the user's, on the Project page."),
+            .describe(
+              "True for a Secret variable; setting its value is ruled by Secret values, and every card shows its name only.",
+            ),
         }),
       )
       .optional()
       .describe(
-        "Every plain variable, whole: they replace the plain ones the Project has now. The Secret variables stay.",
+        "Every plain variable, whole: they replace the plain ones the Project has now. A Secret variable is given with secret true to set its value; the Secret variables not given stay as they are.",
       ),
     unset: z
       .array(z.string())
@@ -139,7 +153,7 @@ const environmentVariablesInput = z
   })
   .optional()
   .describe(
-    "The Project's Environment variables: the plain variables its commands and Agents run with, the inherited variables removed, and the folders put in front of PATH, each list given whole; a list left out stays. Secret variables are the user's and stay as they are: this never sets, changes or reads one.",
+    "The Project's Environment variables: the plain variables its commands and Agents run with, the Secret variables whose values are set, the inherited variables removed, and the folders put in front of PATH, each list given whole; a list left out stays.",
   );
 
 const input = z.object({
@@ -164,18 +178,6 @@ const input = z.object({
     .describe(
       "The Run environment, on or off, switched at any time: On, each Task's checks and Agents' commands run in its run environment, built from the .devcontainer/ on the Task's own branch, and never on this computer instead; Off, on this computer.",
     ),
-  beforePublishingCommand: z
-    .string()
-    .optional()
-    .describe(
-      `Never given here: Before publishing is the user's (${PROPOSE_PROJECT_COMMANDS_TOOL} or the Project page).`,
-    ),
-  afterPublishingCommand: z
-    .string()
-    .optional()
-    .describe(
-      `Never given here: After publishing is the user's (${PROPOSE_PROJECT_COMMANDS_TOOL} or the Project page).`,
-    ),
   why: z.string().describe("Why the settings should change, in a sentence or two."),
 });
 
@@ -183,18 +185,14 @@ type Input = z.infer<typeof input>;
 type CommandsInput = NonNullable<Input["commands"]>;
 type TestTargetsInput = NonNullable<Input["testTargets"]>;
 type ActionsInput = NonNullable<Input["actions"]>;
-type PlainVariables = {
-  readonly variables?: readonly { readonly name: string; readonly value: string }[];
-  readonly unset?: readonly string[];
-  readonly prependPath?: readonly string[];
-};
+type EnvironmentSection = NonNullable<Input["environmentVariables"]>;
 
 /**
- * What one call changes, each section left out when it changes nothing: the call's text and its
- * approval are made of these, so no Secret variable's value is in them.
+ * What one call changes, each section left out when it changes nothing. A Secret variable's value
+ * is in it, but never in the lines, fields or fingerprint made of it.
  */
 interface Sections {
-  readonly environmentVariables?: PlainVariables;
+  readonly environmentVariables?: EnvironmentSection;
   readonly install?: string;
   readonly installInputs?: readonly string[];
   readonly commands?: CommandsInput;
@@ -213,13 +211,16 @@ interface Step {
 /**
  * The Office tool that changes a Project's everyday settings (spec §6, "Project settings by
  * Agents"): its Environment variables, install and commands, test targets, Actions and Run
- * environment, in one call ruled by the person's Change Project settings Authority (spec 5.4.1, "One
- * ruling step"). Its check reads the Project and refuses all it can before the call is held, so an
- * approval is never spent on a call refused up front, and its approval lines list every change; then
- * it applies each section through the same method the Project page does, recorded as made by the
- * session's person, on its Task when the Thread has one, as asked by the user who wrote last and
- * allowed by the user whose Allow once let it run. The settings that stay the user's are refused,
- * pointing to the Proposal tools and the Project page.
+ * environment, in one call ruled by the person's Change Project settings Authority and, for what it
+ * touches, by Publishing settings (an Action that leaves the workstation) and Secret values (a
+ * Secret variable's value): the strictest of them rules the call (spec 5.4.1, "One ruling step").
+ * Its check reads the Project and refuses all it can before the call is held, so an approval is
+ * never spent on a call refused up front, and its approval lines list every change; then it applies
+ * each section through the same method the Project page does, recorded as made by the session's
+ * person, on its Task when the Thread has one, as asked by the user who wrote last and allowed by
+ * the user whose Allow once let it run. Ruled Proposal, it is drafted as one Proposal of every
+ * section, a Secret value by its name only, and applied as the user who applies it, recorded as that
+ * Proposal applied.
  */
 @Injectable()
 export class ProjectSettingOfficeTools implements OnModuleInit {
@@ -259,10 +260,66 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
             (found) => this.approvalLines(found, given as Input),
             () => [],
           ),
+        groupsOf: (given) => this.groupsOf(given as Input),
       },
       run: (given, call) =>
         this.onProject(given.project, (found) => this.change(call, found, given), refusal),
+      redact: (given) => Promise.resolve(redacted(given)),
+      draft: (given) =>
+        this.onProject(
+          given.project,
+          (found) => this.draftOf(found, given),
+          (words) => {
+            throw new ProposalRefused([words]);
+          },
+        ),
+      applyFor: (given, { user, proposalId }) =>
+        this.onProject(
+          given.project,
+          (found) =>
+            this.applyAsUser(
+              found,
+              given,
+              proposalId === undefined
+                ? { kind: "user", user }
+                : { kind: "proposal", proposalId, user },
+            ),
+          refusal,
+        ),
     });
+  }
+
+  /**
+   * The Authority groups besides Change Project settings the call touches: Publishing settings for an
+   * Action that leaves the workstation it adds, changes or removes, or whose mark it sets or clears,
+   * and Secret values for a Secret variable's value it gives.
+   */
+  private async groupsOf(given: Input): Promise<readonly string[]> {
+    const groups: string[] = [];
+    const sections = sectionsOf(given);
+    if (sections.actions) {
+      const project = await this.projects.find(given.project.trim());
+      const stored = project ? await this.actions.list(project.id).catch(() => []) : [];
+      if (touchesTheWorkstation(stored, sections.actions)) groups.push(PUBLISHING_SETTINGS_GROUP);
+    }
+    if (secretValuesGiven(sections).length > 0) groups.push(SECRET_VALUES_GROUP);
+    return groups;
+  }
+
+  /** What the call changes, as a Proposal's card lists it, read now. */
+  private async draftOf(project: Project, given: Input): Promise<OfficeToolDraft> {
+    const checked = await this.checked(project, given);
+    if ("refused" in checked) throw new ProposalRefused([checked.refused]);
+    const { sections } = checked;
+    const [storedTargets, storedActions] = await Promise.all([
+      sections.testTargets ? this.testTargets.list(project.id) : [],
+      sections.actions ? this.actions.list(project.id) : [],
+    ]);
+    return {
+      subject: { kind: "project", id: project.id, title: project.name },
+      fields: draftFields(sections, project, storedTargets, storedActions),
+      fingerprint: fingerprintSource(sections, project, storedTargets, storedActions),
+    };
   }
 
   private async change(
@@ -286,8 +343,18 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
       ...(writer ? { askedBy: { userId: writer.userId, name: writer.name } } : {}),
       ...(allowedBy ? { allowedBy: { userId: allowedBy.userId, name: allowedBy.name } } : {}),
     };
-    const { sections, commands, targets } = checked;
-    return this.apply(project, this.steps(project, sections, commands, targets), by);
+    return this.apply(project, this.steps(project, checked), by);
+  }
+
+  /** The call applied for the user who applied its Proposal, as the Project page would. */
+  private async applyAsUser(
+    project: Project,
+    given: Input,
+    by: SettingChangedBy,
+  ): Promise<OfficeToolResult> {
+    const checked = await this.checked(project, given);
+    if ("refused" in checked) return refusal(checked.refused);
+    return this.apply(project, this.steps(project, checked), by);
   }
 
   /**
@@ -295,17 +362,6 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
    * refusal that doesn't need a section applied, so none is found after anyone was asked.
    */
   private async checked(project: Project, given: Input): Promise<Checked> {
-    if (given.beforePublishingCommand !== undefined || given.afterPublishingCommand !== undefined) {
-      return {
-        refused: `Before and After publishing are the user's: draft them with ${PROPOSE_PROJECT_COMMANDS_TOOL}, or the user changes them on the Project page.`,
-      };
-    }
-    const secretGiven = secretVariablesGiven(project, given.environmentVariables);
-    if (secretGiven.length > 0) {
-      return {
-        refused: `${secretGiven.join(", ")}: ${SECRET_VALUES_ARE_THE_USERS} This tool keeps the Secret variables as they are.`,
-      };
-    }
     const sections = sectionsOf(given);
     if (Object.keys(sections).length === 0) {
       return {
@@ -326,16 +382,7 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
     if (commands)
       problems.push(...(await this.projects.commandEditsProblems(project.id, commands)));
     const targets = sections.testTargets && editedTargets(sections.testTargets, problems);
-    const storedActions = sections.actions ? await this.actions.list(project.id) : [];
-    if (sections.actions) {
-      problems.push(
-        ...leavingTheWorkstation(
-          storedActions,
-          sections.actions.actions,
-          sections.actions.removeActions,
-        ),
-      );
-    }
+    problems.push(...secretNamesProblems(project, sections.environmentVariables));
     if (problems.length > 0) return { refused: problems.join(" ") };
     return { sections, commands, targets };
   }
@@ -355,13 +402,15 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
   /** Each section's change, in the order they apply, Run environment last. */
   private steps(
     project: Project,
-    sections: Sections,
-    commands: readonly CommandEdit[] | undefined,
-    targets: readonly EditedTestTarget[] | undefined,
+    { sections, commands, targets }: Extract<Checked, { sections: Sections }>,
   ): Step[] {
     const steps: Step[] = [];
     const { environmentVariables, testTargets, actions, runEnvironment } = sections;
     if (environmentVariables) {
+      const secretsGiven = (environmentVariables.variables ?? [])
+        .filter(({ secret }) => secret)
+        .map(({ name, value }) => ({ name: name.trim(), value }));
+      const plainGiven = (environmentVariables.variables ?? []).filter(({ secret }) => !secret);
       steps.push({
         setting: "Environment variables",
         run: async (by) => {
@@ -369,14 +418,23 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
           await this.projects.changeEnvironment(
             project.id,
             {
-              // Each Secret variable goes without its value, which keeps the Project's own.
+              // A Secret variable not given keeps its value; one given without a value keeps it too.
               set: [
                 ...now.set
-                  .filter(({ secret }) => secret)
+                  .filter(
+                    ({ secret, name }) =>
+                      secret && !secretsGiven.some((each) => each.name === name),
+                  )
                   .map(({ name }) => ({ name, secret: true as const })),
-                ...(environmentVariables.variables ?? now.set.filter(({ secret }) => !secret)).map(
-                  ({ name, value }) => ({ name, value, secret: false as const }),
-                ),
+                ...secretsGiven.map(({ name, value }) => ({
+                  name,
+                  secret: true as const,
+                  ...(value ? { value } : {}),
+                })),
+                ...(environmentVariables.variables
+                  ? plainGiven
+                  : now.set.filter(({ secret }) => !secret)
+                ).map(({ name, value }) => ({ name, value, secret: false as const })),
               ],
               unset: environmentVariables.unset ?? now.unset,
               prependPath: environmentVariables.prependPath ?? now.prependPath,
@@ -416,11 +474,15 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
         setting: "Actions",
         run: async (by) => {
           const now = await this.actions.list(project.id);
-          const again = leavingTheWorkstation(now, actions.actions, actions.removeActions);
-          if (again.length > 0) throw new ProjectRefused(again);
+          const marked = actions.actions.map((action) =>
+            markedAction(
+              now.find(({ key }) => key === action.key.trim()),
+              action,
+            ),
+          );
           await this.actions.change(
             project.id,
-            editedList(now.map(withoutSetBy), actions.actions, actions.removeActions),
+            editedList(now.map(withoutSetBy), marked, actions.removeActions),
             null,
             by,
           );
@@ -520,24 +582,100 @@ function listed(items: readonly string[]): string {
     : `${items.slice(0, -1).join(", ")} and ${items.at(-1) ?? ""}`;
 }
 
-/** The names of the variables given that are, or would be, Secret variables. */
-function secretVariablesGiven(
-  project: Project,
-  given: Input["environmentVariables"],
-): readonly string[] {
+/** Why a plain variable may not take a Secret variable's name: it would replace its value unseen. */
+function secretNamesProblems(project: Project, given: Input["environmentVariables"]): string[] {
   const secrets = project.environment.set.filter(({ secret }) => secret);
   return (given?.variables ?? [])
-    .filter(
-      ({ name, secret }) => secret === true || secrets.some((each) => each.name === name.trim()),
-    )
-    .map(({ name }) => name.trim());
+    .filter(({ name, secret }) => !secret && secrets.some((each) => each.name === name.trim()))
+    .map(
+      ({ name }) =>
+        `${name.trim()} is a Secret variable: give it with secret true, and a value to replace the one set now, or none to keep it.`,
+    );
 }
 
-/** The call's sections that change something, the plain variables without their secret mark. */
+/** The names of the Secret values the sections give: a value, not the name alone. */
+function secretValuesGiven(sections: Sections): string[] {
+  return [
+    ...(sections.environmentVariables?.variables ?? [])
+      .filter(({ secret, value }) => secret && value !== "")
+      .map(({ name }) => `${name.trim()} (Secret variable)`),
+    ...(sections.testTargets?.targets ?? []).flatMap((target) =>
+      target.secretVariables
+        .filter(({ value }) => value !== undefined && value !== "")
+        .map(({ name }) => `${name.trim()} (Secret variable of test target ${target.key.trim()})`),
+    ),
+  ];
+}
+
+/** The call's input as every card shows it: each Secret value emptied, its name kept. */
+function redacted(given: Input): OfficeToolRedactedInput {
+  const environment = given.environmentVariables;
+  const targets = given.testTargets;
+  const shown: Input = {
+    ...given,
+    ...(environment?.variables && {
+      environmentVariables: {
+        ...environment,
+        variables: environment.variables.map((variable) =>
+          variable.secret ? { ...variable, value: "" } : variable,
+        ),
+      },
+    }),
+    ...(targets && {
+      testTargets: {
+        ...targets,
+        targets: targets.targets.map((target) => ({
+          ...target,
+          secretVariables: target.secretVariables.map(({ name }) => ({ name })),
+        })),
+      },
+    }),
+  };
+  return {
+    shown: shown as unknown as Record<string, unknown>,
+    hasSecret: secretValuesGiven(sectionsOf(given)).length > 0,
+  };
+}
+
+/**
+ * Whether the Action change touches one that leaves the workstation: one added or changed marked so
+ * or becoming a Workflow (always marked), one marked now changed, whose mark it clears, or removed.
+ */
+function touchesTheWorkstation(
+  stored: readonly Action[],
+  { actions, removeActions }: ActionsInput,
+) {
+  const given = actions.some((action) => {
+    const before = stored.find(({ key }) => key === action.key.trim());
+    return (
+      before?.leavesTheWorkstation === true || markedAction(before, action).leavesTheWorkstation
+    );
+  });
+  const removed = removeActions.some((key) =>
+    stored.some((each) => each.key === key.trim() && each.leavesTheWorkstation),
+  );
+  return given || removed;
+}
+
+/**
+ * The Action as the rules mark it (spec §2.15, "Leaves the workstation"): one added as a Workflow,
+ * or changed to one from another kind, leaves the workstation whatever was given; any other keeps
+ * the value given.
+ */
+function markedAction<Fields extends ActionFields>(
+  before: Pick<ActionFields, "kind"> | undefined,
+  after: Fields,
+): Fields {
+  return after.kind === "workflow" && before?.kind !== "workflow"
+    ? { ...after, leavesTheWorkstation: true }
+    : after;
+}
+
+/** The call's sections that change something. */
 function sectionsOf(given: Input): Sections {
   const { environmentVariables, install, installInputs, commands, testTargets, actions } = given;
   const variables = environmentVariables && {
-    variables: environmentVariables.variables?.map(({ name, value }) => ({ name, value })),
+    variables: environmentVariables.variables,
     unset: environmentVariables.unset,
     prependPath: environmentVariables.prependPath,
   };
@@ -563,12 +701,27 @@ function sectionsOf(given: Input): Sections {
   };
 }
 
-/** The targets given, each Secret variable by name; each lacking its kind's field adds a problem. */
+/** The targets given, each Secret variable by name with the value given; each lacking its kind's field adds a problem. */
 function editedTargets(given: TestTargetsInput, problems: string[]): EditedTestTarget[] {
+  const secretsByTarget = new Map(
+    given.targets.map((target) => [target.key, target.secretVariables]),
+  );
   try {
-    return proposedTargets(given.targets).map((target): EditedTestTarget => {
+    return proposedTargets(
+      given.targets.map((target) => ({
+        ...target,
+        secretVariables: target.secretVariables.map(({ name }) => name),
+      })),
+    ).map((target): EditedTestTarget => {
       if (target.kind === "install-on-a-device") return target;
-      return { ...target, secretVariables: target.secretVariables.map((name) => ({ name })) };
+      const secrets = secretsByTarget.get(target.key) ?? [];
+      return {
+        ...target,
+        secretVariables: target.secretVariables.map((name) => {
+          const value = secrets.find((secret) => secret.name === name)?.value;
+          return value ? { name, value } : { name };
+        }),
+      };
     });
   } catch (error) {
     if (!(error instanceof ProposalRefused)) throw error;
@@ -587,14 +740,21 @@ function changeLines(
   const lines: string[] = [];
   const { environmentVariables: variables, install, installInputs, commands } = sections;
   if (variables) {
+    const plain = (variables.variables ?? []).filter(({ secret }) => !secret);
+    const secrets = (variables.variables ?? []).filter(({ secret, value }) => secret && value);
     const parts = [
       ...(variables.variables
         ? [
             `plain variables become ${
-              variables.variables.length > 0
-                ? variables.variables.map(({ name, value }) => `${name}=${value}`).join(", ")
+              plain.length > 0
+                ? plain.map(({ name, value }) => `${name}=${value}`).join(", ")
                 : "none"
             }`,
+          ]
+        : []),
+      ...(secrets.length > 0
+        ? [
+            `Secret variables set, by name only: ${secrets.map(({ name }) => name.trim()).join(", ")}`,
           ]
         : []),
       ...(variables.unset
@@ -604,7 +764,9 @@ function changeLines(
         ? [`put in front of PATH: ${variables.prependPath.join(", ") || "none"}`]
         : []),
     ];
-    lines.push(`Environment variables: ${parts.join("; ")}; the Secret variables stay as they are`);
+    lines.push(
+      `Environment variables: ${parts.join("; ")}; the ${secrets.length > 0 ? "other " : ""}Secret variables stay as they are`,
+    );
   }
   if (install !== undefined) lines.push(`Install command: ${install.trim()}`);
   if (installInputs !== undefined) {
@@ -631,7 +793,9 @@ function changeLines(
           const verb = storedTargets.some((each) => each.key === key) ? "changes" : "adds";
           const secrets =
             target.secretVariables.length > 0
-              ? `, Secret variables by name: ${target.secretVariables.join(", ")}`
+              ? `, Secret variables by name: ${target.secretVariables
+                  .map(({ name, value }) => (value ? `${name} (value set)` : name))
+                  .join(", ")}`
               : "";
           return `${verb} ${key} (${KIND_WORDS[target.kind]}${secrets})`;
         }),
@@ -643,9 +807,13 @@ function changeLines(
     const { actions, removeActions } = sections.actions;
     lines.push(
       `Actions: ${[
-        ...actions.map(({ key, name }) => {
-          const verb = storedActions.some((each) => each.key === key.trim()) ? "changes" : "adds";
-          return `${verb} ${key.trim()} (${name.trim()})`;
+        ...actions.map((action) => {
+          const key = action.key.trim();
+          const before = storedActions.find((each) => each.key === key);
+          const marked = markedAction(before, action).leavesTheWorkstation
+            ? ", leaves the workstation"
+            : "";
+          return `${before ? "changes" : "adds"} ${key} (${action.name.trim()}${marked})`;
         }),
         ...removeActions.map((key) => `removes ${key.trim()} and its runs`),
       ].join("; ")}`,
@@ -706,32 +874,178 @@ function withoutSetBy({ setBy: _setBy, ...action }: Action): ActionFields {
   return action;
 }
 
+/** The one-line text of a list, "none" when empty. */
+function listLines(items: readonly string[]): string {
+  return items.length > 0 ? items.join("\n") : "none";
+}
+
+/** A field as a card lists it: a long text, or one of more than a line, is shown as a diff. */
+function field(label: string, before: string | null, after: string | null): OfficeToolChangedField {
+  const long = [before, after].some(
+    (text) => text !== null && (text.includes("\n") || text.length > 80),
+  );
+  return { label, before, after, form: long ? "long" : "short" };
+}
+
+function targetWords(target: { key: string; kind: string }): string {
+  const kind = KIND_WORDS[target.kind as keyof typeof KIND_WORDS] ?? target.kind;
+  return `${target.key.trim()} (${kind})`;
+}
+
+function actionWords(action: { key: string; name: string; leavesTheWorkstation: boolean }): string {
+  const leaves = action.leavesTheWorkstation ? ", leaves the workstation" : "";
+  return `${action.key.trim()} (${action.name.trim()}${leaves})`;
+}
+
 /**
- * Why the change reaches an Action that leaves the workstation, which is the user's: one added or
- * changed marked so, or that becomes a Workflow (always marked), and one marked now changed or
- * removed.
+ * The fields a Proposal's card shows: one for each section given, what it is now and as it would
+ * be, and a field of its own for each Secret value, by its name only, never its value.
  */
-function leavingTheWorkstation(
-  stored: readonly Action[],
-  given: readonly ActionFields[],
-  removed: readonly string[],
-): string[] {
-  const advice = `Actions that leave the workstation are the user's: draft the change with ${PROPOSE_ACTIONS_TOOL}, or the user makes it on the Project page.`;
-  const problems = [
-    ...given.flatMap((action) => {
-      const key = action.key.trim();
-      const before = stored.find((each) => each.key === key);
-      if (before?.leavesTheWorkstation) return [`Action "${key}" leaves the workstation.`];
-      if (action.leavesTheWorkstation) return [`Action "${key}" would leave the workstation.`];
-      if (action.kind === "workflow" && before?.kind !== "workflow") {
-        return [`Action "${key}" would be a Workflow, which leaves the workstation.`];
-      }
-      return [];
+function draftFields(
+  sections: Sections,
+  project: Project,
+  storedTargets: readonly TestTarget[],
+  storedActions: readonly Action[],
+): OfficeToolChangedField[] {
+  const fields: OfficeToolChangedField[] = [];
+  const { environmentVariables: variables, install, installInputs, commands } = sections;
+  const now = project.environment;
+  if (variables) {
+    const plain = (variables.variables ?? []).filter(({ secret }) => !secret);
+    const before = [
+      ...(variables.variables ? now.set.filter(({ secret }) => !secret).map(shownVariable) : []),
+      ...(variables.unset ? [`removed: ${now.unset.join(", ") || "none"}`] : []),
+      ...(variables.prependPath
+        ? [`in front of PATH: ${now.prependPath.join(", ") || "none"}`]
+        : []),
+    ];
+    const after = [
+      ...(variables.variables ? plain.map(({ name, value }) => `${name}=${value}`) : []),
+      ...(variables.unset ? [`removed: ${variables.unset.join(", ") || "none"}`] : []),
+      ...(variables.prependPath
+        ? [`in front of PATH: ${variables.prependPath.join(", ") || "none"}`]
+        : []),
+    ];
+    if (variables.variables || variables.unset || variables.prependPath) {
+      fields.push(field("Environment variables", listLines(before), listLines(after)));
+    }
+  }
+  if (install !== undefined) fields.push(field("Install", project.installCommand, install.trim()));
+  if (installInputs !== undefined) {
+    fields.push(
+      field("Install inputs", listLines(project.installInputs), listLines(installInputs)),
+    );
+  }
+  if (commands) {
+    const given = [...(commands.add ?? []), ...(commands.change ?? [])];
+    const touched = new Set([
+      ...given.map(({ key }) => key.trim()),
+      ...(commands.remove ?? []).map((key) => key.trim()),
+    ]);
+    fields.push(
+      field(
+        "Commands",
+        listLines(
+          project.commands
+            .filter(({ key }) => touched.has(key))
+            .map(({ key, commandLine }) => `${key}: ${commandLine}`),
+        ),
+        listLines([
+          ...given.map(({ key, commandLine }) => `${key.trim()}: ${commandLine.trim()}`),
+          ...(commands.remove ?? []).map((key) => `${key.trim()}: removed`),
+        ]),
+      ),
+    );
+  }
+  if (sections.testTargets) {
+    const { targets, removeTargets } = sections.testTargets;
+    const touched = new Set([
+      ...targets.map(({ key }) => key.trim()),
+      ...removeTargets.map((key) => key.trim()),
+    ]);
+    fields.push(
+      field(
+        "Test targets",
+        listLines(storedTargets.filter(({ key }) => touched.has(key)).map(targetWords)),
+        listLines([
+          ...targets.map(targetWords),
+          ...removeTargets.map((key) => `${key.trim()}: removed`),
+        ]),
+      ),
+    );
+  }
+  if (sections.actions) {
+    const { actions, removeActions } = sections.actions;
+    const touched = new Set([
+      ...actions.map(({ key }) => key.trim()),
+      ...removeActions.map((key) => key.trim()),
+    ]);
+    fields.push(
+      field(
+        "Actions",
+        listLines(storedActions.filter(({ key }) => touched.has(key)).map(actionWords)),
+        listLines([
+          ...actions.map((action) =>
+            actionWords({
+              ...action,
+              leavesTheWorkstation: markedAction(
+                storedActions.find(({ key }) => key === action.key.trim()),
+                action,
+              ).leavesTheWorkstation,
+            }),
+          ),
+          ...removeActions.map((key) => `${key.trim()}: removed`),
+        ]),
+      ),
+    );
+  }
+  if (sections.runEnvironment) {
+    fields.push(
+      field(
+        "Run environment",
+        project.runEnvironment === "on" ? "On" : "Off",
+        sections.runEnvironment === "on" ? "On" : "Off",
+      ),
+    );
+  }
+  for (const label of secretValuesGiven(sections)) {
+    fields.push({ label, before: null, after: null, form: "secret" });
+  }
+  return fields;
+}
+
+function shownVariable(variable: { name: string; value?: string }): string {
+  return `${variable.name}=${variable.value ?? ""}`;
+}
+
+/**
+ * What the call reads and writes, as it stands now on the Project, for the Proposal's fingerprint:
+ * each section given, without a Secret variable's value, so a change to any since the draft marks
+ * the Proposal Out of date.
+ */
+function fingerprintSource(
+  sections: Sections,
+  project: Project,
+  storedTargets: readonly TestTarget[],
+  storedActions: readonly Action[],
+): unknown {
+  return {
+    ...(sections.environmentVariables && {
+      environment: {
+        plain: project.environment.set.filter(({ secret }) => !secret).map(shownVariable),
+        secrets: project.environment.set.filter(({ secret }) => secret).map(({ name }) => name),
+        unset: project.environment.unset,
+        prependPath: project.environment.prependPath,
+      },
     }),
-    ...removed
-      .map((key) => key.trim())
-      .filter((key) => stored.some((each) => each.key === key && each.leavesTheWorkstation))
-      .map((key) => `Action "${key}" leaves the workstation.`),
-  ];
-  return problems.length > 0 ? [...problems, advice] : [];
+    ...((sections.install !== undefined || sections.installInputs !== undefined) && {
+      install: [project.installCommand, project.installInputs],
+    }),
+    ...(sections.commands && { commands: project.commands }),
+    ...(sections.testTargets && {
+      testTargets: storedTargets.map(asEdited),
+    }),
+    ...(sections.actions && { actions: storedActions.map(withoutSetBy) }),
+    ...(sections.runEnvironment && { runEnvironment: project.runEnvironment }),
+  };
 }
