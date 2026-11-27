@@ -55,6 +55,7 @@ function stage(taskId = "task-1", threadId = THREAD): LiveAgent {
     kind: "stage",
     consultation: null,
     engine: null,
+    since: null,
   };
 }
 
@@ -664,6 +665,7 @@ describe("words and links", () => {
         kind: "thread",
         consultation: null,
         engine: null,
+        since: null,
       },
       {
         threadId: THREAD,
@@ -671,6 +673,7 @@ describe("words and links", () => {
         kind: "thread",
         consultation: null,
         engine: null,
+        since: null,
       },
     ]);
     expect(stateWords(person, "working", TITLES, NAMES)).toBe(
@@ -704,6 +707,7 @@ describe("words and links", () => {
         kind: "thread",
         consultation: null,
         engine: null,
+        since: null,
       },
       {
         threadId: OTHER_THREAD,
@@ -711,6 +715,7 @@ describe("words and links", () => {
         kind: "thread",
         consultation: null,
         engine: null,
+        since: null,
       },
       {
         threadId: OTHER_THREAD,
@@ -718,6 +723,7 @@ describe("words and links", () => {
         kind: "thread",
         consultation: null,
         engine: null,
+        since: null,
       },
     ]);
     expect(workLinksOf(person, TITLES, NAMES).map((link) => link.target)).toEqual([

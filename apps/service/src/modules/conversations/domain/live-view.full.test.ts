@@ -83,6 +83,15 @@ describe("what each person is doing now", () => {
     expect(oscar.idleSince).toBeUndefined();
   });
 
+  it("gives each Agent since when its turn runs, and none for a turn running before it was kept", () => {
+    const kept = threadOf("developer", { state: "answering", answeringSince: LATER });
+    const unkept = threadOf("developer", { state: "answering", startedAt: LATER });
+
+    const { agents } = personIn(liveView({ threads: [kept, unkept] }), "developer");
+
+    expect(agents.map(({ since }) => since)).toEqual([LATER, undefined]);
+  });
+
   it("doesn't count a Thread that isn't answering", () => {
     const oscar = personIn(liveView({ threads: [threadOf("developer")] }), "developer");
 

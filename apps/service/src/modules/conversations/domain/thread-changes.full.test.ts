@@ -85,7 +85,12 @@ describe("a Thread on a Task", () => {
 
     const opened = beginOpening(thread, opening, AT);
 
-    expect(opened.thread).toMatchObject({ state: "answering", session, title: "Planning" });
+    expect(opened.thread).toMatchObject({
+      state: "answering",
+      answeringSince: AT,
+      session,
+      title: "Planning",
+    });
     expect(opened.logged).toEqual([
       {
         kind: "context",
@@ -236,6 +241,22 @@ describe("a Thread's tokens", () => {
       cacheCreation: 1_000,
     });
     expect(countRunningTurn(aThread({ tokens: earlier }), soFar, AT)).toBeUndefined();
+  });
+
+  it("end the running turn's time with the turn, unless another follows", () => {
+    const since = new Date("2026-01-01T00:00:00Z");
+    const counting = { ...running, answeringSince: since };
+    const count = {
+      usage: NO_TOKENS,
+      contextTokens: 1_000,
+      contextWindow: undefined,
+      handingOver: false,
+      turnFollows: false,
+      endedAt: AT,
+    };
+
+    expect(endTurn(counting, count).thread.answeringSince).toBeUndefined();
+    expect(endTurn(counting, { ...count, turnFollows: true }).thread.answeringSince).toEqual(since);
   });
 
   it("take the turn's own count in place of the running one as it ends", () => {

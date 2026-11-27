@@ -2,9 +2,12 @@ import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type {
   Decision,
   FireAlarmOnNow,
+  LiveAgent,
+  LivePerson,
   Now,
   ShapingOnNow,
   SinceYouLeft,
+  TaskSummary,
   WaitingForYouItem,
 } from "@the-office/contracts";
 import { act } from "react";
@@ -517,5 +520,162 @@ describe("Now's Queue", () => {
     expect(row?.querySelector(".now-queued-reasons")).toBeNull();
     expect(row?.querySelector("[aria-label='Usage estimate']")).toBeNull();
     expect(row?.textContent).not.toContain("·");
+  });
+});
+
+const AGENT_TASK_ID = "3f2a1b0c-4d5e-4f6a-8b7c-9d0e1f2a3b4c";
+const AGENT_SINCE = "2026-11-27T09:00:00.000Z";
+
+function aTask(id: string, fields: Partial<TaskSummary>): TaskSummary {
+  return {
+    id,
+    title: "Add a filter",
+    projectId: "p1",
+    priority: "normal",
+    tags: [],
+    state: "backlog",
+    pausedBy: null,
+    engineStandIns: [],
+    resumesAt: null,
+    autoMode: false,
+    initiativePlanningThreadId: null,
+    markedPlanned: false,
+    hasPlanningThread: false,
+    planConfirmed: false,
+    filesToChange: [],
+    estimatedTokens: null,
+    definitionOfDoneConfirmed: false,
+    commitMessagePublishedAt: null,
+    pipelineId: "full",
+    blockedBy: [],
+    originIdeaId: null,
+    engineOverride: null,
+    initiativeEngineOverride: null,
+    peopleEngineSettings: [],
+    initiativeId: null,
+    madeFor: null,
+    resolvesTaskId: null,
+    projectMoves: [],
+    createdBy: { kind: "user", user: null },
+    createdAt: "2026-11-01T10:00:00.000Z",
+    archivedAt: null,
+    endedAt: null,
+    pullRequestEnd: null,
+    kind: "feature",
+    causedBy: null,
+    foundInVersion: null,
+    foundWhileWorkingOn: null,
+    dropReason: null,
+    ...fields,
+  };
+}
+
+function aWorkingPerson(agents: LiveAgent[]): LivePerson {
+  return {
+    roleKey: "developer",
+    name: "Ada",
+    title: "Developer",
+    state: "working",
+    agents,
+    consulting: [],
+    waitingOnYou: [],
+    idleSince: null,
+  };
+}
+
+function openNowWithAgents(
+  agents: LiveAgent[],
+  tasks: TaskSummary[] = [],
+): Promise<{ readonly page: HTMLElement }> {
+  stubService({
+    "GET /api/now": () => ({ status: 200, body: NOW }),
+    "GET /api/now/since-you-left": () => ({ status: 200, body: sinceYouLeftWith("Add a filter") }),
+    "GET /api/live-view": () => ({ status: 200, body: { people: [aWorkingPerson(agents)] } }),
+    "GET /api/tasks": () => ({ status: 200, body: tasks }),
+    "GET /api/tasks?archived=true": () => ({ status: 200, body: [] }),
+    "GET /api/initiatives": () => ({ status: 200, body: [] }),
+  });
+  return openPage("/now", { now: NowPage });
+}
+
+function agentCards(page: HTMLElement): HTMLElement[] {
+  return [...page.querySelectorAll<HTMLElement>("[aria-label^='Ada works: ']")];
+}
+
+describe("Now's Agents", () => {
+  afterEach(() => {
+    localStorage.removeItem(PROJECT_FILTER_STORAGE_KEY);
+    window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
+  });
+
+  it("shows nothing while no Agent answers", async () => {
+    const { page } = await openNowWithAgents([]);
+
+    await until(() => expect(page.textContent).toContain("Add a filter"));
+    expect(page.textContent).not.toContain("Agents");
+  });
+
+  it("shows a row for each Agent answering, with its count, engine and time, opening its Thread", async () => {
+    const stage: LiveAgent = {
+      threadId: "11111111-1111-4111-8111-111111111111",
+      home: { kind: "task", taskId: AGENT_TASK_ID },
+      kind: "stage",
+      consultation: null,
+      engine: { engineId: "personal", engineName: "Personal", standInFor: null },
+      since: AGENT_SINCE,
+    };
+    const chat: LiveAgent = {
+      threadId: "22222222-2222-4222-8222-222222222222",
+      home: { kind: "chat", roleKey: "developer" },
+      kind: "thread",
+      consultation: null,
+      engine: null,
+      since: null,
+    };
+    const { page } = await openNowWithAgents(
+      [chat, stage],
+      [aTask(AGENT_TASK_ID, { title: "Add a filter", projectId: "p1" })],
+    );
+
+    await until(() => expect(agentCards(page)).toHaveLength(2));
+    const [onTask, inChat] = agentCards(page);
+    expect(page.textContent).toContain("Agents");
+    expect(onTask?.textContent).toContain("Add a filter");
+    expect(onTask?.textContent).toContain("on Personal");
+    expect(onTask?.textContent).toContain("working");
+    expect(onTask?.querySelector("a")?.getAttribute("href")).toBe(
+      `/tasks/${AGENT_TASK_ID}?taskThread=${stage.threadId}`,
+    );
+    expect(inChat?.textContent).toContain("Chat");
+    expect(inChat?.textContent).not.toContain("working");
+    expect(inChat?.querySelector("a")?.getAttribute("href")).toBe(
+      `/now?chat=developer&thread=${chat.threadId}`,
+    );
+  });
+
+  it("is narrowed by the Project filter, always showing a chat, noting those in other Projects", async () => {
+    localStorage.setItem(PROJECT_FILTER_STORAGE_KEY, JSON.stringify(["p2"]));
+    const onTask: LiveAgent = {
+      threadId: "11111111-1111-4111-8111-111111111111",
+      home: { kind: "task", taskId: AGENT_TASK_ID },
+      kind: "thread",
+      consultation: null,
+      engine: null,
+      since: AGENT_SINCE,
+    };
+    const chat: LiveAgent = {
+      ...onTask,
+      threadId: "22222222-2222-4222-8222-222222222222",
+      home: { kind: "chat", roleKey: "developer" },
+    };
+    const { page } = await openNowWithAgents(
+      [onTask, chat],
+      [aTask(AGENT_TASK_ID, { projectId: "p1" })],
+    );
+    window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
+
+    await until(() => expect(page.textContent).toContain("1 more Agent in other Projects"));
+    expect(agentCards(page)).toHaveLength(1);
+    expect(agentCards(page)[0]?.textContent).toContain("Chat");
   });
 });

@@ -6,7 +6,7 @@ import type { EventCacheUpdates } from "./event-stream-provider.tsx";
 export const liveViewQueries = {
   /**
    * What each person is doing now, kept current by `live-view.changed`. Only the Live view page
-   * reads it, so an Office nobody watches does no extra reads.
+   * and Now's Agents section read it, so an Office nobody watches does no extra reads.
    */
   snapshot: () =>
     queryOptions({

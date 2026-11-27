@@ -36,6 +36,7 @@ function toLiveAgentResponse({
   kind,
   consultation,
   engine,
+  since,
 }: LiveAgent): LiveAgentResponse {
   return {
     threadId,
@@ -57,6 +58,7 @@ function toLiveAgentResponse({
             : null,
         }
       : null,
+    since: since?.toISOString() ?? null,
   };
 }
 

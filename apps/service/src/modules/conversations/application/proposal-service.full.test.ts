@@ -41,6 +41,7 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
+  CORE_AREA,
   EngineModule,
   OfficeToolRegistry,
   type OfficeTool,
@@ -1115,6 +1116,7 @@ describe("a Proposal of a library Office action", () => {
       const input = { name: "release-notes" };
       app.get(OfficeToolRegistry).register({
         name: action,
+        area: CORE_AREA,
         description: declared.description,
         input: z.object({ name: z.string() }),
         authority: {

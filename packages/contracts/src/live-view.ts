@@ -31,6 +31,8 @@ export const liveAgentSchema = z.object({
         .nullable(),
     })
     .nullable(),
+  /** When the Thread's running turn began; null for one already running before it was kept. */
+  since: z.iso.datetime().nullable(),
 });
 export type LiveAgent = z.infer<typeof liveAgentSchema>;
 

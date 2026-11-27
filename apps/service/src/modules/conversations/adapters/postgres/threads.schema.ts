@@ -138,6 +138,8 @@ export const threads = pgTable(
     roleKey: text("role_key").notNull(),
     title: text("title"),
     state: text("state").$type<ThreadState>().notNull(),
+    /** When the running turn began; null while waiting, and for a turn running before it was kept. */
+    answeringSince: timestamp("answering_since", { withTimezone: true }),
     session: jsonb("session").$type<ThreadSessionRow>(),
     override: text("override").$type<ContextOverride>(),
     tokens: jsonb("tokens").$type<TokenTotals>().notNull(),

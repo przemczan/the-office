@@ -1,6 +1,6 @@
 # Now
 
-Covers: Now (the home), Needs you (the Off-board Task failed card among it) and its Waiting for you group, Running, Queue, Shaping, Since you left, today's tokens, the fire alarm panel and the all clear's review.
+Covers: Now (the home), Needs you (the Off-board Task failed card among it) and its Waiting for you group, Running, Agents, Queue, Shaping, Since you left, today's tokens, the fire alarm panel and the all clear's review.
 
 ## Where it is
 
@@ -12,12 +12,12 @@ Covers: Now (the home), Needs you (the Off-board Task failed card among it) and 
 ## Layout
 
 - The fire alarm panel above, only while the alarm is on.
-- Below it two panels side by side: left **Needs you**, with **Waiting for you** under its cards; right **Running**, then **Queue** (only while a Task is queued), **Shaping** (only while an Initiative is in Shaping), **Since you left**, and the line of today's tokens.
+- Below it two panels side by side: left **Needs you**, with **Waiting for you** under its cards; right **Running**, then **Agents** (only while an Agent is answering), **Queue** (only while a Task is queued), **Shaping** (only while an Initiative is in Shaping), **Since you left**, and the line of today's tokens.
 - Each section is a heading (icon, title, a count or words) over a feed of cards.
 - Panels are named "Needs you" and "Running and since you left".
 - At 1,224px of page width and under the panels are 1.2fr and 1fr; at 664px and under one column, with 14px padding.
 - Nothing else is on Now.
-- All of it comes from the one `now` query, which `now.changed` replaces whole, except Since you left (own per user), the queued Tasks' Usage estimates and what each Needs you card reads for itself.
+- All of it comes from the one `now` query, which `now.changed` replaces whole, except Agents (the Live view's snapshot, which `live-view.changed` replaces whole; its titles and Projects come from Work's Task and Initiative queries), Since you left (own per user), the queued Tasks' Usage estimates and what each Needs you card reads for itself.
 
 ## Needs you
 
@@ -59,6 +59,24 @@ Covers: Now (the home), Needs you (the Off-board Task failed card among it) and 
 - Left edge: running while In progress, paused otherwise.
 - Empty: "Nothing is running." or "Nothing is running in these Projects."
 - Note: "N more Tasks in other Projects."
+
+## Agents
+
+- Shown only while at least one Agent session is answering, between Running and Queue; heading: bot icon, **Agents**, the count of sessions answering in all Projects.
+- One row per Agent, from the Live view's snapshot ([2.2](../2.2-people.md#what-each-person-is-doing-now)): a Stage of a Task, a Task's planning or other Thread, an Initiative's shaping or planning Thread, an Off-board Task's Stage, a Consultation or a chat.
+- Oldest first, by when its turn began; one with no known start comes last.
+- Each row is a card with the running edge. First line: the person's avatar and name, a badge, the title (link), the **Off-board Task** badge on an Off-board Task, one Project chip per Project of its Task or Initiative.
+  - Badge and title by work:
+    - a Stage Thread on a Task: the Stage's name, the Task's title, the link opening the Task page at that Thread;
+    - another Thread on a Task: **Planning** while the Task is in Planning, else **Thread**, the Task's title, the same link;
+    - an Initiative's Thread: **Shaping** while the Initiative is in Shaping, else **Planning**, the Initiative's name, the link opening its page at that Thread;
+    - a Consultation: **Consultation**, "for <asker>" (or "for The Office"), the link opening its Task, Initiative or chat at that Thread;
+    - a chat: **Chat**, "with you", the link opening that person's chat drawer.
+- Second line: "on <engine>" (", standing in for <engine>" on a Stand-in Engine), then "<time> working" counted from when its turn began; no time for a turn running before it was kept.
+- A chat, and an Initiative with no Tasks yet, are in no Project, so the Project filter always shows them.
+- Empty (narrowed): "No Agent works in these Projects."
+- Note: "N more Agents in other Projects."
+- Reading the snapshot on Now makes the service watch the Live view while Now is open, the same cheap read the Live view page causes.
 
 ## Queue
 

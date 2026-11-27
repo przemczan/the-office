@@ -43,6 +43,7 @@ import { useClock } from "../../shell/use-clock.ts";
 import { distinctShortReasons, queueReasonsOf } from "../../shell/work/queue-reasons.ts";
 import { UsageEstimateLine, useUsageEstimate } from "../../shell/work/usage-estimate-line.tsx";
 import { TASK_STATE_TONES, taskStateWords } from "../../shell/work/work-words.ts";
+import { AgentsSection } from "./agents-section.tsx";
 import { AlarmPanel } from "./alarm-panel.tsx";
 import "./now.css";
 import { TokenCount } from "../../shell/token-count.tsx";
@@ -83,6 +84,7 @@ export function NowPage(): ReactNode {
           <Feed>
             {now && <RunningFeed now={now} projects={projects} roles={roles} clock={clock} />}
           </Feed>
+          <AgentsSection projects={projects} clock={clock} />
           {now && now.queue.length > 0 && (
             <>
               <PanelHeading icon="list-ordered" title="Queue" count={String(now.queue.length)} />

@@ -169,6 +169,11 @@ export interface Thread {
   /** From its first message until the user renames it; undefined before any message. */
   readonly title: string | undefined;
   readonly state: ThreadState;
+  /**
+   * When the running turn began; undefined while the Thread waits, and for one already answering
+   * before The Office kept it.
+   */
+  readonly answeringSince?: Date | undefined;
   /** Undefined until the person first answers in it. */
   readonly session: ThreadSession | undefined;
   /** For the next message only; undefined lets the Context policy choose. */

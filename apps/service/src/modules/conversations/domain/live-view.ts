@@ -23,6 +23,8 @@ export interface LiveAgent {
     { readonly decisionId: string; readonly askerRoleKey: string | undefined } | undefined;
   /** The engine its session runs on; undefined while the Thread has no session yet. */
   readonly engine: LiveAgentEngine | undefined;
+  /** When the Thread's running turn began; undefined for one already running before it was kept. */
+  readonly since: Date | undefined;
 }
 
 /** The engine an Agent's session runs on, and the cascade's it stands in for, if it does. */
@@ -133,7 +135,7 @@ function livePerson(
 }
 
 function liveAgent(
-  { id, home, stageThread, consultation, session }: Thread,
+  { id, home, stageThread, consultation, session, answeringSince }: Thread,
   engineNames: ReadonlyMap<string, string>,
 ): LiveAgent {
   return {
@@ -149,6 +151,7 @@ function liveAgent(
       engineName: engineNames.get(session.engineId) ?? session.engineId,
       standInFor: session.standInFor,
     },
+    since: answeringSince,
   };
 }
 

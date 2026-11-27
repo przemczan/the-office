@@ -766,6 +766,7 @@ export function deliverWaitingAnswers(
   const answering: Thread = {
     ...settleRunningTurn(thread),
     state: "answering",
+    answeringSince: deliveredAt,
     override: undefined,
   };
   return {
@@ -1001,7 +1002,11 @@ export function endStageWork(
     threadId: thread.id,
     at: endedAt,
   }));
-  const waiting: Thread = { ...settleRunningTurn(thread), state: "waiting" };
+  const waiting: Thread = {
+    ...settleRunningTurn(thread),
+    state: "waiting",
+    answeringSince: undefined,
+  };
   if (messages.length > 0) return logMessages(waiting, messages, endedAt);
   if (thread.state === "waiting") return undefined;
   return { thread: waiting, logged: [], event: new TurnEnded(waiting, endedAt) };
@@ -1019,6 +1024,7 @@ function begin(
   const answering: Thread = {
     ...settleRunningTurn(thread),
     state: "answering",
+    answeringSince: at,
     override: undefined,
     session: newSession ?? thread.session,
   };
@@ -1072,6 +1078,7 @@ export function endTurn(
   const ended: Thread = {
     ...thread,
     state: handingOver || turnFollows ? "answering" : "waiting",
+    answeringSince: handingOver || turnFollows ? thread.answeringSince : undefined,
     tokens: addTokens(thread.tokens, usage),
     runningTurnTokens: NO_TOKENS,
     session: {
@@ -1334,7 +1341,12 @@ export function failAnswer(
   };
   const session =
     unopened && thread.session?.id === unopened.sessionId ? unopened.previous : thread.session;
-  const waiting: Thread = { ...settleRunningTurn(thread), state: "waiting", session };
+  const waiting: Thread = {
+    ...settleRunningTurn(thread),
+    state: "waiting",
+    answeringSince: undefined,
+    session,
+  };
   return {
     thread: waiting,
     logged: [failure],

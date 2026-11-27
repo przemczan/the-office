@@ -90,6 +90,7 @@ function agentOnTheTask(threadId: string): LiveAgent {
     kind: "stage",
     consultation: null,
     engine: null,
+    since: null,
   };
 }
 
@@ -400,6 +401,7 @@ describe("The Live view", () => {
           kind: "thread",
           consultation: null,
           engine: null,
+          since: null,
         },
       ],
     });
