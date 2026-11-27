@@ -196,10 +196,12 @@ export class AppModule {
     });
     // Work's Tasks tell the startup sweep which run environments to keep; a Project's Run
     // environment setting is kept by Projects, and its set-up Task by Work. The release carries
-    // the device helper's build where a checkout's `npm run build:device-helper` writes it.
+    // the device helper's build where a checkout's `npm run build:device-helper` writes it. A
+    // person's name and title, which a set-up records, come from People's Role cards.
     const runEnvironments = RunEnvironmentsModule.register({
-      imports: [work, projects],
+      imports: [work, projects, PeopleModule],
       knownTasks: TaskService,
+      knownPeople: RoleCards,
       deviceHelperSource: join(officeCheckout, "tools", "device-helper", "dist"),
     });
     const pipelines = PipelinesModule.register({

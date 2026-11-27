@@ -1,10 +1,5 @@
+import type { ActedBy } from "../../projects/index.js";
 import type { OffBoardTaskStart } from "../../work/index.js";
-
-/** The user who asked for a set-up Task: their id and their name as it was then. */
-export interface AskingUser {
-  readonly userId: string;
-  readonly name: string;
-}
 
 /** A Project's "Set up the run environment" Task, as Work keeps it. */
 export interface SetUpTask {
@@ -26,7 +21,7 @@ export abstract class SetUpTasks {
    * The Project's open one, or one made now, as `by` asked, and started at once or queued; a
    * refused start makes none and answers why.
    */
-  abstract add(projectId: string, by: AskingUser): Promise<OffBoardTaskStart>;
+  abstract add(projectId: string, by: ActedBy): Promise<OffBoardTaskStart>;
 
   /** Undefined when the Task isn't a set-up Task. */
   abstract setUpTaskOf(taskId: string): Promise<SetUpTask | undefined>;

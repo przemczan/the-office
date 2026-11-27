@@ -2,6 +2,8 @@ import { z } from "zod";
 import { engineIdSchema, officeDefaultSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
+import { projectMcpServerValuesSchema, projectServerValuesChangeSchema } from "./mcp-servers.js";
+import { officeAction } from "./office-actions.js";
 import { engineTypeSettingSchema, personEngineSettingsSchema } from "./people.js";
 import { userRefSchema } from "./users.js";
 import { OFFICE_WIDE_LIMIT_MAX, taskCreatorSchema, taskKindSchema } from "./work.js";
@@ -998,3 +1000,244 @@ export const projectSettingChangesSchema = z.object({
   changes: z.array(projectSettingChangeSchema),
 });
 export type ProjectSettingChanges = z.infer<typeof projectSettingChangesSchema>;
+
+const projectIdInput = z.string().min(1).describe("The id of the Project.");
+const projectImageInput = projectImageKeySchema.describe("icon or logo.");
+const projectPaletteInput = projectImagePaletteSchema.describe(
+  "light or dark: each version is changed on its own.",
+);
+
+/** Office action: the Project limit. */
+export const CHANGE_PROJECT_LIMIT_ACTION = officeAction({
+  name: "change_project_limit",
+  title: "Change a Project's limit",
+  description:
+    "Sets how many of the Project's Tasks may be started at once, from 1 to the most The Office allows; Tasks over it wait in the queue.",
+  input: projectLimitSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/project-limit" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: the Project's mark. */
+export const CHANGE_PROJECT_MARK_ACTION = officeAction({
+  name: "change_project_mark",
+  title: "Change a Project's mark",
+  description:
+    "Sets the Project's mark: a short label and a colour, one of the four names or a custom #rrggbb.",
+  input: markChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/mark" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: the Project's feature switches. */
+export const CHANGE_PROJECT_FEATURES_ACTION = officeAction({
+  name: "change_project_features",
+  title: "Change a Project's features",
+  description:
+    "Turns the Project's features on or off, the ones named only. Turning one on is refused while a feature it needs is off; turning one off turns off those that need it. Run environment changes through its own setting.",
+  input: projectFeaturesChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/features" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: Use this Project's skills. */
+export const CHANGE_USE_PROJECT_SKILLS_ACTION = officeAction({
+  name: "change_use_project_skills",
+  title: "Change Use this Project's skills",
+  description:
+    "Turns on or off Use this Project's skills: whether Agents working on the Project use the skills and commands its repository holds.",
+  input: useProjectSkillsChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/use-project-skills" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: one of the repository's skills in use or not. */
+export const CHANGE_PROJECT_SKILL_USE_ACTION = officeAction({
+  name: "change_project_skill_use",
+  title: "Change a Project skill's use",
+  description:
+    "Turns one of the skills of the Project's repository on or off, by its key, for Agents working on the Project.",
+  input: projectSkillUseChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/skill-use" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: an Icon or a Logo copied from a file committed in the repository. */
+export const SET_PROJECT_IMAGE_FROM_REPOSITORY_ACTION = officeAction({
+  name: "set_project_image_from_repository",
+  title: "Set a Project's Icon or Logo from the repository",
+  description:
+    "Sets one version (light or dark) of the Project's Icon or Logo to a copy of a picture committed in its repository, read at the commit you name; the picture must be a png, jpg, webp or svg.",
+  input: projectImageFromRepositorySchema.extend({
+    projectId: projectIdInput,
+    image: projectImageInput,
+    palette: projectPaletteInput,
+    commit: z.string().describe("The commit to read the file at."),
+    path: z.string().describe("The file's path from the repository's root."),
+  }),
+  answer: projectSchema,
+  route: {
+    method: "POST",
+    path: "/projects/:projectId/images/:image/:palette/from-repository",
+  },
+  status: 201,
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: an Icon or a Logo version removed. */
+export const REMOVE_PROJECT_IMAGE_ACTION = officeAction({
+  name: "remove_project_image",
+  title: "Remove a Project's Icon or Logo",
+  description: "Removes one version (light or dark) of the Project's Icon or Logo.",
+  input: z.object({
+    projectId: projectIdInput,
+    image: projectImageInput,
+    palette: projectPaletteInput,
+  }),
+  answer: projectSchema,
+  route: { method: "DELETE", path: "/projects/:projectId/images/:image/:palette" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: the Project's Engine levels. */
+export const CHANGE_PROJECT_ENGINE_ACTION = officeAction({
+  name: "change_project_engine",
+  title: "Change a Project's Engine",
+  description:
+    "Changes the Project's Engine levels: the Project default, the force, each person's own setting and its own Stand-in Engine list. A level sent replaces the Project's; one left out stays.",
+  input: projectEngineChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/engine" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: the Project's Default Pipeline. */
+export const CHANGE_DEFAULT_PIPELINE_ACTION = officeAction({
+  name: "change_default_pipeline",
+  title: "Change a Project's Default Pipeline",
+  description:
+    "Sets the Pipeline new Tasks of the Project follow when they name none, by its id: a library Pipeline or one of the Project's own. Refused when the Project lacks a command the Pipeline runs.",
+  input: defaultPipelineChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/default-pipeline" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: the Project's Default Pipeline for one Kind. */
+export const CHANGE_KIND_DEFAULT_PIPELINE_ACTION = officeAction({
+  name: "change_kind_default_pipeline",
+  title: "Change a Project's Default Pipeline per Kind",
+  description:
+    "Sets the Pipeline new Tasks of one Kind (Feature, Bug or Chore) follow in the Project; a null pipelineId makes the Kind follow the Project's Default Pipeline again.",
+  input: kindDefaultPipelineChangeSchema.extend({ projectId: projectIdInput }),
+  answer: projectSchema,
+  route: { method: "PUT", path: "/projects/:projectId/kind-default-pipeline" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: Fetch the base branch. */
+export const FETCH_BASE_BRANCH_ACTION = officeAction({
+  name: "fetch_base_branch",
+  title: "Fetch a Project's base branch",
+  description:
+    "Fetches the Project's base branch from its remote and answers its last commit; when the fetch fails, the commit is the last one known here, with why.",
+  input: z.object({ projectId: projectIdInput }),
+  answer: baseBranchFetchSchema,
+  route: { method: "POST", path: "/projects/:projectId/base-branch/fetch" },
+  area: "projectsAndSettings",
+  group: "projectUpkeep",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: GitHub issues imported as Tasks. */
+export const IMPORT_ISSUES_ACTION = officeAction({
+  name: "import_issues",
+  title: "Import GitHub issues",
+  description:
+    "Imports open issues of the Project's repository as Tasks in Backlog, by number (up to 50); one imported already, closed or not on the host is skipped with why. Refused while GitHub issues are switched off for the Project.",
+  input: issueImportSchema.extend({ projectId: projectIdInput }),
+  answer: issueImportResultSchema,
+  route: { method: "POST", path: "/projects/:projectId/issues/import" },
+  status: 201,
+  area: "projectsAndSettings",
+  group: "projectUpkeep",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: a pull request The Office opened, closed on its code host. */
+export const CLOSE_PULL_REQUEST_ACTION = officeAction({
+  name: "close_pull_request",
+  title: "Close a pull request",
+  description:
+    "Closes an open pull request The Office opened, without merging it. Refused for one already merged or closed, or whose status isn't read yet.",
+  input: z.object({ pullRequestId: z.uuid().describe("The id of the pull request.") }),
+  answer: z.void(),
+  route: { method: "POST", path: "/pull-requests/:pullRequestId/close" },
+  status: 204,
+  area: "projectsAndSettings",
+  group: "projectUpkeep",
+  subject: ({ pullRequestId }) => ({ kind: "pull-request", id: pullRequestId }),
+});
+
+/**
+ * Office action: a MCP server's Server values on a Project. A secret's value isn't one an Agent
+ * can set (until Secret values for Agents).
+ */
+export const CHANGE_SERVER_VALUES_ACTION = officeAction({
+  name: "change_server_values",
+  title: "Change a Project's Server values",
+  description:
+    "Sets the Project's own values for one MCP server's Server values; a value not given is cleared, so the Office-wide value applies, and a value given without text keeps the one kept. A Server value that is a secret is refused: the user sets those.",
+  input: projectServerValuesChangeSchema.extend({
+    projectId: projectIdInput,
+    serverName: z.string().min(1).describe("The MCP server's name."),
+  }),
+  answer: projectMcpServerValuesSchema,
+  route: { method: "PUT", path: "/projects/:projectId/server-values/:serverName" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Projects' Office actions of the settings and the upkeep, each declared above. */
+export const PROJECT_SETTINGS_OFFICE_ACTIONS = [
+  CHANGE_PROJECT_LIMIT_ACTION,
+  CHANGE_PROJECT_MARK_ACTION,
+  CHANGE_PROJECT_FEATURES_ACTION,
+  CHANGE_USE_PROJECT_SKILLS_ACTION,
+  CHANGE_PROJECT_SKILL_USE_ACTION,
+  SET_PROJECT_IMAGE_FROM_REPOSITORY_ACTION,
+  REMOVE_PROJECT_IMAGE_ACTION,
+  CHANGE_PROJECT_ENGINE_ACTION,
+  CHANGE_DEFAULT_PIPELINE_ACTION,
+  CHANGE_KIND_DEFAULT_PIPELINE_ACTION,
+  CHANGE_SERVER_VALUES_ACTION,
+  FETCH_BASE_BRANCH_ACTION,
+  IMPORT_ISSUES_ACTION,
+  CLOSE_PULL_REQUEST_ACTION,
+] as const;

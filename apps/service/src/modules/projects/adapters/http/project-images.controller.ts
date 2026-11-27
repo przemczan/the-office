@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -11,11 +10,9 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
-  projectImageFromRepositorySchema,
   projectImageKeySchema,
   projectImagePaletteSchema,
   type Project as ProjectResponse,
-  type ProjectImageFromRepository,
   type ProjectImageKey,
   type ProjectImagePalette,
 } from "@the-office/contracts";
@@ -50,25 +47,6 @@ export class ProjectImagesController {
     @Body() body: unknown,
   ): Promise<ProjectResponse> {
     return this.respond(await this.images.change(id, image, palette, uploadedBytes(body)));
-  }
-
-  @Post("projects/:id/images/:image/:palette/from-repository")
-  async changeFromRepository(
-    @Param("id") id: string,
-    @Param("image", new ContractPipe(projectImageKeySchema)) image: ProjectImageKey,
-    @Param("palette", new ContractPipe(projectImagePaletteSchema)) palette: ProjectImagePalette,
-    @Body(new ContractPipe(projectImageFromRepositorySchema)) file: ProjectImageFromRepository,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.images.changeFromRepository(id, image, palette, file));
-  }
-
-  @Delete("projects/:id/images/:image/:palette")
-  async remove(
-    @Param("id") id: string,
-    @Param("image", new ContractPipe(projectImageKeySchema)) image: ProjectImageKey,
-    @Param("palette", new ContractPipe(projectImagePaletteSchema)) palette: ProjectImagePalette,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.images.remove(id, image, palette));
   }
 
   @Get("projects/:id/images/:imageId/content")

@@ -5,6 +5,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
 import type { ManualWorkflow } from "../domain/manual-workflow.js";
+import { byTheUser } from "../domain/acted-by.js";
 import { MERGE_METHODS, type MergeMethod } from "../domain/merge-method.js";
 import {
   openedPullRequest,
@@ -255,8 +256,12 @@ describe("PullRequestActions", () => {
     await expect(actions.merge(pullRequest.id, "merge", USER)).rejects.toMatchObject({
       reason: `Pull request #${pullRequest.number} is already closed.`,
     });
-    await expect(actions.close(pullRequest.id, USER)).rejects.toBeInstanceOf(PullRequestRefused);
-    await expect(actions.close(randomUUID(), USER)).rejects.toBeInstanceOf(PullRequestNotFound);
+    await expect(actions.close(pullRequest.id, byTheUser(USER))).rejects.toBeInstanceOf(
+      PullRequestRefused,
+    );
+    await expect(actions.close(randomUUID(), byTheUser(USER))).rejects.toBeInstanceOf(
+      PullRequestNotFound,
+    );
     expect(host.merges).toEqual([]);
     expect(host.closes).toEqual([]);
   });
@@ -264,7 +269,7 @@ describe("PullRequestActions", () => {
   it("closes a pull request, ending the row with one event", async () => {
     const pullRequest = await aKeptPullRequest();
 
-    await actions.close(pullRequest.id, USER);
+    await actions.close(pullRequest.id, byTheUser(USER));
 
     expect(host.closes).toEqual([pullRequest.number]);
     await expect(records.findById(pullRequest.id)).resolves.toMatchObject({ state: "closed" });
@@ -307,7 +312,7 @@ describe("PullRequestActions in a test instance of The Office (OFFICE_TEST_INSTA
   it("refuses to close a pull request, asking the code host nothing", async () => {
     const pullRequest = await aKeptPullRequest();
 
-    await expect(inTestInstance().close(pullRequest.id, USER)).rejects.toThrow(
+    await expect(inTestInstance().close(pullRequest.id, byTheUser(USER))).rejects.toThrow(
       "A test instance of The Office (OFFICE_TEST_INSTANCE) doesn't close pull requests.",
     );
     expect(host.closes).toEqual([]);

@@ -3,15 +3,22 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  ONBOARD_PROJECT_ACTION,
   offBoardTaskStartSchema,
   projectOffBoardTasksSchema,
   type OffBoardTaskStart,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { anOfficeToolCall, RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
+import { OfficeToolRegistry } from "../../engine/index.js";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import type { OffBoardTaskStart as Start } from "../domain/off-board-task.js";
 import { ANN_LEE } from "../domain/work.fixtures.js";
-import { KnownPeopleForTests, ProjectWorktreesForTests } from "../ports/work-ports.fixtures.js";
+import {
+  KnownPeopleForTests,
+  ProjectWorktreesForTests,
+  SessionPeopleForTests,
+} from "../ports/work-ports.fixtures.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { QueueRepository } from "../ports/queue-repository.js";
 import {
@@ -220,5 +227,59 @@ describe("POST /projects/:id/onboard", () => {
 
     expect((await onboardOverHttp(projectId)).outcome).toBe("refused");
     expect(await work.app.get(TaskRepository).madeFor("onboard", projectId)).toEqual([]);
+  });
+});
+
+describe("the onboard_project Office action", () => {
+  it("starts the Onboard Task through its tool, as the route does, then answers it open", async () => {
+    const projectId = aProject();
+    work.app.get(SessionPeopleForTests).people.set("devops-session", "devops");
+    const [tool] = work.app
+      .get(OfficeToolRegistry)
+      .named([ONBOARD_PROJECT_ACTION.name], RUN_EVERY_CALL);
+    if (!tool) throw new Error("No Office tool onboard_project.");
+
+    const first = await tool.run({ projectId }, anOfficeToolCall("devops-session"));
+    const second = await tool.run({ projectId }, anOfficeToolCall("devops-session"));
+
+    expect(first).toMatchObject({
+      isError: false,
+      text: expect.stringMatching(/is (started|queued)/),
+    });
+    expect(second).toMatchObject({ isError: false, text: expect.stringContaining("already open") });
+    expect(tool.authority).toMatchObject({ group: "projectSettings" });
+    expect(tool.authority?.subject({ projectId })).toEqual({ kind: "project", id: projectId });
+  });
+
+  it("words a refusal to the Agent, making nothing", async () => {
+    work.app.get(KnownPeopleForTests).hold(ONBOARDS_PROJECTS, undefined);
+    const projectId = aProject();
+    work.app.get(SessionPeopleForTests).people.set("devops-session", "devops");
+    const [tool] = work.app
+      .get(OfficeToolRegistry)
+      .named([ONBOARD_PROJECT_ACTION.name], RUN_EVERY_CALL);
+
+    const result = await tool?.run({ projectId }, anOfficeToolCall("devops-session"));
+
+    expect(result).toMatchObject({ isError: false, text: expect.stringContaining("was refused") });
+    expect(await work.app.get(TaskRepository).madeFor("onboard", projectId)).toEqual([]);
+  });
+
+  it("drafts a generic Proposal of the Project, and applying it onboards as the user", async () => {
+    const projectId = aProject();
+    const registry = work.app.get(OfficeToolRegistry);
+
+    const drafted = await registry.draft(ONBOARD_PROJECT_ACTION.name, { projectId });
+    await registry.applyFor(
+      ONBOARD_PROJECT_ACTION.name,
+      { projectId },
+      {
+        user: { userId: "ann", name: "Ann Lee" },
+        proposedBy: "devops",
+      },
+    );
+
+    expect(drafted).toMatchObject({ subject: { kind: "project", id: projectId }, fields: [] });
+    expect(await work.app.get(TaskRepository).madeFor("onboard", projectId)).toHaveLength(1);
   });
 });

@@ -1,5 +1,8 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
+  CHANGE_PROJECT_PIPELINE_ACTION,
+  CREATE_PROJECT_PIPELINE_ACTION,
+  DELETE_PROJECT_PIPELINE_ACTION,
   officeWidePipelineListSchema,
   pipelineCheckSchema,
   pipelineSchema,
@@ -38,7 +41,7 @@ import {
   type StandInSwitchResult,
   type TaskStages,
 } from "@the-office/contracts";
-import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
+import { callOfficeAction, deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { OFF_BOARD_TASKS } from "./off-board-tasks.ts";
 import { taskEngineCascadeKey } from "./people.ts";
 import { taskChangesKey } from "./projects.ts";
@@ -260,7 +263,7 @@ export function removePipeline(pipelineId: string): Promise<void> {
 export function addProjectPipeline(
   newProjectPipeline: NewProjectPipeline,
 ): Promise<ProjectPipeline> {
-  return sendToApi("POST", "/project-pipelines", newProjectPipeline, projectPipelineSchema);
+  return callOfficeAction(CREATE_PROJECT_PIPELINE_ACTION, newProjectPipeline);
 }
 
 /** The Project Pipeline saved; saving one Broken before The Office updated clears its flag. */
@@ -268,11 +271,14 @@ export function saveProjectPipeline(
   projectPipelineId: string,
   edit: ProjectPipelineEdit,
 ): Promise<ProjectPipeline> {
-  return sendToApi("PUT", projectPipelinePath(projectPipelineId), edit, projectPipelineSchema);
+  return callOfficeAction(CHANGE_PROJECT_PIPELINE_ACTION, {
+    pipelineId: projectPipelineId,
+    ...edit,
+  });
 }
 
 export function removeProjectPipeline(projectPipelineId: string): Promise<void> {
-  return deleteFromApi(projectPipelinePath(projectPipelineId));
+  return callOfficeAction(DELETE_PROJECT_PIPELINE_ACTION, { pipelineId: projectPipelineId });
 }
 
 /** A Stage template made from scratch, or a Stage saved as one; its failure rule is dropped. */

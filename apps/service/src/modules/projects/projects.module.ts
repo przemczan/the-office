@@ -66,6 +66,7 @@ import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { FirstCommits } from "./application/first-commits.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
+import { SessionPeople } from "./application/session-people.js";
 import { RunEnvironmentSwitchRegistry } from "./application/run-environment-switch-registry.js";
 import { DevcontainerServices } from "./application/devcontainer-services.js";
 import { TestTargets } from "./application/test-targets.js";
@@ -222,6 +223,7 @@ export class ProjectsModule implements NestModule {
         FirstCommits,
         EngineLevelsChecks,
         RunEnvironmentSetUpRegistry,
+        SessionPeople,
         RunEnvironmentSwitchRegistry,
         DevcontainerServices,
         TestTargets,
@@ -281,6 +283,7 @@ export class ProjectsModule implements NestModule {
         InitiativeBranches,
         BranchDeletions,
         RunEnvironmentSetUpRegistry,
+        SessionPeople,
         RunEnvironmentSwitchRegistry,
         DevcontainerServices,
         TestTargets,

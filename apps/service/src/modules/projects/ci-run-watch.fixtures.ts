@@ -11,6 +11,7 @@ import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { OfficeToolRegistry } from "../engine/index.js";
 import { GitHubModule } from "../github/index.js";
+import { ProjectServerValues } from "../mcp-servers/index.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import {
@@ -27,6 +28,16 @@ import { CodeHosts } from "./application/code-hosts.js";
 import { ActionWorkflows } from "./application/action-workflows.js";
 import { WorkflowStarts } from "./application/workflow-starts.js";
 import { ManualWorkflows } from "./application/manual-workflows.js";
+import { IssueImport } from "./application/issue-import.js";
+import { ProjectFeatures } from "./application/project-features.js";
+import { ProjectImages } from "./application/project-images.js";
+import { ProjectIssueHosts } from "./application/project-issue-hosts.js";
+import { ProjectService } from "./application/project-service.js";
+import { PullRequestActions } from "./application/pull-request-actions.js";
+import { RepositoryFiles } from "./application/repository-files.js";
+import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
+import { SessionPeople } from "./application/session-people.js";
+import { PullRequestRepository } from "./ports/pull-request-repository.js";
 import { aProject } from "./domain/project.fixtures.js";
 import type { Project } from "./domain/project.js";
 import { ActionRepository } from "./ports/action-repository.js";
@@ -89,6 +100,20 @@ export class CiRunTestbed {
         WorkflowStarts,
         ActionWorkflows,
         OfficeToolRegistry,
+        // What the other Office actions of Projects carry out with isn't used by these tests.
+        ...[
+          ProjectService,
+          ProjectFeatures,
+          ProjectImages,
+          ProjectIssueHosts,
+          IssueImport,
+          RepositoryFiles,
+          PullRequestActions,
+          PullRequestRepository,
+          ProjectServerValues,
+        ].map((provide) => ({ provide, useValue: {} })),
+        RunEnvironmentSetUpRegistry,
+        SessionPeople,
         ProjectOfficeActions,
       ],
       overrides: [github.signIn],

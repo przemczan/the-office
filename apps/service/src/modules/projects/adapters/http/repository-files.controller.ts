@@ -1,22 +1,10 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Query,
-  Res,
-  StreamableFile,
-  UseFilters,
-} from "@nestjs/common";
+import { Controller, Get, Param, Query, Res, StreamableFile, UseFilters } from "@nestjs/common";
 import {
   FILE_PREVIEW_BYTES,
   projectBranchesQuerySchema,
   repositoryFilePreviewQuerySchema,
   repositoryFileQuerySchema,
   repositoryFolderQuerySchema,
-  type BaseBranchFetch,
   type ProjectBranch,
   type ProjectBranches,
   type ProjectBranchesQuery,
@@ -44,13 +32,6 @@ const FILE_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inli
 @UseFilters(ProjectRefusalsFilter)
 export class RepositoryFilesController {
   constructor(private readonly files: RepositoryFiles) {}
-
-  @Post(":id/base-branch/fetch")
-  @HttpCode(HttpStatus.OK)
-  async fetch(@Param("id") id: string): Promise<BaseBranchFetch> {
-    const { commit, fetchProblem } = await this.files.fresh(id);
-    return { commit, fetchProblem: fetchProblem ?? null };
-  }
 
   @Get(":id/branches")
   async branches(

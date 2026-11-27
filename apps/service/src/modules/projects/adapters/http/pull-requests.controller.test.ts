@@ -87,11 +87,6 @@ class ActionsForTests {
     this.asked.push(["merge", id, method, by]);
     return this.refusal ? Promise.reject(this.refusal) : Promise.resolve();
   }
-
-  close(id: string, by: SignedInUser): Promise<void> {
-    this.asked.push(["close", id, by]);
-    return this.refusal ? Promise.reject(this.refusal) : Promise.resolve();
-  }
 }
 
 let app: INestApplication;
@@ -228,27 +223,6 @@ describe("POST /api/pull-requests/:id/merge", () => {
     expect(response.status).toBe(409);
     expect(pullRequestRefusalSchema.parse(await response.json())).toEqual({
       reason: "The branch moved since The Office read it.",
-      refresh: true,
-    });
-  });
-});
-
-describe("POST /api/pull-requests/:id/close", () => {
-  it("closes it as the signed-in user", async () => {
-    const response = await post(`${OPEN.id}/close`);
-
-    expect(response.status).toBe(204);
-    expect(actions.asked).toEqual([["close", OPEN.id, USER]]);
-  });
-
-  it("answers a refusal 409", async () => {
-    actions.refusal = new PullRequestRefused("Pull request #7 is already merged.", true);
-
-    const response = await post(`${OPEN.id}/close`);
-
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      reason: "Pull request #7 is already merged.",
       refresh: true,
     });
   });

@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { SettingChangedBy } from "../../projects/index.js";
+import type { ActedBy, SettingChangedBy } from "../../projects/index.js";
 import { TaskStateChanged, type OffBoardTaskStart } from "../../work/index.js";
 import {
   ProjectSettings,
   type ProjectSetting,
   type RunEnvironmentSetting,
 } from "../ports/project-settings.js";
+import { KnownPeopleForTests } from "../ports/known-people.fixtures.js";
 import { RepositoryFiles } from "../ports/repository-files.js";
 import { SetUpTasks, type SetUpTask } from "../ports/set-up-tasks.js";
 import { ProjectRunEnvironments } from "./project-run-environments.js";
@@ -27,6 +28,7 @@ type Files = Readonly<Record<string, string>>;
 class Settings extends ProjectSettings {
   runEnvironment: RunEnvironmentSetting = "off";
   readonly finished: (readonly string[])[] = [];
+  readonly changedBy: SettingChangedBy[] = [];
 
   async settingOf(): Promise<ProjectSetting> {
     return { runEnvironment: this.runEnvironment, setUpProblems: [] };
@@ -35,9 +37,10 @@ class Settings extends ProjectSettings {
   async change(
     _projectId: string,
     runEnvironment: RunEnvironmentSetting,
-    _by: SettingChangedBy,
+    by: SettingChangedBy,
   ): Promise<void> {
     this.runEnvironment = runEnvironment;
+    this.changedBy.push(by);
   }
 
   async finishSetUp(_projectId: string, problems: readonly string[]): Promise<void> {
@@ -99,6 +102,7 @@ let settings: Settings;
 let repository: Repository;
 let tasks: Tasks;
 let events: EventBus;
+let people: KnownPeopleForTests;
 let runEnvironments: ProjectRunEnvironments;
 
 const BY_ANN: SettingChangedBy = { kind: "user", user: { userId: "user-ann", name: "Ann" } };
@@ -108,7 +112,8 @@ beforeEach(() => {
   repository = new Repository();
   tasks = new Tasks();
   events = new EventBus();
-  runEnvironments = new ProjectRunEnvironments(settings, repository, tasks, events);
+  people = new KnownPeopleForTests();
+  runEnvironments = new ProjectRunEnvironments(settings, repository, tasks, events, people);
   runEnvironments.onModuleInit();
 });
 
@@ -142,6 +147,46 @@ describe("the switch", () => {
     await runEnvironments.change("shop", "off", BY_ANN);
 
     expect(settings.runEnvironment).toBe("off");
+  });
+});
+
+describe("Set up run environment with a valid definition on the base branch", () => {
+  const ANN = { userId: "user-ann", name: "Ann" };
+
+  it("records turning it On as the user who asked", async () => {
+    committed(VALID, undefined);
+
+    await runEnvironments.setUp("shop", { kind: "user", user: ANN });
+
+    expect(settings.runEnvironment).toBe("on");
+    expect(settings.changedBy).toEqual([BY_ANN]);
+  });
+
+  it("records the person by Role, with the name and title they have then, their Task and the users behind them", async () => {
+    committed(VALID, undefined);
+    people.people.set("devops", { card: { name: "Dana", title: "Devops" } });
+    const devops: ActedBy = {
+      kind: "person",
+      roleKey: "devops",
+      taskId: "task-7",
+      askedBy: ANN,
+      allowedBy: ANN,
+    };
+
+    await runEnvironments.setUp("shop", devops);
+    people.people.set("devops", { card: { name: "Dee", title: "Platform" } });
+
+    expect(settings.changedBy).toEqual([
+      {
+        kind: "person",
+        roleKey: "devops",
+        name: "Dana",
+        title: "Devops",
+        taskId: "task-7",
+        askedBy: ANN,
+        allowedBy: ANN,
+      },
+    ]);
   });
 });
 

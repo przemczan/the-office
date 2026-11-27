@@ -56,18 +56,10 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
   { route: "PUT /projects/:id/after-publishing-command", specHeading: THE_USERS_ALONE },
   { route: "PUT /projects/:id/delete-merged-branches", specHeading: THE_USERS_ALONE },
   { route: "PUT /projects/:id/issue-settings", specHeading: THE_USERS_ALONE },
-  { route: "PUT /projects/:id/server-values/:serverName", specHeading: THE_USERS_ALONE },
-  { route: "PUT /projects/:id/engine", specHeading: THE_USERS_ALONE },
-  { route: "PUT /projects/:id/default-pipeline", specHeading: THE_USERS_ALONE },
   {
     route: "POST /projects/:id/actions/:key/runs",
     specHeading: THE_USERS_ALONE,
   },
-
-  // Pipelines: Project Pipelines are among the Project settings above.
-  { route: "POST /project-pipelines", specHeading: THE_USERS_ALONE },
-  { route: "PUT /project-pipelines/:id", specHeading: THE_USERS_ALONE },
-  { route: "DELETE /project-pipelines/:id", specHeading: THE_USERS_ALONE },
 
   // The user's own account.
   { route: "DELETE /account/linked-identities/github", specHeading: THE_USERS_ALONE },
@@ -214,7 +206,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "POST /initiatives/:id/attachments/links", agent: "gap" },
   { route: "POST /initiatives/:id/attachments/files", agent: "gap" },
   { route: "DELETE /attachments/:id", agent: "gap" },
-  { route: "POST /projects/:id/issues/import", agent: "gap" },
 
   // Decisions, Proposals, Threads.
   {
@@ -242,29 +233,10 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "POST /projects", agent: "proposal", note: "propose_project" },
   { route: "POST /repositories/clones", agent: "proposal", note: "propose_project" },
   {
-    route: "POST /projects/:id/onboard",
-    agent: "partial",
-    note: "only by applying propose_project's Proposal",
-  },
-  { route: "POST /projects/:id/run-environment/set-up", agent: "gap" },
-  {
     route: "POST /projects/:id/environment-check",
     agent: "tool",
     note: "run_environment_check (hand-written)",
   },
-  {
-    route: "PUT /projects/:id/kind-default-pipeline",
-    agent: "undecided",
-    note: "spec 6 lists the Default Pipeline, not the Default Pipeline per Kind",
-  },
-  { route: "PUT /projects/:id/project-limit", agent: "gap" },
-  { route: "PUT /projects/:id/mark", agent: "gap" },
-  { route: "PUT /projects/:id/features", agent: "gap" },
-  { route: "PUT /projects/:id/use-project-skills", agent: "gap" },
-  { route: "PUT /projects/:id/skill-use", agent: "gap" },
-  { route: "DELETE /projects/:id/images/:image/:palette", agent: "gap" },
-  { route: "POST /projects/:id/images/:image/:palette/from-repository", agent: "gap" },
-  { route: "POST /projects/:id/base-branch/fetch", agent: "gap" },
   {
     route: "POST /action-runs/:id/stop",
     agent: "undecided",
@@ -274,11 +246,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     route: "POST /pull-requests/:id/merge",
     agent: "undecided",
     note: "the module template's recorded exception: merging is publishing",
-  },
-  {
-    route: "POST /pull-requests/:id/close",
-    agent: "undecided",
-    note: "the module template's recorded exception, with no reason of its own",
   },
 
   // People and Role cards.

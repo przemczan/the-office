@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 import { runEnvironmentSettingSchema } from "./projects.js";
 import { offBoardTaskStartSchema, taskStateSchema } from "./work.js";
 
@@ -46,6 +47,21 @@ export const runEnvironmentSetUpAnswerSchema = z.object({
   start: offBoardTaskStartSchema.nullable(),
 });
 export type RunEnvironmentSetUpAnswer = z.infer<typeof runEnvironmentSetUpAnswerSchema>;
+
+/** Office action: Set up run environment. */
+export const SET_UP_RUN_ENVIRONMENT_ACTION = officeAction({
+  name: "set_up_run_environment",
+  title: "Set up a Project's run environment",
+  description:
+    "Sets up the Project's run environment: turns it On at once when its base branch holds a valid .devcontainer/ definition, else starts the Project's \"Set up the run environment\" Task, or queues it.",
+  input: z.object({ projectId: z.string().min(1).describe("The id of the Project.") }),
+  answer: runEnvironmentSetUpAnswerSchema,
+  route: { method: "POST", path: "/projects/:projectId/run-environment/set-up" },
+  status: 201,
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
 
 /**
  * The run environments' CPU limit: Automatic follows this computer's cores, Fixed puts one number

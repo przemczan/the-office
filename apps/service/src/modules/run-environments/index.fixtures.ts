@@ -4,6 +4,7 @@ export {
   ScriptedContainerRuntime,
   type ScriptedExecution,
 } from "./adapters/scripted/scripted-container-runtime.js";
+export { KnownPeopleForTests, KnownPeopleForTestsModule } from "./ports/known-people.fixtures.js";
 export {
   runEnvironmentsTestbed,
   taskIn,

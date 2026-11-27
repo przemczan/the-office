@@ -1,8 +1,7 @@
-import type { IssueUser } from "./issue-settings.js";
+import type { ActedBy } from "./acted-by.js";
 
-/** Who imported an issue as a Task: the user, by hand, or The Office's auto-import. */
-export type IssueImportedBy =
-  { readonly kind: "user"; readonly user: IssueUser } | { readonly kind: "office" };
+/** Who imported an issue as a Task: the user or a person, by hand, or The Office's auto-import. */
+export type IssueImportedBy = ActedBy | { readonly kind: "office" };
 
 /**
  * Why a Task imported from an issue was Dropped, as Work tells it: a Duplicate names the other

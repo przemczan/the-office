@@ -1,15 +1,15 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { IssueTasks, type NewIssueTask } from "../../../projects/index.js";
 import { TaskService } from "../../application/task-service.js";
-import { byTheUser } from "../../domain/author.js";
+import { byThePerson, byTheUser } from "../../domain/author.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 
 /**
  * Gives Projects where an issue's import creates its Task (docs/design/issues-as-tasks.html): a
  * Task in Backlog of the issue's Kind, its title, its body as the Description, Normal priority,
- * created by the user who imported it, or for the auto-import named as The Office's; and a Task's
- * Initiative's other Tasks, whose issues a Publishing Task's `Fixes #n` lines name. Work reads
- * Projects, so Projects can't ask Work directly.
+ * created by the user or person who imported it, or for the auto-import named as The Office's;
+ * and a Task's Initiative's other Tasks, whose issues a Publishing Task's `Fixes #n` lines name.
+ * Work reads Projects, so Projects can't ask Work directly.
  */
 @Injectable()
 export class ProjectsIssueTaskRegistration implements OnModuleInit {
@@ -46,7 +46,9 @@ export class ProjectsIssueTaskRegistration implements OnModuleInit {
         priority: "normal",
         kind: issue.kind,
       },
-      byTheUser({ userId: issue.createdBy.userId, name: issue.createdBy.name }),
+      issue.createdBy.kind === "user"
+        ? byTheUser(issue.createdBy.user)
+        : byThePerson(issue.createdBy),
       undefined,
       { createdByTheOffice: issue.createdByTheOffice },
     );

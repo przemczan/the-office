@@ -2420,8 +2420,23 @@ export const ATTACH_LINK_ACTION = officeAction({
   subject: ({ taskId }) => ({ kind: "task", id: taskId }),
 });
 
+/** Office action: Onboard, and Onboard again, a Project. */
+export const ONBOARD_PROJECT_ACTION = officeAction({
+  name: "onboard_project",
+  title: "Onboard a Project",
+  description:
+    "Onboards a Project, or onboards it again once its latest Onboard Task is Done or Dropped: its Onboard Task is started or queued at once, the open one while there is one, or refused with nothing made.",
+  input: z.object({ projectId: z.string().min(1).describe("The id of the Project.") }),
+  answer: offBoardTaskStartSchema,
+  route: { method: "POST", path: "/projects/:projectId/onboard" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
 /** Work's Office actions, each declared above. */
 export const WORK_OFFICE_ACTIONS = [
+  ONBOARD_PROJECT_ACTION,
   ADD_DEPENDENCY_ACTION,
   REMOVE_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,

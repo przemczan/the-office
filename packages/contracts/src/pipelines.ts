@@ -641,16 +641,6 @@ export const DROP_AT_GATE_ACTION = officeAction({
   subject: ({ taskId }) => ({ kind: "task", id: taskId }),
 });
 
-/** The Office actions Pipelines carries out. */
-export const PIPELINES_OFFICE_ACTIONS = [
-  CONTINUE_AT_GATE_ACTION,
-  SEND_BACK_AT_GATE_ACTION,
-  DROP_AT_GATE_ACTION,
-  RESTART_TASK_FROM_ACTION,
-  EDIT_TASK_STAGES_ACTION,
-  SWITCH_TO_STAND_IN_ACTION,
-] as const;
-
 /**
  * POST /tasks/:id/stages/check: the Stages as the editor holds them, and `pipelineId`, the Pipeline
  * the draft follows when it isn't the Task's own yet, as one chosen or swapped to before Save.
@@ -727,6 +717,70 @@ export const newProjectPipelineSchema = z.strictObject({
   description: z.string(),
 });
 export type NewProjectPipeline = z.infer<typeof newProjectPipelineSchema>;
+
+const projectPipelineIdInput = z.string().min(1).describe("The id of the Project Pipeline.");
+
+/** Office action: a Project Pipeline made as a copy. */
+export const CREATE_PROJECT_PIPELINE_ACTION = officeAction({
+  name: "create_project_pipeline",
+  title: "Create a Project Pipeline",
+  description:
+    "Makes a Project Pipeline of the Project as a copy of the Stages of an office-wide Pipeline (never Onboard) or of one of the Project's own, which you can change after.",
+  input: z.strictObject({
+    projectId: z.string().min(1).describe("The id of the Project."),
+    copyOf: newProjectPipelineSchema.shape.copyOf.describe("The id of the Pipeline to copy."),
+    name: newProjectPipelineSchema.shape.name.describe("The new Pipeline's name."),
+    description: newProjectPipelineSchema.shape.description.describe("What it is for."),
+  }),
+  answer: projectPipelineSchema,
+  route: { method: "POST", path: "/project-pipelines" },
+  status: 201,
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: a Project Pipeline saved as edited. */
+export const CHANGE_PROJECT_PIPELINE_ACTION = officeAction({
+  name: "change_project_pipeline",
+  title: "Change a Project Pipeline",
+  description:
+    "Saves a Project Pipeline as given: its name, description, Stages and routes whole, replacing what it has. Refused with every problem its Stages have; its id and Project stay.",
+  input: projectPipelineEditSchema.extend({ pipelineId: projectPipelineIdInput }),
+  answer: projectPipelineSchema,
+  route: { method: "PUT", path: "/project-pipelines/:pipelineId" },
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ pipelineId }) => ({ kind: "pipeline", id: pipelineId }),
+});
+
+/** Office action: a Project Pipeline deleted. */
+export const DELETE_PROJECT_PIPELINE_ACTION = officeAction({
+  name: "delete_project_pipeline",
+  title: "Delete a Project Pipeline",
+  description:
+    "Deletes a Project Pipeline. Refused while the Project's Default Pipeline or a Task that hasn't ended uses it.",
+  input: z.object({ pipelineId: projectPipelineIdInput }),
+  answer: z.void(),
+  route: { method: "DELETE", path: "/project-pipelines/:pipelineId" },
+  status: 204,
+  area: "projectsAndSettings",
+  group: "projectSettings",
+  subject: ({ pipelineId }) => ({ kind: "pipeline", id: pipelineId }),
+});
+
+/** The Office actions Pipelines carries out. */
+export const PIPELINES_OFFICE_ACTIONS = [
+  CONTINUE_AT_GATE_ACTION,
+  SEND_BACK_AT_GATE_ACTION,
+  DROP_AT_GATE_ACTION,
+  RESTART_TASK_FROM_ACTION,
+  EDIT_TASK_STAGES_ACTION,
+  SWITCH_TO_STAND_IN_ACTION,
+  CREATE_PROJECT_PIPELINE_ACTION,
+  CHANGE_PROJECT_PIPELINE_ACTION,
+  DELETE_PROJECT_PIPELINE_ACTION,
+] as const;
 
 /** POST /project-pipelines/check: a Project Pipeline as the editor holds it, by its id. */
 export const projectPipelineCheckRequestSchema = projectPipelineEditSchema.extend({

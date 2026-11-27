@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   CHOOSE_TASK_ENGINE_ACTION,
+  ONBOARD_PROJECT_ACTION,
   CONFIRM_INITIATIVE_ACTION,
   INITIATIVE_BACK_TO_SHAPING_ACTION,
   PAUSE_INITIATIVE_ACTION,
@@ -71,6 +72,7 @@ import {
 import { InitiativeService } from "../../application/initiative-service.js";
 import { InitiativeStart, type ReadyTasksStarted } from "../../application/initiative-start.js";
 import { ConflictResolutions } from "../../application/conflict-resolutions.js";
+import { OnboardingService } from "../../application/onboarding-service.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { SavedViewService } from "../../application/saved-view-service.js";
@@ -80,6 +82,7 @@ import { TaskWaysBack } from "../../application/task-ways-back.js";
 import type { Attachment } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
+import type { OffBoardTaskStart } from "../../domain/off-board-task.js";
 import type { Initiative } from "../../domain/initiative.js";
 import { changeRouteOf } from "../../domain/initiative-changes.js";
 import { pipelineIn } from "../../domain/initiative.js";
@@ -95,6 +98,7 @@ import {
   initiativeResponse,
   readyTasksStartedResponse,
 } from "../http/initiative-response.js";
+import { toOffBoardTaskStartResponse } from "../http/off-board-task-responses.js";
 import { TaskResponses } from "../http/task-responses.js";
 import {
   toAttachmentResponse,
@@ -165,9 +169,11 @@ export class WorkOfficeActions implements OnModuleInit {
     private readonly pausing: InitiativePause,
     private readonly attachments: AttachmentService,
     private readonly snapshots: WorkSubjectSnapshots,
+    private readonly onboarding: OnboardingService,
   ) {
     this.handlers = new Map(
       [
+        this.onboardProject(),
         this.addDependency(),
         this.removeDependency(),
         this.addToInitiative(),
@@ -285,6 +291,19 @@ export class WorkOfficeActions implements OnModuleInit {
     const each = this.handlers.get(action.name);
     if (!each) throw new Error(`Work carries out no Office action ${action.name}.`);
     return await each.response(await each.handle(input as never, by));
+  }
+
+  /** Onboard, and Onboard again: started or queued at once, the open one while there is one. */
+  private onboardProject(): AnyWorkActionHandler {
+    return handler({
+      action: ONBOARD_PROJECT_ACTION,
+      handle: ({ projectId }, by) => this.onboarding.onboard(projectId, by),
+      response: async (start: OffBoardTaskStart) => toOffBoardTaskStartResponse(start),
+      words: async (start: OffBoardTaskStart) =>
+        start.outcome === "refused"
+          ? `Onboarding was refused, with nothing made: ${start.reasons.join(" ")}`
+          : `The Onboard Task "${start.offBoardTask.title}" is ${start.outcome === "in-flight" ? "already open" : start.outcome}.`,
+    });
   }
 
   /** As the user's Mark Ready, with their answer to the dialog that names what is missing. */

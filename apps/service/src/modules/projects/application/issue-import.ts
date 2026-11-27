@@ -4,7 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { IssuesImported } from "../domain/issue-link-events.js";
 import { issueKindOf, type IssueImportedBy, type IssueLink } from "../domain/issue-link.js";
-import type { IssueUser } from "../domain/issue-settings.js";
+import { byTheUser, type ActedBy } from "../domain/acted-by.js";
 import type { Project } from "../domain/project.js";
 import { CodeHostRefused, type IssueOnHost } from "../ports/code-host.js";
 import { IssueLinkRepository } from "../ports/issue-link-repository.js";
@@ -89,7 +89,7 @@ export class IssueImport {
   async importByHand(
     projectId: string,
     numbers: readonly number[],
-    by: IssueUser,
+    by: ActedBy,
   ): Promise<IssueImportResult> {
     const project = await this.project(projectId);
     const onHost = await this.hosts.readable(project);
@@ -131,7 +131,7 @@ export class IssueImport {
     for (const issue of wanted) {
       const outcome = await this.importIssue(project, remoteUrl, issue, {
         importedBy: { kind: "office" },
-        createdBy: autoImportLabelSetBy,
+        createdBy: byTheUser(autoImportLabelSetBy),
         createdByTheOffice: true,
       });
       if (outcome.kind === "imported")
@@ -153,7 +153,7 @@ export class IssueImport {
     project: Project,
     { remoteUrl, host }: ProjectIssueHost,
     number: number,
-    by: IssueUser,
+    by: ActedBy,
   ): Promise<ImportOutcome> {
     if ((await this.links.linkedNumbers(remoteUrl)).has(number)) return alreadyImported(number);
     let issue;
@@ -170,7 +170,7 @@ export class IssueImport {
       return { kind: "skipped", why: `#${number} is closed.` };
     }
     return this.importIssue(project, remoteUrl, issue, {
-      importedBy: { kind: "user", user: by },
+      importedBy: by,
       createdBy: by,
       createdByTheOffice: false,
     });
@@ -187,7 +187,7 @@ export class IssueImport {
       createdByTheOffice,
     }: {
       readonly importedBy: IssueImportedBy;
-      readonly createdBy: IssueUser;
+      readonly createdBy: ActedBy;
       readonly createdByTheOffice: boolean;
     },
   ): Promise<ImportOutcome> {

@@ -3,6 +3,7 @@ import type {
   OpenIssue as OpenIssueResponse,
 } from "@the-office/contracts";
 import type { IssueLinkRecord, OpenIssue } from "../../application/issue-import.js";
+import { toAuthorResponse } from "./acted-by-responses.js";
 
 export function toOpenIssueResponse({
   number,
@@ -24,7 +25,10 @@ export function toOpenIssueResponse({
   };
 }
 
-/** The imported-by of a link: The Office's auto-import, or the user who imported it by hand. */
+/**
+ * The imported-by of a link: The Office's auto-import, or the user or person who imported it by
+ * hand.
+ */
 export function toIssueLinkResponse({
   link,
   writeBackProblem,
@@ -36,12 +40,7 @@ export function toIssueLinkResponse({
     author: { login: link.author.login, url: link.author.url },
     importedAt: link.importedAt.toISOString(),
     importedBy:
-      link.importedBy.kind === "office"
-        ? { kind: "office" }
-        : {
-            kind: "user",
-            user: { userId: link.importedBy.user.userId, name: link.importedBy.user.name },
-          },
+      link.importedBy.kind === "office" ? { kind: "office" } : toAuthorResponse(link.importedBy),
     closedOnHostAt: link.closedOnHostAt?.toISOString() ?? null,
     writeBackProblem,
   };

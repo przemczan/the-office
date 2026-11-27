@@ -4,51 +4,34 @@ import {
   afterPublishingCommandChangeSchema,
   beforePublishingCommandChangeSchema,
   commandChangeSchema,
-  defaultPipelineChangeSchema,
   environmentChangeSchema,
   issueSettingsSchema,
-  projectFeaturesChangeSchema,
-  kindDefaultPipelineChangeSchema,
   installCommandChangeSchema,
   installInputsChangeSchema,
-  markChangeSchema,
   projectCommandSchema,
   publishingModeChangeSchema,
   deleteMergedBranchesChangeSchema,
-  projectEngineChangeSchema,
-  projectLimitSchema,
   projectSkillListSchema,
-  projectSkillUseChangeSchema,
-  useProjectSkillsChangeSchema,
   type AddProject,
   type AfterPublishingCommandChange,
   type BeforePublishingCommandChange,
   type CommandChange,
-  type DefaultPipelineChange,
   type EnvironmentChange,
   type InstallCommandChange,
   type InstallInputsChange,
   type IssueSettings as IssueSettingsChange,
-  type KindDefaultPipelineChange,
-  type MarkChange,
   type Project as ProjectResponse,
-  type ProjectEngineChange,
-  type ProjectFeaturesChange,
-  type ProjectLimitChange,
   type ProjectRemoteNeeds,
   type RemoteNeeds as RemoteNeedsResponse,
   type ProjectCommand,
   type PublishingModeChange,
   type DeleteMergedBranchesChange,
   type ProjectSkill,
-  type ProjectSkillUseChange,
-  type UseProjectSkillsChange,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProjectSkills } from "../../../skills/index.js";
 import type { RemoteNeeds } from "../../../../platform/git-identity/remote-needs.js";
-import { ProjectFeatures } from "../../application/project-features.js";
 import { ProjectIssueHosts } from "../../application/project-issue-hosts.js";
 import { ProjectRemotes } from "../../application/project-remotes.js";
 import { ProjectService } from "../../application/project-service.js";
@@ -65,7 +48,6 @@ export class ProjectsController {
     private readonly projectSkills: ProjectSkills,
     private readonly remotes: ProjectRemotes,
     private readonly issueHosts: ProjectIssueHosts,
-    private readonly features: ProjectFeatures,
   ) {}
 
   /** The Project as the API shows it, with its code host read from git's config. */
@@ -193,22 +175,6 @@ export class ProjectsController {
     );
   }
 
-  @Put(":id/project-limit")
-  async changeProjectLimit(
-    @Param("id") id: string,
-    @Body(new ContractPipe(projectLimitSchema)) { projectLimit }: ProjectLimitChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeProjectLimit(id, projectLimit));
-  }
-
-  @Put(":id/mark")
-  async changeMark(
-    @Param("id") id: string,
-    @Body(new ContractPipe(markChangeSchema)) { mark }: MarkChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeMark(id, mark));
-  }
-
   /**
    * Which part of the Office identity the base branch's remote needs, read from the repository
    * each time; apart from the record, so a list of Projects runs no git.
@@ -226,41 +192,6 @@ export class ProjectsController {
     return projectSkillListSchema.parse(await this.projectSkills.of(project.id, project.path));
   }
 
-  @Put(":id/use-project-skills")
-  async changeUseProjectSkills(
-    @Param("id") id: string,
-    @Body(new ContractPipe(useProjectSkillsChangeSchema))
-    { useProjectSkills }: UseProjectSkillsChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeUseProjectSkills(id, useProjectSkills));
-  }
-
-  @Put(":id/skill-use")
-  async changeProjectSkillUse(
-    @Param("id") id: string,
-    @Body(new ContractPipe(projectSkillUseChangeSchema)) { key, use }: ProjectSkillUseChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeProjectSkillUse(id, key, use));
-  }
-
-  @Put(":id/default-pipeline")
-  async changeDefaultPipeline(
-    @Param("id") id: string,
-    @Body(new ContractPipe(defaultPipelineChangeSchema)) { defaultPipeline }: DefaultPipelineChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeDefaultPipeline(id, defaultPipeline));
-  }
-
-  /** A Kind's own default Pipeline; null follows the Project's default Pipeline. */
-  @Put(":id/kind-default-pipeline")
-  async changeKindDefaultPipeline(
-    @Param("id") id: string,
-    @Body(new ContractPipe(kindDefaultPipelineChangeSchema))
-    { kind, pipelineId }: KindDefaultPipelineChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeKindDefaultPipeline(id, kind, pipelineId));
-  }
-
   /** The GitHub issue switches; a label set records the user as who set it. */
   @Put(":id/issue-settings")
   async changeIssueSettings(
@@ -269,24 +200,6 @@ export class ProjectsController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
     return this.respond(await this.projects.changeIssueSettings(id, settings, userOf(signedIn)));
-  }
-
-  /** The feature switches named, others kept; Run environment changes through its own route. */
-  @Put(":id/features")
-  async changeFeatures(
-    @Param("id") id: string,
-    @Body(new ContractPipe(projectFeaturesChangeSchema)) { features }: ProjectFeaturesChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.features.change(id, features));
-  }
-
-  /** Each level sent replaces the Project's; one left out stays (spec §5.4.5, "The API"). */
-  @Put(":id/engine")
-  async changeEngine(
-    @Param("id") id: string,
-    @Body(new ContractPipe(projectEngineChangeSchema)) change: ProjectEngineChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeEngine(id, change));
   }
 }
 

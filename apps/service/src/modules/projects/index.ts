@@ -31,6 +31,9 @@ export {
   RunEnvironmentSetUpRegistry,
   type RunEnvironmentSetUp,
 } from "./application/run-environment-set-up-registry.js";
+export { SessionPeople } from "./application/session-people.js";
+export type { SessionPeopleSource } from "./ports/session-people-source.js";
+export type { ActedBy, ActingPerson, ActingUser } from "./domain/acted-by.js";
 export {
   RunEnvironmentSwitchRegistry,
   type RunEnvironmentSwitch,

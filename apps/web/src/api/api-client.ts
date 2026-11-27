@@ -103,10 +103,13 @@ export async function deleteFromApiReturning<Schema extends z.ZodType>(
 /**
  * Carries out an Office action through its route, its method, path and body all from its
  * declaration, the same one its Office tool comes from, and checks the answer as getFromApi does.
+ * An action answering 204 has no body to read. A refusal whose body `refusalSchema` describes
+ * fails as `RefusedAs` with that body.
  */
 export async function callOfficeAction<Input extends z.ZodObject, Answer extends z.ZodType>(
   action: OfficeAction<Input, Answer>,
   input: z.input<Input>,
+  refusalSchema?: z.ZodType<{ readonly message: string }>,
 ): Promise<z.infer<Answer>> {
   const body = officeActionBody(action, input);
   const response = await fetch(`${API_PATH}${officeActionPath(action, input)}`, {
@@ -117,6 +120,8 @@ export async function callOfficeAction<Input extends z.ZodObject, Answer extends
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+  if (!response.ok && refusalSchema !== undefined) throw await refusedAs(response, refusalSchema);
+  if (response.status === 204) return undefined as z.infer<Answer>;
   return answerOf(response, action.answer);
 }
 

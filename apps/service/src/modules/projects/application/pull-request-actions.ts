@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
 import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
+import { byTheUser, type ActedBy } from "../domain/acted-by.js";
 import { recommendedMergeMethod, type MergeMethod } from "../domain/merge-method.js";
 import type { PullRequest } from "../domain/pull-request.js";
 import {
@@ -101,7 +102,7 @@ export class PullRequestActions {
           ended.number,
           ended.url,
           method,
-          endedBy(by),
+          endedBy(byTheUser(by)),
           at,
         ),
       );
@@ -109,7 +110,7 @@ export class PullRequestActions {
   }
 
   /** Closes the pull request without merging it; its branch stays. */
-  async close(id: string, by: SignedInUser): Promise<void> {
+  async close(id: string, by: ActedBy): Promise<void> {
     refuseInTestInstance(this.testInstance.on, "close-pull-request");
     const pullRequest = await this.openOne(id);
     const host = this.hostOf(pullRequest);
@@ -166,6 +167,6 @@ async function asked<T>(ask: () => Promise<T>): Promise<T> {
   }
 }
 
-function endedBy({ userId, name }: SignedInUser): PullRequestEndedBy {
-  return { kind: "user", userId, name };
+function endedBy(by: ActedBy): PullRequestEndedBy {
+  return by.kind === "user" ? { kind: "user", userId: by.user.userId, name: by.user.name } : by;
 }

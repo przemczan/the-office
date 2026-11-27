@@ -22,8 +22,10 @@ import { ISSUE_WATCH, ISSUE_WATCH_EVERY, IssueWatch } from "./issue-watch.js";
 import { IssueWriteBacks, WRITE_BACK_RETRIED_FOR } from "./issue-write-backs.js";
 import { ProjectIssueHosts, type ProjectIssueHost } from "./project-issue-hosts.js";
 import type { Worktrees } from "./worktrees.js";
+import { byTheUser } from "../domain/acted-by.js";
 
 const ANN = { userId: "user-ann", name: "Ann" };
+const BY_ANN = byTheUser(ANN);
 const BOB = { userId: "user-bob", name: "Bob" };
 
 /** The Project's repository is always the fake host's, readable unless it is signed out. */
@@ -112,7 +114,7 @@ beforeEach(() => {
 
 /** Imports the issue by hand as Ann and gives its Task's id. */
 async function imported(number: number): Promise<string> {
-  const { imported: made } = await issueImport.importByHand("tools", [number], ANN);
+  const { imported: made } = await issueImport.importByHand("tools", [number], BY_ANN);
   const taskId = made[0]?.taskId;
   if (taskId === undefined) throw new Error(`#${number} wasn't imported.`);
   return taskId;
@@ -125,7 +127,7 @@ describe("importing issues by hand", () => {
     host.addIssue({ number: 2, title: "Dark mode for the board" });
     host.addIssue({ number: 3, state: { state: "closed", closedAt: new Date() } });
 
-    const result = await issueImport.importByHand("tools", [1, 2, 3, 4], ANN);
+    const result = await issueImport.importByHand("tools", [1, 2, 3, 4], BY_ANN);
 
     expect(result.imported.map(({ number }) => number)).toEqual([1, 2]);
     expect(result.skipped).toEqual([
@@ -138,7 +140,7 @@ describe("importing issues by hand", () => {
         title: "Live view freezes",
         description: "After sleep.",
         kind: "bug",
-        createdBy: ANN,
+        createdBy: BY_ANN,
         createdByTheOffice: false,
       }),
       expect.objectContaining({
@@ -175,10 +177,10 @@ describe("importing issues by hand", () => {
     host.addIssue({ number: 7 });
     const taskId = await imported(7);
 
-    const again = await issueImport.importByHand("tools", [7], BOB);
+    const again = await issueImport.importByHand("tools", [7], byTheUser(BOB));
     // Dropped, then archived: Archive changes nothing of the link.
     await writeBacks.taskDropped(taskId, null);
-    const afterDrop = await issueImport.importByHand("tools", [7], BOB);
+    const afterDrop = await issueImport.importByHand("tools", [7], byTheUser(BOB));
 
     for (const { skipped } of [again, afterDrop]) {
       expect(skipped).toEqual([{ number: 7, why: "#7 was already imported." }]);
@@ -194,8 +196,8 @@ describe("importing issues by hand", () => {
     host.addIssue({ number: 8 });
     refuseNextTask = true;
 
-    const refused = await issueImport.importByHand("tools", [8], ANN);
-    const tried = await issueImport.importByHand("tools", [8], ANN);
+    const refused = await issueImport.importByHand("tools", [8], BY_ANN);
+    const tried = await issueImport.importByHand("tools", [8], BY_ANN);
 
     expect(refused.skipped).toEqual([{ number: 8, why: "Work refused the Task." }]);
     expect(tried.imported).toHaveLength(1);
@@ -205,7 +207,7 @@ describe("importing issues by hand", () => {
     setUp();
     host.signedOut = true;
 
-    await expect(issueImport.importByHand("tools", [1], ANN)).rejects.toBeInstanceOf(
+    await expect(issueImport.importByHand("tools", [1], BY_ANN)).rejects.toBeInstanceOf(
       ProjectRefused,
     );
     await expect(issueImport.openIssues("tools")).rejects.toBeInstanceOf(ProjectRefused);
@@ -231,8 +233,8 @@ describe("the issue watch", () => {
         createdByTheOffice,
       })),
     ).toEqual([
-      { title: "Issue 1", kind: "feature", createdBy: BOB, createdByTheOffice: true },
-      { title: "Issue 3", kind: "bug", createdBy: BOB, createdByTheOffice: true },
+      { title: "Issue 1", kind: "feature", createdBy: byTheUser(BOB), createdByTheOffice: true },
+      { title: "Issue 3", kind: "bug", createdBy: byTheUser(BOB), createdByTheOffice: true },
     ]);
     expect((await issueImport.linkOf(created[0]?.id ?? ""))?.link.importedBy).toEqual({
       kind: "office",
@@ -270,7 +272,7 @@ describe("the issue watch", () => {
 
     setUp({ autoImportLabel: "office", autoImportLabelSetBy: BOB });
     const [byHand] = await Promise.all([
-      issueImport.importByHand("tools", [3], ANN),
+      issueImport.importByHand("tools", [3], BY_ANN),
       watch.check(),
     ]);
 
@@ -499,7 +501,7 @@ describe("with the Project's GitHub issues switched off", () => {
     await expect(issueImport.openIssues("tools")).rejects.toEqual(
       new FeatureSwitchedOff("github-issues", "Tools"),
     );
-    await expect(issueImport.importByHand("tools", [1], ANN)).rejects.toBeInstanceOf(
+    await expect(issueImport.importByHand("tools", [1], BY_ANN)).rejects.toBeInstanceOf(
       FeatureSwitchedOff,
     );
     expect(host.listings).toEqual([]);

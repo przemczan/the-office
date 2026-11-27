@@ -132,7 +132,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   - closing a pull request: Projects and settings › Project upkeep;
   - saved views: Work › Moving work;
   - the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back and Actions that leave the workstation: Projects and settings › Publishing settings, under [the trust anchor's cap](#the-trust-anchor), as they decide what leaves the workstation;
-  - Server values that aren't secret, the Engine, the Default Pipeline and Project Pipelines: Projects and settings › Project settings.
+  - a Project's other settings: Projects and settings › Project settings, which holds the Project limit, the mark, the feature switches, Use this Project's skills and a skill's use, Icon and Logo from the repository (and removing one), the Engine, the Default Pipeline (and per Kind), Project Pipelines (create, change, delete), Server values that aren't secret, Onboard again and Set up run environment;
+  - looking after a Project: Projects and settings › Project upkeep, which holds fetching the base branch, importing GitHub issues, closing a pull request, re-running CI and starting a Workflow.
 
 ## Tool areas
 
@@ -183,7 +184,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **The ruling:** one call is one held call, ruled by the one ruling step with the Project as its subject: Allowed applies it at once with no card; Consult _person_ and Ask me hold it on one approval card listing every change, Secret variables by name only; Proposal drafts it as one Proposal ([Authority](#authority)).
 - **Who gets it:** every Thread the user talks to the person in, a chat included, and their Agent Stages, unless the setting is Never ([2.2](2.2-people.md#setting-a-project-up)); a Stage's list never adds a tool the person's Authority doesn't give.
 - In a Consultation, a held call is put as [A Consultation's permissions](#a-consultations-permissions) says.
-- **Settings outside the group:** the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back and Actions that leave the workstation are Publishing settings, capped ([The user's alone](#the-users-alone)); Server values, the Engine, the Default Pipeline and Project Pipelines are Project settings; Secret variables' values are in the [trust anchor](#the-trust-anchor).
+- **Settings outside the group:** the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back and Actions that leave the workstation are Publishing settings, capped ([The user's alone](#the-users-alone)); the other settings above ([The user's alone](#the-users-alone), "Not the user's alone") are Project settings, each an Office action sharing its route's handler; a Server value that is a secret is refused to an Agent until Secret values are given to Agents; Secret variables' values are in the [trust anchor](#the-trust-anchor).
 - The Proposal tools (`propose_project_commands`, `propose_test_targets`, `propose_actions`) draft those settings, each with a single row of its own (Proposal or Never) that decides only whether it is offered, until the Project setting actions take their place, ruled Proposal.
 - **The record:** every change of a Project's commands, test targets, Actions, environment or Run environment is kept as a Project setting change, in the same transaction as the change, by the Project page's saves, an applied Proposal and `change_project_settings` alike.
   - It holds the Project, the setting, a short summary naming what changed by name only (never a Secret variable's value), who made it and when.

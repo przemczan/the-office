@@ -22,7 +22,11 @@ import {
   type TemporaryRepository,
 } from "../../../projects/index.fixtures.js";
 import { RunEnvironmentsModule } from "../../../run-environments/index.js";
-import { ScriptedContainerRuntime } from "../../../run-environments/index.fixtures.js";
+import {
+  KnownPeopleForTests,
+  KnownPeopleForTestsModule,
+  ScriptedContainerRuntime,
+} from "../../../run-environments/index.fixtures.js";
 import { TaskService } from "../../../work/index.js";
 import { ownProjectsQueue, workModuleForTests } from "../../../work/index.fixtures.js";
 import { BY_NINA, runOf, SECRET_VALUE, toolsOn } from "./project-setting-office-tools.fixtures.js";
@@ -51,8 +55,9 @@ beforeEach(async () => {
       projects,
       work,
       RunEnvironmentsModule.register({
-        imports: [work, projects],
+        imports: [work, projects, KnownPeopleForTestsModule],
         knownTasks: TaskService,
+        knownPeople: KnownPeopleForTests,
         containerRuntime: new ScriptedContainerRuntime(),
       }),
     ],

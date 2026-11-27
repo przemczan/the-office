@@ -1,7 +1,6 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
-import type { SettingChangedBy } from "../../projects/index.js";
+import type { ActedBy, SettingChangedBy } from "../../projects/index.js";
 import { TaskStateChanged, type OffBoardTaskStart } from "../../work/index.js";
 import {
   definitionProblemsOf,
@@ -14,6 +13,7 @@ import {
   type ProjectSetting,
   type RunEnvironmentSetting,
 } from "../ports/project-settings.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { RepositoryFiles } from "../ports/repository-files.js";
 import { SetUpTasks, type SetUpTask } from "../ports/set-up-tasks.js";
 import { readDefinitionWith } from "./definition-files.js";
@@ -49,6 +49,7 @@ export class ProjectRunEnvironments implements OnModuleInit {
     private readonly files: RepositoryFiles,
     private readonly setUpTasks: SetUpTasks,
     private readonly events: EventBus,
+    private readonly people: KnownPeople,
   ) {}
 
   onModuleInit(): void {
@@ -96,13 +97,10 @@ export class ProjectRunEnvironments implements OnModuleInit {
    * On at once when the base branch, fetched now, has a valid definition; else the Project's open
    * set-up Task, or one made now as `by` asked and started at once, an Off-board Task.
    */
-  async setUp(projectId: string, by: SignedInUser): Promise<RunEnvironmentSetUp> {
+  async setUp(projectId: string, by: ActedBy): Promise<RunEnvironmentSetUp> {
     await this.settingOf(projectId);
     if ((await this.freshDefinition(projectId)).state === "valid") {
-      await this.settings.change(projectId, "on", {
-        kind: "user",
-        user: { userId: by.userId, name: by.name },
-      });
+      await this.settings.change(projectId, "on", await this.settingChangedBy(by));
       return { runEnvironment: await this.read(projectId), start: undefined };
     }
     const start = await this.setUpTasks.add(projectId, by);
@@ -123,6 +121,22 @@ export class ProjectRunEnvironments implements OnModuleInit {
         ? [`The Task ${task.title} has no branch to read .devcontainer/ from.`]
         : definitionProblemsOf(await this.definitionAt(task.projectId, tip));
     await this.settings.finishSetUp(task.projectId, problems);
+  }
+
+  /** Who turned it On, the person by their name and title as they are now, so the record keeps them. */
+  private async settingChangedBy(by: ActedBy): Promise<SettingChangedBy> {
+    if (by.kind === "user")
+      return { kind: "user", user: { userId: by.user.userId, name: by.user.name } };
+    const card = (await this.people.find(by.roleKey))?.card;
+    return {
+      kind: "person",
+      roleKey: by.roleKey,
+      name: card?.name ?? by.roleKey,
+      title: card?.title ?? by.roleKey,
+      ...(by.taskId !== undefined && { taskId: by.taskId }),
+      ...(by.askedBy && { askedBy: { userId: by.askedBy.userId, name: by.askedBy.name } }),
+      ...(by.allowedBy && { allowedBy: { userId: by.allowedBy.userId, name: by.allowedBy.name } }),
+    };
   }
 
   private async settingOf(projectId: string): Promise<ProjectSetting> {

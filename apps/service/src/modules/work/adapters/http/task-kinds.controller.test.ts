@@ -195,7 +195,7 @@ describe("a Task from an issue", () => {
       title: "Sign-in loops",
       description: "It loops.",
       kind: "bug" as const,
-      createdBy: { userId: "user-1", name: "Ann Lee" },
+      createdBy: { kind: "user" as const, user: { userId: "user-1", name: "Ann Lee" } },
     };
 
     const byHand = await readTask(await issues.create({ ...given, createdByTheOffice: false }));

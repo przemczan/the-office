@@ -25,6 +25,9 @@ Serves Work (`ProjectService`, `TaskWorktrees`, `InitiativeBranches`, bound to i
 
 **Deleting merged branches** (spec §5.5): the setting `delete_merged_branches` (`deleteMergedBranches`, Off by default, migration 0192; `PUT /projects/:id/delete-merged-branches` `{ on }`, `changeDeleteMergedBranches`, `ProjectDeleteMergedBranchesChanged` `{ projectId, on }` → `project.delete-merged-branches-changed`, on which Work sweeps; `ProjectRecords` names it). `BranchDeletions` (application, exported, bound to Work's `ProjectBranchDeletions` port in app.module.ts; its types mirrored in `domain/branch-deletion.ts`): `knownBranches`/`isKnown` read local and remote-tracking `office/*`/`initiative/*` refs without fetching; `judge` and `delete` run under `git.exclusively`: the base fetched (`Worktrees.freshBase`), the remote copy fetched when the remote has it (a stale remote-tracking ref left by a host that deleted it is no copy, only removed); a Task's branch holds nothing when every copy is in what it publishes into (its Initiative's branch freshly fetched, else the base), or it is merged (`refs/office/landed/<task>`, or its newest pull request row `merged`) and every copy `addsNothing` there, the commits lost then counted after the newest commit along its first-parent line that adds nothing (a squash); an Initiative's when every copy is in the base or in its Publishing Task's `refs/office/published/<task>` once that Publish merged, naming the owner's Tasks whose landed commit neither holds. Refusals: a pull request open from the branch (`PullRequestRecords.openFromBranch`), checked out in any worktree but the Task's own (`Worktrees.taskOfWorktree`), the Task's worktree with uncommitted changes, git failing (`ProjectRemotes.reasonOf`, shared with `InitiativeBranches` and `RepositoryFiles`). `delete` compares the copies with the request's `expected` ("The branch changed since it was checked; check again."), refuses work the base lacks unless `deleteUnmerged`, then sets `refs/office/branch-tip/<task>` (`Worktrees.branchTipRefOf`, which `changedRevisionOf` falls back to, so Changes still reads), removes the Task's own worktree (`Worktrees.remove`), deletes the remote copy with a lease at the judged commit, then the local ref at its judged commit.
 
+
+**Project settings and upkeep as Office actions** (spec §6 "Project settings by Agents"; contracts' `PROJECT_SETTINGS_OFFICE_ACTIONS`, `SET_UP_RUN_ENVIRONMENT_ACTION`): the Project limit, mark, features, Use this Project's skills and a skill's use, an Icon or Logo from the repository and its removal, the Engine, the Default Pipeline and the one per Kind, Server values, Set up run environment, Fetch the base branch, Import issues and Close a pull request are each one handler in `ProjectOfficeActions`, called by its route (`ProjectOfficeActionsController`, paths by `:projectId`/`:pullRequestId`) and by its Office tool; their old controller methods are gone (Nest's first route wins on a duplicate path), the Project's answers going through `toProjectResponse` with its `codeHost`. `handle(input, caller)` knows whether the user or an Agent asks: `change_server_values` refuses an Agent's value for a secret (until Secret values for Agents) and the user's route accepts it; Import issues, Close and Set up record who acted (`ActedBy`): the user, or for an Agent's call the person by their Role with their Task, `askedBy` and `allowedBy`, read from `SessionPeople` (a registry Conversations fills, in Pipelines' shape); a session nobody keeps is refused. Set up runs through `RunEnvironmentSetUpRegistry`, whose function now answers `{runEnvironment, start}`. Close answers 204 and keeps `PullRequestRefusalsFilter`'s 409 `{reason, refresh}`, put on that route alone so other routes' `TestInstanceRefused` keeps its shape.
+
 **Traps:** `PostgresProjectRepository.find` and `list` go through the platform's read scope (`readOnce`, platform MAP): within one GET they answer the same objects to every caller, who never changes them, and every write of their tables runs through `forgettingReads`, a new writer too.
 
 - Every change to an everyday setting (commands, environment, Run environment, test targets, Actions; spec §6, "Project settings by Agents") is recorded in `project_setting_changes` (migration 0213) only by the repository saving it, in the same transaction (`record` on `ProjectRepository.update`, `TestTargetRepository.update` and `ActionRepository.update`, a `SettingChangeRecording` made from the setting before and after), and only when the change saves something. Callers pass who made it (`SettingChangedBy`: a user, a Proposal a user applied, or a person on a Task), never a summary; summaries (`setting-change-summaries.ts`) name variables and never a value. A set-up Task's Done (`finishRunEnvironmentSetUp`) records nothing. `GET /projects/:id/setting-changes` (`ProjectSettingChanges.latestOf`) answers the newest 20.
@@ -64,7 +67,7 @@ Serves Work (`ProjectService`, `TaskWorktrees`, `InitiativeBranches`, bound to i
 
 ## Public entry (`index.ts`)
 
-BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches, InitiativeBranchMaking, ProjectFeatures, ProjectRecords, ProjectDeviceLines, ProjectDeviceLine, ProjectDeviceLister, ProjectService, ProjectSettingChanges, ProjectSetting, ProjectSettingChange, SettingChangedBy, SettingChangeUser, PullRequestRecords, PullRequest, EngineLevelsChecks, EngineLevelsCheck, EngineLevelsSave, RunEnvironmentSetUpRegistry, RunEnvironmentSetUp, RunEnvironmentSwitchRegistry, RunEnvironmentSwitch, DevcontainerServices, DevcontainerServicesReader, TestTargets, InstallTargetLaunchSettings, RunTargetLaunchSettings, TestTargetCommandBefore, TestTargetLaunchSettings, TestTargetsChatThreads, TestTargetsChatThreadSource, TestTargetsChatThreadStart, TestTargetsChatProposal, TestTargetsChatThread, TestTargetsSetUpTasks, TestTargetsSetUpTask, TestTargetsSetUpTaskLookup, TestInstanceCheckouts, WorkstationBuild, WorkstationBuildEnd, PairingDefinitionExports, ExportedDefinition, DEFAULT_PORT_VARIABLE, EditedTestTarget, InstallTestTarget, RunTestTarget, TestTarget, TestTargetField, TestTargetSetter, EntryPoint, ProjectActions, ActionLastRuns, ActionLastRun, ActionLastRunReader, ActionRunCheckouts, ActionRunCommandEnd, ActionRunCommandLine, ActionRunTip, ActionRunVariable, WorkstationActionRun, ActionRunSettings, ActionRunProject, ProjectCommandRunSettings, ActionWorkflows, ActionCiRun, ActionWorkflowStart, CiRunStatus, CommandOutcome, ProjectEnvironment, ProjectVariable, Action, ActionField, ActionFields, ActionKind, ActionSetter, ProjectCommandActionSettings, TestTargetActionSettings, WorkflowActionSettings, ACTION_TIME_LIMIT_MINUTES, ACTION_RESERVED_VARIABLES, ActionsToPropose, ProposedAction, ProposedActions, ProposedTestTarget, ProposedTestTargetFields, ProposedTestTargets, TestTargetsToPropose, ProjectsFromRepositories, TaskRunEnvironments, CommandWait, TaskRunEnvironmentCommand, TaskInRunEnvironment, TaskRunEnvironmentRunner, RunEnvironmentInstall, FinishedCommand, OutputMask, SecretValue, TaskWorktrees, SessionWorktree, BranchCheckout, TaskBases, TaskBaseLookup, IssueTasks, IssueTaskCreator, NewIssueTask, IssueWriteBack, IssueDropReason, IssueUser, TaskBase, PublishingBranchPush, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectAfterPublishingCommandChanged, ProjectBeforePublishingCommandChanged, ProjectCommandAdded, ProjectCommandChanged, ProjectCommandRemoved, ProjectDefaultPipelineChanged, ProjectEngineChanged, ProjectEnvironmentChanged, ProjectImageChanged, ProjectInstallCommandChanged, ProjectInstallInputsChanged, ProjectLimitChanged, ProjectMarkChanged, ProjectPublishingModeChanged, ProjectDeleteMergedBranchesChanged, ProjectRunEnvironmentChanged, ProjectSkillUseChanged, ProjectTestTargetsChanged, ProjectActionsChanged, ProjectUseProjectSkillsChanged, ProjectFeaturesChanged, NewProject, ProjectCommand, ProjectCommandFields, ProjectCommandKind, ModelEffort, ProjectEngine, ProjectEngineDefault, ProjectEnginePerson, ProjectStandIns, RunEnvironmentAnswer, RunEnvironmentSetting, EnvironmentChecks, AwaitedEnvironmentCheckOptions, EnvironmentCheckOptions, CiRunWatch, CiRun, CiRunList, PullRequestWatch, PullRequestList, EnvironmentCheck, CiRunsChecked, PullRequestClosed, PullRequestsChecked, PullRequestMerged, PullRequestOpened, PullRequestReopened, PullRequestEndedBy, MergeMethod, ProjectNotFound, ProjectRefused, FeatureSwitchedOff, PROJECT_FEATURES, isFeatureOn, switchedOffWords, ProjectFeature, ProjectFeatureStates, ProjectFeatureSwitches, TestInstanceRefused, RefusedInTestInstance, commandEditsProblems, CommandEdit, commandEditsOfProposed, proposedCommands, CommandsToPropose, ProposedCommand, ProposedCommands, ProjectsModule
+BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches, InitiativeBranchMaking, ProjectFeatures, ProjectRecords, ProjectDeviceLines, ProjectDeviceLine, ProjectDeviceLister, ProjectService, ProjectSettingChanges, ProjectSetting, ProjectSettingChange, SettingChangedBy, SettingChangeUser, PullRequestRecords, PullRequest, EngineLevelsChecks, EngineLevelsCheck, EngineLevelsSave, RunEnvironmentSetUpRegistry, RunEnvironmentSetUp, SessionPeople, SessionPeopleSource, ActedBy, ActingPerson, ActingUser, RunEnvironmentSwitchRegistry, RunEnvironmentSwitch, DevcontainerServices, DevcontainerServicesReader, TestTargets, InstallTargetLaunchSettings, RunTargetLaunchSettings, TestTargetCommandBefore, TestTargetLaunchSettings, TestTargetsChatThreads, TestTargetsChatThreadSource, TestTargetsChatThreadStart, TestTargetsChatProposal, TestTargetsChatThread, TestTargetsSetUpTasks, TestTargetsSetUpTask, TestTargetsSetUpTaskLookup, TestInstanceCheckouts, WorkstationBuild, WorkstationBuildEnd, PairingDefinitionExports, ExportedDefinition, DEFAULT_PORT_VARIABLE, EditedTestTarget, InstallTestTarget, RunTestTarget, TestTarget, TestTargetField, TestTargetSetter, EntryPoint, ProjectActions, ActionLastRuns, ActionLastRun, ActionLastRunReader, ActionRunCheckouts, ActionRunCommandEnd, ActionRunCommandLine, ActionRunTip, ActionRunVariable, WorkstationActionRun, ActionRunSettings, ActionRunProject, ProjectCommandRunSettings, ActionWorkflows, ActionCiRun, ActionWorkflowStart, CiRunStatus, CommandOutcome, ProjectEnvironment, ProjectVariable, Action, ActionField, ActionFields, ActionKind, ActionSetter, ProjectCommandActionSettings, TestTargetActionSettings, WorkflowActionSettings, ACTION_TIME_LIMIT_MINUTES, ACTION_RESERVED_VARIABLES, ActionsToPropose, ProposedAction, ProposedActions, ProposedTestTarget, ProposedTestTargetFields, ProposedTestTargets, TestTargetsToPropose, ProjectsFromRepositories, TaskRunEnvironments, CommandWait, TaskRunEnvironmentCommand, TaskInRunEnvironment, TaskRunEnvironmentRunner, RunEnvironmentInstall, FinishedCommand, OutputMask, SecretValue, TaskWorktrees, SessionWorktree, BranchCheckout, TaskBases, TaskBaseLookup, IssueTasks, IssueTaskCreator, NewIssueTask, IssueWriteBack, IssueDropReason, IssueUser, TaskBase, PublishingBranchPush, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectAfterPublishingCommandChanged, ProjectBeforePublishingCommandChanged, ProjectCommandAdded, ProjectCommandChanged, ProjectCommandRemoved, ProjectDefaultPipelineChanged, ProjectEngineChanged, ProjectEnvironmentChanged, ProjectImageChanged, ProjectInstallCommandChanged, ProjectInstallInputsChanged, ProjectLimitChanged, ProjectMarkChanged, ProjectPublishingModeChanged, ProjectDeleteMergedBranchesChanged, ProjectRunEnvironmentChanged, ProjectSkillUseChanged, ProjectTestTargetsChanged, ProjectActionsChanged, ProjectUseProjectSkillsChanged, ProjectFeaturesChanged, NewProject, ProjectCommand, ProjectCommandFields, ProjectCommandKind, ModelEffort, ProjectEngine, ProjectEngineDefault, ProjectEnginePerson, ProjectStandIns, RunEnvironmentAnswer, RunEnvironmentSetting, EnvironmentChecks, AwaitedEnvironmentCheckOptions, EnvironmentCheckOptions, CiRunWatch, CiRun, CiRunList, PullRequestWatch, PullRequestList, EnvironmentCheck, CiRunsChecked, PullRequestClosed, PullRequestsChecked, PullRequestMerged, PullRequestOpened, PullRequestReopened, PullRequestEndedBy, MergeMethod, ProjectNotFound, ProjectRefused, FeatureSwitchedOff, PROJECT_FEATURES, isFeatureOn, switchedOffWords, ProjectFeature, ProjectFeatureStates, ProjectFeatureSwitches, TestInstanceRefused, RefusedInTestInstance, commandEditsProblems, CommandEdit, commandEditsOfProposed, proposedCommands, CommandsToPropose, ProposedCommand, ProposedCommands, ProjectsModule
 
 ## Domain events
 
@@ -85,16 +88,12 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 - `GET /projects/:id/environment-check`: EnvironmentChecksController.latest
 - `POST /projects/:id/environment-check`: EnvironmentChecksController.start
 - `GET /projects/:id/issues`: IssuesController.openIssues
-- `POST /projects/:id/issues/import`: IssuesController.import
 - `GET /issue-links`: IssuesController.linkOf
 - `GET /projects/:id/actions`: ProjectActionsController.list
 - `PUT /projects/:id/actions`: ProjectActionsController.change
 - `POST /projects/:id/images/:image/:palette`: ProjectImagesController.change
-- `POST /projects/:id/images/:image/:palette/from-repository`: ProjectImagesController.changeFromRepository
-- `DELETE /projects/:id/images/:image/:palette`: ProjectImagesController.remove
 - `GET /projects/:id/images/:imageId/content`: ProjectImagesController.content
 - `GET /projects/:id/server-values`: ProjectServerValuesController.list
-- `PUT /projects/:id/server-values/:serverName`: ProjectServerValuesController.change
 - `GET /projects/:id/setting-changes`: ProjectSettingChangesController.latest
 - `GET /projects/:id/test-targets`: ProjectTestTargetsController.list
 - `PUT /projects/:id/test-targets`: ProjectTestTargetsController.change
@@ -111,25 +110,15 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 - `PUT /projects/:id/delete-merged-branches`: ProjectsController.changeDeleteMergedBranches
 - `PUT /projects/:id/before-publishing-command`: ProjectsController.changeBeforePublishingCommand
 - `PUT /projects/:id/after-publishing-command`: ProjectsController.changeAfterPublishingCommand
-- `PUT /projects/:id/project-limit`: ProjectsController.changeProjectLimit
-- `PUT /projects/:id/mark`: ProjectsController.changeMark
 - `GET /projects/:id/remote-needs`: ProjectsController.remoteNeeds
 - `GET /projects/:id/skills`: ProjectsController.skills
-- `PUT /projects/:id/use-project-skills`: ProjectsController.changeUseProjectSkills
-- `PUT /projects/:id/skill-use`: ProjectsController.changeProjectSkillUse
-- `PUT /projects/:id/default-pipeline`: ProjectsController.changeDefaultPipeline
-- `PUT /projects/:id/kind-default-pipeline`: ProjectsController.changeKindDefaultPipeline
 - `PUT /projects/:id/issue-settings`: ProjectsController.changeIssueSettings
-- `PUT /projects/:id/features`: ProjectsController.changeFeatures
-- `PUT /projects/:id/engine`: ProjectsController.changeEngine
 - `GET /pull-requests`: PullRequestsController.list
 - `POST /pull-requests/refresh`: PullRequestsController.refresh
 - `GET /pull-requests/:id/merge-methods`: PullRequestsController.mergeMethods
 - `POST /pull-requests/:id/merge`: PullRequestsController.merge
-- `POST /pull-requests/:id/close`: PullRequestsController.close
 - `POST /repositories/clones`: RepositoryClonesController.start
 - `GET /repositories/clones/:id`: RepositoryClonesController.read
-- `POST /projects/:id/base-branch/fetch`: RepositoryFilesController.fetch
 - `GET /projects/:id/branches`: RepositoryFilesController.branches
 - `GET /projects/:id/commits/:commit/folder`: RepositoryFilesController.folder
 - `GET /projects/:id/commits/:commit/file`: RepositoryFilesController.file
@@ -180,6 +169,7 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 
 ### adapters/http/
 
+- `acted-by-responses.ts`: toAuthorResponse
 - `ci-runs.controller.ts`: CiRunsController
 - `environment-checks.controller.fixtures.ts`: PASSES, FAILS, NEEDS_GREETING, SLEEPS, GREETING, states, CHECK_TIMEOUT, environmentChecksHttp
 - `environment-checks.controller.ts`: EnvironmentChecksController
@@ -192,6 +182,7 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 - `project-office-actions.controller.ts`: ProjectOfficeActionsController
 - `project-refusals.filter.ts`: ProjectRefusalsFilter
 - `project-responses.ts`: toProjectResponse, toEnvironmentResponse
+- `project-server-values-responses.ts`: toProjectMcpServerValuesResponse
 - `project-server-values.controller.ts`: ProjectServerValuesController
 - `project-setting-changes.controller.ts`: ProjectSettingChangesController
 - `project-test-targets.controller.fixtures.ts`: commitEntryPoints, commitGradleWrapper, aHostedTarget, anInstallOnADeviceTarget, aBuildToInstallTarget
@@ -210,7 +201,7 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 ### adapters/office-actions/
 
 - `project-office-actions.ts`: ProjectOfficeActions
-- Tests: project-office-actions.test.ts
+- Tests: project-office-actions.test.ts, project-settings-office-actions.test.ts
 
 ### adapters/office-tools/
 
@@ -309,6 +300,7 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 - `run-environment-switch-registry.ts`: RunEnvironmentSwitch, RunEnvironmentSwitchRegistry
 - `screenshots-folder.ts`: SCREENSHOTS_FOLDER, ensureScreenshotsFolder, keepingScreenshots
 - `script-commands.ts`: MovedFiles, ScriptCommandRun, STAGE_RUNS_FILE_VARIABLE, ScriptCommandOptions, ScriptCommands
+- `session-people.ts`: SessionPeople
 - `task-bases.fixtures.ts`: TaskBasesForTests
 - `task-bases.ts`: TaskBaseLookup, TaskBases
 - `task-command-runner.fixtures.ts`: taskCommandsOver
@@ -327,6 +319,7 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 
 ### domain/
 
+- `acted-by.ts`: ActingUser, ActingPerson, ActedBy, byTheUser
 - `action.ts`: ACTION_KINDS, ActionKind, ACTION_KIND_NAMES, ACTION_NAME_MAX_LENGTH, ACTION_TIME_LIMIT_MINUTES, ACTION_RESERVED_VARIABLES, ACTION_FIELDS, ActionField, ProjectCommandActionSettings, TestTargetActionSettings, WorkflowActionSettings, ActionFields, ActionSetter, ActionSetBy, Action, ActionContext, actionLabel, workflowFileName, trimmedAction, markedAction, editedActions, sameSettings, sameField, changedFields, setByAfter, sameActions, removedKeys, actionProblems, reservedVariableProblems, reservedEnvironmentProblems
 - `branch-deletion.ts`: BranchOwner, BranchCopy, BranchWork, BranchDeletionPreview, BranchDeletionRequest, BranchDeletion, BRANCH_WORK_SUBJECTS, DELETABLE_BRANCH_PREFIXES, sameCopies
 - `branch-update.ts`: ConflictHandling, BranchUpdate
@@ -392,5 +385,6 @@ BaseCheckouts, BaseCheckout, BranchDeletions, CommittedFiles, InitiativeBranches
 - `project-setting-change-repository.ts`: ProjectSettingChangeRepository
 - `pull-request-repository.fixtures.ts`: PullRequestRepositoryForTests
 - `pull-request-repository.ts`: PullRequestRepository
+- `session-people-source.ts`: SessionPeopleSource
 - `test-target-repository.ts`: TestTargetRepository
 - `test-targets-chat-repository.ts`: TestTargetsChatRepository

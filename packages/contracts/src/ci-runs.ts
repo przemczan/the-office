@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { officeAction } from "./office-actions.js";
+import { PROJECT_SETTINGS_OFFICE_ACTIONS } from "./projects.js";
+import { SET_UP_RUN_ENVIRONMENT_ACTION } from "./run-environments.js";
 
 /** Where a CI run stands, in words no code host owns. */
 export const CI_RUN_STATUSES = [
@@ -207,7 +209,12 @@ export const START_WORKFLOW_ACTION = officeAction({
 });
 
 /** Projects' Office actions, each declared above. */
-export const PROJECT_OFFICE_ACTIONS = [RERUN_CI_RUN_ACTION, START_WORKFLOW_ACTION] as const;
+export const PROJECT_OFFICE_ACTIONS = [
+  RERUN_CI_RUN_ACTION,
+  START_WORKFLOW_ACTION,
+  ...PROJECT_SETTINGS_OFFICE_ACTIONS,
+  SET_UP_RUN_ENVIRONMENT_ACTION,
+] as const;
 
 /** A Project's CI runs changed, so an open CI page refetches them. */
 export const ciRunWebEventSchema = z.discriminatedUnion("type", [

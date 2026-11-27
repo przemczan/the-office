@@ -7,7 +7,7 @@ import {
   PullRequestReopened,
   type PullRequestEndedBy as EndedOnProjects,
 } from "../../projects/index.js";
-import { byTheUser } from "../domain/author.js";
+import { byThePerson, byTheUser } from "../domain/author.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
@@ -75,7 +75,12 @@ export class PullRequestOutcomes implements OnModuleInit {
 }
 
 function endedBy(by: EndedOnProjects): PullRequestEndedBy {
-  return by.kind === "code-host"
-    ? { kind: "code-host", name: by.name }
-    : byTheUser({ userId: by.userId, name: by.name });
+  switch (by.kind) {
+    case "code-host":
+      return { kind: "code-host", name: by.name };
+    case "person":
+      return byThePerson(by);
+    case "user":
+      return byTheUser({ userId: by.userId, name: by.name });
+  }
 }

@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
+import type { ActedBy } from "../domain/acted-by.js";
 
 /**
  * Set up run environment for a Project: On at once with a valid definition, else its set-up Task,
- * added as `by` asked.
+ * added as `by` asked; answers what it did as the API shows it, which Projects only passes on.
  */
-export type RunEnvironmentSetUp = (projectId: string, by: SignedInUser) => Promise<void>;
+export type RunEnvironmentSetUp = (projectId: string, by: ActedBy) => Promise<unknown>;
 
 /**
  * Set up run environment, given by Run environments as it starts, for a Project added with the
@@ -20,8 +20,8 @@ export class RunEnvironmentSetUpRegistry {
     this.registered = setUp;
   }
 
-  async setUp(projectId: string, by: SignedInUser): Promise<void> {
+  async setUp(projectId: string, by: ActedBy): Promise<unknown> {
     if (!this.registered) throw new Error("No Set up run environment is registered.");
-    await this.registered(projectId, by);
+    return this.registered(projectId, by);
   }
 }

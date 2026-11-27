@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { ActingPerson } from "./acted-by.js";
 import type { MergeMethod } from "./merge-method.js";
 
 /** Publish opened a pull request, or found the one open for the Task's branch, and recorded it. */
@@ -14,9 +15,13 @@ export class PullRequestOpened extends DomainEvent {
   }
 }
 
-/** Who ended a pull request: a user, from Work › Pull requests, or someone on its code host. */
+/**
+ * Who ended a pull request: a user, from Work › Pull requests, a person, through their Office
+ * tools, or someone on its code host.
+ */
 export type PullRequestEndedBy =
   | { readonly kind: "user"; readonly userId: string; readonly name: string }
+  | ActingPerson
   | { readonly kind: "code-host"; readonly name: string };
 
 /** Ended directly on the code host, which `name` names ("GitHub"). */

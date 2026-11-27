@@ -35,6 +35,7 @@ import { RunEnvironments } from "./application/run-environments.js";
 import { ServiceOwner, serviceOwnerOf } from "./application/service-owner.js";
 import type { FileOwnerIds } from "./domain/run-environment.js";
 import { ContainerRuntime } from "./ports/container-runtime.js";
+import { KnownPeople } from "./ports/known-people.js";
 import { KnownTasks } from "./ports/known-tasks.js";
 import { ProjectSettings } from "./ports/project-settings.js";
 import { RepositoryFiles } from "./ports/repository-files.js";
@@ -44,10 +45,12 @@ import { SetUpTasks } from "./ports/set-up-tasks.js";
 export interface RunEnvironmentsModuleOptions {
   /**
    * The modules that provide `knownTasks`, and Projects and Work, whose `ProjectService`,
-   * `CommittedFiles` and `RunEnvironmentSetUps` the Project's Run environment setting goes through.
+   * `CommittedFiles` and `RunEnvironmentSetUps` the Project's Run environment setting goes through,
+   * and the one that provides `knownPeople`.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownTasks: Type<KnownTasks>;
+  readonly knownPeople: Type<KnownPeople>;
   /** The container runtime; the compose CLI unless a test gives a scripted one. */
   readonly containerRuntime?: ContainerRuntime;
   /** This computer's cores, which Automatic follows; `os.availableParallelism()` unless a test gives them. */
@@ -74,6 +77,7 @@ export class RunEnvironmentsModule {
   static register({
     imports,
     knownTasks,
+    knownPeople,
     containerRuntime,
     hostCores = availableParallelism(),
     serviceOwner = currentOperatingSystem().fileOwner,
@@ -92,6 +96,7 @@ export class RunEnvironmentsModule {
         { provide: HostCores, useValue: new HostCores(hostCores) },
         { provide: ServiceOwner, useValue: serviceOwnerOf(serviceOwner) },
         { provide: KnownTasks, useExisting: knownTasks },
+        { provide: KnownPeople, useExisting: knownPeople },
         {
           provide: HostedServiceReadiness,
           useValue: new HostedServiceReadiness(hostedServiceReadiness),

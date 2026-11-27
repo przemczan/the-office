@@ -1,6 +1,9 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
+  CHANGE_PROJECT_PIPELINE_ACTION,
   CONTINUE_AT_GATE_ACTION,
+  CREATE_PROJECT_PIPELINE_ACTION,
+  DELETE_PROJECT_PIPELINE_ACTION,
   DROP_AT_GATE_ACTION,
   EDIT_TASK_STAGES_ACTION,
   PIPELINES_OFFICE_ACTIONS,
@@ -8,9 +11,16 @@ import {
   SEND_BACK_AT_GATE_ACTION,
   SWITCH_TO_STAND_IN_ACTION,
   type OfficeAction,
+  type OfficeActionSubject,
 } from "@the-office/contracts";
 import type { z } from "zod";
-import { officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
+import {
+  officeActionDraft,
+  officeActionTool,
+  OfficeToolRegistry,
+  type OfficeActionSubjectSnapshot,
+} from "../../../engine/index.js";
+import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { GateService } from "../../application/gate-service.js";
 import { StandInSwitches } from "../../application/stand-in-switches.js";
 import { TaskRestarts } from "../../application/task-restarts.js";
@@ -19,10 +29,18 @@ import { withGivenLimits } from "../../domain/flow.js";
 import { GateRefused } from "../../domain/gate-refused.js";
 import { RestartRefused } from "../../domain/restart-refused.js";
 import type { GatePerson, HoldingUser } from "../../domain/stage-run.js";
+import {
+  PipelineRemovalRefused,
+  UnknownPipeline,
+  UnknownProjectPipeline,
+} from "../../domain/pipeline-library-refusals.js";
 import { StagesEditRefused } from "../../domain/stages-edit-refused.js";
+import { ProjectDefaults } from "../../ports/project-defaults.js";
+import { ProjectPipelineRepository } from "../../ports/project-pipeline-repository.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import type { RestartingPerson } from "../../ports/started-tasks.js";
-import { toTaskStagesResponse } from "../http/pipeline-responses.js";
+import { withStagesGiven } from "../http/given-stages.js";
+import { toProjectPipelineResponse, toTaskStagesResponse } from "../http/pipeline-responses.js";
 
 type ContinueAtGate = z.output<typeof CONTINUE_AT_GATE_ACTION.input>;
 type SendBackAtGate = z.output<typeof SEND_BACK_AT_GATE_ACTION.input>;
@@ -30,6 +48,9 @@ type DropAtGate = z.output<typeof DROP_AT_GATE_ACTION.input>;
 type RestartTaskFrom = z.output<typeof RESTART_TASK_FROM_ACTION.input>;
 type EditTaskStages = z.output<typeof EDIT_TASK_STAGES_ACTION.input>;
 type SwitchToStandIn = z.output<typeof SWITCH_TO_STAND_IN_ACTION.input>;
+type CreateProjectPipeline = z.output<typeof CREATE_PROJECT_PIPELINE_ACTION.input>;
+type ChangeProjectPipeline = z.output<typeof CHANGE_PROJECT_PIPELINE_ACTION.input>;
+type DeleteProjectPipeline = z.output<typeof DELETE_PROJECT_PIPELINE_ACTION.input>;
 
 /** The person in a session, with the user who asked them and, for a held call, who allowed it. */
 type PersonInSession = RestartingPerson & { readonly askedBy: HoldingUser };
@@ -49,6 +70,9 @@ export class PipelinesOfficeActions implements OnModuleInit {
     private readonly taskStages: TaskStagesService,
     private readonly standInSwitches: StandInSwitches,
     private readonly sessionPeople: SessionPeople,
+    private readonly editor: PipelineLibraryEditor,
+    private readonly projectPipelines: ProjectPipelineRepository,
+    private readonly projects: ProjectDefaults,
   ) {}
 
   onModuleInit(): void {
@@ -105,6 +129,79 @@ export class PipelinesOfficeActions implements OnModuleInit {
         }),
       ),
     );
+    this.registry.register(
+      officeActionTool(
+        CREATE_PROJECT_PIPELINE_ACTION,
+        (input) =>
+          this.answered(async () => {
+            const made = await this.createProjectPipeline(input);
+            return `The Project Pipeline "${made.name}" is made, id ${made.id}.`;
+          }),
+        this.proposing(CREATE_PROJECT_PIPELINE_ACTION, async (input) => {
+          await this.createProjectPipeline(input);
+          return `The Project Pipeline "${input.name}" is made.`;
+        }),
+      ),
+    );
+    this.registry.register(
+      officeActionTool(
+        CHANGE_PROJECT_PIPELINE_ACTION,
+        (input) =>
+          this.answered(async () => {
+            await this.changeProjectPipeline(input);
+            return "The Project Pipeline is saved as given.";
+          }),
+        this.proposing(CHANGE_PROJECT_PIPELINE_ACTION, async (input) => {
+          await this.changeProjectPipeline(input);
+          return "The Project Pipeline is saved as given.";
+        }),
+      ),
+    );
+    this.registry.register(
+      officeActionTool(
+        DELETE_PROJECT_PIPELINE_ACTION,
+        (input) =>
+          this.answered(async () => {
+            await this.deleteProjectPipeline(input);
+            return "The Project Pipeline is deleted.";
+          }),
+        this.proposing(DELETE_PROJECT_PIPELINE_ACTION, async (input) => {
+          await this.deleteProjectPipeline(input);
+          return "The Project Pipeline is deleted.";
+        }),
+      ),
+    );
+  }
+
+  /** What makes a call of the action draftable as a Proposal, applied for the user who allows it. */
+  private proposing<Input extends z.ZodObject>(
+    action: OfficeAction<Input>,
+    apply: (input: z.output<Input>) => Promise<string>,
+  ) {
+    return {
+      draft: async (input: z.output<Input>) =>
+        officeActionDraft(action, input, await this.snapshotOf(action.subject(input))),
+      applyFor: (input: z.output<Input>) => this.answered(() => apply(input)),
+    };
+  }
+
+  /** The Project or Project Pipeline a Proposal acts on: its name, and for a Pipeline what it writes. */
+  private async snapshotOf({
+    kind,
+    id,
+  }: OfficeActionSubject): Promise<OfficeActionSubjectSnapshot> {
+    if (kind === "project") {
+      const project = (await this.projects.list()).find((each) => each.id === id);
+      return { title: project?.name ?? id, decidedBy: {}, values: {} };
+    }
+    const pipeline = await this.projectPipelines.find(id);
+    if (!pipeline) return { title: id, decidedBy: { exists: false }, values: {} };
+    const { name, description, stages, endPosition } = toProjectPipelineResponse(pipeline);
+    return {
+      title: name,
+      decidedBy: { exists: true },
+      values: { name, description, stages, endPosition },
+    };
   }
 
   /** The route's answer to the action, carried out for the signed-in user `by`. */
@@ -125,6 +222,16 @@ export class PipelinesOfficeActions implements OnModuleInit {
         return {};
       case EDIT_TASK_STAGES_ACTION.name:
         return await this.editTaskStages(input as EditTaskStages);
+      case CREATE_PROJECT_PIPELINE_ACTION.name:
+        return toProjectPipelineResponse(
+          await this.createProjectPipeline(input as CreateProjectPipeline),
+        );
+      case CHANGE_PROJECT_PIPELINE_ACTION.name:
+        return toProjectPipelineResponse(
+          await this.changeProjectPipeline(input as ChangeProjectPipeline),
+        );
+      case DELETE_PROJECT_PIPELINE_ACTION.name:
+        return await this.deleteProjectPipeline(input as DeleteProjectPipeline);
       default:
         return await this.switchToStandIn(input as SwitchToStandIn, by);
     }
@@ -164,6 +271,18 @@ export class PipelinesOfficeActions implements OnModuleInit {
     );
   }
 
+  private createProjectPipeline({ projectId, ...edit }: CreateProjectPipeline) {
+    return this.editor.addProjectPipeline(projectId, edit);
+  }
+
+  private changeProjectPipeline({ pipelineId, ...edit }: ChangeProjectPipeline) {
+    return this.editor.saveProjectPipeline(pipelineId, withStagesGiven(edit));
+  }
+
+  private deleteProjectPipeline({ pipelineId }: DeleteProjectPipeline): Promise<void> {
+    return this.editor.removeProjectPipeline(pipelineId);
+  }
+
   private async switchToStandIn({ runIds }: SwitchToStandIn, by: HoldingUser) {
     return { results: await this.standInSwitches.switch(runIds, by) };
   }
@@ -178,6 +297,9 @@ export class PipelinesOfficeActions implements OnModuleInit {
       if (
         error instanceof RestartRefused ||
         error instanceof StagesEditRefused ||
+        error instanceof PipelineRemovalRefused ||
+        error instanceof UnknownPipeline ||
+        error instanceof UnknownProjectPipeline ||
         error instanceof GateRefused
       ) {
         return { text: error.message, isError: true };

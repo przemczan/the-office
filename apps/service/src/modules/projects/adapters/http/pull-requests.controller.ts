@@ -30,7 +30,8 @@ import { PullRequestRefusalsFilter } from "./pull-request-refusals.filter.js";
 
 /**
  * Work › Pull requests: the open pull requests The Office opened, with their checks and merge
- * state, and their Merge and Close. A refused merge or close answers 409 `{ reason, refresh }`.
+ * state, and their Merge and Close (Close is the Office action close_pull_request). A refused
+ * merge or close answers 409 `{ reason, refresh }`.
  */
 @Controller("pull-requests")
 @UseFilters(PullRequestRefusalsFilter)
@@ -84,15 +85,6 @@ export class PullRequestsController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<void> {
     await this.actions.merge(id, method, userOf(signedIn));
-  }
-
-  @Post(":id/close")
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async close(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<void> {
-    await this.actions.close(id, userOf(signedIn));
   }
 }
 

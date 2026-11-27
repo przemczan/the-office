@@ -5,6 +5,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 ## Where it is
 
 - Route: `/projects/$projectId`, a parent with one child route per section, under the Projects page's `/projects`.
+- The page's saves of the Project limit, Mark, Features, Skills, Icon and Logo from the repository, Engine, Default Pipeline (and per Kind), Project Pipelines, Server values, Onboard again, Set up run environment, Fetch and Import issues are Office actions: an Agent's call and the page's save share one handler, so the page shows the same refusals ([6 Project settings by Agents](../6-permissions-and-safety.md#project-settings-by-agents)).
 - It opens in the pane beside the Projects list ([projects.md](projects.md#layout)), from its item there or from any link to a Project.
 - The page title is the Project's name; its crumb is the name, with "Projects" as its parent (back to `/projects`).
 - Sections and their routes, in the tabs' order:

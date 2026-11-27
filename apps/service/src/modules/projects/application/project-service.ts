@@ -44,6 +44,7 @@ import {
   type ProjectChange,
   type ProjectChanges,
 } from "../domain/project-changes.js";
+import { byTheUser } from "../domain/acted-by.js";
 import { defaultPipelineFor, type TaskKind } from "../domain/kind-default-pipeline.js";
 import type { IssueSettingsChange, IssueUser } from "../domain/issue-settings.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
@@ -144,7 +145,7 @@ export class ProjectService {
   ): Promise<Project> {
     if (answer !== "yes") return project;
     try {
-      await this.runEnvironmentSetUp.setUp(project.id, by);
+      await this.runEnvironmentSetUp.setUp(project.id, byTheUser(by));
       return await this.read(project.id);
     } catch (error) {
       this.logger.error(

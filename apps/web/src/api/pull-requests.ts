@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  CLOSE_PULL_REQUEST_ACTION,
   pullRequestListSchema,
   pullRequestMergeMethodsSchema,
   pullRequestRefusalSchema,
@@ -8,6 +9,7 @@ import {
   type PullRequestWebEvent,
 } from "@the-office/contracts";
 import {
+  callOfficeAction,
   getFromApi,
   RefusedAs,
   sendToApiWithNoAnswer,
@@ -80,12 +82,7 @@ export function mergePullRequest(pullRequestId: string, method: MergeMethod): Pr
 
 /** Closes the pull request on its code host without merging; its branch stays. */
 export function closePullRequest(pullRequestId: string): Promise<void> {
-  return sendToApiWithNoAnswerRefusedAs(
-    "POST",
-    `/pull-requests/${pullRequestId}/close`,
-    {},
-    refusalWithMessage,
-  );
+  return callOfficeAction(CLOSE_PULL_REQUEST_ACTION, { pullRequestId }, refusalWithMessage);
 }
 
 /** Why the code host or The Office refused a Merge or Close, when that is what `error` is. */

@@ -1,14 +1,25 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   API_PATH,
-  baseBranchFetchSchema,
-  issueImportResultSchema,
+  CHANGE_DEFAULT_PIPELINE_ACTION,
+  CHANGE_KIND_DEFAULT_PIPELINE_ACTION,
+  CHANGE_PROJECT_ENGINE_ACTION,
+  CHANGE_PROJECT_FEATURES_ACTION,
+  CHANGE_PROJECT_LIMIT_ACTION,
+  CHANGE_PROJECT_MARK_ACTION,
+  CHANGE_PROJECT_SKILL_USE_ACTION,
+  CHANGE_SERVER_VALUES_ACTION,
+  CHANGE_USE_PROJECT_SKILLS_ACTION,
+  FETCH_BASE_BRANCH_ACTION,
+  IMPORT_ISSUES_ACTION,
+  REMOVE_PROJECT_IMAGE_ACTION,
+  SET_PROJECT_IMAGE_FROM_REPOSITORY_ACTION,
+  SET_UP_RUN_ENVIRONMENT_ACTION,
   issueLinkSchema,
   openIssueListSchema,
   environmentCheckSchema,
   latestEnvironmentCheckSchema,
   projectMcpServerValuesListSchema,
-  projectMcpServerValuesSchema,
   projectBranchesSchema,
   projectListSchema,
   projectRemoteNeedsSchema,
@@ -22,7 +33,6 @@ import {
   repositoryFolderSchema,
   taskChangesSchema,
   projectTestTargetsChatSchema,
-  runEnvironmentSetUpAnswerSchema,
   testTargetListSchema,
   type AddProject,
   type ProjectEngineChange,
@@ -57,7 +67,13 @@ import {
   type RunEnvironmentSetUpAnswer,
   type TestTargetsEdit,
 } from "@the-office/contracts";
-import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
+import {
+  callOfficeAction,
+  deleteFromApiReturning,
+  getFromApi,
+  sendFileToApi,
+  sendToApi,
+} from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { ENGINE_CASCADE } from "./people.ts";
 
@@ -204,8 +220,7 @@ export const projectQueries = {
   baseBranchFetch: (id: string) =>
     queryOptions({
       queryKey: [...REPOSITORY, id, "fetch"],
-      queryFn: () =>
-        sendToApi("POST", `${projectPath(id)}/base-branch/fetch`, {}, baseBranchFetchSchema),
+      queryFn: () => callOfficeAction(FETCH_BASE_BRANCH_ACTION, { projectId: id }),
       staleTime: Infinity,
       gcTime: 0,
     }),
@@ -364,21 +379,16 @@ export function changeRunEnvironment(
  * "Set up the run environment" Off-board Task at once, answers the one in flight, or is refused.
  */
 export function setUpRunEnvironment(id: string): Promise<RunEnvironmentSetUpAnswer> {
-  return sendToApi(
-    "POST",
-    `${projectPath(id)}/run-environment/set-up`,
-    {},
-    runEnvironmentSetUpAnswerSchema,
-  );
+  return callOfficeAction(SET_UP_RUN_ENVIRONMENT_ACTION, { projectId: id });
 }
 
 export function changeMark(id: string, mark: Mark): Promise<Project> {
-  return sendToApi("PUT", `${projectPath(id)}/mark`, { mark }, projectSchema);
+  return callOfficeAction(CHANGE_PROJECT_MARK_ACTION, { projectId: id, mark });
 }
 
 /** How many of the Project's Tasks may be started at once; lowering it stops none. */
 export function changeProjectLimit(id: string, projectLimit: number): Promise<Project> {
-  return sendToApi("PUT", `${projectPath(id)}/project-limit`, { projectLimit }, projectSchema);
+  return callOfficeAction(CHANGE_PROJECT_LIMIT_ACTION, { projectId: id, projectLimit });
 }
 
 /** One version of the Project's Icon or Logo: the image, and the palette it is for. */
@@ -406,11 +416,20 @@ export function chooseProjectImage(
   version: ProjectImageVersion,
   file: ProjectImageFromRepository,
 ): Promise<Project> {
-  return sendToApi("POST", `${versionPath(id, version)}/from-repository`, file, projectSchema);
+  return callOfficeAction(SET_PROJECT_IMAGE_FROM_REPOSITORY_ACTION, {
+    projectId: id,
+    image: version.key,
+    palette: version.palette,
+    ...file,
+  });
 }
 
 export function removeProjectImage(id: string, version: ProjectImageVersion): Promise<Project> {
-  return deleteFromApiReturning(versionPath(id, version), projectSchema);
+  return callOfficeAction(REMOVE_PROJECT_IMAGE_ACTION, {
+    projectId: id,
+    image: version.key,
+    palette: version.palette,
+  });
 }
 
 /** Where an Icon or a Logo is read from; a new upload has a new address, so none goes stale. */
@@ -419,12 +438,7 @@ export function projectImageAddress(id: string, imageId: string): string {
 }
 
 export function changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {
-  return sendToApi(
-    "PUT",
-    `${projectPath(id)}/default-pipeline`,
-    { defaultPipeline },
-    projectSchema,
-  );
+  return callOfficeAction(CHANGE_DEFAULT_PIPELINE_ACTION, { projectId: id, defaultPipeline });
 }
 
 /** A Kind's own default Pipeline; null follows the Project's default Pipeline. */
@@ -433,12 +447,7 @@ export function changeKindDefaultPipeline(
   kind: TaskKind,
   pipelineId: string | null,
 ): Promise<Project> {
-  return sendToApi(
-    "PUT",
-    `${projectPath(id)}/kind-default-pipeline`,
-    { kind, pipelineId },
-    projectSchema,
-  );
+  return callOfficeAction(CHANGE_KIND_DEFAULT_PIPELINE_ACTION, { projectId: id, kind, pipelineId });
 }
 
 /** The Project's GitHub issue switches, as a whole. */
@@ -454,17 +463,12 @@ export function changeFeatures(
   id: string,
   features: ProjectFeaturesChange["features"],
 ): Promise<Project> {
-  return sendToApi("PUT", `${projectPath(id)}/features`, { features }, projectSchema);
+  return callOfficeAction(CHANGE_PROJECT_FEATURES_ACTION, { projectId: id, features });
 }
 
 /** Imports the issues as Tasks in Backlog; one imported meanwhile is skipped and named. */
 export function importIssues(id: string, numbers: readonly number[]): Promise<IssueImportResult> {
-  return sendToApi(
-    "POST",
-    `${projectPath(id)}/issues/import`,
-    { numbers },
-    issueImportResultSchema,
-  );
+  return callOfficeAction(IMPORT_ISSUES_ACTION, { projectId: id, numbers: [...numbers] });
 }
 
 /**
@@ -472,22 +476,17 @@ export function importIssues(id: string, numbers: readonly number[]): Promise<Is
  * a field left out keeps the Project's.
  */
 export function changeProjectEngine(id: string, change: ProjectEngineChange): Promise<Project> {
-  return sendToApi("PUT", `${projectPath(id)}/engine`, change, projectSchema);
+  return callOfficeAction(CHANGE_PROJECT_ENGINE_ACTION, { projectId: id, ...change });
 }
 
 /** Sessions started from now on get the repository's own skills, or don't. */
 export function changeUseProjectSkills(id: string, useProjectSkills: boolean): Promise<Project> {
-  return sendToApi(
-    "PUT",
-    `${projectPath(id)}/use-project-skills`,
-    { useProjectSkills },
-    projectSchema,
-  );
+  return callOfficeAction(CHANGE_USE_PROJECT_SKILLS_ACTION, { projectId: id, useProjectSkills });
 }
 
 /** Sessions started from now on get the repository's skill of this key, or start without it. */
 export function changeProjectSkillUse(id: string, key: string, use: boolean): Promise<Project> {
-  return sendToApi("PUT", `${projectPath(id)}/skill-use`, { key, use }, projectSchema);
+  return callOfficeAction(CHANGE_PROJECT_SKILL_USE_ACTION, { projectId: id, key, use });
 }
 
 /**
@@ -499,12 +498,7 @@ export function changeProjectServerValues(
   serverName: string,
   change: ProjectServerValuesChange,
 ): Promise<ProjectMcpServerValues> {
-  return sendToApi(
-    "PUT",
-    `${projectPath(id)}/server-values/${encodeURIComponent(serverName)}`,
-    change,
-    projectMcpServerValuesSchema,
-  );
+  return callOfficeAction(CHANGE_SERVER_VALUES_ACTION, { projectId: id, serverName, ...change });
 }
 
 /**

@@ -1,10 +1,10 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
-  offBoardTaskStartSchema,
+  ONBOARD_PROJECT_ACTION,
   projectOffBoardTasksSchema,
   type OffBoardTaskStart,
 } from "@the-office/contracts";
-import { getFromApi, sendToApi } from "./api-client.ts";
+import { callOfficeAction, getFromApi } from "./api-client.ts";
 import { TASKS } from "./work.ts";
 
 /**
@@ -28,7 +28,7 @@ export const offBoardTaskQueries = {
  * flight; or refused, with every reason, making nothing.
  */
 export function startOnboard(projectId: string): Promise<OffBoardTaskStart> {
-  return sendToApi("POST", `${projectPath(projectId)}/onboard`, {}, offBoardTaskStartSchema);
+  return callOfficeAction(ONBOARD_PROJECT_ACTION, { projectId });
 }
 
 function projectPath(id: string): `/${string}` {

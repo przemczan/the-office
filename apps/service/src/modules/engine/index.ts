@@ -20,6 +20,7 @@ export type {
   OfficeToolPicture,
   OfficeToolResult,
   OfficeToolSubject,
+  OfficeToolUser,
 } from "./ports/office-tool.js";
 export {
   UsageWindowState,

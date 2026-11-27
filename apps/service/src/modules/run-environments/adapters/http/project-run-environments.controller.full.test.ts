@@ -5,6 +5,7 @@ import {
   projectListSchema,
   projectSchema,
   runEnvironmentSetUpAnswerSchema,
+  SET_UP_RUN_ENVIRONMENT_ACTION,
   type AddProject,
   type Project,
   type ProjectRunEnvironment,
@@ -18,9 +19,16 @@ import { EventsModule } from "../../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
+import { anOfficeToolCall, RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
+import { OfficeToolRegistry } from "../../../engine/index.js";
 import { GitHubModule } from "../../../github/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
-import { ProjectsModule, TaskBases } from "../../../projects/index.js";
+import {
+  ProjectSettingChanges,
+  ProjectsModule,
+  SessionPeople,
+  TaskBases,
+} from "../../../projects/index.js";
 import {
   createTemporaryRepository,
   gitIn,
@@ -29,7 +37,11 @@ import {
 } from "../../../projects/index.fixtures.js";
 import { TaskService, TaskStateChanged } from "../../../work/index.js";
 import { ownProjectsQueue, workModuleForTests } from "../../../work/index.fixtures.js";
-import { ScriptedContainerRuntime } from "../../index.fixtures.js";
+import {
+  KnownPeopleForTests,
+  KnownPeopleForTestsModule,
+  ScriptedContainerRuntime,
+} from "../../index.fixtures.js";
 import { RunEnvironmentsModule } from "../../run-environments.module.js";
 import { newProjectIn, runEnvironmentOf } from "./project-run-environments.controller.fixtures.js";
 
@@ -69,8 +81,9 @@ beforeEach(async () => {
       projects,
       work,
       RunEnvironmentsModule.register({
-        imports: [work, projects],
+        imports: [work, projects, KnownPeopleForTestsModule],
         knownTasks: TaskService,
+        knownPeople: KnownPeopleForTests,
         containerRuntime: new ScriptedContainerRuntime(),
       }),
     ],
@@ -193,6 +206,63 @@ describe("POST /projects/:id/run-environment/set-up", REAL_GIT_TEST, () => {
     expect(againAtOnce.setUpTask?.id).toBe(first.runEnvironment.setUpTask?.id);
     expect(andAgain.setUpTask?.id).toBe(first.runEnvironment.setUpTask?.id);
     expect((await read()).setUpTask).toEqual(first.runEnvironment.setUpTask);
+  });
+});
+
+describe("set_up_run_environment from an Agent Stage no user asked", REAL_GIT_TEST, () => {
+  const STAGE_TASK_ID = "the-stage-task";
+  const ANN = { userId: "user-ann", name: "Ann" };
+
+  beforeEach(() => {
+    app
+      .get(KnownPeopleForTests, { strict: false })
+      .people.set("devops", { card: { name: "Dana", title: "Devops" } });
+    app.get(SessionPeople, { strict: false }).provide({
+      personInSession: async (sessionId) => (sessionId === "stage-session" ? "devops" : undefined),
+      taskInSession: async (sessionId) =>
+        sessionId === "stage-session" ? STAGE_TASK_ID : undefined,
+      askedByInSession: async () => undefined,
+    });
+  });
+
+  /** The person's call, held for approval and allowed by Ann. */
+  function setUpByThePerson() {
+    const [tool] = app
+      .get(OfficeToolRegistry, { strict: false })
+      .named([SET_UP_RUN_ENVIRONMENT_ACTION.name], RUN_EVERY_CALL);
+    if (!tool) throw new Error("No Office tool set_up_run_environment.");
+    return tool.run(
+      { projectId: project.id },
+      { ...anOfficeToolCall("stage-session"), allowedBy: ANN },
+    );
+  }
+
+  it("records turning it On at once as the person, by Role, name, title and Task", async () => {
+    await commitFiles("main", VALID_DEFINITION);
+
+    expect(await setUpByThePerson()).toEqual({
+      isError: false,
+      text: "The run environment is on now.",
+    });
+    const [change] = await app
+      .get(ProjectSettingChanges, { strict: false })
+      .latestOf(project.id, 1);
+    expect(change?.by).toEqual({
+      kind: "person",
+      roleKey: "devops",
+      name: "Dana",
+      title: "Devops",
+      taskId: STAGE_TASK_ID,
+      allowedBy: ANN,
+    });
+  });
+
+  it("makes the set-up Task as the person, with who allowed the call", async () => {
+    expect((await setUpByThePerson()).isError).toBe(false);
+
+    const setUpTask = (await read()).setUpTask;
+    const task = await app.get(TaskService, { strict: false }).read(setUpTask?.id ?? "");
+    expect(task.createdBy).toEqual({ kind: "person", roleKey: "devops", allowedBy: ANN });
   });
 });
 

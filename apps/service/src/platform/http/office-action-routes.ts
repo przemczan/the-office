@@ -54,8 +54,8 @@ export abstract class OfficeActionRoutes {
 /**
  * The base of a module's controller of Office actions (the Office action convention): one route
  * per declared action, its method and path from the declaration, answering its status (200 unless
- * it declares 201) with what `answer` gives for its input, the signed-in user and the request. The
- * module's controller extends it under its own `@Controller()` and refusal filters.
+ * it declares 201, or 204 with no body) with what `answer` gives for its input, the signed-in user and
+ * the request. The module's controller extends it under its own `@Controller()` and refusal filters.
  */
 export function officeActionRoutes(
   actions: readonly OfficeAction[],

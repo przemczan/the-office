@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { IssueUser } from "../domain/issue-settings.js";
+import type { ActedBy } from "../domain/acted-by.js";
 import type { TaskKind } from "../domain/kind-default-pipeline.js";
 
 /** The Task an issue is imported as: its title, its body as the Description, and its Kind. */
@@ -8,8 +8,8 @@ export interface NewIssueTask {
   readonly title: string;
   readonly description: string;
   readonly kind: TaskKind;
-  /** The user who imported it, or for the auto-import the user who set the label. */
-  readonly createdBy: IssueUser;
+  /** The user or person who imported it, or for the auto-import the user who set the label. */
+  readonly createdBy: ActedBy;
   /** Whether The Office's auto-import made it, which the Task's record names as its creator. */
   readonly createdByTheOffice: boolean;
 }

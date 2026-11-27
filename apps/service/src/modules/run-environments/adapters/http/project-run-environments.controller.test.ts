@@ -24,7 +24,11 @@ import {
 } from "../../../projects/index.fixtures.js";
 import { TaskService } from "../../../work/index.js";
 import { ownProjectsQueue, workModuleForTests } from "../../../work/index.fixtures.js";
-import { ScriptedContainerRuntime } from "../../index.fixtures.js";
+import {
+  KnownPeopleForTests,
+  KnownPeopleForTestsModule,
+  ScriptedContainerRuntime,
+} from "../../index.fixtures.js";
 import { RunEnvironmentsModule } from "../../run-environments.module.js";
 import { newProjectIn, runEnvironmentOf } from "./project-run-environments.controller.fixtures.js";
 
@@ -61,8 +65,9 @@ beforeEach(async () => {
       projects,
       work,
       RunEnvironmentsModule.register({
-        imports: [work, projects],
+        imports: [work, projects, KnownPeopleForTestsModule],
         knownTasks: TaskService,
+        knownPeople: KnownPeopleForTests,
         containerRuntime: new ScriptedContainerRuntime(),
       }),
     ],

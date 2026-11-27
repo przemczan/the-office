@@ -38,6 +38,21 @@ export function byTheUser(user: UserRef): Author {
   return { kind: "user", user };
 }
 
+/** The person, by their Role, with the users behind what they did, as the Author of it. */
+export function byThePerson(person: {
+  readonly roleKey: string;
+  readonly askedBy?: UserRef;
+  readonly allowedBy?: UserRef;
+}): Author {
+  const { roleKey, askedBy, allowedBy } = person;
+  return {
+    kind: "person",
+    roleKey,
+    ...(askedBy && { askedBy: { userId: askedBy.userId, name: askedBy.name } }),
+    ...(allowedBy && { allowedBy: { userId: allowedBy.userId, name: allowedBy.name } }),
+  };
+}
+
 /**
  * The Author as a record names them: "the user Ann Lee", or "the user" before users existed, with
  * the person who proposed what the user applied.
