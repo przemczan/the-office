@@ -1,6 +1,13 @@
 import type { LiveAgent, LiveConsulting, LiveWaitingOnYou } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { amenitiesOf, consultSpot, deskOf, deskSpot, layoutOffice } from "./floor-plan.ts";
+import {
+  amenitiesOf,
+  consultSpot,
+  deskOf,
+  deskSpot,
+  layoutOffice,
+  ownerSpotsOf,
+} from "./floor-plan.ts";
 import { DOOR_OUTSIDE } from "./floor-plan.ts";
 import {
   DESK_DEPTHS,
@@ -303,15 +310,15 @@ describe("the fire alarm", () => {
   });
 });
 
+const waitingOnYou = (roleKey: string) =>
+  officePerson(roleKey, {
+    state: "waiting-on-you",
+    waitingOnYou: [waiting({ kind: "task", taskId: "task-1" })],
+  });
+
 describe("placements", () => {
-  it("seats the working, the waiting and the asleep at their desk", () => {
-    const waitingPerson = officePerson("reviewer", {
-      state: "waiting-on-you",
-      waitingOnYou: [waiting({ kind: "task", taskId: "task-1" })],
-    });
-    const { layout, placements } = placed(
-      eightWith(working("developer"), waitingPerson, napping("cto")),
-    );
+  it("seats the working and the asleep at their desk", () => {
+    const { layout, placements } = placed(eightWith(working("developer"), napping("cto")));
     const developerDesk = deskOf(layout, "developer")!;
     expect(placements.get("developer")).toMatchObject({
       kind: "desk",
@@ -322,16 +329,25 @@ describe("placements", () => {
       depth: developerDesk.depth + DESK_DEPTHS.sitter,
       conversation: null,
     });
-    expect(placements.get("reviewer")).toMatchObject({
-      kind: "desk",
-      activity: "waiting",
-      pose: "sit-back-raise",
-    });
     expect(placements.get("cto")).toMatchObject({
       kind: "desk",
       activity: "asleep",
       pose: "sit-back-sleep",
     });
+  });
+
+  it("walks those waiting on you to the user's desk, the rest raising a hand at their own", () => {
+    const { layout, placements } = placed(
+      eightWith(waitingOnYou("reviewer"), waitingOnYou("cto"), waitingOnYou("developer")),
+    );
+    const spots = ownerSpotsOf(layout);
+    const stood = ["reviewer", "cto", "developer"].map((roleKey) => placements.get(roleKey));
+    const atTheUsersDesk = stood.filter((placement) => placement?.kind === "owner");
+    expect(atTheUsersDesk.map((placement) => placement?.spot)).toEqual(spots);
+    expect(atTheUsersDesk[0]).toMatchObject({ pose: "stand-back-talk", activity: null });
+    const raisingAHand = stood.filter((placement) => placement?.kind === "desk");
+    expect(raisingAHand).toHaveLength(1);
+    expect(raisingAHand[0]).toMatchObject({ activity: "waiting", pose: "sit-back-raise" });
   });
 
   it("draws whoever sits at a desk over its screens, lamp, bulb and their glows", () => {

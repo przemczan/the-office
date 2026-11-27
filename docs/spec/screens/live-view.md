@@ -22,6 +22,7 @@ Covers: the Live view page, the office floor (isometric pixel-art office drawn w
 - Desks are grouped: the front desk, the Consultants, everyone else, each in hire order. A hire takes a free desk of their group or a new pod at the right end; nobody else moves while the page is open.
 - Furniture blocks the tiles it stands on; people walk round it (4 directions, 2.4 tiles a second).
 - The room stands on a slab, its two front sides showing, on an open floor whose boards, in line with the room's, run on to the canvas's edges, with the slab's soft shadow on it; only the room's back and left walls stand. The open floor takes the hour's tint with the room; the shadow doesn't change with the hour.
+- The user has a desk of their own at the floor's front left, below the pods, its chair pushed in: nobody sits there. A sticky note lies on it for each Decision waiting on the user (up to six).
 - The floor has a door, windows, desk lamps, an entertainment area (a big TV on a low stand with a games console and three floor pillows), a chill area (sofa, beanbags, coffee table), an exercise mat, a coffee machine, a water cooler, plants and bookshelves.
 - The canvas is an image named by a summary: "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30." While the fire alarm is on: "8 people: the fire alarm is on, everyone is out of the office. Day, 10:00." (or "nobody is in the office" with no one).
 - Keyboard help, read to screen readers: "Drag or use the arrow keys to move round the office; the wheel, + and − zoom; 0 shows the whole office."
@@ -30,7 +31,7 @@ Covers: the Live view page, the office floor (isometric pixel-art office drawn w
 ## What a person is doing
 
 - A person's look state decides where they sit or stand. States, in the List's order: **Waiting on you**, **Consulting**, **Working**, **Just joined**, **Idle**, **Asleep at their desk**, **Gone home**.
-- Waiting on you: the person has an open Decision on the user (raising a hand at the desk); words "Waiting on you: a Decision on <Task or Initiative>" or "…: a Stage of <Task> is out of tries" for The Office's own Decision.
+- Waiting on you: the person has an open Decision on the user and walks over to the user's desk, the first two standing in the aisle beside it, back to us, facing it; anyone more raises a hand at their own desk. Words "Waiting on you: a Decision on <Task or Initiative>" or "…: a Stage of <Task> is out of tries" for The Office's own Decision.
 - Consulting: the person asked a Consultant; words `Asking <Consultant>: "<question>"` ("Asking a Consultant" when it can't be named). The asker walks to the Consultant's desk and they talk once the asker has arrived; when two or more ask one Consultant, the first asks at the Consultant's desk and the rest wait at their own.
 - Working: words "Working on <sessions>" where each session reads "a Stage of <the Task>", the Task or Initiative's title, or "a Consultation for <asker>" ("The Office" when it asked), each followed by " on <engine>" and ", standing in for <engine>" on a Stand-in Engine; hovering the link shows why.
 - A working person with other sessions still running when waiting says "; still working on …".

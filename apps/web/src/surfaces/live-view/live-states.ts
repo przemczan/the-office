@@ -114,6 +114,7 @@ export function lookStatesOf(
 type Location =
   | { readonly kind: "desk"; readonly desk: Desk }
   | { readonly kind: "consult"; readonly consultantKey: string; readonly desk: Desk }
+  | { readonly kind: "owner"; readonly spot: Spot }
   | {
       readonly kind: "pastime";
       readonly seat: Seat;
@@ -185,6 +186,7 @@ function locationsOf(
   const askers = askersByConsultant(people, lookStates);
   const deskVisitors = deskVisitorsOf(askers);
   const freeSpots = new FreeSpots(amenities.pastimeSpots);
+  const freeOwnerSpots = [...amenities.ownerSpots];
   const locations = new Map<string, Location>();
   for (const person of people) {
     const desk = deskOf(layout, person.roleKey);
@@ -200,6 +202,7 @@ function locationsOf(
       layout,
       lookState,
       visitedConsultant: deskVisitors.get(person.roleKey),
+      takeOwnerSpot: () => freeOwnerSpots.shift(),
       takePastimeSpot: () => freeSpots.take(turnOf(person)),
     });
     locations.set(person.roleKey, location);
@@ -212,6 +215,8 @@ interface LocationContext {
   readonly lookState: LookState;
   /** The Consultant whose desk this person stands at, if they are its one visitor. */
   readonly visitedConsultant: string | undefined;
+  /** A free spot at the user's desk, for someone waiting on them; undefined when they are all taken. */
+  readonly takeOwnerSpot: () => Spot | undefined;
   /** A spot of this turn's pastime, or of the next in their order with one free; null for the desk. */
   readonly takePastimeSpot: () => Location | null;
 }
@@ -225,6 +230,11 @@ function locationFor(desk: Desk, context: LocationContext): Location {
         consultantKey === undefined ? null : deskOf(context.layout, consultantKey);
       if (consultantKey === undefined || !consultantDesk) return atDesk;
       return { kind: "consult", consultantKey, desk: consultantDesk };
+    }
+    case "waiting-on-you": {
+      // They walk over to the user's desk; with its spots taken they raise a hand at their own.
+      const spot = context.takeOwnerSpot();
+      return spot ? { kind: "owner", spot } : atDesk;
     }
     case "home":
       return { kind: "gone" };
@@ -340,6 +350,7 @@ function poseOf(location: Location, activity: DeskActivity | null): Pose {
       return { pose, facing: pose === "sit-front" ? "front" : "back", mirrored: false, z: 0 };
     }
     case "consult":
+    case "owner":
       return { pose: "stand-back-talk", facing: "back", mirrored: false, z: 0 };
     case "pastime":
       return {
@@ -359,6 +370,8 @@ function spotOf(location: Location): Spot {
       return deskSpot(location.desk);
     case "consult":
       return consultSpot(location.desk);
+    case "owner":
+      return location.spot;
     case "pastime":
       return location.seat;
     case "gone":

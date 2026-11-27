@@ -26,6 +26,8 @@ import {
   floorPillowShape,
   lampShape,
   monitorSlots,
+  MAX_NOTES,
+  notesShape,
   pizzaShape,
   plantShape,
   printerShape,
@@ -335,6 +337,8 @@ function amenityArt(item: Amenity): PaintedArt | null {
       return paintedOfficeArt("printer", printerShape);
     case "exerciseMat":
       return paintedOfficeArt("exerciseMat", exerciseMatShape);
+    case "ownerDesk":
+      return paintedOfficeArt("ownerDesk", () => deskShape("front-desk", 1, true));
   }
 }
 
@@ -487,6 +491,7 @@ export class OfficeScene {
         add(led, item.depth + 0.001);
         this.addGlow("led", at(item.x + 0.6, item.y + 0.5, 21), item.depth + 0.002);
       }
+      if (item.kind === "ownerDesk") this.buildOwnerDesk(input, item, add);
       if (item.kind === "tvStand" && this.isAnyonePlaying(walkers)) {
         this.buildGame(at(item.x, item.y), item.depth + 0.001);
         this.addGlow("tv", at(item.x + 1.1, item.y + 0.6, 12), item.depth + 0.002);
@@ -858,6 +863,33 @@ export class OfficeScene {
         add(this.shaded(pizza), desk.depth + DESK_DEPTHS.pizza);
       }
     }
+  }
+
+  /**
+   * The user's chair, pushed in, and a sticky note on the desk for each Decision waiting on the user.
+   */
+  private buildOwnerDesk(
+    input: SceneInput,
+    desk: Amenity,
+    add: (sprite: Sprite, depth: number) => void,
+  ): void {
+    const at = (x: number, y: number): FloorPoint => toArt(input.geometry, x, y);
+    const chairAt = at(desk.x + 1.14, desk.y + 1);
+    for (const [art, depth] of [
+      [chairSeat(), DESK_DEPTHS.seat],
+      [chairBack("+x"), DESK_DEPTHS.chairBack],
+    ] as const) {
+      add(this.shaded(artSprite(this.textures, art, chairAt, null)), desk.depth + depth);
+    }
+    let waiting = 0;
+    for (const person of input.people.values()) waiting += person.waitingOnYou.length;
+    if (waiting === 0) return;
+    const notes = Math.min(waiting, MAX_NOTES);
+    const art = paintedOfficeArt(`notes:${notes}`, () => notesShape(notes));
+    add(
+      this.shaded(artSprite(this.textures, art, at(desk.x, desk.y), null)),
+      desk.depth + DESK_DEPTHS.pizza,
+    );
   }
 
   /**

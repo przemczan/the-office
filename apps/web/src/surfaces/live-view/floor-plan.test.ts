@@ -76,6 +76,9 @@ const FURNITURE_BEFORE_THE_MAT: Record<(typeof FLOOR_SIZES)[number], readonly st
     "printer@17.4,0.06",
   ],
 };
+/** The tiles the user's desk and its chair stand on. */
+const OWNER_DESK_TILES = 4;
+
 /**
  * How many tiles the furniture blocked on each design floor before the mat came, less one: the
  * meeting spot blocked seven, the entertainment area blocks six.
@@ -87,11 +90,27 @@ const BLOCKED_BEFORE_THE_MAT: Record<(typeof FLOOR_SIZES)[number], number> = {
 };
 
 describe("the floor plan", () => {
+  it.each(FLOOR_SIZES)(
+    "gives the user a desk below the pods of %i people, reached from the aisle",
+    (count) => {
+      const layout = layoutOffice(floorPeopleOf(count));
+      const amenities = amenitiesOf(layout);
+      const walkable = walkableOf(layout, amenities);
+      const { x, y } = layout.ownerDesk;
+      expect(y + 2).toBe(layout.depth);
+      expect(amenities.items.map(itemAt)).toContain(`ownerDesk@${x},${y}`);
+      expect(isWalkable(layout, walkable, x, y)).toBe(false);
+      for (const spot of amenities.ownerSpots) {
+        expect(isWalkable(layout, walkable, spot.tile!.x, spot.tile!.y)).toBe(true);
+      }
+    },
+  );
+
   it.each([
-    [3, 12, 9],
-    [8, 13, 9],
-    [16, 16, 14],
-    [30, 19, 18],
+    [3, 12, 11],
+    [8, 13, 11],
+    [16, 16, 16],
+    [30, 19, 20],
   ])("is %i people wide %i and deep %i", (count, width, depth) => {
     const layout = layoutOffice(floorPeopleOf(count));
     expect({ width: layout.width, depth: layout.depth }).toEqual({ width, depth });
@@ -158,10 +177,12 @@ describe("the floor plan", () => {
     "keeps the %i-person floor's furniture where it was before the exercise mat",
     (count) => {
       const amenities = amenitiesOf(layoutOffice(floorPeopleOf(count)));
-      expect(amenities.items.filter((item) => item.kind !== "exerciseMat").map(itemAt)).toEqual(
-        FURNITURE_BEFORE_THE_MAT[count],
-      );
-      expect(amenities.blocked).toHaveLength(BLOCKED_BEFORE_THE_MAT[count]);
+      expect(
+        amenities.items
+          .filter((item) => item.kind !== "exerciseMat" && item.kind !== "ownerDesk")
+          .map(itemAt),
+      ).toEqual(FURNITURE_BEFORE_THE_MAT[count]);
+      expect(amenities.blocked).toHaveLength(BLOCKED_BEFORE_THE_MAT[count] + OWNER_DESK_TILES);
     },
   );
 

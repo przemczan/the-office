@@ -17,6 +17,9 @@ export const AISLE_ROW = 3;
 const POD_TOP = 4;
 /** Where the chill area starts along the back wall, past the entertainment area. */
 const CHILL_START = 5;
+/** The user's desk stands on its own two rows below the last pod row, at the left. */
+const OWNER_ROWS = 2;
+const OWNER_DESK_X = 1;
 
 /** The groups, in the order they fill the floor from the door (design decision 5). */
 export const DESK_GROUPS: readonly DeskGroup[] = ["front-desk", "consultants", "team"];
@@ -45,7 +48,13 @@ export function layoutOffice(people: readonly OfficePerson[]): Layout {
   const { perPod, rows } = podShapeFor(count);
   const sofaSeats = count > 10 ? 6 : 3;
   const chillEnd = CHILL_START + sofaSeats + 3;
+  const podsEnd = POD_TOP + rows * (2 * perPod + 1);
   const layout: Layout = {
+    ownerDesk: {
+      x: OWNER_DESK_X,
+      y: podsEnd,
+      depth: OWNER_DESK_X + podsEnd + 1.5,
+    },
     perPod,
     rows,
     columns: [],
@@ -54,7 +63,7 @@ export function layoutOffice(people: readonly OfficePerson[]): Layout {
     beanbags: count <= 4 ? 1 : count <= 10 ? 2 : 3,
     chillStart: CHILL_START,
     chillEnd,
-    depth: POD_TOP + rows * (2 * perPod + 1),
+    depth: podsEnd + OWNER_ROWS,
     // At least the back wall's furniture; each pod column placed below widens it as it must.
     width: chillEnd + 1,
   };
@@ -150,6 +159,18 @@ export function consultSpot(desk: Desk): Spot {
   return { x: desk.x + 2.4, y: desk.y + 1.3, tile: { x: desk.x + 2, y: desk.y + 1 } };
 }
 
+/**
+ * Standing in the aisle beside the user's desk, back to us and facing it: those waiting on the
+ * user, the first at the desk's front tile, the next beside it.
+ */
+export function ownerSpotsOf(layout: Layout): readonly Spot[] {
+  const { x, y } = layout.ownerDesk;
+  return [
+    { x: x + 2.4, y: y + 1.3, tile: { x: x + 2, y: y + 1 } },
+    { x: x + 2.4, y: y + 0.3, tile: { x: x + 2, y } },
+  ];
+}
+
 export const DOOR_OUTSIDE: Spot = {
   x: -1.1,
   y: AISLE_ROW + 0.5,
@@ -182,7 +203,23 @@ export function amenitiesOf(layout: Layout): Amenities {
     ...exerciseMat(furniture),
     ...backWallDecor(furniture, layout),
   ];
-  return { items: furniture.items, blocked: furniture.blocked, pastimeSpots };
+  ownerDesk(furniture, layout);
+  return {
+    items: furniture.items,
+    blocked: furniture.blocked,
+    pastimeSpots,
+    ownerSpots: ownerSpotsOf(layout),
+  };
+}
+
+/** The user's desk, 2 tiles across and 2 deep with its chair, as a pod's desk is. */
+function ownerDesk(furniture: FurnitureList, layout: Layout): void {
+  const { x, y, depth } = layout.ownerDesk;
+  furniture.items.push({ kind: "ownerDesk", x, y, depth });
+  for (const dy of [0, 1]) {
+    furniture.block(x, y + dy);
+    furniture.block(x + 1, y + dy);
+  }
 }
 
 /** Where the TV stand stands against the back wall: 2.2 tiles long, 0.6 deep (`tvStandShape`). */

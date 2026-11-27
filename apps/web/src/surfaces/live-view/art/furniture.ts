@@ -312,6 +312,27 @@ export function lampShape(): ArtShape {
   });
 }
 
+/**
+ * Where each sticky note lies on the user's desk, in the order they are added: two columns, two
+ * rows behind the laptop (`deskShape`'s, from y 0.78 to 1.22) and one in front of it.
+ */
+const NOTE_SPOTS: readonly (readonly [x: number, y: number])[] = [0.14, 0.46, 1.34].flatMap((y) =>
+  [0.32, 0.62].map((x) => [x, y] as const),
+);
+
+/** The most notes drawn on the user's desk; more Decisions waiting show as this many. */
+export const MAX_NOTES = NOTE_SPOTS.length;
+
+/** Sticky notes on the user's desk, one for each Decision waiting on them, the origin the desk's. */
+export function notesShape(count: number): ArtShape {
+  return isoShape(DESK_BOUNDS, (pen) => {
+    for (const [x, y] of NOTE_SPOTS.slice(0, count)) {
+      pen.box(x, y, DESK_H, 0.24, 0.24, 1, A.noteTop, A.noteSide, A.noteSide);
+      pen.line([x + 0.05, y + 0.12, DESK_H + 1], [x + 0.19, y + 0.12, DESK_H + 1], A.noteInk);
+    }
+  });
+}
+
 /** A pizza box on the desk of some who work at night. */
 export function pizzaShape(): ArtShape {
   return isoShape({ minX: -0.3, maxX: 0.3, minY: -0.3, maxY: 0.3, maxZ: 14 }, (pen) => {

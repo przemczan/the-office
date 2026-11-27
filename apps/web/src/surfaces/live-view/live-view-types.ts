@@ -101,8 +101,15 @@ export interface Desk {
   readonly depth: number;
 }
 
+/** The user's own desk, at the floor's front left; nobody sits there, it holds the notes of Decisions waiting. */
+export interface OwnerDesk extends FloorPoint {
+  /** Sort depth: x + y of its front corner. */
+  readonly depth: number;
+}
+
 /** The floor plan, laid out once per page open and grown by hires. */
 export interface Layout {
+  readonly ownerDesk: OwnerDesk;
   readonly perPod: number;
   readonly rows: number;
   readonly columns: PodColumn[];
@@ -175,7 +182,9 @@ export type AmenityKind =
   | "beanbag"
   | "bookshelf"
   | "printer"
-  | "exerciseMat";
+  | "exerciseMat"
+  /** The user's own desk, with its chair pushed in. */
+  | "ownerDesk";
 
 /** A piece of furniture along the back wall, with what its shape needs. */
 export interface Amenity extends FloorPoint {
@@ -196,6 +205,8 @@ export interface Amenities {
   readonly blocked: readonly (readonly [number, number])[];
   /** Every pastime's spots, each pastime's in the order they are taken. */
   readonly pastimeSpots: readonly Seat[];
+  /** Where those waiting on the user stand at the user's desk, in the order they are taken. */
+  readonly ownerSpots: readonly Spot[];
 }
 
 /**
@@ -249,7 +260,7 @@ export type DeskActivity = "working" | "waiting" | "talking" | "asleep" | "idle"
 
 /** Where a figure is drawn and how, worked out from their look state and nobody's movement. */
 export interface Placement {
-  readonly kind: "desk" | "consult" | "pastime" | "gone";
+  readonly kind: "desk" | "consult" | "owner" | "pastime" | "gone";
   readonly spot: Spot;
   readonly pose: FigurePose;
   readonly facing: Facing;
