@@ -29,7 +29,7 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 ## Rail
 
 - A nav named "Surfaces". At its head the Office mark, a link to `/now` named "The Office".
-- Items in order: **Now** (`/now`), **Work** (`/work`, also active on `/tasks/…`), **People** (`/people`), **Projects** (`/projects`), **Stats** (`/stats`; also matches `/stats/system-health`), **Live view** (`/live-view`).
+- Items in order: **Now** (`/now`), **Work** (`/work`, also active on `/tasks/…`), **Projects** (`/projects`), **People** (`/people`), **Stats** (`/stats`; also matches `/stats/system-health`), **Live view** (`/live-view`).
 - Then a spacer, then **Settings** (`/settings`), **Theme**, and the toggle.
 - The active item is marked `aria-current="page"`.
 - Two states: icon-only, with each label as a tooltip beside the icon; or expanded, with each label beside its icon, the Office mark's name "The Office" shown, and no tooltips.

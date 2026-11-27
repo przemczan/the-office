@@ -1944,10 +1944,21 @@ test("the flow canvas moves with the right mouse button, zooms, fits the whole P
     const view = page.getByRole("group", { name: /^Flow view/ });
     const tools = page.getByRole("toolbar", { name: "Canvas" });
     await expect(flow.locator("[data-flow-stage]").first()).toBeVisible();
-    await expect(tools.getByRole("button", { name: "Zoom: 100%" })).toBeVisible();
-    await expect(page.getByRole("group", { name: /^Overview/ })).toBeVisible();
+    // It opens fitted, which is below 100% when it doesn't fit, with the whole Pipeline in view.
+    await expect(tools.getByRole("button", { name: /^Zoom: \d+%$/ })).toBeVisible();
+    await expect(tools.getByRole("button", { name: "Zoom: 100%" })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: /^Overview/ })).toHaveCount(0);
+    await expect(tools.getByRole("button", { name: "Overview" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "settings-pipelines-tab.png") });
     await screenshotScenario(page, "settings-pipelines-canvas", { inView: view });
+
+    // The rest moves around at 100%.
+    await tools.getByRole("button", { name: /^Zoom: \d+%$/ }).click();
+    await page.getByRole("menu").getByRole("button", { name: /^100%/ }).click();
+    await expect(tools.getByRole("button", { name: "Zoom: 100%" })).toBeVisible();
 
     // The right button moves the view, and opens no menu.
     const transform = (): Promise<string> =>

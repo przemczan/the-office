@@ -887,6 +887,13 @@ function tool(name: string): HTMLButtonElement {
   return button;
 }
 
+/** A faked layout size: `frame` for the canvas's frame, `content` for the Pipeline it shows, 0 for anything else. */
+function sized(element: Element, frame: number, content: number): number {
+  if (element.classList.contains("flow-viewport-frame")) return frame;
+  if (element.classList.contains("flow-viewport-content")) return content;
+  return 0;
+}
+
 describe("the flow editor's canvas, which pans and zooms", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -915,7 +922,7 @@ describe("the flow editor's canvas, which pans and zooms", () => {
     expect(buttonsNamed("List")).toEqual([]);
   });
 
-  it("opens at 100%, the largest, and steps out to 90% and back", async () => {
+  it("opens fitted, which without sizes is 100%, the largest, and steps out to 90% and back", async () => {
     await rendered();
     expect(tool("Zoom: 100%")).toBeTruthy();
     expect(tool("Zoom in").getAttribute("aria-disabled")).toBe("true");
@@ -923,6 +930,62 @@ describe("the flow editor's canvas, which pans and zooms", () => {
     expect(tool("Zoom: 90%")).toBeTruthy();
     act(() => tool("Zoom in").click());
     expect(tool("Zoom: 100%")).toBeTruthy();
+  });
+
+  it("opens with the whole Pipeline fitted, and the fit holds through a pick and a resize until a zoom by hand", async () => {
+    const resized: (() => void)[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(private readonly read: () => void) {}
+        observe(): void {
+          resized.push(this.read);
+        }
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
+    // jsdom lays nothing out: the frame is as wide as `frameWidth`, the Pipeline 1200 by 300.
+    let frameWidth = 956;
+    const spies = [
+      vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(function (
+        this: Element,
+      ) {
+        return sized(this, frameWidth, 0);
+      }),
+      vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(function (
+        this: Element,
+      ) {
+        return sized(this, 400, 0);
+      }),
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return sized(this, 0, 1200);
+      }),
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return sized(this, 0, 300);
+      }),
+    ];
+    try {
+      await rendered();
+      // (956 - 2 × 28) / 1200.
+      expect(tool("Zoom: 75%")).toBeTruthy();
+      act(() =>
+        stageCard("tests").querySelector<HTMLButtonElement>(".flow-canvas-stage-pick")!.click(),
+      );
+      frameWidth = 656;
+      act(() => resized.forEach((read) => read()));
+      expect(tool("Zoom: 50%")).toBeTruthy();
+      act(() => tool("Zoom in").click());
+      frameWidth = 956;
+      act(() => resized.forEach((read) => read()));
+      expect(tool("Zoom: 67%")).toBeTruthy();
+    } finally {
+      spies.forEach((spy) => spy.mockRestore());
+    }
   });
 
   it("zooms with a plain scroll over the canvas, and pans with a sideways or Shift + scroll", async () => {

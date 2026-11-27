@@ -219,6 +219,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - A Stage keeps its size on the canvas; a large Pipeline grows past the view, which moves and zooms instead of squeezing it.
 - The view is a group named "Flow view: arrow keys move it, + and − zoom, F fits the Pipeline"; focused, arrow keys move it, + and − zoom, F fits.
 - Moving the view: a drag with the right mouse button, the middle one, Space + drag, or a drag on the empty canvas. A sideways scroll or Shift + scroll moves it sideways; a plain scroll over the canvas zooms (below), so the page scrolls only while the pointer is off the canvas.
+- Opening view: the canvas opens fitted to its window, the whole Pipeline in view and never past 100%. It stays fitted through resizes and edits until the user moves or zooms it by hand; opening another Pipeline fits it again.
 - Zooming: a scroll over the canvas, plain or with Ctrl/⌘, zooms around the pointer (the point under it stays put), on the page and in full screen; or the controls in the canvas's corner (a toolbar named "Canvas"), from 25% to 100%.
   - **Zoom out (−)** and **Zoom in (+)**; at the ends disabled with "Already at 25%, the smallest" or "Already at 100%, a Stage's own size".
   - The zoom readout (e.g. "75%") opens a menu: **Fit the Pipeline** (F), **100%** (0), **75%**, **50%**, **25%**.

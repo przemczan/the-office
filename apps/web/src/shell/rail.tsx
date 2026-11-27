@@ -17,8 +17,8 @@ interface Surface {
 const SURFACES: readonly Surface[] = [
   { to: "/now", label: "Now", icon: "inbox" },
   { to: "/work", label: "Work", icon: "kanban", alsoOn: ["/tasks/"] },
-  { to: "/people", label: "People", icon: "users" },
   { to: "/projects", label: "Projects", icon: "folder-git-2" },
+  { to: "/people", label: "People", icon: "users" },
   { to: "/stats", label: "Stats", icon: "chart-column" },
   { to: "/live-view", label: "Live view", icon: "building-2" },
 ];

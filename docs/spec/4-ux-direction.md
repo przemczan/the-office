@@ -11,7 +11,7 @@ Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, dens
 
 ## Screens
 
-- Seven surfaces, in the rail's order: Now, Work, People, Projects, Stats, Live view; **Settings** at the rail's foot.
+- Seven surfaces, in the rail's order: Now, Work, Projects, People, Stats, Live view; **Settings** at the rail's foot.
 - Outside the shell: the sign-in pages and First-run setup stand alone, without the shell.
 - [shell.md](screens/shell.md): rail, top bar, status strip, Create, Chat button, Needs you panel, chat drawer.
 - [now.md](screens/now.md): home: Needs you, Running, the queue for Start, the Initiatives being shaped, Since you left, today's tokens; nothing else.

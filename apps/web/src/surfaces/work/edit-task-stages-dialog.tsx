@@ -230,7 +230,7 @@ function EditTaskStagesForm({
         )}
         {chosenPipelineId !== "" && (
           <TaskFlowEditor
-            // Another Pipeline opens at 100%, with its Start in view.
+            // Another Pipeline opens fitted to its window.
             key={chosenPipelineId}
             stages={stages}
             endPosition={endPosition}

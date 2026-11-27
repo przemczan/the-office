@@ -2436,7 +2436,7 @@
       </table>
       <ul>
         <li><strong>Page scrolling isn't taken over.</strong> A plain vertical scroll over the canvas scrolls the page. Only Ctrl/⌘ + scroll, horizontal scroll and drags act on the canvas. In full screen there is no page to scroll, so a plain scroll moves the view.</li>
-        <li><strong>Where it opens:</strong> at 100%, with the Start in view. The canvas is as tall as the Pipeline at 100%, up to 62% of the window's height, at least 300px. A view moved by hand stays where it is while the user edits, and comes back to 100% at the Start when another Pipeline opens.</li>
+        <li><strong>Where it opens:</strong> fitted to the window, the whole Pipeline in view and never past 100%. The canvas is as tall as the Pipeline at 100%, up to 62% of the window's height, at least 300px. The fit holds while the user edits or resizes; a view moved or zoomed by hand stays where it is, and another Pipeline opens fitted again.</li>
         <li><strong>Zoom steps:</strong> 25, 33, 50, 67, 75, 90 and 100%. Fit picks any value from 25% to 100%. A Pipeline that already fits is never enlarged past 100%.</li>
         <li><strong>Cards under 60%:</strong> a card shows only its kind mark and its name, drawn large enough to read (13px on the screen, at most 32px on the canvas). Routes stay as lines, without their rows or condition words. From 60% up, the full card comes back.</li>
         <li><strong>The Overview</strong> shows the Stages as blocks in their mark colours, with the view as an ember frame. It shows while the Pipeline doesn't fit in view, and its button hides it. That choice is kept for the signed-in user.</li>

@@ -60,8 +60,8 @@ const FOLLOW_STEP = 14;
  * middle mouse button, Space + drag, a drag on the empty canvas or a sideways scroll, zooms from 25%
  * to 100% around the pointer with a scroll or with its controls, fits the whole Pipeline, and shows
  * an Overview while the Pipeline doesn't fit. The page scrolls only off the canvas. It owns its view
- * and nothing of the Pipeline: it opens at 100% with the Start in view, and a host opening another
- * Pipeline gives it a new key.
+ * and nothing of the Pipeline: it opens fitted to its window (never past 100%) and stays fitted until
+ * the user moves or zooms it, and a host opening another Pipeline gives it a new key.
  */
 export function FlowViewport(props: FlowViewportProps): ReactNode {
   const { fullScreen = false } = props;
@@ -76,7 +76,7 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
   const [panning, setPanning] = useState(false);
   const spaceHeld = useSpaceOver(frame);
   // Fit holds while the user hasn't moved the view by hand, so an edit or names-only refits.
-  const fitted = useRef(false);
+  const fitted = useRef(true);
   // What the listeners and the canvas's calls read between renders.
   const sizes = useRef({ frame: NO_SIZE, content: NO_SIZE });
   const namesOnly = namesOnlyAt(view.zoom);
@@ -123,8 +123,16 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
         setView((last) => ({ ...last, x: last.x + dx * last.zoom, y: last.y + dy * last.zoom })),
       showOverview: (next) =>
         setShape((last) => (JSON.stringify(last) === JSON.stringify(next) ? last : next)),
-      bringIntoView: (box: FlowBox) =>
-        change((last) => withBoxInView(last, box, sizes.current.frame, sizes.current.content)),
+      bringIntoView: (box: FlowBox) => {
+        const { frame: frameNow, content: contentNow } = sizes.current;
+        // Picking isn't moving the view by hand: a fit showing the whole Pipeline, or still waiting
+        // for its sizes, already has every Stage in view, and holds.
+        const wholeInView =
+          frameNow.width === 0 ||
+          !overflows(fittedView(frameNow, contentNow), frameNow, contentNow);
+        if (fitted.current && wholeInView) return;
+        change((last) => withBoxInView(last, box, frameNow, contentNow));
+      },
       followDrag: ({ clientX, clientY }) => {
         const box = frame.current?.getBoundingClientRect();
         if (!box) return;
