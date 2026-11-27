@@ -871,3 +871,75 @@
   flex-direction: column;
   gap: 12px;
 }
+
+.authority-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.authority-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.authority-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font: var(--type-body);
+}
+
+.authority-table th,
+.authority-table td {
+  min-width: 140px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.authority-table thead th {
+  font: var(--type-label);
+}
+
+/* The row labels stay in view while the people scroll sideways. */
+.authority-table .authority-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 240px;
+  background: var(--surface);
+  font-weight: 400;
+}
+
+.authority-table .authority-area th {
+  padding-block: 6px;
+  background: var(--surface-sunken);
+  font: var(--type-label);
+}
+
+.authority-row-name {
+  display: block;
+}
+
+.authority-person-head {
+  white-space: nowrap;
+}
+
+.authority-person-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.authority-cell-changed {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.authority-counts {
+  color: var(--fg-2);
+}

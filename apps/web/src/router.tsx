@@ -31,6 +31,7 @@ import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
 import { StatsPage } from "./surfaces/stats/stats-page.tsx";
 import { healthRangeOf, SystemHealthPage } from "./surfaces/stats/system-health.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
+import { AuthorityTab } from "./surfaces/people/authority-tab.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
 import { ConversationsTab } from "./surfaces/people/conversations-tab.tsx";
@@ -494,6 +495,14 @@ const hireFromScratchRoute = createRoute({
   staticData: { title: "People" },
 });
 
+// Outside "people/" too, where a Role's key could be "authority".
+const authorityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "authority",
+  component: AuthorityTab,
+  staticData: { title: "People" },
+});
+
 // The Projects list beside the open Project, which is its child.
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -941,6 +950,7 @@ export const router = createRouter({
       roleCardEditRoute,
     ]),
     hireFromScratchRoute,
+    authorityRoute,
     projectsRoute.addChildren([
       projectsHomeRoute,
       projectRoute.addChildren([

@@ -1,17 +1,18 @@
 # People
 
-Covers: the People grid, a person's page (head, Overview, Work, Conversations, Memory, Role card tabs), editing a Role card, hiring (preset, from scratch, from a Proposal), letting a person go and hiring back, the set-up hint while nobody is hired.
+Covers: the People grid, the Authority tab, a person's page (head, Overview, Work, Conversations, Memory, Role card tabs), editing a Role card, hiring (preset, from scratch, from a Proposal), letting a person go and hiring back, the set-up hint while nobody is hired.
 
 ## Where it is
 
-- Routes: `/people` (the grid), `/people/$roleKey` (a person, Overview tab), `/people/$roleKey/work`, `/people/$roleKey/conversations`, `/people/$roleKey/memory`, `/people/$roleKey/role`, `/people/$roleKey/role/edit` ("Edit Role"), `/hire` (hire from scratch), `/hire?proposal=<id>` ("Edit the proposed Role").
+- Routes: `/people` (the grid), `/authority` (the Authority tab), `/people/$roleKey` (a person, Overview tab), `/people/$roleKey/work`, `/people/$roleKey/conversations`, `/people/$roleKey/memory`, `/people/$roleKey/role`, `/people/$roleKey/role/edit` ("Edit Role"), `/hire` (hire from scratch), `/hire?proposal=<id>` ("Edit the proposed Role").
 - Open it from the People item in the rail ([shell.md](shell.md)).
 - The page title is "People"; its crumb is "1 person" or "N people". On a person's page the title is the person's name, the parent link is "People" and the crumb is the person's name and title.
+- On `/authority` the title is "People" and the crumb is "Authority".
 - On `/hire` the title is "People" with the parent link "People"; the crumb is "Hire a Role from scratch", or "Edit the proposed Role" with `?proposal=`.
 
 ## Layout
 
-- `/people`: an error alert (if any), then a grid of same-size tiles: one card per person, the Caretaker first, then the Hire tile (or the set-up hint while nobody is hired).
+- `/people`: the tab strip (**People**, **Authority**), an error alert (if any), then a grid of same-size tiles: one card per person, the Caretaker first, then the Hire tile (or the set-up hint while nobody is hired).
 - A person's page: the head, an alert (only for someone let go), the tab strip, then the open tab.
 
 ## Person cards
@@ -97,6 +98,17 @@ Covers: the People grid, a person's page (head, Overview, Work, Conversations, M
 - **Add a note**: the textarea "Note" (hint "Short and standing on its own: it is read in a later session, never edited."), the select "About" ("All Projects" or one Project) and **Add note** (off while the note is blank). A refusal shows as "The note can't be added".
 - **Delete** opens "Delete this note?" with the note text and "Sessions started after this don't read it."; its button is **Delete the note**; the toast is "Note deleted."
 - **Delete memory** opens "Delete the whole memory?" with "All N notes are removed. This can't be undone."; its button is **Delete memory**; the toast is "Memory deleted." A refusal shows as "Nothing was deleted".
+
+## Authority tab
+
+- `/authority`: the tab strip, an error alert (if any), a toolbar, then one table of every Authority row against every person; outside `/people/` because a Role's key could be any word, `authority` too.
+- Toolbar: the switch **Only rows where people differ** (hides the rows on which every person has the same value, and the areas left empty) and **Edit Authority**.
+- Rows: the rows of the Role card tab's Authority, each area a heading row with its rows under it, in the Role card's order; each row says its name, "Proposal, Ask me or Never only" when capped and "Followed by the Agent" when followed; "Approve held calls and apply Proposals" comes last, in no area.
+- Columns: one per person not let go, the Caretaker first ("Built in"); each head is the person's Avatar and name, linking to their Role card tab. The last column, **People**, says how many people have each value on the row, the most common first, such as "Never 2 · Allowed 1" (an own-and-others pair counts as its own value).
+- A cell reads the value in effect in the Role card's words, muted as "Preset default (<value>)" at the preset's default, "Own: Allowed · Others': Ask me" for a pair, and with the note "Asks you until the Role is hired" for a Consult of a Role nobody fills. The Caretaker's reads plainly.
+- Wide tables scroll sideways; the row names stay in view.
+- **Edit Authority** turns every cell but the Caretaker's into the Role card form's select (Own and Others' on a record's row), with the same values, caps and Roles to consult (every known Role but the column's own). Picking the preset's default takes the row off the person's card, as the form does; a changed cell is marked.
+- Save bar, as the form's: "You have unsaved changes.", **Cancel**, **Save changes** ("Change a cell to save it." and Save changes disabled until a cell changes). Save sends each changed person's card on its own (their card with only the Authority replaced), one Role card version each, and the toast says how many were saved. A refusal shows "Not saved: <names>" with each reason and keeps their edits; the people saved leave edit mode. Leaving with unsaved changes asks "Leave without saving?".
 
 ## Role card tab
 

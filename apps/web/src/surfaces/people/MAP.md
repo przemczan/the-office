@@ -12,6 +12,8 @@ The Role card's MCP servers (`role-card-mcp-server-fields.tsx`, `role-mcp-server
 
 The Role card's Authority (spec §6 › Authority, `role-card-authority.tsx`) replaces the four Hard switches: `/role-card-options`' `authority` gives the areas and rows in the card's order (each row's values, its cap, whether it is a record's own-and-others row, followed, and what enforces it), and the card keeps only its set rows (`card.authority`), a row left out standing at `role.presetAuthority` (a new Role's `options.fromScratchAuthority`). The view (`AuthorityView`) shows each area's value (the one most of its groups share, a tie to its first, `areaSetting` in `shell/role-card-words.ts`), inside it the rows that differ or are capped, then the followed rows and the approvals row; a value at the default reads muted "Preset default (…)". The form (`AuthorityFields`) has a select per row (Own and Others' for a record's row), Reset beside a set row; picking the default, or Reset, removes the row from `card.authority`, and a pair picked equal is kept as one value. A Proposal's card always comes with its Authority: the service makes it from the Hard switches of one drafted before Authority. The card still carries `hardSwitches` as it has them; the service ignores them once `authority` is sent.
 
+People's Authority tab (`/authority`, `authority-tab.tsx`, outside `people/` as `/hire` is, with `people-tabs.tsx` giving People and Authority their tab strip) lays `/role-card-options`' Authority rows down the side and every person not let go across, the Caretaker first (`authority-table.ts`: columns, the value in effect per cell, how many people have each value, the "only rows where people differ" filter, which cards changed). Edit Authority turns every cell but the Caretaker's into the Role card form's selects (`AuthorityRowSelects`, and the rule that a row at the preset's default leaves the card, `withAuthorityRow`, both in `authority-row-parts.tsx` with the notes the view and the form share) and saves each changed person's card with `PUT /roles/:key/card`, one request each: a refusal names the people not saved and keeps their edits, and leaving with unsaved edits asks first (`useBlocker`).
+
 The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities, permission profile's edit, run and web, Authority and Task limit show disabled in the form and noted in the view (`FixedForTheCaretaker`), as the service refuses a change to them (its Authority reads plainly, as no preset gives it); its MCP servers and their tool settings stay editable.
 
 **Traps:** the MCP servers module keeps a Role's servers, so Save sends the card (only when it changed, as an unchanged one would add an empty version) and then `PUT /mcp-servers/:name/roles` for each server whose tick changed, with the library's Roles plus or minus this one; hiring assigns after, with the new key. The card keeps only the tool settings the user set: choosing the options' `mcpToolDefault` removes the key, and unticking a server drops its tools' keys. An MCP tool may consult the card's own Role only when the default names it (Devops' card).
@@ -22,6 +24,9 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 
 ### ./
 
+- `authority-row-parts.tsx`: withAuthorityRow, asksYouUntilHired, SettingText, CappedNote, FollowedMark, AuthorityRowSelects
+- `authority-tab.tsx`: AuthorityTab
+- `authority-table.ts`: AuthorityEdits, authorityColumns, authorityOf, settingInEffect, atPresetDefault, isChanged, ValueCount, valueCounts, valueCountWords, areasWhereTheyDiffer, changedCards
 - `avatar-block.tsx`: AvatarBlock
 - `blank-role-card.ts`: blankRoleCard
 - `conversations-tab.tsx`: ConversationsTab
@@ -34,6 +39,7 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `overview-tab.tsx`: OverviewTab
 - `people-order.ts`: inGridOrder, isNobodyHired
 - `people-page.tsx`: PeoplePage
+- `people-tabs.tsx`: PeopleTabs
 - `person-page.tsx`: PersonPage
 - `person-tasks.ts`: WORK_FILTERS
 - `role-card-authority.tsx`: AuthorityView, AuthorityFields
@@ -45,4 +51,4 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `role-mcp-servers.ts`: assignedMcpServersOf, mcpServerAssignments, sessionToolsOf, mcpToolSettingOf, withMcpToolSetting, withoutServerToolSettings
 - `session-skills.ts`: sessionSkillsOf
 - `work-tab.tsx`: WorkTab
-- Tests: conversations-tab.full.test.tsx, memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, role-card-authority.full.test.tsx, role-card-engine.full.test.tsx, role-mcp-servers.full.test.ts
+- Tests: authority-tab.full.test.tsx, authority-table.full.test.ts, conversations-tab.full.test.tsx, memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, role-card-authority.full.test.tsx, role-card-engine.full.test.tsx, role-mcp-servers.full.test.ts

@@ -10,6 +10,7 @@ import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
 import { OfficeSetupHint } from "./office-setup-hint.tsx";
 import { inGridOrder, isNobodyHired } from "./people-order.ts";
+import { PeopleTabs } from "./people-tabs.tsx";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { CAPABILITIES, taskLimitShort } from "../../shell/role-card-words.ts";
 import "./people.css";
@@ -27,6 +28,7 @@ export function PeoplePage(): ReactNode {
   const startFromScratch = () => void navigate({ to: "/hire" });
   return (
     <div className="people-page">
+      <PeopleTabs />
       {roles.error && <Alert tone="danger" title={roles.error.message} />}
       <div className={settingUp ? "people-grid people-grid-setting-up" : "people-grid"}>
         {roles.data &&

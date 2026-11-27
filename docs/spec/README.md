@@ -42,7 +42,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Ask me again, Asked again**: [2.4.2 Sending a Decision](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Ask me again](screens/decision-card.md#ask-me-again)
 - **Attachment**: [2.1.2 Attachment](2.1.2-ideas-and-attachments.md#attachment); screen: [Task page › Attachments tab](screens/task-page.md#attachments-tab)
 - **Authenticator**: [2.10 The authenticator](2.10-users-and-signing-in.md#the-authenticator); screen: [Account › Authenticator](screens/account.md#authenticator)
-- **Authority, authority setting (Allowed, Consult a person, Ask me, Proposal, Never), one setting per Office tool or group, Own work**: [6 Authority](6-permissions-and-safety.md#authority); [6 Authority by role](6-permissions-and-safety.md#authority-by-role); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches); screen: [People › Role card tab](screens/people.md#role-card-tab)
+- **Authority, authority setting (Allowed, Consult a person, Ask me, Proposal, Never), one setting per Office tool or group, Own work**: [6 Authority](6-permissions-and-safety.md#authority); [6 Authority by role](6-permissions-and-safety.md#authority-by-role); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches); screen: [People › Role card tab](screens/people.md#role-card-tab); [People › Authority tab](screens/people.md#authority-tab) (everyone's side by side)
 - **Auto-align, its Undo**: screen: [Pipeline flow editor › Auto-align](screens/pipeline-flow-editor.md#auto-align)
 - **Auto mode**: [2.1.5 Auto mode](2.1.5-planning-and-start.md#auto-mode)
 - **Avatar**: [2.2 Avatar](2.2-people.md#avatar)
