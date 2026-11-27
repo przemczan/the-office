@@ -24,7 +24,7 @@ import {
 } from "../office-options.ts";
 import { RecordedSession } from "../recorded-session.ts";
 import type { Sandbox } from "../sandbox.ts";
-import { sessionEnvironment } from "../session-environment.ts";
+import { claudeCodeSessionEnvironment } from "../session-environment.ts";
 import { claudeCodePArguments, TOKEN_VARIABLE } from "./arguments.ts";
 import { LocalEndpoints, type EndpointRequests } from "./local-endpoints.ts";
 import { OfficeToolServer, type OfficeTool } from "./office-tool-server.ts";
@@ -189,7 +189,7 @@ export class ClaudeCodePSession extends RecordedSession {
     const child = spawn(pinnedBinaryPath(), args, {
       cwd: spec.repository,
       env: {
-        ...sessionEnvironment(),
+        ...claudeCodeSessionEnvironment(),
         ...spec.environment,
         [TOKEN_VARIABLE]: this.endpoints.token,
       },

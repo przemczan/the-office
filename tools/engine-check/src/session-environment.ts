@@ -6,6 +6,24 @@
  */
 const DROPPED_PREFIXES = ["CLAUDE", "ANTHROPIC", "OPENAI", "CODEX", "MCP_", "OTEL_"] as const;
 
+/** Holds a Claude Code OAuth token (from `claude setup-token`); the strip above leaves it alone. */
+export const CLAUDE_CODE_TOKEN_VARIABLE = "ENGINE_CHECK_CLAUDE_CODE_OAUTH_TOKEN";
+
+/**
+ * The environment of a Claude Code session on the account in `~/.claude`, or, when the check was
+ * given a token, signed in with it as `CLAUDE_CODE_OAUTH_TOKEN`. The token is never logged or
+ * recorded: the report holds messages and hook calls, not the environment.
+ */
+export function claudeCodeSessionEnvironment(
+  parent: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+  const token = parent[CLAUDE_CODE_TOKEN_VARIABLE]?.trim();
+  return {
+    ...sessionEnvironment(parent),
+    ...(token ? { CLAUDE_CODE_OAUTH_TOKEN: token } : {}),
+  };
+}
+
 export function sessionEnvironment(
   parent: NodeJS.ProcessEnv = process.env,
 ): Record<string, string> {

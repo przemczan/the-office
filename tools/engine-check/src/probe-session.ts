@@ -20,7 +20,7 @@ import {
 } from "./office-options.ts";
 import { RecordedSession, type SessionHook } from "./recorded-session.ts";
 import type { Sandbox } from "./sandbox.ts";
-import { sessionEnvironment } from "./session-environment.ts";
+import { claudeCodeSessionEnvironment } from "./session-environment.ts";
 
 export type ProbeHook = SessionHook<ProbeSession>;
 
@@ -97,7 +97,7 @@ export class ProbeSession extends RecordedSession {
       settings: sessionSettings(spec.repository, spec.settings),
       permissionPrompts: "none",
       systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
-      env: sessionEnvironment(),
+      env: claudeCodeSessionEnvironment(),
       hooks: this.hookMatchers(spec.hooks ?? {}),
       abortController,
       stderr: (chunk) => this.recordStderr(chunk),
