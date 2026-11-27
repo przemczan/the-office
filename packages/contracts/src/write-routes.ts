@@ -61,6 +61,13 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
     specHeading: THE_USERS_ALONE,
   },
 
+  // Engine credentials: they sign The Office in somewhere.
+  { route: "POST /settings/engines/:engineId/sign-in", specHeading: THE_USERS_ALONE },
+  { route: "POST /settings/engines/:engineId/sign-in/code", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /settings/engines/:engineId/sign-in", specHeading: THE_USERS_ALONE },
+  { route: "PUT /settings/engines/:engineId/token", specHeading: THE_USERS_ALONE },
+  { route: "PUT /settings/engines/:engineId/api-key", specHeading: THE_USERS_ALONE },
+
   // The user's own account.
   { route: "DELETE /account/linked-identities/github", specHeading: THE_USERS_ALONE },
   { route: "DELETE /account/linked-identities/google", specHeading: THE_USERS_ALONE },
@@ -249,7 +256,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   },
 
   // People and Role cards.
-  { route: "PUT /settings/duties/:duty", agent: "proposal", note: "propose_office_setting" },
   {
     route: "POST /roles/:key/memory",
     agent: "tool",
@@ -258,44 +264,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "DELETE /roles/:key/memory", agent: "gap" },
 
   // Engines, Office settings, updates, telemetry, identity.
-  { route: "PUT /settings/office-wide-limit", agent: "proposal", note: "propose_office_setting" },
-  { route: "PUT /settings/size-threshold", agent: "proposal", note: "propose_office_setting" },
-  { route: "PUT /settings/office-instructions", agent: "proposal", note: "propose_office_setting" },
-  { route: "PUT /settings/archive-period", agent: "gap" },
-  { route: "PUT /settings/usage", agent: "gap" },
-  { route: "PUT /settings/stage-context-limits", agent: "gap" },
-  { route: "PUT /settings/run-environments", agent: "gap" },
-  { route: "PUT /settings/actions", agent: "gap" },
-  { route: "PUT /settings/test-instances", agent: "gap" },
-  { route: "PUT /settings/engines", agent: "gap" },
-  { route: "DELETE /settings/engines/:engineId", agent: "gap" },
-  { route: "POST /settings/engines/:engineId/models/refresh", agent: "gap" },
-  {
-    route: "POST /settings/engines/:engineId/sign-in",
-    agent: "undecided",
-    note: "engine credentials",
-  },
-  {
-    route: "POST /settings/engines/:engineId/sign-in/code",
-    agent: "undecided",
-    note: "engine credentials",
-  },
-  {
-    route: "DELETE /settings/engines/:engineId/sign-in",
-    agent: "undecided",
-    note: "engine credentials",
-  },
-  {
-    route: "PUT /settings/engines/:engineId/token",
-    agent: "undecided",
-    note: "engine credentials",
-  },
-  {
-    route: "PUT /settings/engines/:engineId/api-key",
-    agent: "undecided",
-    note: "engine credentials",
-  },
-  { route: "PUT /settings/telemetry", agent: "gap" },
   {
     route: "POST /office-identity/ssh-key/regenerate",
     agent: "gap",

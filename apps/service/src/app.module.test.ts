@@ -424,7 +424,6 @@ describe("the whole app, signed out", () => {
       initiatives: ["create_initiative"],
       officeSettings: [
         "post_link_card",
-        "propose_office_setting",
         "propose_office_setup",
         "show_office_status",
       ],

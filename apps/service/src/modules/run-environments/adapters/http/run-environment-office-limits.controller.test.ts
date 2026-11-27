@@ -6,6 +6,7 @@ import {
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { OfficeToolRegistry } from "../../../engine/index.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
@@ -18,6 +19,8 @@ import { DEFAULT_RUN_ENVIRONMENT_OPTIONS } from "../../domain/run-environment.js
 import { RunEnvironmentSettings } from "../../ports/run-environment-settings.js";
 import { PostgresRunEnvironmentSettings } from "../postgres/postgres-run-environment-settings.js";
 import { RunEnvironmentWebEvents } from "../websocket/run-environment-web-events.js";
+import { RunEnvironmentOfficeActions } from "../office-actions/run-environment-office-actions.js";
+import { RunEnvironmentOfficeActionsController } from "./run-environment-office-actions.controller.js";
 import { RunEnvironmentOfficeLimitsController } from "./run-environment-office-limits.controller.js";
 
 const HOST_CORES = 10;
@@ -38,9 +41,11 @@ beforeEach(async () => {
   ({ app, url } = await startTestApplication({
     database: true,
     imports: [EventsModule, EventStreamModule],
-    controllers: [RunEnvironmentOfficeLimitsController],
+    controllers: [RunEnvironmentOfficeLimitsController, RunEnvironmentOfficeActionsController],
     providers: [
       OfficeLimits,
+      RunEnvironmentOfficeActions,
+      { provide: OfficeToolRegistry, useValue: new OfficeToolRegistry() },
       RunEnvironmentSlots,
       RunEnvironmentWebEvents,
       { provide: HostCores, useValue: new HostCores(HOST_CORES) },

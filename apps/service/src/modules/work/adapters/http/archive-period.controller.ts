@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Put } from "@nestjs/common";
-import { archivePeriodSchema, type ArchivePeriod } from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { Controller, Get } from "@nestjs/common";
+import type { ArchivePeriod } from "@the-office/contracts";
 import { OfficeLimits } from "../../application/office-limits.js";
 
-/** Settings › Office limits: the Archive period, in days. */
+/**
+ * Settings › Office limits: the Archive period, in days, read here; its change is an Office action
+ * (`SET_ARCHIVE_PERIOD_ACTION`, routed by `WorkSettingsOfficeActionsController`).
+ */
 @Controller("settings/archive-period")
 export class ArchivePeriodController {
   constructor(private readonly limits: OfficeLimits) {}
@@ -11,13 +13,5 @@ export class ArchivePeriodController {
   @Get()
   async read(): Promise<ArchivePeriod> {
     return { archivePeriod: await this.limits.archivePeriod() };
-  }
-
-  @Put()
-  async change(
-    @Body(new ContractPipe(archivePeriodSchema)) { archivePeriod }: ArchivePeriod,
-  ): Promise<ArchivePeriod> {
-    await this.limits.changeArchivePeriod(archivePeriod);
-    return { archivePeriod };
   }
 }

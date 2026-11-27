@@ -19,7 +19,6 @@
 - `POST /office-identity/known-hosts`: OfficeIdentityController.confirm
 - `GET /health`: HealthController.report
 - `GET /settings/telemetry`: TelemetrySettingsController.settings
-- `PUT /settings/telemetry`: TelemetrySettingsController.save
 - `GET /workstation/load`: WorkstationController.load
 
 ## Files
@@ -218,7 +217,7 @@
 - `telemetry.fixtures.ts`: CollectingMetricReader, setUp
 - `telemetry.module.ts`: TelemetryModule
 - `telemetry.ts`: TelemetryAttributes, TelemetrySpan, TokenUsage, TraceRoot, TELEMETRY_SCOPE, UsageWindowAttribute, Telemetry
-- Tests: export-timeout.full.test.ts, office-logger.full.test.ts, office-logger.test.ts, start-telemetry.test.ts, system-health-metrics.test.ts, telemetry-settings.controller.test.ts, telemetry-settings.test.ts, telemetry.full.test.ts, telemetry.test.ts
+- Tests: export-timeout.full.test.ts, office-logger.full.test.ts, office-logger.test.ts, start-telemetry.test.ts, system-health-metrics.test.ts, telemetry-settings.test.ts, telemetry.full.test.ts, telemetry.test.ts
 
 ### telemetry/bundled-grafana/
 

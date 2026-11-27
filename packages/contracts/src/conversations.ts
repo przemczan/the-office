@@ -10,6 +10,7 @@ import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { proposedTestTargetsSchema } from "./test-targets.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { stageContextLimitsSchema } from "./stage-context-limits.js";
+import { officeAction } from "./office-actions.js";
 import { routeSchema, stagePositionSchema, stageProblemSchema, stageSchema } from "./stages.js";
 import { userRefSchema } from "./users.js";
 import { prioritySchema } from "./work.js";
@@ -1536,3 +1537,50 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("office-instructions.changed") }),
 ]);
 export type ThreadWebEvent = z.infer<typeof threadWebEventSchema>;
+
+/** Office action: the size threshold of Settings › Office limits. */
+export const SET_SIZE_THRESHOLD_ACTION = officeAction({
+  name: "set_size_threshold",
+  title: "Change the size threshold",
+  description: `Sets, once a Thread's cache has cooled, how many tokens the conversation may have added since its session began before its next message starts a fresh session with a Brief: from ${SIZE_THRESHOLD_TOKENS.min} to ${SIZE_THRESHOLD_TOKENS.max} in steps of ${SIZE_THRESHOLD_TOKENS.step}. Answers the new threshold.`,
+  input: sizeThresholdSchema,
+  answer: sizeThresholdSchema,
+  route: { method: "PUT", path: "/settings/size-threshold" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "size-threshold" }),
+});
+
+/** Office action: the Office instructions of Settings. */
+export const SET_OFFICE_INSTRUCTIONS_ACTION = officeAction({
+  name: "set_office_instructions",
+  title: "Change the Office instructions",
+  description: `Replaces the Office instructions: the one text of general guidelines every person's session gets with their Role's instructions, from the next session on, at most ${OFFICE_INSTRUCTIONS_MAX_CHARACTERS} characters. The text is given whole, not only the lines that change: read the current text with read_office_instructions first. Answers the saved text.`,
+  input: officeInstructionsSchema,
+  answer: officeInstructionsSchema,
+  route: { method: "PUT", path: "/settings/office-instructions" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "office-instructions" }),
+});
+
+/** Office action: the Stage context limits of Settings › Office limits. */
+export const SET_STAGE_CONTEXT_LIMITS_ACTION = officeAction({
+  name: "set_stage_context_limits",
+  title: "Change the Stage context limits",
+  description:
+    "Sets the Office defaults of every Agent Stage's context limits, given whole, and answers the limits saved.",
+  input: stageContextLimitsSettingSchema,
+  answer: stageContextLimitsSettingSchema,
+  route: { method: "PUT", path: "/settings/stage-context-limits" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "stage-context-limits" }),
+});
+
+/** Conversations' Office actions on Office settings, each declared above. */
+export const CONVERSATIONS_SETTINGS_OFFICE_ACTIONS = [
+  SET_SIZE_THRESHOLD_ACTION,
+  SET_OFFICE_INSTRUCTIONS_ACTION,
+  SET_STAGE_CONTEXT_LIMITS_ACTION,
+] as const;

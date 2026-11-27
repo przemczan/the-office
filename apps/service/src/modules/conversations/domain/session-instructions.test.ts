@@ -25,7 +25,6 @@ import {
   LIST_STAGE_TEMPLATES_TOOL,
   OFFICE_PROPOSALS_RULE,
   PERSON_READING_OFFICE_TOOLS,
-  PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_PROMPT_TEMPLATE_TOOL,
@@ -193,7 +192,6 @@ describe("chatOfficeTools", () => {
     expect(tools).not.toContain("change_role");
     expect(tools).toEqual(
       expect.arrayContaining([
-        PROPOSE_OFFICE_SETTING_TOOL,
         READ_OFFICE_INSTRUCTIONS_TOOL,
         LIST_PROMPT_TEMPLATES_TOOL,
         READ_PROMPT_TEMPLATE_TOOL,
@@ -217,7 +215,6 @@ describe("chatOfficeTools", () => {
         READ_ROLE_TOOL,
         LIST_PIPELINES_TOOL,
         LIST_STAGE_TEMPLATES_TOOL,
-        PROPOSE_OFFICE_SETTING_TOOL,
         PROPOSE_OFFICE_SETUP_TOOL,
         CONSULT_TOOL,
       ]),

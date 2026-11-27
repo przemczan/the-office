@@ -1,10 +1,5 @@
-import { Body, Controller, Get, Put } from "@nestjs/common";
-import {
-  officeInstructionsSchema,
-  type OfficeInstructions as OfficeInstructionsText,
-} from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
+import { Controller, Get } from "@nestjs/common";
+import type { OfficeInstructions as OfficeInstructionsText } from "@the-office/contracts";
 import { OfficeInstructions } from "../../application/office-instructions.js";
 
 /** Settings › Office instructions: the text every new session gets. */
@@ -15,16 +10,6 @@ export class OfficeInstructionsController {
   @Get()
   async read(): Promise<OfficeInstructionsText> {
     const { text } = await this.instructions.current();
-    return { officeInstructions: text };
-  }
-
-  @Put()
-  async change(
-    @Body(new ContractPipe(officeInstructionsSchema))
-    { officeInstructions }: OfficeInstructionsText,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<OfficeInstructionsText> {
-    const { text } = await this.instructions.save(officeInstructions, userOf(signedIn));
     return { officeInstructions: text };
   }
 }

@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Put } from "@nestjs/common";
-import { officeWideLimitSchema, type OfficeWideLimit } from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { Controller, Get } from "@nestjs/common";
+import type { OfficeWideLimit } from "@the-office/contracts";
 import { OfficeLimits } from "../../application/office-limits.js";
 
-/** Settings › Office limits: the desks, the Office-wide limit on started Tasks. */
+/**
+ * Settings › Office limits: the desks, the Office-wide limit on started Tasks, read here; its
+ * change is an Office action (`SET_OFFICE_WIDE_LIMIT_ACTION`, routed by
+ * `WorkSettingsOfficeActionsController`).
+ */
 @Controller("settings/office-wide-limit")
 export class OfficeLimitsController {
   constructor(private readonly limits: OfficeLimits) {}
@@ -11,13 +14,5 @@ export class OfficeLimitsController {
   @Get()
   async read(): Promise<OfficeWideLimit> {
     return { officeWideLimit: await this.limits.officeWideLimit() };
-  }
-
-  @Put()
-  async change(
-    @Body(new ContractPipe(officeWideLimitSchema)) { officeWideLimit }: OfficeWideLimit,
-  ): Promise<OfficeWideLimit> {
-    await this.limits.changeOfficeWideLimit(officeWideLimit);
-    return { officeWideLimit };
   }
 }

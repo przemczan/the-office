@@ -21,7 +21,6 @@ import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
 import { OfficeInstructionsChanged } from "../domain/conversation-events.js";
 import { aProposedCard } from "../domain/proposal.fixtures.js";
 import {
-  PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_ROLE_TOOL,
@@ -340,7 +339,6 @@ class OfficeWideLimitStandIn {
 }
 
 const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
-  PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
 ];
@@ -484,22 +482,14 @@ async function ask(
   return { thread, drafted: await proposals.listInThread(thread.id) };
 }
 
-async function theOnlyProposal(text: string): Promise<Proposal> {
-  const { drafted } = await askOfficeManager(text);
-  const [proposal] = drafted;
-  if (!proposal || drafted.length > 1) throw new Error("Not one Proposal was drafted.");
-  return proposal;
-}
-
-function drafts(text: string): SessionScript {
-  return calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-instructions", text });
-}
-
-/** Starts on the text `now`, with the Office Manager's draft of `text` open. */
+/**
+ * Starts on the text `now`, with an open Proposal of `text` as `propose_office_setting`, now
+ * retired, drafted it: it applies as before.
+ */
 async function draftOver(now: string, text: string): Promise<Proposal> {
-  await startWith(drafts(text));
+  await startsIdle();
   await officeInstructions.save(now, ANN_LEE);
-  return theOnlyProposal("Ask for plain words.");
+  return draftsRole({ kind: "office-instructions", from: now, to: text });
 }
 
 /** The hooks every test of both files runs. */
@@ -590,15 +580,16 @@ describe("a Proposal of a person in a preset's Role", () => {
 describe("a Proposal of the size threshold", () => {
   const { sizeThreshold } = DEFAULT_CONTEXT_POLICY_SETTINGS;
 
-  it("changes it, from the value it had, only when the user applies it", async () => {
-    await startWith(
-      calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "size-threshold", value: 60_000 }),
-    );
+  /** An open Proposal as `propose_office_setting`, now retired, drafted it: it applies as before. */
+  async function draftsThreshold(to: number): Promise<Proposal> {
+    await startsIdle();
+    return draftsRole({ kind: "size-threshold", from: sizeThreshold, to });
+  }
 
-    const proposal = await theOnlyProposal("Sessions restart too often.");
+  it("still applies when it was drafted before the Office actions replaced its tool, from the value it had, only when the user applies it", async () => {
+    const proposal = await draftsThreshold(60_000);
 
     expect(proposal.change).toEqual({ kind: "size-threshold", from: sizeThreshold, to: 60_000 });
-    expect(toolResultRead().isError).toBe(false);
     expect(await settings.sizeThreshold()).toBe(sizeThreshold);
 
     await proposals.apply(proposal.id, ANN_LEE);
@@ -608,37 +599,25 @@ describe("a Proposal of the size threshold", () => {
   });
 
   it("changes nothing when the user declines it", async () => {
-    await startWith(
-      calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "size-threshold", value: 60_000 }),
-    );
-    const proposal = await theOnlyProposal("Sessions restart too often.");
+    const proposal = await draftsThreshold(60_000);
 
     await proposals.decline(proposal.id, ANN_LEE);
 
     expect(await settings.sizeThreshold()).toBe(sizeThreshold);
   });
 
-  it("is not drafted on a value Settings would refuse, and the Agent reads why", async () => {
-    await startWith(
-      calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "size-threshold", value: 1_234 }),
-    );
-
-    const { drafted } = await askOfficeManager("Sessions restart too often.");
-
-    expect(drafted).toEqual([]);
-    expect(toolResultRead()).toEqual({
-      text: "The size threshold is from 5000 to 200000 tokens, in steps of 5000.",
-      isError: true,
+  it("is not drafted on a value Settings would refuse, and the reason is given", async () => {
+    await expect(draftsThreshold(1_234)).rejects.toMatchObject({
+      reasons: ["The size threshold is from 5000 to 200000 tokens, in steps of 5000."],
     });
+
     expect(await settings.sizeThreshold()).toBe(sizeThreshold);
   });
 });
 
 describe("a Proposal of the Office-wide limit", () => {
   it("is applied by Work, from the limit it keeps, saying who proposed it", async () => {
-    await startWith(calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-wide-limit", value: 5 }));
-
-    const proposal = await theOnlyProposal("Let more Tasks run at once.");
+    const proposal = await draftsLimit(5);
 
     expect(proposal.change).toEqual({ kind: "office-wide-limit", from: 3, to: 5 });
     expect(officeWideLimit.applied).toEqual([]);
@@ -651,8 +630,7 @@ describe("a Proposal of the Office-wide limit", () => {
   });
 
   it("changes nothing when the user declines it", async () => {
-    await startWith(calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-wide-limit", value: 5 }));
-    const proposal = await theOnlyProposal("Let more Tasks run at once.");
+    const proposal = await draftsLimit(5);
 
     await proposals.decline(proposal.id, ANN_LEE);
 
@@ -660,29 +638,22 @@ describe("a Proposal of the Office-wide limit", () => {
     expect(officeWideLimit.applied).toEqual([]);
   });
 
-  it("is not drafted when Work would refuse it, and the Agent reads why", async () => {
-    await startWith(calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-wide-limit", value: 3 }));
-
-    const { drafted } = await askOfficeManager("Let more Tasks run at once.");
-
-    expect(drafted).toEqual([]);
-    expect(toolResultRead()).toEqual({
-      text: "The Office-wide limit is 3 already.",
-      isError: true,
+  it("is not drafted when Work would refuse it, and the reason is given", async () => {
+    await expect(draftsLimit(3)).rejects.toMatchObject({
+      reasons: ["The Office-wide limit is 3 already."],
     });
   });
 });
 
 describe("a Proposal of the Office instructions", () => {
   it("is drafted from the text now, and changes it only when the user applies it", async () => {
-    const proposal = await draftOver("Write in plain words.", "  Keep it short.\n");
+    const proposal = await draftOver("Write in plain words.", "Keep it short.");
 
     expect(proposal.change).toEqual({
       kind: "office-instructions",
       from: "Write in plain words.",
       to: "Keep it short.",
     });
-    expect(toolResultRead().isError).toBe(false);
     expect(await officeInstructions.current()).toEqual({
       version: 1,
       text: "Write in plain words.",
@@ -711,36 +682,29 @@ describe("a Proposal of the Office instructions", () => {
     expect(await officeInstructions.current()).toEqual({ version: 1, text: "Keep it short." });
   });
 
-  it("empties them when a text of spaces is applied", async () => {
-    const proposal = await draftOver("Write in plain words.", "   ");
+  it("empties them when an empty text is applied", async () => {
+    const proposal = await draftOver("Write in plain words.", "");
 
     await proposals.apply(proposal.id, ANN_LEE);
 
     expect(await officeInstructions.current()).toEqual({ version: 2, text: "" });
   });
 
-  it("is not drafted on the text they are now, even with spaces around it", async () => {
-    await startWith(drafts("  Write in plain words.  "));
-    await officeInstructions.save("Write in plain words.", ANN_LEE);
-
-    const { drafted } = await askOfficeManager("Ask for plain words.");
-
-    expect(drafted).toEqual([]);
-    expect(toolResultRead()).toEqual({
-      text: "The Office instructions are this text already.",
-      isError: true,
-    });
+  it("is not drafted on the text they are now", async () => {
+    await expect(draftOver("Write in plain words.", "Write in plain words.")).rejects.toMatchObject(
+      {
+        reasons: ["The Office instructions are this text already."],
+      },
+    );
   });
 
-  it("is not drafted over the limit, and the Agent reads why", async () => {
-    await startWith(drafts("a".repeat(OFFICE_INSTRUCTIONS_MAX_CHARACTERS + 1)));
-
-    const { drafted } = await askOfficeManager("Ask for plain words.");
-
-    expect(drafted).toEqual([]);
-    expect(toolResultRead()).toEqual({
-      text: `The Office instructions are at most ${OFFICE_INSTRUCTIONS_MAX_CHARACTERS} characters.`,
-      isError: true,
+  it("is not drafted over the limit, and the reason is given", async () => {
+    await expect(
+      draftOver("Write in plain words.", "a".repeat(OFFICE_INSTRUCTIONS_MAX_CHARACTERS + 1)),
+    ).rejects.toMatchObject({
+      reasons: [
+        `The Office instructions are at most ${OFFICE_INSTRUCTIONS_MAX_CHARACTERS} characters.`,
+      ],
     });
   });
 
@@ -867,12 +831,16 @@ describe("a Proposal of a change to a Role", () => {
   });
 });
 
-/** The Office Manager proposes the duties' new holders, each `[duty, holder]`. */
-function proposesHolders(...holders: [string, string | null][]): SessionScript {
-  return calls(PROPOSE_OFFICE_SETTING_TOOL, {
-    setting: "duties",
-    duties: holders.map(([duty, holder]) => ({ duty, holder })),
-  });
+/**
+ * An open Proposal of the duties' new holders, each `[duty, holder]`, as `propose_office_setting`,
+ * now retired, drafted it: its `from` is each duty's holder now. Start with `startsIdle` first.
+ */
+async function proposesHolders(...holders: [string, string | null][]): Promise<Proposal> {
+  const now = await duties.list();
+  const from = Object.fromEntries(
+    holders.map(([duty]) => [duty, now.find((holding) => holding.duty === duty)?.roleKey ?? null]),
+  );
+  return draftsRole({ kind: "duties", from, to: Object.fromEntries(holders) });
 }
 
 async function holdersOf(...named: string[]): Promise<Record<string, string | null>> {
@@ -885,13 +853,12 @@ async function holdersOf(...named: string[]): Promise<Record<string, string | nu
 }
 
 describe("a Proposal of who holds the duties", () => {
-  it("is drafted from the holders now of the duties it names, changing nothing", async () => {
-    await startWith(proposesHolders(["plans", roleKey], ["reviews", null]));
+  it("still applies when it was drafted before the Office actions replaced its tool: from the holders it named, changing nothing until then", async () => {
+    await startsIdle();
     await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
 
-    const proposal = await theOnlyProposal("Let the tester plan.");
+    const proposal = await proposesHolders(["plans", roleKey], ["reviews", null]);
 
-    expect(toolResultRead().isError).toBe(false);
     expect(proposal.change).toEqual({
       kind: "duties",
       from: { plans: "planner", reviews: "reviewer" },
@@ -901,9 +868,9 @@ describe("a Proposal of who holds the duties", () => {
   });
 
   it("sets every duty it names when the user applies it", async () => {
-    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await startsIdle();
     await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
-    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+    const proposal = await proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]);
 
     const applied = await proposals.apply(proposal.id, ANN_LEE);
 
@@ -915,9 +882,9 @@ describe("a Proposal of who holds the duties", () => {
   });
 
   it("is refused once a duty it names changed since, and changes none of them", async () => {
-    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await startsIdle();
     await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
-    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+    const proposal = await proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]);
     await duties.change("shapes-initiatives", null);
 
     await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
@@ -931,27 +898,19 @@ describe("a Proposal of who holds the duties", () => {
     expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
   });
 
-  it("is not drafted for a Role nobody is hired as, and the Agent reads why", async () => {
-    await startWith(proposesHolders(["plans", roleKey]));
+  it("is not drafted for a Role nobody is hired as, and the reason is given", async () => {
+    await startsIdle();
 
-    const { drafted } = await askOfficeManager("Let the tester plan.");
-
-    expect(drafted).toEqual([]);
-    expect(toolResultRead()).toEqual({
-      text: `Plans goes to a hired Role, and nobody is hired as "${roleKey}".`,
-      isError: true,
+    await expect(proposesHolders(["plans", roleKey])).rejects.toMatchObject({
+      reasons: [`Plans goes to a hired Role, and nobody is hired as "${roleKey}".`],
     });
   });
 
-  it("is not drafted for the Caretaker, and the Agent reads why", async () => {
-    await startWith(proposesHolders(["plans", CARETAKER]));
+  it("is not drafted for the Caretaker, and the reason is given", async () => {
+    await startsIdle();
 
-    const { drafted } = await askOfficeManager("Let the Caretaker plan.");
-
-    expect(drafted).toEqual([]);
-    expect(toolResultRead()).toEqual({
-      text: "The Caretaker is built in and holds no duty, so not Plans.",
-      isError: true,
+    await expect(proposesHolders(["plans", CARETAKER])).rejects.toMatchObject({
+      reasons: ["The Caretaker is built in and holds no duty, so not Plans."],
     });
   });
 });
@@ -1310,3 +1269,9 @@ describe("a Proposal of an Office action", () => {
     });
   });
 });
+
+/** An open Proposal as `propose_office_setting`, now retired, drafted it: it applies as before. */
+async function draftsLimit(to: number): Promise<Proposal> {
+  await startsIdle();
+  return draftsRole({ kind: "office-wide-limit", from: 3, to });
+}

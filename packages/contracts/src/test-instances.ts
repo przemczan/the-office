@@ -408,6 +408,20 @@ export const LINK_BUILT_FILE_ACTION = officeAction({
   subject: ({ instanceId }) => ({ kind: "test-instance", id: instanceId }),
 });
 
+/** Office action: the Test instances limits of Settings › Office limits. */
+export const SET_TEST_INSTANCE_SETTINGS_ACTION = officeAction({
+  name: "set_test_instance_settings",
+  title: "Change the Test instances limits",
+  description:
+    "Sets the three Test instances limits, the whole set at once: how many run at once, the idle minutes before one stops, and the first and last Proxy port (a range that holds The Office's own port is refused). Answers the limits saved.",
+  input: testInstanceSettingsSchema,
+  answer: testInstanceSettingsSchema,
+  route: { method: "PUT", path: "/settings/test-instances" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "test-instances" }),
+});
+
 /** Test instances' Office actions, each declared above. */
 export const TEST_INSTANCE_OFFICE_ACTIONS = [
   LAUNCH_INITIATIVE_TEST_INSTANCE_ACTION,
@@ -415,4 +429,5 @@ export const TEST_INSTANCE_OFFICE_ACTIONS = [
   STOP_TEST_INSTANCE_ACTION,
   OPEN_TEST_INSTANCE_ACTION,
   LINK_BUILT_FILE_ACTION,
+  SET_TEST_INSTANCE_SETTINGS_ACTION,
 ] as const;

@@ -120,7 +120,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **The user's own account** (profile, password, appearance, authenticator, recovery codes, passkeys, linked identities, signed-in devices, notification settings): each user's own ([2.10](2.10-users-and-signing-in.md#per-user-and-shared)); a person is never a user.
 - **Signing in and out, in every way:** a person is never a user ([2.10](2.10-users-and-signing-in.md#users)).
 - **Users** (add, one-time password, remove) and closing First-run setup: signing in guards The Office against people without an account ([Threat model for signing in](#threat-model-for-signing-in)).
-- **Credentials** (an engine's sign-in, code, token or API key; GitHub sign-in; the Google client; the OpenID Connect provider; the Office identity's ssh key; known hosts): they sign The Office in somewhere, or decide whom it trusts, and are refused to Agents ([Secrets](#secrets)).
+- **Credentials** (an engine's sign-in, code, token or API key; telemetry's header values and the Grafana read token; GitHub sign-in; the Google client; the OpenID Connect provider; the Office identity's ssh key; known hosts): they sign The Office in somewhere, or decide whom it trusts, and are refused to Agents ([Secrets](#secrets)).
 - **The fire alarm's all clear, a lift and dropping a lift:** the fire alarm is the user's stop: an Agent may sound it (Operations › Fire alarm), only the user eases it ([2.8](2.8-fire-alarm.md)).
 - **Deleting a Task's or an Initiative's branch:** deleting work isn't an Agent's call ([5.5](5.5-git-and-isolation.md#deleting-by-hand)).
 - **Starting or stopping an Action run:** no Agent starts an Action; one that leaves the workstation would need a Hard switch of its own ([2.15](2.15-actions.md#who-starts-an-action), [Actions](#actions)).
@@ -130,6 +130,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   - Reopen a Dropped Task, Restart from a Stage (Skip a Stage among it) and Start over: Work › Gates and runs;
   - a Gate's Continue on others' work, and Send back and Drop at a Gate: Work › Gates and runs;
   - sounding the fire alarm: Operations › Fire alarm;
+  - every Office setting that isn't a credential: Office settings, each an Office action (the Office-wide limit, size threshold, Office instructions, duty holders, Archive period, usage, Stage context limits, run environment limits, Action settings, test instance settings, engines' settings, removal and model refresh, and telemetry's choice), ruled Proposal, Ask me or Never; an engine's key and sign-in and telemetry's credentials are left out of their inputs and kept as they are, and while an API engine's key, or telemetry's headers or read token, are saved, a person can't move them to another base URL, endpoint or read address;
   - checking for updates, GitHub's permissions and Grafana, and starting the bundled Grafana again: Operations › Checks;
   - scheduling or cancelling an Office update or restart: Operations › Updates and restarts;
   - closing a pull request: Projects and settings › Project upkeep;
@@ -158,7 +159,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   | No area | Approve held calls and apply Proposals ([trust anchor](#the-trust-anchor)) |
 
 - **Where each hand-written tool belongs:** a tool no Office action declares is offered unless its group is Never; one that drafts its own Proposal is ruled no further, so its group decides only whether it is offered:
-  - Office settings: `propose_office_setting`; Project settings: `propose_project`;
+  - Project settings: `propose_project`;
   - Initiative records: `create_initiative`; Task records: `create_task`;
   - Run installs: `run_environment_check`; Ideas › `capture_idea`; `post_link_card` and `show_office_status` in their own rows.
 - **Core** is loaded in every session from the start; it isn't an area and isn't one settable group:

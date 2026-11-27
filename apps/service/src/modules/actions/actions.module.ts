@@ -1,6 +1,9 @@
 import { Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../busy-work/index.js";
+import { EngineModule } from "../engine/index.js";
+import { ActionSettingsOfficeActionsController } from "./adapters/http/action-settings-office-actions.controller.js";
+import { ActionSettingsOfficeActions } from "./adapters/office-actions/action-settings-office-actions.js";
 import { DevicesActionDevices } from "./adapters/devices/devices-action-devices.js";
 import { DomainEventSignals } from "./adapters/events/domain-event-signals.js";
 import { ActionRunsController } from "./adapters/http/action-runs.controller.js";
@@ -48,8 +51,12 @@ export class ActionsModule {
   static register({ imports }: ActionsModuleOptions): DynamicModule {
     return {
       module: ActionsModule,
-      imports: [...imports, BusyWorkModule, ScheduleModule],
-      controllers: [ActionRunsController, ActionSettingsController],
+      imports: [...imports, BusyWorkModule, ScheduleModule, EngineModule],
+      controllers: [
+        ActionRunsController,
+        ActionSettingsController,
+        ActionSettingsOfficeActionsController,
+      ],
       providers: [
         { provide: ActionRunRepository, useClass: PostgresActionRunRepository },
         { provide: ActionSettingsStore, useClass: PostgresActionSettings },
@@ -62,6 +69,7 @@ export class ActionsModule {
         { provide: ActionRunSignals, useClass: DomainEventSignals },
         ActionLastRunsRegistration,
         ActionLimits,
+        ActionSettingsOfficeActions,
         ActionRunLogs,
         ActionRunReactions,
         ActionRunRecords,

@@ -100,3 +100,18 @@ export const BUNDLED_GRAFANA_ENDPOINT = "http://127.0.0.1:4318";
 
 /** Where a person opens the bundled Grafana, on the machine The Office runs on. */
 export const BUNDLED_GRAFANA_ADDRESS = "http://localhost:3300";
+
+/**
+ * What the Save telemetry action takes (PUT /settings/telemetry), the choice's fields side by side
+ * so it is one object: `endpoint` is required with `own-endpoint` and refused with the others. An
+ * own endpoint's `headers` and its Grafana's `readToken` hold credentials: only the user gives them,
+ * an Agent's call that gives one is refused, and the saved ones are kept.
+ */
+export const saveTelemetrySchema = z.object({
+  kind: z.enum(["off", "bundled-grafana", "own-endpoint"]),
+  endpoint: z.string().optional(),
+  headers: z.array(telemetryHeaderSchema).optional(),
+  timeoutMilliseconds: z.number().int().positive().optional(),
+  grafana: ownGrafanaSchema.nullable().optional(),
+});
+export type SaveTelemetry = z.infer<typeof saveTelemetrySchema>;

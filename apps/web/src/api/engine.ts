@@ -10,13 +10,7 @@ import {
   type EngineSignIn,
   type EngineWebEvent,
 } from "@the-office/contracts";
-import {
-  deleteFromApi,
-  deleteFromApiReturning,
-  getFromApi,
-  sendToApi,
-  sendToApiWithNoAnswer,
-} from "./api-client.ts";
+import { deleteFromApi, getFromApi, sendToApi, sendToApiWithNoAnswer } from "./api-client.ts";
 import {
   useOfficeEvent,
   type EventCacheUpdates,
@@ -75,8 +69,10 @@ export function removeEngine(
   engineId: string,
   replacement: string | null,
 ): Promise<EngineSettings> {
-  return deleteFromApiReturning(
-    `${enginePath(engineId)}${replacementQuery(replacement)}`,
+  return sendToApi(
+    "POST",
+    `${enginePath(engineId)}/removal`,
+    replacement === null ? {} : { replacement },
     engineSettingsSchema,
   );
 }

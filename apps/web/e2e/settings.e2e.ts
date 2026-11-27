@@ -75,6 +75,37 @@ test("Office limits keeps the desks, the size threshold and the Archive period a
   await expect(archivePeriod).toHaveText("30 days");
 });
 
+// Every Office setting is an Office action sharing its route's handler; the user's own save goes
+// through the same route as before. The Office instructions are put back at the end.
+test(
+  "Settings saves the Office instructions through their Office action's route, and an engine is removed by its removal route",
+  { tag: "@full" },
+  async ({ page }) => {
+    const before = await (await page.request.get("/api/settings/office-instructions")).json();
+    const saved = await page.request.put("/api/settings/office-instructions", {
+      data: { officeInstructions: "# Office preferences\n\n- Use plain language." },
+    });
+    expect(saved.status()).toBe(200);
+    expect((await saved.json()).officeInstructions).toBe(
+      "# Office preferences\n\n- Use plain language.",
+    );
+    expect(
+      (await (await page.request.get("/api/settings/office-instructions")).json())
+        .officeInstructions,
+    ).toBe("# Office preferences\n\n- Use plain language.");
+    await page.request.put("/api/settings/office-instructions", {
+      data: { officeInstructions: before.officeInstructions },
+    });
+
+    // The engine's old DELETE route is gone; removal is a POST with its own action.
+    const gone = await page.request.delete("/api/settings/engines/no-such-engine");
+    expect(gone.status()).toBe(404);
+    const refused = await page.request.post("/api/settings/engines/no-such-engine/removal");
+    expect(refused.status()).toBeGreaterThanOrEqual(400);
+    expect(refused.status()).toBeLessThan(500);
+  },
+);
+
 // The e2e files share one database: each limit is raised and put back, never lowered below its
 // default, so no other file's checks wait for a run environment meanwhile.
 test(

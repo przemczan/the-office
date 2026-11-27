@@ -156,3 +156,20 @@ export const runEnvironmentWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("run-environment-settings.changed") }),
 ]);
 export type RunEnvironmentWebEvent = z.infer<typeof runEnvironmentWebEventSchema>;
+
+/** Office action: the run environments' limits of Settings › Office limits. */
+export const SET_RUN_ENVIRONMENT_LIMITS_ACTION = officeAction({
+  name: "set_run_environment_limits",
+  title: "Change the run environments' limits",
+  description:
+    "Sets the run environments' Office limits, the whole set at once: how many run at once, the CPU limit (Automatic or a fixed number of CPUs), the memory and the processes per service. Answers the limits saved, with what Automatic gives on this computer.",
+  input: runEnvironmentOfficeLimitsChangeSchema,
+  answer: runEnvironmentOfficeLimitsSchema,
+  route: { method: "PUT", path: "/settings/run-environments" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "run-environments" }),
+});
+
+/** Run environments' Office actions, each declared above. */
+export const RUN_ENVIRONMENTS_OFFICE_ACTIONS = [SET_RUN_ENVIRONMENT_LIMITS_ACTION] as const;

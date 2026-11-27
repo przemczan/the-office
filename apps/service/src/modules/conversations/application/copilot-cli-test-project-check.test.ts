@@ -175,7 +175,7 @@ async function removeTheEngine({ api, engineId }: OfficeOnCopilot): Promise<void
   const replacement = engines.find(({ kind }) => kind === "claude-code");
   if (!replacement) throw new Error("Settings › Engines lists no Claude Code engine to take over.");
   const left = engineSettingsSchema.parse(
-    await api("DELETE", `/settings/engines/${engineId}?replacement=${replacement.id}`),
+    await api("POST", `/settings/engines/${engineId}/removal`, { replacement: replacement.id }),
   );
   expect(left.engines.map(({ id }) => id)).not.toContain(engineId);
   await app?.close();

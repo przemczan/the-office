@@ -5018,8 +5018,9 @@ function offeredToTheCaretaker(tools: readonly string[]): string[] {
 }
 
 /**
- * The names of the Office tools a session was offered, without GitHub's Check again: the real
- * GitHub module is started here, signed in, and registers it beside the tools these tests list.
+ * The names of the Office tools a session was offered, without GitHub's Check again and the
+ * engines' settings actions: the real GitHub and Engine modules are started here and register them
+ * beside the tools these tests list.
  */
 function namesOf(
   tools: readonly { readonly name: string }[] | undefined,
@@ -5027,8 +5028,16 @@ function namesOf(
   return tools && withoutGitHubTool(tools.map(({ name }) => name));
 }
 
+const ENGINE_SETTINGS_TOOLS: ReadonlySet<string> = new Set([
+  "save_engine_settings",
+  "remove_engine",
+  "refresh_engine_models",
+]);
+
 function withoutGitHubTool(names: readonly string[]): readonly string[] {
-  return names.filter((name) => name !== "check_github_permissions");
+  return names.filter(
+    (name) => name !== "check_github_permissions" && !ENGINE_SETTINGS_TOOLS.has(name),
+  );
 }
 
 /** The Office tools of the Thread's `index`th session, by name. */

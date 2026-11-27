@@ -17,6 +17,10 @@ import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { INestApplication } from "@nestjs/common";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { EngineModelLists } from "../../application/engine-model-lists.js";
+import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
+import { EngineOfficeActionsController } from "./engine-office-actions.controller.js";
+import { EngineOfficeActions } from "../office-actions/engine-office-actions.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
@@ -86,8 +90,11 @@ function moving(move: EngineReferences["move"]): EngineReferences {
 }
 
 function remove(engineId: string, replacement?: string): Promise<Response> {
-  const query = replacement === undefined ? "" : `?replacement=${replacement}`;
-  return fetch(`${url}/api/settings/engines/${engineId}${query}`, { method: "DELETE" });
+  return fetch(`${url}/api/settings/engines/${engineId}/removal`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(replacement === undefined ? {} : { replacement }),
+  });
 }
 
 async function read(): Promise<string> {
@@ -101,6 +108,13 @@ function setUpEachTest(): void {
     windowStarts = new WindowStartsForTests();
     ({ app, url } = await startTestApplication({
       imports: [EventsModule, EngineSettingsModule],
+      controllers: [EngineOfficeActionsController],
+      providers: [
+        OfficeToolRegistry,
+        EngineOfficeActions,
+        // Refresh models isn't asked of these tests.
+        { provide: EngineModelLists, useValue: {} },
+      ],
       overrides: [
         { provide: EngineSettingsRepository, useValue: repository },
         { provide: WindowStartRepository, useValue: windowStarts },
@@ -420,7 +434,7 @@ describe("/api/settings/engines Window starts", () => {
   });
 });
 
-describe("DELETE /api/settings/engines/:engineId", () => {
+describe("POST /api/settings/engines/:engineId/removal", () => {
   const strataDefault = { engineType: "openai-compatible-api", engineId: "strata" };
 
   beforeEach(async () => {

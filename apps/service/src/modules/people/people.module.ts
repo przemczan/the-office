@@ -11,6 +11,8 @@ import { DutiesController } from "./adapters/http/duties.controller.js";
 import { MemoryController } from "./adapters/http/memory.controller.js";
 import { RolesController } from "./adapters/http/roles.controller.js";
 import { PeopleOfficeActionsController } from "./adapters/http/people-office-actions.controller.js";
+import { DutyOfficeActionsController } from "./adapters/http/duty-office-actions.controller.js";
+import { DutyOfficeActions } from "./adapters/office-actions/duty-office-actions.js";
 import { PeopleOfficeActions } from "./adapters/office-actions/people-office-actions.js";
 import { PeopleOfficeTools } from "./adapters/office-tools/people-office-tools.js";
 import { PostgresDutyRepository } from "./adapters/postgres/postgres-duty-repository.js";
@@ -49,6 +51,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     AvatarsController,
     MemoryController,
     DutiesController,
+    DutyOfficeActionsController,
   ],
   providers: [
     { provide: RoleRepository, useClass: PostgresRoleRepository },
@@ -72,6 +75,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleWebEvents,
     PeopleOfficeTools,
     PeopleOfficeActions,
+    DutyOfficeActions,
     AvatarSources,
     SessionPeople,
     PersonRecords,

@@ -256,6 +256,7 @@ export function officeActionProviders(
     { provide: OfficeAddresses, useValue: new OfficeAddresses(options.publicAddress) },
     { provide: OfficeHost, useValue: options.officeHost ?? new OfficeHost("0.0.0.0") },
     { provide: OfficePort, useValue: new OfficePort(TESTBED_OFFICE_PORT) },
+    { provide: TestInstanceLimits, useValue: testbed.limits },
     { provide: WorkstationAddresses, useValue: options.workstation ?? new NoAddresses() },
     TestInstanceOfficeActions,
   ];

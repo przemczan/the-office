@@ -57,6 +57,8 @@ import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-too
 import { ShapingOfficeTools } from "./adapters/office-tools/shaping-office-tools.js";
 import { WorkOfficeActions } from "./adapters/office-actions/work-office-actions.js";
 import { WorkSubjectSnapshots } from "./adapters/office-actions/work-subject-snapshots.js";
+import { WorkSettingsOfficeActionsController } from "./adapters/http/work-settings-office-actions.controller.js";
+import { WorkSettingsOfficeActions } from "./adapters/office-actions/work-settings-office-actions.js";
 import { WorkOfficeActionsController } from "./adapters/http/work-office-actions.controller.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
@@ -273,6 +275,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         UsageSettingsController,
         FireAlarmController,
         WorkOfficeActionsController,
+        WorkSettingsOfficeActionsController,
       ],
       providers: [
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
@@ -367,6 +370,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         PlanningOfficeTools,
         ShapingOfficeTools,
         WorkOfficeActions,
+        WorkSettingsOfficeActions,
         WorkSubjectSnapshots,
         AttachmentOfficeTools,
         OnboardingOfficeTools,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { officeAction } from "./office-actions.js";
 import { ciRunStatusSchema } from "./ci-runs.js";
 import { relayTabSchema } from "./devices.js";
 import { webEventSchema } from "./events.js";
@@ -180,3 +181,19 @@ export const actionRunWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("action-settings.changed") }),
 ]);
 export type ActionRunWebEvent = z.infer<typeof actionRunWebEventSchema>;
+
+/** Office action: Actions at once, in Settings › Office limits. */
+export const SET_ACTION_SETTINGS_ACTION = officeAction({
+  name: "set_action_settings",
+  title: "Change Actions at once",
+  description: `Sets how many Action runs go at once, from ${ACTIONS_AT_ONCE.min} to ${ACTIONS_AT_ONCE.max}, and answers the setting saved.`,
+  input: actionSettingsSchema,
+  answer: actionSettingsSchema,
+  route: { method: "PUT", path: "/settings/actions" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "actions" }),
+});
+
+/** Actions' Office actions on Office settings, each declared above. */
+export const ACTION_SETTINGS_OFFICE_ACTIONS = [SET_ACTION_SETTINGS_ACTION] as const;

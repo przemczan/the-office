@@ -1,16 +1,20 @@
+import { ACTION_SETTINGS_OFFICE_ACTIONS } from "./action-runs.js";
 import { PROJECT_OFFICE_ACTIONS } from "./ci-runs.js";
+import { CONVERSATIONS_SETTINGS_OFFICE_ACTIONS } from "./conversations.js";
 import { DEVICE_OFFICE_ACTIONS } from "./devices.js";
 import { GITHUB_OFFICE_ACTIONS } from "./github.js";
+import { ENGINES_OFFICE_ACTIONS } from "./engines.js";
 import type { OfficeAction } from "./office-actions.js";
 import { MCP_SERVERS_OFFICE_ACTIONS } from "./mcp-servers.js";
 import { OFFICE_UPDATE_OFFICE_ACTIONS } from "./office-updates.js";
-import { PEOPLE_OFFICE_ACTIONS } from "./people.js";
+import { PEOPLE_OFFICE_ACTIONS, PEOPLE_SETTINGS_OFFICE_ACTIONS } from "./people.js";
 import { PIPELINES_OFFICE_ACTIONS } from "./pipelines.js";
 import { PROMPT_TEMPLATES_OFFICE_ACTIONS } from "./prompt-templates.js";
+import { RUN_ENVIRONMENTS_OFFICE_ACTIONS } from "./run-environments.js";
 import { SKILLS_OFFICE_ACTIONS } from "./skills.js";
 import { TELEMETRY_OFFICE_ACTIONS } from "./stats.js";
 import { TEST_INSTANCE_OFFICE_ACTIONS } from "./test-instances.js";
-import { WORK_OFFICE_ACTIONS } from "./work.js";
+import { WORK_OFFICE_ACTIONS, WORK_SETTINGS_OFFICE_ACTIONS } from "./work.js";
 
 /** Every declared Office action, each record's beside its contract. */
 export const OFFICE_ACTIONS: readonly OfficeAction[] = [
@@ -26,4 +30,10 @@ export const OFFICE_ACTIONS: readonly OfficeAction[] = [
   ...OFFICE_UPDATE_OFFICE_ACTIONS,
   ...GITHUB_OFFICE_ACTIONS,
   ...TELEMETRY_OFFICE_ACTIONS,
+  ...WORK_SETTINGS_OFFICE_ACTIONS,
+  ...CONVERSATIONS_SETTINGS_OFFICE_ACTIONS,
+  ...PEOPLE_SETTINGS_OFFICE_ACTIONS,
+  ...RUN_ENVIRONMENTS_OFFICE_ACTIONS,
+  ...ACTION_SETTINGS_OFFICE_ACTIONS,
+  ...ENGINES_OFFICE_ACTIONS,
 ];

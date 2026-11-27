@@ -1,14 +1,16 @@
-import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { BadRequestException, HttpException, Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   API_PATH,
   LAUNCH_INITIATIVE_TEST_INSTANCE_ACTION,
   LAUNCH_PROJECT_TEST_INSTANCE_ACTION,
   LINK_BUILT_FILE_ACTION,
   OPEN_TEST_INSTANCE_ACTION,
+  SET_TEST_INSTANCE_SETTINGS_ACTION,
   STOP_TEST_INSTANCE_ACTION,
   TEST_INSTANCE_OFFICE_ACTIONS,
   type OfficeAction,
   type TestBuildFileLink,
+  type TestInstanceSettings,
   type TestInstanceOpening,
 } from "@the-office/contracts";
 import type { z } from "zod";
@@ -22,7 +24,7 @@ import {
 } from "../../../engine/index.js";
 import { TestBuildLinks } from "../../application/test-build-links.js";
 import { TestInstanceHandOffs } from "../../application/test-instance-hand-offs.js";
-import { OfficePort } from "../../application/test-instance-limits.js";
+import { OfficePort, TestInstanceLimits } from "../../application/test-instance-limits.js";
 import { OfficeHost } from "../../application/test-instance-proxy.js";
 import { TestInstances, type TestInstanceOnBranch } from "../../application/test-instances.js";
 import type { LaunchedBy } from "../../domain/test-instance.js";
@@ -85,6 +87,7 @@ export class TestInstanceOfficeActions implements OnModuleInit {
     private readonly officePort: OfficePort,
     private readonly workstation: WorkstationAddresses,
     private readonly sessionPeople: SessionPeople,
+    private readonly limits: TestInstanceLimits,
   ) {
     this.handlers = new Map(
       [
@@ -93,6 +96,7 @@ export class TestInstanceOfficeActions implements OnModuleInit {
         this.stop(),
         this.open(),
         this.linkBuiltFile(),
+        this.setSettings(),
       ].map((each) => [each.action.name, each]),
     );
     const unhandled = TEST_INSTANCE_OFFICE_ACTIONS.filter(({ name }) => !this.handlers.has(name));
@@ -112,7 +116,7 @@ export class TestInstanceOfficeActions implements OnModuleInit {
             ),
           {
             draft: async (input) =>
-              officeActionDraft(each.action, input, await this.snapshot(input)),
+              officeActionDraft(each.action, input, await this.snapshot(each.action, input)),
             applyFor: (input, { user }) =>
               answered(async () =>
                 each.words(
@@ -189,6 +193,24 @@ export class TestInstanceOfficeActions implements OnModuleInit {
         link.kind === "link"
           ? `The file downloads without signing in at ${link.url} until ${link.expiresAt}.`
           : "The Office knows no address a phone can reach: it was opened at localhost, or has no address on the local network. Ask the user to open The Office by its LAN address, then ask for the link again.",
+    });
+  }
+
+  /**
+   * The limits as a whole set; the contract keeps the bounds, and the range holding The Office's own
+   * port is refused as 400 naming the field, from the route and in words to the Agent alike.
+   */
+  private setSettings(): AnyTestInstanceActionHandler {
+    return handler({
+      action: SET_TEST_INSTANCE_SETTINGS_ACTION,
+      handle: async (settings: TestInstanceSettings) => {
+        const problems = this.limits.problemsOf(settings);
+        if (problems.length > 0) throw new BadRequestException(problems.join("; "));
+        return this.limits.change(settings);
+      },
+      response: (settings: TestInstanceSettings) => settings,
+      words: (settings: TestInstanceSettings) =>
+        `The Test instances limits are saved: ${settings.testInstancesAtOnce} at once, ${settings.idleMinutes} idle minutes, Proxy ports ${settings.firstProxyPort} to ${settings.lastProxyPort}.`,
     });
   }
 
@@ -275,7 +297,15 @@ export class TestInstanceOfficeActions implements OnModuleInit {
   }
 
   /** What a call acts on: the instance, or for a launch the target it starts; nothing of it changes. */
-  private async snapshot(input: unknown) {
+  private async snapshot(action: OfficeAction, input: unknown) {
+    if (action.name === SET_TEST_INSTANCE_SETTINGS_ACTION.name) {
+      const settings = await this.limits.read();
+      return {
+        title: "Test instances limits",
+        decidedBy: { ...settings },
+        values: { ...settings },
+      };
+    }
     const { instanceId, targetKey } = input as { instanceId?: string; targetKey?: string };
     const title =
       instanceId === undefined
@@ -299,7 +329,11 @@ async function answered(read: () => Promise<string>): Promise<OfficeToolResult> 
   try {
     return { text: await read(), isError: false };
   } catch (error) {
-    if (error instanceof TestInstanceRefused || error instanceof TestInstanceNotFound) {
+    if (
+      error instanceof TestInstanceRefused ||
+      error instanceof TestInstanceNotFound ||
+      error instanceof HttpException
+    ) {
       return { text: error.message, isError: true };
     }
     throw error;

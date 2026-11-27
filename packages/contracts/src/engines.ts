@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 import { initiativeStateSchema, taskStateSchema } from "./work-states.js";
 
 /** What an engine can do beyond starting a session and taking messages; the Role card names those it can't. */
@@ -649,3 +650,66 @@ export function usageWindowWords(window: string): string {
     ? (KNOWN_USAGE_WINDOW_WORDS[window] as string)
     : `${window} window`;
 }
+
+/**
+ * What the Save engines action takes (PUT /settings/engines). The web sends every engine and every
+ * setting; an Agent may leave the settings out to keep them as they are and names only the engines
+ * it adds or changes, the engines it leaves out staying as they are. An API engine's `key` is the
+ * user's alone: an Agent's call that gives one is refused, and the key kept stays.
+ */
+export const saveEngineSettingsSchema = engineSettingsEditSchema.extend({
+  officeDefault: officeDefaultSchema.nullable().optional(),
+  searchEndpoint: searchEndpointSchema.nullable().optional(),
+  modelPrices: z.array(offeredModelSchema).optional(),
+});
+export type SaveEngineSettings = z.infer<typeof saveEngineSettingsSchema>;
+
+/** Office action: Save in Settings › Engines, everything but the engines' credentials. */
+export const SAVE_ENGINE_SETTINGS_ACTION = officeAction({
+  name: "save_engine_settings",
+  title: "Change the engines",
+  description:
+    "Adds or changes engines and the engines' settings: the Office default, the search endpoint, the Model prices, the Stand-in Engines, the ask-above size and the Window starts. Name only the engines to add (no id) or change (their id, the whole engine); an engine left out stays as it is, and a setting left out is kept. Never give a key: an API engine's key, a sign-in, a code or a token are the user's alone and stay as they are, and an API engine whose key is saved keeps its base URL. Answers the settings saved.",
+  input: saveEngineSettingsSchema,
+  answer: engineSettingsSchema,
+  route: { method: "PUT", path: "/settings/engines" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "engines" }),
+});
+
+/** Office action: removing an engine, with the engine that takes over everything naming it. */
+export const REMOVE_ENGINE_ACTION = officeAction({
+  name: "remove_engine",
+  title: "Remove an engine",
+  description:
+    "Removes an engine, moving everything naming it (the Office default, Project defaults, Task and Initiative overrides, Stand-in lists) to the replacement engine, or to none when it is the only engine, and answers the settings left. A replacement not listed, none while other engines are listed, or one that can't serve what it takes over, is refused.",
+  input: engineRemovalSchema.extend({ engineId: engineIdSchema }),
+  answer: engineSettingsSchema,
+  route: { method: "POST", path: "/settings/engines/:engineId/removal" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: ({ engineId }) => ({ kind: "office-setting", id: `engine:${engineId}` }),
+});
+
+/** Office action: Refresh models of an engine in Settings › Engines. */
+export const REFRESH_ENGINE_MODELS_ACTION = officeAction({
+  name: "refresh_engine_models",
+  title: "Refresh an engine's models",
+  description:
+    "Asks an engine's account for the models it lists now. Refused for an engine whose type isn't asked for its models, and when the engine doesn't answer.",
+  input: z.object({ engineId: engineIdSchema }),
+  answer: z.void(),
+  route: { method: "POST", path: "/settings/engines/:engineId/models/refresh" },
+  status: 204,
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: ({ engineId }) => ({ kind: "office-setting", id: `engine:${engineId}` }),
+});
+
+/** Engine's Office actions, each declared above. */
+export const ENGINES_OFFICE_ACTIONS = [
+  SAVE_ENGINE_SETTINGS_ACTION,
+  REMOVE_ENGINE_ACTION,
+  REFRESH_ENGINE_MODELS_ACTION,
+] as const;

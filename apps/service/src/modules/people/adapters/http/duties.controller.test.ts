@@ -192,9 +192,9 @@ describe("PUT /api/settings/duties/:duty", () => {
     expect(plans?.set).toBe(false);
   });
 
-  it("answers 404 for a duty The Office doesn't have", async () => {
+  it("answers 400 for a duty The Office doesn't have", async () => {
     const response = await send("PUT", "/settings/duties/sweeps-floors", { roleKey: null });
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
   });
 });

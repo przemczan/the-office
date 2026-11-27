@@ -1,18 +1,13 @@
-import {
-  PROPOSE_OFFICE_SETTING_TOOL as CONTRACT_PROPOSE_OFFICE_SETTING_TOOL,
-  PROPOSE_OFFICE_SETUP_TOOL as CONTRACT_PROPOSE_OFFICE_SETUP_TOOL,
-} from "@the-office/contracts";
+import { PROPOSE_OFFICE_SETUP_TOOL as CONTRACT_PROPOSE_OFFICE_SETUP_TOOL } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { RoleNotFound, type Duties, type RoleService } from "../../../people/index.js";
 import type { OfficeInstructions } from "../../application/office-instructions.js";
 import type { ProposalService } from "../../application/proposal-service.js";
-import type { ProposedChange, ProposedSettingValue } from "../../domain/proposal.js";
+import type { ProposedChange } from "../../domain/proposal.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
 import {
-  PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
 } from "../../domain/session-instructions.js";
@@ -27,7 +22,7 @@ const tester = { role: { key: "tester", card: aProposedCard() } };
  * `refusal`.
  */
 function toolDrafting(refusal: string | undefined, name: string, instructionsNow = "") {
-  const drafted: (ProposedChange | ProposedSettingValue)[] = [];
+  const drafted: ProposedChange[] = [];
   const draft = (change: (typeof drafted)[number]) => {
     if (refusal) return Promise.reject(new ProposalRefused([refusal]));
     drafted.push(change);
@@ -35,7 +30,6 @@ function toolDrafting(refusal: string | undefined, name: string, instructionsNow
   };
   const proposals = {
     draft: (_sessionId: string, change: ProposedChange) => draft(change),
-    draftSetting: (_sessionId: string, proposed: ProposedSettingValue) => draft(proposed),
   } as unknown as ProposalService;
   const roles = {
     read: (key: string) =>
@@ -72,143 +66,6 @@ function namedByTheTitle(name: string) {
     isError: true,
   };
 }
-
-describe("the propose_office_setting tool", () => {
-  it("is named as the contracts name it", () => {
-    expect(PROPOSE_OFFICE_SETTING_TOOL).toBe(CONTRACT_PROPOSE_OFFICE_SETTING_TOOL);
-  });
-
-  it("drafts the new value of the setting", async () => {
-    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
-
-    const result = await tool.run({ setting: "office-wide-limit", value: 5 }, session);
-
-    expect(result.isError).toBe(false);
-    expect(drafted).toEqual([{ setting: "office-wide-limit", value: 5 }]);
-  });
-
-  it("drafts the Office instructions' new text, without the spaces around it", async () => {
-    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
-
-    const result = await tool.run(
-      { setting: "office-instructions", text: "\n Keep it short.\nUse plain words. \n" },
-      session,
-    );
-
-    expect(result.isError).toBe(false);
-    expect(drafted).toEqual([
-      { setting: "office-instructions", value: "Keep it short.\nUse plain words." },
-    ]);
-  });
-
-  it("refuses a value that isn't of the setting's type", async () => {
-    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
-
-    await expect(tool.run({ setting: "office-instructions", value: 5 }, session)).resolves.toEqual({
-      text: "Give the whole new Office instructions as text, and no value.",
-      isError: true,
-    });
-    await expect(tool.run({ setting: "size-threshold", text: "5" }, session)).resolves.toEqual({
-      text: "Give the new size-threshold as value, and no text.",
-      isError: true,
-    });
-    await expect(tool.run({ setting: "office-wide-limit" }, session)).resolves.toMatchObject({
-      isError: true,
-    });
-    expect(drafted).toEqual([]);
-  });
-
-  it("drafts new holders for the duties named, a holder of none as null", async () => {
-    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
-
-    const result = await tool.run(
-      {
-        setting: "duties",
-        duties: [
-          { duty: "implements", holder: " developer-2 " },
-          { duty: "plans", holder: null },
-        ],
-      },
-      session,
-    );
-
-    expect(result.isError).toBe(false);
-    expect(drafted).toEqual([
-      { setting: "duties", value: { implements: "developer-2", plans: null } },
-    ]);
-  });
-
-  it("refuses duties given wrong", async () => {
-    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
-    const giveTheDuties =
-      "Give the duties that change as duties, each with its new holder, and no value or text.";
-
-    await expect(tool.run({ setting: "duties", duties: [] }, session)).resolves.toEqual({
-      text: giveTheDuties,
-      isError: true,
-    });
-    await expect(tool.run({ setting: "duties" }, session)).resolves.toEqual({
-      text: giveTheDuties,
-      isError: true,
-    });
-    const named = [{ duty: "plans", holder: "planner" }];
-    await expect(
-      tool.run({ setting: "duties", duties: named, value: 3 }, session),
-    ).resolves.toEqual({ text: giveTheDuties, isError: true });
-    await expect(
-      tool.run({ setting: "duties", duties: named, text: "planner" }, session),
-    ).resolves.toEqual({ text: giveTheDuties, isError: true });
-    await expect(
-      tool.run(
-        {
-          setting: "duties",
-          duties: [...named, { duty: "plans", holder: null }],
-        },
-        session,
-      ),
-    ).resolves.toEqual({ text: "Name each duty once; plans is named twice.", isError: true });
-    await expect(
-      tool.run({ setting: "duties", duties: [{ duty: "sweeps", holder: null }] }, session),
-    ).resolves.toMatchObject({ text: expect.stringContaining('no duty "sweeps"'), isError: true });
-    await expect(
-      tool.run({ setting: "size-threshold", value: 60_000, duties: named }, session),
-    ).resolves.toEqual({
-      text: "Give duties only for the setting duties, not size-threshold.",
-      isError: true,
-    });
-    expect(drafted).toEqual([]);
-  });
-
-  it("names each duty with its label", () => {
-    const { tool } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
-
-    const schema = JSON.stringify(z.toJSONSchema(tool.input));
-
-    expect(schema).toContain("implements (Implements)");
-    expect(schema).toContain("mcp-tool-consultant (Default Consultant for MCP tool hard switches)");
-  });
-
-  it("tells the Agent to give the text whole, from the text now", () => {
-    const { tool } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
-
-    const schema = JSON.stringify(z.toJSONSchema(tool.input));
-
-    expect(schema).toContain("given whole");
-    expect(schema).toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
-  });
-
-  it("gives the Agent the owner's reasons a Proposal is refused", async () => {
-    const { tool } = toolDrafting(
-      "The Office-wide limit is 3 already.",
-      PROPOSE_OFFICE_SETTING_TOOL,
-    );
-
-    await expect(tool.run({ setting: "office-wide-limit", value: 3 }, session)).resolves.toEqual({
-      text: "The Office-wide limit is 3 already.",
-      isError: true,
-    });
-  });
-});
 
 describe("the propose_office_setup tool", () => {
   it("is named as the contracts name it", () => {

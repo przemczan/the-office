@@ -7,6 +7,7 @@ import {
   LAUNCH_PROJECT_TEST_INSTANCE_ACTION,
   LINK_BUILT_FILE_ACTION,
   OPEN_TEST_INSTANCE_ACTION,
+  SET_TEST_INSTANCE_SETTINGS_ACTION,
   STOP_TEST_INSTANCE_ACTION,
   TEST_INSTANCE_OFFICE_ACTIONS,
 } from "@the-office/contracts";
@@ -306,6 +307,63 @@ describe("Test instances' Office actions", () => {
 
       expect(result.isError).toBe(false);
       expect(result.text).toContain("open The Office by its LAN address");
+    });
+  });
+
+  describe("set_test_instance_settings", () => {
+    const CHANGED = {
+      testInstancesAtOnce: 3,
+      idleMinutes: 45,
+      firstProxyPort: 5400,
+      lastProxyPort: 5409,
+    };
+
+    it("saves the limits for a person, in words", async () => {
+      await startActions();
+
+      const result = await call(SET_TEST_INSTANCE_SETTINGS_ACTION.name, CHANGED);
+
+      expect(result.isError).toBe(false);
+      expect(result.text).toContain("3 at once");
+      expect(await testbed.limits.read()).toEqual(CHANGED);
+    });
+
+    it("answers a range holding The Office's own port in words and saves nothing", async () => {
+      await startActions();
+      const before = await testbed.limits.read();
+
+      const result = await call(SET_TEST_INSTANCE_SETTINGS_ACTION.name, {
+        ...CHANGED,
+        firstProxyPort: TESTBED_OFFICE_PORT - 1,
+        lastProxyPort: TESTBED_OFFICE_PORT + 1,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.text).toContain(String(TESTBED_OFFICE_PORT));
+      expect(await testbed.limits.read()).toEqual(before);
+    });
+
+    it("drafts the new limits beside the ones in force, and applies them for the user", async () => {
+      await startActions();
+      const tool = toolOf(SET_TEST_INSTANCE_SETTINGS_ACTION.name);
+      const before = await testbed.limits.read();
+
+      const draft = await tool.draft?.(tool.input.parse(CHANGED));
+
+      expect(draft?.subject).toMatchObject({ kind: "office-setting", id: "test-instances" });
+      expect(draft?.subject.title).toBe("Test instances limits");
+      expect(draft?.fields.find(({ label }) => label === "Idle minutes")).toMatchObject({
+        before: String(before.idleMinutes),
+        after: "45",
+      });
+      const applied = await tool.applyFor?.(tool.input.parse(CHANGED), {
+        user: ASKING_USER,
+        proposedBy: "developer",
+      });
+      expect(applied?.isError).toBe(false);
+      expect(await testbed.limits.read()).toEqual(CHANGED);
+      const stale = await tool.draft?.(tool.input.parse(CHANGED));
+      expect(stale?.fingerprint).not.toEqual(draft?.fingerprint);
     });
   });
 });

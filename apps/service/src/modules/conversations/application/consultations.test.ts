@@ -102,10 +102,17 @@ const duties = new DutiesStandIn();
  */
 function consultationToolsOfARoleFromScratch(): string[] {
   const neverFromScratch = new Set(["post_link_card", "show_office_status"]);
-  return consultationOfficeTools(
-    { caretaker: false },
-    { canCall: true, onTask: false, runEnvironment: false },
-  ).filter((name) => !neverFromScratch.has(name));
+  return [
+    ...consultationOfficeTools(
+      { caretaker: false },
+      { canCall: true, onTask: false, runEnvironment: false },
+    ).filter((name) => !neverFromScratch.has(name)),
+    // The Engine module is started here and registers its Office settings actions, which a Role
+    // from scratch is offered while its Office settings row isn't Never.
+    "save_engine_settings",
+    "remove_engine",
+    "refresh_engine_models",
+  ];
 }
 
 type Step = SessionScript[number];

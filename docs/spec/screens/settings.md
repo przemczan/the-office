@@ -198,4 +198,5 @@ Covers: the Settings page and its sections (Pipelines list, Stage templates and 
 
 - Duties and Roles: [2.2](../2.2-people.md). Pipelines and Stage templates: [2.3](../2.3-pipelines.md).
 - Skills: [2.6](../2.6-skills.md). Users and signing in: [2.10](../2.10-users-and-signing-in.md).
+- Office settings by Agents: every setting on these pages that isn't a credential is an Office action ruled by the person's Authority, shared with the route the page saves through ([6](../6-permissions-and-safety.md#the-users-alone)); an engine's key and sign-in and telemetry's header values and read token are the user's alone.
 - Engines: [5.4](../5.4-the-engine.md). Updates and installs: [5.1](../5.1-shape.md).

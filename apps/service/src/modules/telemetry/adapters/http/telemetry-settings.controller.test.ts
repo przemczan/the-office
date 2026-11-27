@@ -1,18 +1,28 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { INestApplication } from "@nestjs/common";
+import { Module, type INestApplication } from "@nestjs/common";
 import { telemetrySettingsSchema, type TelemetrySettings } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { startTestApplication } from "../../../test/test-application.js";
-import { OfficeDataModule } from "../office-data/office-data.module.js";
-import { isOwnerOnly } from "../os/owner-only.fixtures.js";
-import { BundledGrafana } from "./bundled-grafana/bundled-grafana.js";
-import { ScriptedBundledGrafana } from "./bundled-grafana/scripted-bundled-grafana.js";
-import { TelemetryHttpModule } from "./telemetry-http.module.js";
-import { RunningTelemetrySettings } from "./telemetry-in-effect.js";
-import { TELEMETRY_OFF, type TelemetryInEffect } from "./telemetry-settings.js";
-import { TelemetryModule } from "./telemetry.module.js";
+import { OfficeToolRegistry } from "../../../engine/index.js";
+import { TelemetryOfficeActionsController } from "./telemetry-office-actions.controller.js";
+import { TelemetryOfficeActions } from "../office-actions/telemetry-office-actions.js";
+import { ScriptedStatsSource } from "../scripted/scripted-stats-source.js";
+import { GrafanaCheck } from "../../application/grafana-check.js";
+import { GrafanaInUse } from "../../ports/grafana-in-use.js";
+import { StatsSource } from "../../ports/stats-source.js";
+import { startTestApplication } from "../../../../../test/test-application.js";
+import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
+import { isOwnerOnly } from "../../../../platform/os/owner-only.fixtures.js";
+import { BundledGrafana } from "../../../../platform/telemetry/bundled-grafana/bundled-grafana.js";
+import { ScriptedBundledGrafana } from "../../../../platform/telemetry/bundled-grafana/scripted-bundled-grafana.js";
+import { TelemetryHttpModule } from "../../../../platform/telemetry/telemetry-http.module.js";
+import { RunningTelemetrySettings } from "../../../../platform/telemetry/telemetry-in-effect.js";
+import {
+  TELEMETRY_OFF,
+  type TelemetryInEffect,
+} from "../../../../platform/telemetry/telemetry-settings.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 
 const SECRET = "Basic c2VjcmV0LXRva2Vu";
 const READ_TOKEN = "glsa_c2VjcmV0LXJlYWQ";
@@ -22,6 +32,27 @@ const NOT_WANTED = {
   address: "http://localhost:3300",
   earlierStopped: [],
 } as const;
+
+/** Save is an Office action of Telemetry: its route and handler, without the rest of Stats. */
+@Module({
+  imports: [TelemetryHttpModule],
+  controllers: [TelemetryOfficeActionsController],
+  providers: [
+    OfficeToolRegistry,
+    GrafanaCheck,
+    TelemetryOfficeActions,
+    {
+      provide: GrafanaInUse,
+      useValue: {
+        now: () => Promise.resolve({ kind: "none" as const }),
+        savedReadToken: () => Promise.resolve(undefined),
+        savedReadAddress: () => Promise.resolve(undefined),
+      },
+    },
+    { provide: StatsSource, useClass: ScriptedStatsSource },
+  ],
+})
+class TelemetrySaveForTests {}
 
 describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
   let officeData: string | undefined;
@@ -33,7 +64,7 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
     grafana = new ScriptedBundledGrafana();
     officeData = await mkdtemp(join(tmpdir(), "telemetry-settings-"));
     const started = await startTestApplication({
-      imports: [OfficeDataModule.forRoot(officeData), TelemetryModule, TelemetryHttpModule],
+      imports: [OfficeDataModule.forRoot(officeData), TelemetryModule, TelemetrySaveForTests],
       overrides: [
         { provide: RunningTelemetrySettings, useValue: new RunningTelemetrySettings(inEffect) },
         { provide: BundledGrafana, useValue: grafana },

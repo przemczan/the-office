@@ -5,6 +5,9 @@ import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../busy-work/index.js";
 import { ComposeCommandLine } from "./adapters/compose/compose-command-line.js";
 import { ProjectRunEnvironmentsController } from "./adapters/http/project-run-environments.controller.js";
+import { EngineModule } from "../engine/index.js";
+import { RunEnvironmentOfficeActionsController } from "./adapters/http/run-environment-office-actions.controller.js";
+import { RunEnvironmentOfficeActions } from "./adapters/office-actions/run-environment-office-actions.js";
 import { RunEnvironmentOfficeLimitsController } from "./adapters/http/run-environment-office-limits.controller.js";
 import { ProjectsRepositoryFiles } from "./adapters/projects/projects-repository-files.js";
 import { ProjectsSettings } from "./adapters/projects/projects-settings.js";
@@ -86,8 +89,12 @@ export class RunEnvironmentsModule {
   }: RunEnvironmentsModuleOptions): DynamicModule {
     return {
       module: RunEnvironmentsModule,
-      imports: [...imports, ScheduleModule, BusyWorkModule],
-      controllers: [ProjectRunEnvironmentsController, RunEnvironmentOfficeLimitsController],
+      imports: [...imports, ScheduleModule, BusyWorkModule, EngineModule],
+      controllers: [
+        ProjectRunEnvironmentsController,
+        RunEnvironmentOfficeLimitsController,
+        RunEnvironmentOfficeActionsController,
+      ],
       providers: [
         containerRuntime === undefined
           ? { provide: ContainerRuntime, useClass: ComposeCommandLine }
@@ -113,6 +120,7 @@ export class RunEnvironmentsModule {
         RunEnvironments,
         RunEnvironmentDefinitions,
         RunEnvironmentOfficeLimits,
+        RunEnvironmentOfficeActions,
         RunEnvironmentWebEvents,
         { provide: ProjectSettings, useClass: ProjectsSettings },
         { provide: RepositoryFiles, useClass: ProjectsRepositoryFiles },

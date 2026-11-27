@@ -191,8 +191,9 @@ function shownEngine(page: Page): Locator {
 /** Removes the engine called `name` through the API, as a test cleans up after adding one. */
 async function removeEngine(page: Page, name: string): Promise<void> {
   const engineId = await engineIdOf(page, name);
-  const removed = await page.request.delete(
-    `/api/settings/engines/${encodeURIComponent(engineId)}?replacement=claude-code`,
+  const removed = await page.request.post(
+    `/api/settings/engines/${encodeURIComponent(engineId)}/removal`,
+    { data: { replacement: "claude-code" } },
   );
   expect(removed.ok()).toBe(true);
 }

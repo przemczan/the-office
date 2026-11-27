@@ -2512,3 +2512,50 @@ export const WORK_OFFICE_ACTIONS = [
   SAVE_VIEW_ACTION,
   DELETE_VIEW_ACTION,
 ] as const;
+
+/** Office action: the Office-wide limit of Settings › Office limits. */
+export const SET_OFFICE_WIDE_LIMIT_ACTION = officeAction({
+  name: "set_office_wide_limit",
+  title: "Change the Office-wide limit",
+  description: `Sets how many Tasks may run at once across The Office, from 1 to ${OFFICE_WIDE_LIMIT_MAX}, and answers the new limit.`,
+  input: officeWideLimitSchema,
+  answer: officeWideLimitSchema,
+  route: { method: "PUT", path: "/settings/office-wide-limit" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "office-wide-limit" }),
+});
+
+/** Office action: the Archive period of Settings › Office limits. */
+export const SET_ARCHIVE_PERIOD_ACTION = officeAction({
+  name: "set_archive_period",
+  title: "Change the Archive period",
+  description: `Sets how many days, from 1 to ${ARCHIVE_PERIOD_MAX}, a Done or Dropped Task stays on the board before it is archived, and answers the new period.`,
+  input: archivePeriodSchema,
+  answer: archivePeriodSchema,
+  route: { method: "PUT", path: "/settings/archive-period" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "archive-period" }),
+});
+
+/** Office action: Usage in Settings › Office limits, the measures and every engine's caps. */
+export const SET_USAGE_SETTINGS_ACTION = officeAction({
+  name: "set_usage_settings",
+  title: "Change Usage",
+  description:
+    "Sets the ticked usage measures (none turns estimates off) and the caps of every engine, each engine once: Window caps only on an engine with usage windows, and the Daily caps on tokens and dollars, null for none. It is sent whole, so read the engines first, and answers the settings saved.",
+  input: usageSettingsSchema,
+  answer: usageSettingsSchema,
+  route: { method: "PUT", path: "/settings/usage" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "usage" }),
+});
+
+/** Work's Office actions on Office settings, each declared above. */
+export const WORK_SETTINGS_OFFICE_ACTIONS = [
+  SET_OFFICE_WIDE_LIMIT_ACTION,
+  SET_ARCHIVE_PERIOD_ACTION,
+  SET_USAGE_SETTINGS_ACTION,
+] as const;

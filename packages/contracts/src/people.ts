@@ -687,3 +687,25 @@ export const PEOPLE_OFFICE_ACTIONS = [
   SET_AVATAR_FROM_ATTACHMENT_ACTION,
   REMOVE_AVATAR_ACTION,
 ] as const;
+
+/** Office action: who holds a duty, in Settings › Duties. */
+export const SET_DUTY_HOLDER_ACTION = officeAction({
+  name: "set_duty_holder",
+  title: "Change who holds a duty",
+  description:
+    "Gives a duty (one of the built-in jobs The Office hands to a hired Role) to a hired Role by its key, or to nobody with a null roleKey, and answers the duty as it stands. The Caretaker holds no duty, and a Role not hired is refused.",
+  input: z.object({
+    duty: dutyKeySchema.describe("The duty's key."),
+    roleKey: dutyChangeSchema.shape.roleKey.describe(
+      "The key of the hired Role to hold it, or null for nobody.",
+    ),
+  }),
+  answer: dutySchema,
+  route: { method: "PUT", path: "/settings/duties/:duty" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: ({ duty }) => ({ kind: "office-setting", id: `duty:${duty}` }),
+});
+
+/** People's Office actions on Office settings, each declared above. */
+export const PEOPLE_SETTINGS_OFFICE_ACTIONS = [SET_DUTY_HOLDER_ACTION] as const;

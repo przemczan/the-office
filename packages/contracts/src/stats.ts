@@ -4,7 +4,7 @@ import { engineIdSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
 import { usageWindowSchema } from "./notifications.js";
 import { projectFilterParamSchema } from "./project-filter.js";
-import { telemetrySettingsSchema } from "./telemetry.js";
+import { saveTelemetrySchema, telemetrySettingsSchema } from "./telemetry.js";
 
 /** How many office days the basic stats' tokens per day covers, ending today (spec 2.11). */
 export const BASIC_STATS_DAYS = 30;
@@ -444,8 +444,23 @@ export const START_BUNDLED_GRAFANA_ACTION = officeAction({
   subject: () => ({ kind: "office-setting", id: "telemetry" }),
 });
 
+/** Office action: Save in Settings › Telemetry, everything but its credentials. */
+export const SAVE_TELEMETRY_ACTION = officeAction({
+  name: "save_telemetry",
+  title: "Change telemetry",
+  description:
+    "Chooses where The Office exports its traces, metrics and logs from its next start: off, the bundled Grafana, or the user's own OTLP over HTTP endpoint with an export timeout and where Stats reads its Grafana (its read address). Header values and a Grafana read token are the user's alone: never give them, the saved ones stay as they are. Refused while the environment sets telemetry. Answers the telemetry settings saved.",
+  input: saveTelemetrySchema,
+  answer: telemetrySettingsSchema,
+  route: { method: "PUT", path: "/settings/telemetry" },
+  area: "officeSettings",
+  group: "officeSettings",
+  subject: () => ({ kind: "office-setting", id: "telemetry" }),
+});
+
 /** Telemetry's Office actions, each declared above. */
 export const TELEMETRY_OFFICE_ACTIONS = [
+  SAVE_TELEMETRY_ACTION,
   CHECK_GRAFANA_ACTION,
   START_BUNDLED_GRAFANA_ACTION,
 ] as const;

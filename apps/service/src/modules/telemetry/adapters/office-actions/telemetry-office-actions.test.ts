@@ -1,9 +1,10 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Module, type INestApplication } from "@nestjs/common";
 import {
   CHECK_GRAFANA_ACTION,
+  SAVE_TELEMETRY_ACTION,
   START_BUNDLED_GRAFANA_ACTION,
   telemetrySettingsSchema,
   type OfficeAction,
@@ -181,3 +182,137 @@ describe("start_bundled_grafana", () => {
     expect(grafana.calls).toEqual([]);
   });
 });
+
+describe("save_telemetry", () => {
+  const HEADER_VALUE = "Basic c2F2ZWQtc2VjcmV0";
+  const READ_TOKEN = "glsa_saved_read_token";
+  const own = {
+    kind: "own-endpoint",
+    endpoint: "https://otlp.example.com",
+    headers: [{ name: "Authorization", value: HEADER_VALUE }],
+    grafana: { readAddress: "https://grafana.example.com", readToken: READ_TOKEN },
+  };
+
+  it("keeps the user's route as it was: the credentials are saved and never answered", async () => {
+    const saved = await put(own);
+
+    expect(saved.status).toBe(200);
+    const body = await saved.text();
+    expect(body).not.toContain(HEADER_VALUE);
+    expect(body).not.toContain(READ_TOKEN);
+    telemetrySettingsSchema.parse(JSON.parse(body));
+    expect(await savedFile()).toMatchObject({
+      headers: [{ name: "Authorization", value: HEADER_VALUE }],
+      grafana: { readToken: READ_TOKEN },
+    });
+    expect((await put({ kind: "own-endpoint" })).status).toBe(400);
+  });
+
+  it("changes the choice for a person while the saved header values and read token stay as they are", async () => {
+    await put(own);
+
+    const result = await runTool(SAVE_TELEMETRY_ACTION, {
+      kind: "own-endpoint",
+      endpoint: "https://otlp.example.com",
+      timeoutMilliseconds: 5000,
+      grafana: { readAddress: "https://grafana.example.com" },
+    });
+
+    expect(result.isError).toBe(false);
+    expect(result.text).toContain("https://otlp.example.com");
+    expect(result.text).not.toContain(HEADER_VALUE);
+    expect(result.text).not.toContain(READ_TOKEN);
+    expect(await savedFile()).toMatchObject({
+      endpoint: "https://otlp.example.com",
+      timeoutMilliseconds: 5000,
+      headers: [{ name: "Authorization", value: HEADER_VALUE }],
+      grafana: { readAddress: "https://grafana.example.com", readToken: READ_TOKEN },
+    });
+  });
+
+  it("refuses a person's call that gives a header or a read token, up front and when run, changing nothing", async () => {
+    await put(own);
+    const before = await savedFile();
+    const calls = [
+      { kind: "own-endpoint", endpoint: "https://x.example.com", headers: [] },
+      {
+        kind: "own-endpoint",
+        endpoint: "https://x.example.com",
+        grafana: { readAddress: "https://g.example.com", readToken: "given" },
+      },
+    ];
+
+    for (const call of calls) {
+      const found = tool(SAVE_TELEMETRY_ACTION);
+      const input = found.input.parse(call);
+      expect(await found.authority?.check?.(input, anOfficeToolCall("session-1"))).toContain(
+        "the user's alone",
+      );
+      const result = await runTool(SAVE_TELEMETRY_ACTION, call);
+      expect(result.isError).toBe(true);
+      expect(result.text).toContain("the user's alone");
+    }
+    expect(await savedFile()).toEqual(before);
+  });
+
+  it("refuses a person's call that moves a saved credential to another address, changing nothing", async () => {
+    await put(own);
+    const before = await savedFile();
+    const calls = [
+      { kind: "own-endpoint", endpoint: "https://attacker.example.com" },
+      {
+        kind: "own-endpoint",
+        endpoint: "https://otlp.example.com",
+        grafana: { readAddress: "https://attacker.example.com" },
+      },
+    ];
+
+    for (const call of calls) {
+      const result = await runTool(SAVE_TELEMETRY_ACTION, call);
+      expect(result.isError).toBe(true);
+      expect(result.text).toContain("go only to the address they were saved with");
+    }
+    expect(await savedFile()).toEqual(before);
+  });
+
+  it("drafts a person's call without a credential, and applies it as the same call", async () => {
+    await put(own);
+    const found = tool(SAVE_TELEMETRY_ACTION);
+    const input = found.input.parse({
+      kind: "own-endpoint",
+      endpoint: "https://otlp.example.com",
+      grafana: { readAddress: "https://grafana.example.com", readToken: READ_TOKEN },
+    });
+
+    const shown = JSON.stringify(await found.draft?.(input));
+    expect(shown).not.toContain(READ_TOKEN);
+    expect(shown).not.toContain(HEADER_VALUE);
+
+    const applied = await found.applyFor?.(
+      found.input.parse({
+        kind: "own-endpoint",
+        endpoint: "https://otlp.example.com",
+        timeoutMilliseconds: 7000,
+      }),
+      { user: { id: "u", name: "U" }, proposedBy: "developer" } as never,
+    );
+    expect(applied?.isError).toBe(false);
+    expect(await savedFile()).toMatchObject({
+      endpoint: "https://otlp.example.com",
+      timeoutMilliseconds: 7000,
+      headers: [{ name: "Authorization", value: HEADER_VALUE }],
+    });
+  });
+});
+
+function put(body: unknown): Promise<Response> {
+  return fetch(`${url}/api/settings/telemetry`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function savedFile(): Promise<{ [key: string]: unknown }> {
+  return JSON.parse(await readFile(join(officeData, "telemetry.json"), "utf8"));
+}

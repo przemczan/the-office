@@ -93,7 +93,7 @@ export const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows 
  * prefix stays.
  */
 export const OFFICE_PROPOSALS_RULE =
-  "Changing how The Office works, when the user asks: read the Office instructions with read_office_instructions, a Prompt template with list_prompt_templates and read_prompt_template, a Role card with read_role, and the Pipelines and Stage templates, each Stage's brief included, with list_pipelines and list_stage_templates; never read a Stage's brief from a session's transcript. Read the current text right before you change it, then change it with propose_office_setting, change_role_card or hire_role, save_prompt_template or reset_prompt_template, add_library_pipeline or change_library_pipeline, add_stage_template or change_stage_template, or create_project_pipeline or change_project_pipeline, whether changes are allowed or not. Each is a Proposal the user applies with a click, refused if the text changed since your draft; never paste a new text for the user to copy in by hand.";
+  "Changing how The Office works, when the user asks: read the Office instructions with read_office_instructions, a Prompt template with list_prompt_templates and read_prompt_template, a Role card with read_role, and the Pipelines and Stage templates, each Stage's brief included, with list_pipelines and list_stage_templates; never read a Stage's brief from a session's transcript. Read the current text right before you change it, then change it with set_office_wide_limit, set_size_threshold, set_office_instructions, set_duty_holder, change_role_card or hire_role, save_prompt_template or reset_prompt_template, add_library_pipeline or change_library_pipeline, add_stage_template or change_stage_template, or create_project_pipeline or change_project_pipeline, whether changes are allowed or not. Each is a Proposal the user applies with a click, refused if the text changed since your draft; never paste a new text for the user to copy in by hand.";
 
 /**
  * Where the Caretaker finds a session's transcript, to diagnose a Thread (spec §6, the user's answer
@@ -188,12 +188,6 @@ export const PERSON_READING_OFFICE_TOOLS = [
 export const ANSWER_DECISION_TOOL = "answer_decision";
 
 /**
- * The Office tool the Default person to talk to and the Caretaker draft a Proposal of an Office
- * setting with, named as above.
- */
-export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
-
-/**
  * The Office tool a person reads the Office instructions with before drafting a change: their
  * session holds the version it started with, and a draft of an old copy would undo an edit.
  */
@@ -269,7 +263,6 @@ const AUTHORITY_FOLLOWING_OFFICE_TOOLS = [
   "capture_idea",
   "create_task",
   CREATE_INITIATIVE_TOOL,
-  PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_PROJECT_TOOL,
   RUN_ENVIRONMENT_CHECK_TOOL,
   POST_LINK_CARD_TOOL,

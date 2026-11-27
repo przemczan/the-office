@@ -88,6 +88,8 @@ import { DecisionsController } from "./decisions.controller.js";
 import { BugTaskDecisions } from "../../application/bug-task-decisions.js";
 import { FireAlarmLiftsController } from "./fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./proposals.controller.js";
+import { ConversationsSettingsOfficeActions } from "../office-actions/conversations-settings-office-actions.js";
+import { ConversationsSettingsOfficeActionsController } from "./conversations-settings-office-actions.controller.js";
 import { OfficeInstructionsController } from "./office-instructions.controller.js";
 import { SizeThresholdController } from "./size-threshold.controller.js";
 import { StageContextLimitsController } from "./stage-context-limits.controller.js";
@@ -251,6 +253,7 @@ function setUpEachTest(): void {
         SizeThresholdController,
         StageContextLimitsController,
         OfficeInstructionsController,
+        ConversationsSettingsOfficeActionsController,
         FireAlarmLiftsController,
       ],
       providers: [
@@ -262,6 +265,7 @@ function setUpEachTest(): void {
         { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
         { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
         OfficeInstructions,
+        ConversationsSettingsOfficeActions,
         ContextPolicySettingsService,
         ThreadService,
         Briefs,

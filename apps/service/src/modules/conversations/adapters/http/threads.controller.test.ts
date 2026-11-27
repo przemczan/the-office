@@ -93,6 +93,8 @@ import { FireAlarmLiftsController } from "./fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./proposals.controller.js";
 import { OfficeInstructionsController } from "./office-instructions.controller.js";
 import { SizeThresholdController } from "./size-threshold.controller.js";
+import { ConversationsSettingsOfficeActions } from "../office-actions/conversations-settings-office-actions.js";
+import { ConversationsSettingsOfficeActionsController } from "./conversations-settings-office-actions.controller.js";
 import { THREAD_IMAGE_UPLOAD_ROUTE, ThreadsController } from "./threads.controller.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
 import { ConversationsSettings } from "../../ports/conversations-settings.js";
@@ -277,6 +279,7 @@ function setUpEachTest(): void {
         ProposalsController,
         SizeThresholdController,
         OfficeInstructionsController,
+        ConversationsSettingsOfficeActionsController,
         FireAlarmLiftsController,
       ],
       providers: [
@@ -288,6 +291,7 @@ function setUpEachTest(): void {
         { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
         { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
         OfficeInstructions,
+        ConversationsSettingsOfficeActions,
         ContextPolicySettingsService,
         ThreadService,
         Briefs,

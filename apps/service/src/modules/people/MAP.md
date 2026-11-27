@@ -22,7 +22,6 @@ RoleCards, sessionRole, Consultant, HiredPerson, SessionRole, RoleService, Perso
 - `POST /roles/:key/avatar`: AvatarsController.change
 - `GET /roles/:key/avatar/:imageId/content`: AvatarsController.content
 - `GET /settings/duties`: DutiesController.list
-- `PUT /settings/duties/:duty`: DutiesController.change
 - `GET /roles/:key/engine-cascade`: EngineCascadeController.ofRole
 - `GET /roles/:key/memory`: MemoryController.read
 - `POST /roles/:key/memory`: MemoryController.write
@@ -52,6 +51,8 @@ RoleCards, sessionRole, Consultant, HiredPerson, SessionRole, RoleService, Perso
 - `avatars.controller.fixtures.ts`: PNG, SVG_WITH_A_SCRIPT, expectRefused
 - `avatars.controller.ts`: AvatarsController
 - `duties.controller.ts`: DutiesController
+- `duty-office-actions.controller.ts`: DutyOfficeActionsController
+- `duty-responses.ts`: toDutyResponse
 - `engine-cascade.controller.ts`: EngineCascadeController
 - `memory.controller.ts`: MemoryController
 - `people-office-actions.controller.ts`: PeopleOfficeActionsController
@@ -62,8 +63,9 @@ RoleCards, sessionRole, Consultant, HiredPerson, SessionRole, RoleService, Perso
 
 ### adapters/office-actions/
 
+- `duty-office-actions.ts`: DutyOfficeActions
 - `people-office-actions.ts`: PeopleCaller, PeopleOfficeActions
-- Tests: people-office-actions.test.ts
+- Tests: duty-office-actions.test.ts, people-office-actions.test.ts
 
 ### adapters/office-tools/
 

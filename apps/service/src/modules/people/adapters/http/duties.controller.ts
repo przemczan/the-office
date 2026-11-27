@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, Put, UseFilters } from "@nestjs/common";
-import { dutyChangeSchema, type Duty, type DutyChange } from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { Duties, type DutyWithHolder } from "../../application/duties.js";
+import { Controller, Get, UseFilters } from "@nestjs/common";
+import type { Duty } from "@the-office/contracts";
+import { Duties } from "../../application/duties.js";
+import { toDutyResponse } from "./duty-responses.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
 
-/** Settings › Duties: who holds each duty, and the user's changes to them (spec §2.2). */
+/** Settings › Duties: who holds each duty (spec §2.2); `set_duty_holder` changes them. */
 @Controller("settings/duties")
 @UseFilters(RoleRefusalsFilter)
 export class DutiesController {
@@ -14,26 +14,4 @@ export class DutiesController {
   async list(): Promise<Duty[]> {
     return (await this.duties.list()).map(toDutyResponse);
   }
-
-  @Put(":duty")
-  async change(
-    @Param("duty") duty: string,
-    @Body(new ContractPipe(dutyChangeSchema)) { roleKey }: DutyChange,
-  ): Promise<Duty> {
-    return toDutyResponse(await this.duties.change(duty, roleKey));
-  }
-}
-
-function toDutyResponse(duty: DutyWithHolder): Duty {
-  return {
-    key: duty.duty,
-    label: duty.label,
-    defaultRoleKey: duty.defaultRoleKey,
-    set: duty.set,
-    roleKey: duty.roleKey,
-    holder: duty.holder && { ...duty.holder },
-    fallback: duty.fallback,
-    jobSettings: duty.jobSettings,
-    jobSettingsToGive: duty.jobSettingsToGive,
-  };
 }

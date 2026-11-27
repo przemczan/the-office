@@ -139,22 +139,7 @@ export interface OfficeSettingValues {
 /** Duties by key, each to the key of a Role or null for none; a duty left out is not named. */
 export type DutyHolders = Readonly<Partial<Record<DutyKey, string | null>>>;
 
-/** `holders` cut to the duties `named` names, as a Proposal of them starts from. */
-export function holdersNamedIn(holders: DutyHolders, named: DutyHolders): DutyHolders {
-  return Object.fromEntries(
-    Object.entries(holders).filter(([duty]) => Object.hasOwn(named, duty)),
-  ) as DutyHolders;
-}
-
 export type OfficeSetting = keyof OfficeSettingValues;
-
-/** The Office settings a Proposal can change, each applied by the module that owns it. */
-export const OFFICE_SETTINGS = [
-  "office-wide-limit",
-  "size-threshold",
-  "office-instructions",
-  "duties",
-] as const satisfies readonly OfficeSetting[];
 
 /**
  * A new value for an Office setting (`to`), and its value when the Proposal was drafted (`from`).
@@ -166,14 +151,6 @@ export type ProposedSettingChange<Setting extends OfficeSetting = OfficeSetting>
     readonly to: OfficeSettingValues[Kind];
   };
 }[Setting];
-
-/** A new value for an Office setting, as the person drafting it gives it. */
-export type ProposedSettingValue = {
-  readonly [Setting in OfficeSetting]: {
-    readonly setting: Setting;
-    readonly value: OfficeSettingValues[Setting];
-  };
-}[OfficeSetting];
 
 /**
  * A new text for a prompt template (spec §2.2), given whole (`to`), or its reset to the default

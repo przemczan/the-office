@@ -1,6 +1,5 @@
-import { Body, Controller, Get, Put } from "@nestjs/common";
-import { sizeThresholdSchema, type SizeThreshold } from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { Controller, Get } from "@nestjs/common";
+import type { SizeThreshold } from "@the-office/contracts";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
 
 /** Settings › Office limits: the Context policy's size threshold. */
@@ -11,13 +10,5 @@ export class SizeThresholdController {
   @Get()
   async read(): Promise<SizeThreshold> {
     return { sizeThreshold: await this.settings.sizeThreshold() };
-  }
-
-  @Put()
-  async change(
-    @Body(new ContractPipe(sizeThresholdSchema)) { sizeThreshold }: SizeThreshold,
-  ): Promise<SizeThreshold> {
-    await this.settings.changeSizeThreshold(sizeThreshold);
-    return { sizeThreshold };
   }
 }

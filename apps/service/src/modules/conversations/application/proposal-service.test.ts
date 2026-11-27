@@ -46,7 +46,6 @@ import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-pro
 import type { Proposal, ProposedChange, ProposedSettingChange } from "../domain/proposal.js";
 import {
   chatOfficeTools,
-  PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_ROLE_TOOL,
 } from "../domain/session-instructions.js";
@@ -266,10 +265,7 @@ class OfficeWideLimitStandIn {
   }
 }
 
-const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
-  PROPOSE_OFFICE_SETTING_TOOL,
-  READ_OFFICE_INSTRUCTIONS_TOOL,
-];
+const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [READ_OFFICE_INSTRUCTIONS_TOOL];
 
 /** People's own, which PeopleModule, booted here for its Roles, registers on the sessions' registry. */
 const TOOLS_OF_PEOPLE: readonly string[] = ["list_people", READ_ROLE_TOOL];
@@ -309,35 +305,6 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
   };
 }
 
-/** The Office Manager calls the Office tool `tool` with `input`, then ends their turn. */
-function calls(tool: string, input: Record<string, unknown>): SessionScript {
-  return [
-    { step: "start", brief: { id: "brief", text: "" } },
-    ...officeToolCall("c-1", tool, input),
-    ...endsTurn("Here is the card."),
-  ];
-}
-
-function officeToolCall(callId: string, tool: string, input: Record<string, unknown>): Step[] {
-  return [
-    {
-      step: "event",
-      event: {
-        kind: "tool-call",
-        callId,
-        tool,
-        officeTool: true,
-        input,
-        withinToolCall: undefined,
-      },
-    },
-    {
-      step: "event",
-      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
-    },
-  ];
-}
-
 function endsTurn(text: string): Step[] {
   return [
     { step: "event", event: { kind: "text", text, withinToolCall: undefined } },
@@ -375,17 +342,6 @@ async function askOfficeManager(text: string): Promise<{
   return { thread, drafted: await proposals.listInThread(thread.id) };
 }
 
-async function theOnlyProposal(text: string): Promise<Proposal> {
-  const { drafted } = await askOfficeManager(text);
-  const [proposal] = drafted;
-  if (!proposal || drafted.length > 1) throw new Error("Not one Proposal was drafted.");
-  return proposal;
-}
-
-function drafts(text: string): SessionScript {
-  return calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-instructions", text });
-}
-
 /**
  * The Office Manager's chat once their turn ended, with a Proposal of `change` drafted in it as
  * `propose_role`, now retired, drafted them: one still open applies as before.
@@ -406,9 +362,14 @@ async function draftsRole(change: ProposedChange): Promise<{
 
 /** Starts on the text `now`, with the Office Manager's draft of `text` open. */
 async function draftOver(now: string, text: string): Promise<Proposal> {
-  await startWith(drafts(text));
+  await startWith([
+    { step: "start", brief: { id: "brief", text: "" } },
+    ...endsTurn("Nothing to draft."),
+  ]);
   await officeInstructions.save(now, ANN_LEE);
-  return theOnlyProposal("Ask for plain words.");
+  const { thread } = await askOfficeManager("Ask for plain words.");
+  if (!thread.session) throw new Error("The chat has no session.");
+  return proposals.draft(thread.session.id, { kind: "office-instructions", from: now, to: text });
 }
 
 /** The hooks every test of both files runs. */

@@ -18,7 +18,6 @@ export const HAND_WRITTEN_TOOL_GROUPS: Readonly<Record<string, AuthorityGroup>> 
   create_task: "taskRecords",
   create_initiative: "initiativeRecords",
   capture_idea: "captureIdea",
-  propose_office_setting: "officeSettings",
   propose_project: "projectSettings",
   run_environment_check: "runInstalls",
   post_link_card: "postLinkCard",
@@ -44,11 +43,12 @@ export const CARETAKER_NEVER_TOOLS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The only tools of four groups the Caretaker is offered (spec 2.2 › Caretaker): its fixed
+ * The only tools of five groups the Caretaker is offered (spec 2.2 › Caretaker): its fixed
  * Authority holds each of these groups at Proposal, but it drafts only a new skill, a Pipeline's or
  * Stage template's new flow or Stage, a Project Pipeline's copy or change and a Prompt template's
- * text or reset, never a switch, a delete, an apply or a Project setting. Every other tool of these
- * groups is Never for it, so its offered set is its old drafting tools' replacements and no more.
+ * text or reset, and the Office-wide limit, size threshold, Office instructions or a duty holder,
+ * never a switch, a delete, an apply, a Project setting or any other Office setting. Every other
+ * tool of these groups is Never for it, so its offered set is its old drafting tools' replacements and no more.
  * Applied by the offering, in one place, like `CARETAKER_NEVER_TOOLS`.
  */
 export const CARETAKER_ONLY_TOOLS: Readonly<Partial<Record<AuthorityGroup, ReadonlySet<string>>>> =
@@ -62,6 +62,12 @@ export const CARETAKER_ONLY_TOOLS: Readonly<Partial<Record<AuthorityGroup, Reado
     ]),
     projectSettings: new Set(["create_project_pipeline", "change_project_pipeline"]),
     promptTemplates: new Set(["save_prompt_template", "reset_prompt_template"]),
+    officeSettings: new Set([
+      "set_office_wide_limit",
+      "set_size_threshold",
+      "set_office_instructions",
+      "set_duty_holder",
+    ]),
   };
 
 /**

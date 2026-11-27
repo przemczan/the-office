@@ -18,6 +18,7 @@ import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { FireAlarmLiftsController } from "./adapters/http/fire-alarm-lifts.controller.js";
+import { ConversationsSettingsOfficeActionsController } from "./adapters/http/conversations-settings-office-actions.controller.js";
 import { LiveViewController } from "./adapters/http/live-view.controller.js";
 import { OfficeInstructionsController } from "./adapters/http/office-instructions.controller.js";
 import { ProposalsController } from "./adapters/http/proposals.controller.js";
@@ -34,6 +35,7 @@ import { ProjectSettingOfficeTools } from "./adapters/office-tools/project-setti
 import { EnvironmentCheckOfficeTools } from "./adapters/office-tools/environment-check-office-tools.js";
 import { ProjectsTestTargetsChatRegistration } from "./adapters/projects/projects-test-targets-chat-registration.js";
 import { PromptTemplateOfficeTools } from "./adapters/office-tools/prompt-template-office-tools.js";
+import { ConversationsSettingsOfficeActions } from "./adapters/office-actions/conversations-settings-office-actions.js";
 import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
 import { SessionPeopleForModules } from "./adapters/session-people/session-people-source.js";
 import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js";
@@ -157,6 +159,7 @@ export class ConversationsModule implements NestModule {
         SizeThresholdController,
         StageContextLimitsController,
         OfficeInstructionsController,
+        ConversationsSettingsOfficeActionsController,
         FireAlarmLiftsController,
         SubAgentsAndProcessesController,
         LiveViewController,
@@ -230,6 +233,7 @@ export class ConversationsModule implements NestModule {
         ProjectSettingOfficeTools,
         EnvironmentCheckOfficeTools,
         ProposalOfficeTools,
+        ConversationsSettingsOfficeActions,
         PromptTemplateOfficeTools,
         ProjectsTestTargetsChatRegistration,
         SkillOfficeTools,

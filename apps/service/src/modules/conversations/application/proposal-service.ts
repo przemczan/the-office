@@ -5,13 +5,11 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { isClosedConsultationOnTask } from "../domain/conversation-tabs.js";
 import {
   changeToApply,
-  holdersNamedIn,
   proposalTargets,
   type EditedHire,
   type Proposal,
   type ProposalDeclinedBecause,
   type ProposedChange,
-  type ProposedSettingValue,
 } from "../domain/proposal.js";
 import {
   applyProposal,
@@ -70,32 +68,6 @@ export class ProposalService {
     );
     if (event) await this.events.publish(event);
     return this.read(id);
-  }
-
-  /** As `draft`, a new value for the Office setting, from the value its owner keeps now. */
-  async draftSetting(sessionId: string, proposed: ProposedSettingValue): Promise<Proposal> {
-    // Apart by value type: one change of either kind would no longer pair its kind with its values.
-    switch (proposed.setting) {
-      case "office-wide-limit":
-      case "size-threshold":
-        return this.draft(sessionId, {
-          kind: proposed.setting,
-          from: await this.appliers.settingNow(proposed.setting),
-          to: proposed.value,
-        });
-      case "office-instructions":
-        return this.draft(sessionId, {
-          kind: proposed.setting,
-          from: await this.appliers.settingNow(proposed.setting),
-          to: proposed.value,
-        });
-      case "duties":
-        return this.draft(sessionId, {
-          kind: proposed.setting,
-          from: holdersNamedIn(await this.appliers.settingNow(proposed.setting), proposed.value),
-          to: proposed.value,
-        });
-    }
   }
 
   /** The Proposal as its card shows it, its change read as this release reads it (`ProposalAppliers.shown`). */

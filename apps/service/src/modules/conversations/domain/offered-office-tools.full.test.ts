@@ -64,7 +64,6 @@ const OWN_ALLOWED_OTHERS_ASK_ME = {
 const FORMER_DUTY_TOOLS = {
   "default-person-to-talk-to": [
     "create_initiative",
-    "propose_office_setting",
     "read_office_instructions",
     "list_prompt_templates",
     "read_prompt_template",
@@ -217,6 +216,12 @@ describe("the Caretaker's tools", () => {
   const REPLACED_BY: Readonly<Record<string, readonly string[]>> = {
     propose_role: ["hire_role", "change_role_card"],
     propose_skill: ["write_skill"],
+    propose_office_setting: [
+      "set_office_wide_limit",
+      "set_size_threshold",
+      "set_office_instructions",
+      "set_duty_holder",
+    ],
     propose_library_pipeline: ["add_library_pipeline", "change_library_pipeline"],
     propose_stage_template: ["add_stage_template", "change_stage_template"],
     propose_project_pipeline: ["create_project_pipeline", "change_project_pipeline"],
@@ -232,7 +237,7 @@ describe("the Caretaker's tools", () => {
     "promptTemplates",
   ];
   const REPLACEMENTS = Object.entries(REPLACED_BY)
-    .filter(([old]) => old !== "propose_role")
+    .filter(([old]) => old !== "propose_role" && old !== "propose_office_setting")
     .flatMap(([, replacements]) => replacements);
 
   const authority = authorityInEffect(CARETAKER, {});
@@ -313,6 +318,18 @@ describe("the Caretaker's tools", () => {
       expect(CARETAKER_NEVER_TOOLS.has(never)).toBe(true);
       expect(offered).not.toContain(never);
     }
+  });
+
+  it("is offered of the Office settings group exactly the four actions that replaced propose_office_setting", () => {
+    const expected = new Set([
+      "set_office_wide_limit",
+      "set_size_threshold",
+      "set_office_instructions",
+      "set_duty_holder",
+    ]);
+
+    expect(new Set(actions.filter((name) => groupOf(name) === "officeSettings"))).toEqual(expected);
+    expect(offered).not.toContain("propose_office_setting");
   });
 
   it("narrows the four groups only for the Caretaker: a Role holding them at Proposal is offered the rest", () => {

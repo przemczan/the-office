@@ -1,5 +1,9 @@
 import type { INestApplication } from "@nestjs/common";
-import { engineSettingsRefusalSchema, engineSettingsSchema } from "@the-office/contracts";
+import {
+  REFRESH_ENGINE_MODELS_ACTION,
+  engineSettingsRefusalSchema,
+  engineSettingsSchema,
+} from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
@@ -25,8 +29,12 @@ import { ModelListRepository } from "../../ports/model-list-repository.js";
 import { ModelListsForTests } from "../../ports/model-list-repository.fixtures.js";
 import { WindowStartRepository } from "../../ports/window-start-repository.js";
 import { WindowStartsForTests } from "../../ports/window-start-repository.fixtures.js";
+import { anOfficeToolCall } from "../../ports/office-tool.fixtures.js";
+import { RUN_EVERY_CALL } from "../../ports/office-tool-ruling.fixtures.js";
 import { ScriptedEngine } from "../scripted/scripted-engine.js";
-import { EngineModelListsController } from "./engine-model-lists.controller.js";
+import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
+import { EngineOfficeActionsController } from "./engine-office-actions.controller.js";
+import { EngineOfficeActions } from "../office-actions/engine-office-actions.js";
 
 const SECOND_CLAUDE: ClaudeCodeEngine = {
   ...FIRST_CLAUDE_CODE_ENGINE,
@@ -76,9 +84,11 @@ beforeEach(async () => {
   });
   ({ app, url } = await startTestApplication({
     imports: [EventsModule, ScheduleModule, EngineSettingsModule],
-    controllers: [EngineModelListsController],
+    controllers: [EngineOfficeActionsController],
     providers: [
       EngineModelLists,
+      OfficeToolRegistry,
+      EngineOfficeActions,
       {
         provide: AgentEngines,
         useValue: new AgentEngines({
@@ -188,6 +198,25 @@ describe("POST /api/settings/engines/:engineId/models/refresh", () => {
   });
 });
 
+describe("refresh_engine_models, as the Agent's tool", () => {
+  it("refreshes the models in words, and refuses in words what the route refuses", async () => {
+    engine.setListedModels("claude-code", ["claude-opus-7"]);
+    engine.failModelLists("codex", new Error("The engine didn't answer in time."));
+
+    const refreshed = await runTool("claude-code");
+    expect(refreshed.isError).toBe(false);
+    expect((await read()).modelLists[0]).toMatchObject({ models: ["claude-opus-7"] });
+
+    expect((await runTool("gone")).isError).toBe(true);
+    expect((await runTool("lab")).isError).toBe(true);
+    const failed = await runTool("codex");
+    expect(failed).toEqual({
+      text: "Codex didn't list its models: The engine didn't answer in time.",
+      isError: true,
+    });
+  });
+});
+
 describe("PUT /api/settings/engines with listed models", () => {
   const edit = {
     ...DEFAULT_ENGINE_SETTINGS,
@@ -223,3 +252,11 @@ describe("PUT /api/settings/engines with listed models", () => {
     expect(listedPick.status).toBe(200);
   });
 });
+
+async function runTool(engineId: string) {
+  const [found] = app
+    .get(OfficeToolRegistry)
+    .named([REFRESH_ENGINE_MODELS_ACTION.name], RUN_EVERY_CALL);
+  if (!found) throw new Error("refresh_engine_models is not registered.");
+  return found.run(found.input.parse({ engineId }), anOfficeToolCall("session-1"));
+}
