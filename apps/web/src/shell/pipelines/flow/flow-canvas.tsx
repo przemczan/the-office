@@ -50,6 +50,7 @@ import {
   type DrawnRoute,
   type DrawnRoutes,
   LIMIT_MARK,
+  type PortSide,
   type RoughDrawing,
   type RouteDrawing,
   type RouteScene,
@@ -306,7 +307,7 @@ function movingCard(drag: FlowDrag | undefined): CardDrag | undefined {
   return drag?.kind === "card" && drag.moved ? drag : undefined;
 }
 
-const NO_PORTS: ReadonlySet<number> = new Set();
+const NO_PORTS: ReadonlyMap<number, PortSide> = new Map();
 
 /**
  * The routes as the chosen drawer draws them, remembered for the scene they were drawn from, so
@@ -384,14 +385,16 @@ function pickedLast(
   return [...routes.filter((route) => !isPicked(route)), ...routes.filter(isPicked)];
 }
 
-/** Each Stage's routes, by their index, whose lines leave from their rows' ports. */
-function portsOf(routes: readonly DrawnRoute[]): ReadonlyMap<string, ReadonlySet<number>> {
-  const ports = new Map<string, Set<number>>();
+/** Each Stage's routes, by their index, whose lines leave from their rows' ports, with the side. */
+function portsOf(
+  routes: readonly DrawnRoute[],
+): ReadonlyMap<string, ReadonlyMap<number, PortSide>> {
+  const ports = new Map<string, Map<number, PortSide>>();
   for (const { line, fromPort } of routes) {
-    if (!fromPort || line.routeIndex === undefined) continue;
+    if (fromPort === undefined || line.routeIndex === undefined) continue;
     let own = ports.get(line.fromKey);
-    if (!own) ports.set(line.fromKey, (own = new Set()));
-    own.add(line.routeIndex);
+    if (!own) ports.set(line.fromKey, (own = new Map()));
+    own.set(line.routeIndex, fromPort);
   }
   return ports;
 }

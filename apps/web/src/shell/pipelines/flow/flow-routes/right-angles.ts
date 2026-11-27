@@ -67,6 +67,8 @@ const MOST_SLOTS = 5;
 const CORNER_RADIUS = 6;
 /** With no way over the tracks, a line's plain elbow runs this far straight out of each edge. */
 const ELBOW_OUT = 12;
+/** A line runs at least this far straight out of an edge, or into one, on a port's track. */
+const ENDS_LEAD = 12;
 /** No line runs closer to a card than this, but into its own ends. */
 const CARD_CLEAR = 4;
 /** A mark on a stretch stays this far off the stretch's corners (mark-spots.ts). */
@@ -77,11 +79,11 @@ const drawsRoughly = (scene: RouteScene): boolean =>
 
 function inFull(scene: RouteScene): DrawnRoutes {
   const frame = routeFrame(scene);
-  let ends = routeEnds(frame);
+  let ends = routeEnds(frame, "from-rows");
   let paths = laidPaths(frame, ends);
   // Once the ways are known, each side's ends are put in the order their lines come to it, and
   // the lines are routed again; that drawing is kept when fewer lines cross in it.
-  const reordered = routeEnds(frame, orderOfArrival(ends, paths));
+  const reordered = routeEnds(frame, "from-rows", orderOfArrival(ends, paths));
   if (!sameEnds(ends, reordered)) {
     const again = laidPaths(frame, reordered);
     if (crossingsIn(again) < crossingsIn(paths)) [ends, paths] = [reordered, again];
@@ -353,10 +355,12 @@ function nodeOutside(
   const across = upright ? grid.rows : grid.columns;
   const edge = point[upright ? 1 : 0];
   const outward = OUTWARD[side][upright ? 1 : 0];
-  const index =
-    outward > 0
-      ? across.findIndex(({ at }) => at > edge)
-      : across.findLastIndex(({ at }) => at < edge);
+  // A port's own track too near the edge leaves no stretch for the arrow: the next one is taken.
+  const beyond = ({ at, owners }: Track): boolean => {
+    const reach = (at - edge) * outward;
+    return reach > (owners === undefined ? 0 : ENDS_LEAD);
+  };
+  const index = outward > 0 ? across.findIndex(beyond) : across.findLastIndex(beyond);
   if (index < 0 || own < 0) return undefined;
   const at: Pt = upright ? [point[0], across[index]!.at] : [across[index]!.at, point[1]];
   const stands = frame.obstacles.some(

@@ -1963,10 +1963,8 @@ test("the flow canvas moves with the right mouse button, zooms, fits the whole P
     expect(await transform()).not.toBe(before);
     await expect(page.getByRole("menu")).toHaveCount(0);
 
-    // Ctrl + scroll zooms out, and under 60% a card shows only its name.
-    await page.keyboard.down("Control");
+    // Scrolling zooms out around the pointer, and under 60% a card shows only its name.
     await page.mouse.wheel(0, 400);
-    await page.keyboard.up("Control");
     await expect(tools.getByRole("button", { name: "Zoom: 100%" })).toHaveCount(0);
 
     // Fit shows every Stage inside the view.

@@ -1,6 +1,6 @@
 import { isMarked, type FlowBox, type FlowLine, type FlowPoint } from "../flow-layout.ts";
 import { type MarkRule, markSpots } from "./mark-spots.ts";
-import type { DrawnRoute, DrawnRoutes, RouteScene } from "./route-drawer.ts";
+import type { DrawnRoute, DrawnRoutes, PortSide, RouteScene } from "./route-drawer.ts";
 import {
   arrowAt,
   boxAround,
@@ -52,7 +52,7 @@ export interface RouteFrame {
 export interface FramedRoute {
   readonly line: FrameLine;
   readonly shape: RouteShape;
-  readonly fromPort: boolean;
+  readonly fromPort: PortSide | undefined;
 }
 
 /** The line stops this far short of its target's edge, where the arrow head takes over. */

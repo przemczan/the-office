@@ -6,6 +6,7 @@ import type { FlowGridCell } from "./flow-layout.ts";
 import { FlowLock } from "./flow-locked.tsx";
 import type { FlowStageMark } from "./flow-marks.ts";
 import type { FlowPick } from "./flow-pick.ts";
+import type { PortSide } from "./flow-routes/route-drawer.ts";
 import {
   isPickedRoute,
   NONE_HOLDS_WORDS,
@@ -30,8 +31,8 @@ export interface FlowStageCardProps {
   /** Why a Task's started Stage is locked, shown as its lock. */
   readonly lockedNote: string | undefined;
   readonly listsRoutes: boolean;
-  /** The routes, by their index, whose lines leave from their rows' ports, each row showing its dot. */
-  readonly ports: ReadonlySet<number>;
+  /** The routes, by their index, whose lines leave from their rows' ports, each row showing its dot on the side the line leaves. */
+  readonly ports: ReadonlyMap<number, PortSide>;
   readonly showsHandle: boolean;
   readonly draggable: boolean;
   /** Being dragged: drawn over the others, where it would snap to. */
@@ -189,6 +190,7 @@ function RouteRows({
     <div className="flow-canvas-routes">
       {(stage.routes ?? []).map((route, index) => {
         const { target, when, mark } = routeLine(stage, route, index, stages);
+        const port = ports.get(index);
         const rowClass = [
           "flow-canvas-route-row",
           isPickedRoute(picked, stage.key, index) && "flow-canvas-route-row--picked",
@@ -213,8 +215,13 @@ function RouteRows({
               </span>
               {mark !== "" && <span className="flow-canvas-limit-mark-inline">{mark}</span>}
             </button>
-            {/* Only a line that leaves from its row shows the row's port. */}
-            {ports.has(index) && <span className="flow-canvas-port" aria-hidden="true" />}
+            {/* Only a line that leaves from its row shows the row's port, on the side it leaves. */}
+            {port && (
+              <span
+                className={`flow-canvas-port${port === "left" ? " flow-canvas-port--left" : ""}`}
+                aria-hidden="true"
+              />
+            )}
           </div>
         );
       })}

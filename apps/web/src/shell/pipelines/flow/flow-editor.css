@@ -43,6 +43,30 @@
   overflow: auto;
 }
 
+/* The problems and warnings take no room of their own on the page. */
+.flow-editor-checks {
+  display: contents;
+}
+
+/* The canvas keeps the whole window; what is under it stays readable on a very wide one. */
+.flow-editor--full-screen .flow-editor-panel,
+.flow-editor--full-screen .flow-editor-checks,
+.flow-editor--full-screen .flow-editor-full-screen-bar {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+}
+
+.flow-editor--full-screen .flow-editor-checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.flow-editor--full-screen .flow-editor-checks:empty {
+  display: none;
+}
+
 .flow-editor-full-screen-bar {
   display: flex;
   flex-wrap: wrap;

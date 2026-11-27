@@ -475,9 +475,9 @@
 - `curves.ts`: curves
 - `mark-spots.ts`: MarkRule, MarkedLine, MARK_AIR, markSpots
 - `right-angles.ts`: rightAngles
-- `route-drawer.ts`: RouteDrawing, ROUTE_DRAWINGS, DEFAULT_ROUTE_DRAWING, LIMIT_MARK, RouteScene, DrawnRoute, DrawnRoutes, RoughDrawing, RouteDrawer
+- `route-drawer.ts`: PortSide, RouteDrawing, ROUTE_DRAWINGS, DEFAULT_ROUTE_DRAWING, LIMIT_MARK, RouteScene, DrawnRoute, DrawnRoutes, RoughDrawing, RouteDrawer
 - `route-drawers.ts`: ROUTE_DRAWERS
-- `route-ends.ts`: Side, OUTWARD, RouteEnd, RouteEnds, OWN_LOOP, EndOrder, endKey, routeEnds
+- `route-ends.ts`: Side, OUTWARD, RouteEnd, RouteEnds, OWN_LOOP, EndOrder, endKey, RowLines, routeEnds
 - `route-fixtures.ts`: FixtureName, FIXTURE_NAMES, fixtureScene, gridScene
 - `route-frame.ts`: FrameCard, FrameLine, RouteFrame, FramedRoute, routeFrame, drawnRoutes, unionOf, routesById
 - `route-geometry.ts`: Pt, add, sub, times, distance, towards, right, bottom, centre, grown, boxAround, boxesOverlap, boxHolds, stretchInBox, stretchHitsBox, lineHitsBox, stretchesCross, crossingsOf, lengthOf, pointAlong, ShapePiece, RouteShape, straightShape, shapePoints, shapeHeading, shapePath, arrowAt

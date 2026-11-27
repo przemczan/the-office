@@ -1,6 +1,7 @@
 import { isMarked, type FlowBox } from "../flow-layout.ts";
 import { bottom, centre, grown, type Pt, right, stretchHitsBox } from "./route-geometry.ts";
 import { MARK_AIR } from "./mark-spots.ts";
+import type { PortSide } from "./route-drawer.ts";
 import type { FrameCard, FrameLine, RouteFrame } from "./route-frame.ts";
 
 /**
@@ -27,8 +28,8 @@ export interface RouteEnd {
 export interface RouteEnds {
   readonly from: RouteEnd;
   readonly to: RouteEnd;
-  /** The line leaves its row's port. */
-  readonly fromPort: boolean;
+  /** The side of the card its row's port is on, when the line leaves its row's port. */
+  readonly fromPort: PortSide | undefined;
   /** A route to its own Stage: the small loop on one edge. */
   readonly own: boolean;
 }
@@ -68,11 +69,24 @@ export type EndOrder = ReadonlyMap<string, readonly [number, number]>;
 
 export const endKey = (line: number, role: "from" | "to"): string => `${line}:${role}`;
 
+/** How the lines leave a card that lists its routes. */
+export type RowLines =
+  /** From the row's port on the right or left edge, whichever faces the target: Right angles, Curves. */
+  | "from-rows"
+  /** By the sides' rules alone, keeping the row's place only on the right edge: Straight lines. */
+  | "by-sides";
+
 /** Each line's two ends, in the frame's lines' order. */
-export function routeEnds(frame: RouteFrame, order?: EndOrder): readonly RouteEnds[] {
+export function routeEnds(
+  frame: RouteFrame,
+  rowLines: RowLines,
+  order?: EndOrder,
+): readonly RouteEnds[] {
+  const leavesRow = (line: FrameLine): boolean =>
+    rowLines === "from-rows" && rowOf(line) !== undefined;
   const sides = withFullSidesEased(
     frame,
-    frame.lines.map((line) => sidesOf(line, frame)),
+    frame.lines.map((line) => sidesOf(line, frame, leavesRow(line))),
   );
   const groups = new Map<string, { card: FrameCard; side: Side; ends: SideEnd[] }>();
   const put = (card: FrameCard, side: Side, end: SideEnd): void => {
@@ -83,7 +97,7 @@ export function routeEnds(frame: RouteFrame, order?: EndOrder): readonly RouteEn
   };
   for (const [index, line] of frame.lines.entries()) {
     const { from, to } = sides[index]!;
-    if (line.from === line.to) {
+    if (line.from === line.to && !leavesRow(line)) {
       const width = ownLoopWidth(line.from.box);
       put(line.from, from, {
         line: index,
@@ -97,8 +111,7 @@ export function routeEnds(frame: RouteFrame, order?: EndOrder): readonly RouteEn
     }
     const back = from === to;
     const marked = isMarked(line.line);
-    const row =
-      from === "right" && line.line.port !== undefined ? line.from.rows[line.line.port] : undefined;
+    const row = leavesRow(line) || from === "right" ? rowOf(line) : undefined;
     put(line.from, from, {
       line: index,
       role: "from",
@@ -112,7 +125,10 @@ export function routeEnds(frame: RouteFrame, order?: EndOrder): readonly RouteEn
       role: "to",
       width: 0,
       fixed: undefined,
-      rank: order?.get(endKey(index, "to")) ?? rankOf(line.to.box, line.from.box, to, back),
+      rank:
+        order?.get(endKey(index, "to")) ??
+        enteredFromSide(line, from, to) ??
+        rankOf(line.to.box, line.from.box, to, back),
       marked,
     });
   }
@@ -138,24 +154,35 @@ export function routeEnds(frame: RouteFrame, order?: EndOrder): readonly RouteEn
       return {
         from: { side: from, point: pointOn(line.from.box, from, own + width) },
         to: { side: to, point: pointOn(line.to.box, to, own) },
-        fromPort: false,
+        fromPort: undefined,
         own: true,
       };
     }
     return {
       from: { side: from, point: pointOn(line.from.box, from, at.get(`${index}:from`)!) },
       to: { side: to, point: pointOn(line.to.box, to, at.get(`${index}:to`)!) },
-      fromPort:
-        from === "right" &&
-        line.line.port !== undefined &&
-        line.from.rows[line.line.port] !== undefined,
+      fromPort: leavesRow(line) ? portSideOf(from) : undefined,
       own: false,
     };
   });
 }
 
-/** The sides by where the target stands, the first rule that fits. */
-function sidesOf({ from, to }: FrameLine, frame: RouteFrame): { from: Side; to: Side } {
+/** Where its row's port is along the card's edge; undefined for a line with no row listed. */
+function rowOf({ line, from }: FrameLine): number | undefined {
+  return line.port === undefined ? undefined : from.rows[line.port];
+}
+
+const portSideOf = (side: Side): PortSide | undefined =>
+  side === "left" || side === "right" ? side : undefined;
+
+/**
+ * The sides by where the target stands, the first rule that fits. A line with a row leaves it, by
+ * the right edge for a target ahead of or level with the Stage, by the left for one behind.
+ */
+function sidesOf(line: FrameLine, frame: RouteFrame, leavesRow: boolean): { from: Side; to: Side } {
+  const { from, to } = line;
+  const rowY = rowOf(line);
+  if (leavesRow && rowY !== undefined) return sidesFromRow(from, to, rowY, frame);
   if (from === to) {
     const side = ownLoopSide(from.box, frame.cards);
     return { from: side, to: side };
@@ -163,6 +190,12 @@ function sidesOf({ from, to }: FrameLine, frame: RouteFrame): { from: Side; to: 
   if (to.box.x >= right(from.box) + AHEAD) return { from: "right", to: "left" };
   if (to.box.y >= bottom(from.box) + AHEAD) return { from: "bottom", to: "top" };
   if (bottom(to.box) <= from.box.y - AHEAD) return { from: "top", to: "bottom" };
+  const side = emptierSide(from, to, frame);
+  return { from: side, to: side };
+}
+
+/** The top or bottom edge a line turning back over both cards runs along: where fewer cards stand. */
+function emptierSide(from: FrameCard, to: FrameCard, frame: RouteFrame): "top" | "bottom" {
   const others = frame.cards.filter((card) => card !== from && card !== to).map(({ box }) => box);
   const low = Math.min(from.box.x, to.box.x);
   const high = Math.max(right(from.box), right(to.box));
@@ -171,7 +204,28 @@ function sidesOf({ from, to }: FrameLine, frame: RouteFrame): { from: Side; to: 
   const under = inSpan.filter(
     (box) => bottom(box) > Math.min(bottom(from.box), bottom(to.box)),
   ).length;
-  return under < over ? { from: "bottom", to: "bottom" } : { from: "top", to: "top" };
+  return under < over ? "bottom" : "top";
+}
+
+function sidesFromRow(
+  from: FrameCard,
+  to: FrameCard,
+  rowY: number,
+  frame: RouteFrame,
+): { from: Side; to: Side } {
+  const ownSide = from === to ? ownLoopSide(from.box, frame.cards) : undefined;
+  if (ownSide) return { from: "right", to: ownSide };
+  const ahead = centre(to.box)[0] >= centre(from.box)[0];
+  const leaving = ahead ? "right" : "left";
+  if (ahead && to.box.x >= right(from.box) + AHEAD) return { from: leaving, to: "left" };
+  if (to.box.y >= bottom(from.box) + AHEAD) return { from: leaving, to: "top" };
+  if (bottom(to.box) <= from.box.y - AHEAD) return { from: leaving, to: "bottom" };
+  // Level with the Stage. Rows lie low on a card, so the line turns down, off the lines that enter
+  // the cards' left edges at mid-height, unless the target stands lower than its row. A target
+  // behind is entered from outside its left, but the first Stage's left edge is the start marker's.
+  const facing = rowY > centre(to.box)[1] ? "bottom" : "top";
+  if (ahead || to === frame.start) return { from: leaving, to: facing };
+  return { from: leaving, to: "left" };
 }
 
 function ownLoopSide(box: FlowBox, cards: readonly FrameCard[]): Side {
@@ -236,6 +290,23 @@ function rankOf(
   const there = centre(other)[axis];
   if (!back) return [1, there];
   return there < here ? [0, here - there] : [2, here - there];
+}
+
+/**
+ * Where a line that leaves a left or right edge enters a top or bottom one, among that edge's
+ * ends: the line that comes level from furthest off enters outermost, so the lines it turns past
+ * don't cross its own: on a bottom edge the lowest, on a top edge the highest, nearest the side
+ * they come from. Undefined for any other line.
+ */
+function enteredFromSide(
+  line: FrameLine,
+  from: Side,
+  to: Side,
+): readonly [number, number] | undefined {
+  if (level(from) || !level(to)) return undefined;
+  const y = rowOf(line) ?? centre(line.from.box)[1];
+  const towards = (to === "bottom" ? -1 : 1) * (from === "left" ? 1 : -1);
+  return [1, towards * y];
 }
 
 /** Places on a side nothing else may take: the start marker's, on the first Stage's left edge. */

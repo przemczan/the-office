@@ -181,7 +181,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - An extra-large window of one height, "Pipeline diagram: <Pipeline>", opened by Open diagram, with Maximize.
 - Under the head: the rail's caption, the Publishing wait, "Started over by <user>. The earlier start's <n> runs stay in each Stage's history." after a Start over, and a legend of the Stage states and the lines.
-- The Pipeline's flow, read-only, drawn in this browser's Route drawing ([pipeline-flow-editor.md](pipeline-flow-editor.md#route-drawing)), with the editor's canvas tools, without Full screen, filling the window's height; a scroll moves the view.
+- The Pipeline's flow, read-only, drawn in this browser's Route drawing ([pipeline-flow-editor.md](pipeline-flow-editor.md#route-drawing)), with the editor's canvas tools, without Full screen, filling the window's height; a scroll zooms around the pointer, and a sideways or Shift + scroll moves the view ([Moving and zooming](pipeline-flow-editor.md#moving-and-zooming)).
 - Before the Task has its own copy, the library Pipeline's Stages and End position, all Pending.
 - Each Stage shows its state by its mark, its edge and its words (done, running, waiting on you, failed, pending, not taken); the current one is ringed; a Stage with rounds shows its round.
 - A route the walk followed in this start is drawn heavy with its count ("3×", "2 of ≤3"); one out of a Stage that ran and isn't current that it didn't follow, or touching a Not taken or Skipped Stage, is dimmed.

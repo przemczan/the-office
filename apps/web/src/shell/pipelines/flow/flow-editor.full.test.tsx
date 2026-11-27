@@ -925,6 +925,27 @@ describe("the flow editor's canvas, which pans and zooms", () => {
     expect(tool("Zoom: 100%")).toBeTruthy();
   });
 
+  it("zooms with a plain scroll over the canvas, and pans with a sideways or Shift + scroll", async () => {
+    const page = await rendered();
+    const frame = page.querySelector(".flow-viewport-frame");
+    if (!frame) throw new Error("No canvas frame.");
+    const scrolled = (init: WheelEventInit): WheelEvent => {
+      const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, ...init });
+      act(() => void frame.dispatchEvent(event));
+      return event;
+    };
+    expect(scrolled({ deltaY: 100, shiftKey: true }).defaultPrevented).toBe(true);
+    expect(scrolled({ deltaX: 100, deltaY: 10 }).defaultPrevented).toBe(true);
+    expect(tool("Zoom: 100%")).toBeTruthy();
+    expect(scrolled({ deltaY: 100 }).defaultPrevented).toBe(true);
+    expect(buttonsNamed("Zoom: 100%")).toEqual([]);
+    for (let step = 0; step < 4; step += 1) scrolled({ deltaY: -1000 });
+    expect(tool("Zoom: 100%")).toBeTruthy();
+    // Ctrl zooms whichever way the scroll leans, as a trackpad's pinch does.
+    scrolled({ deltaX: 40, deltaY: 30, ctrlKey: true, shiftKey: true });
+    expect(buttonsNamed("Zoom: 100%")).toEqual([]);
+  });
+
   it("shows only each Stage's name under 60%", async () => {
     const page = await rendered();
     expect(page.querySelector(".flow-canvas--names-only")).toBeNull();

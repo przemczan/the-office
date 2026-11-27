@@ -213,9 +213,8 @@ function FlowEditorBody(
         {!readOnly && props.head}
         {fullScreen && (
           <Button
-            size="sm"
-            variant="secondary"
-            iconLeft={<Icon name="minimize-2" size={12} />}
+            variant="accent"
+            iconLeft={<Icon name="minimize-2" size={14} />}
             onClick={() => props.onFullScreen(false)}
           >
             Exit full screen
@@ -248,17 +247,19 @@ function FlowEditorBody(
       <div ref={panel} className="flow-editor-panel">
         {props.panel}
       </div>
-      <StageCheckAlerts
-        problems={problems}
-        warnings={warnings}
-        problemsTitle={props.problemsTitle ?? "The Pipeline can't be saved yet"}
-        onPick={(problem) => {
-          const at = pickOfProblem(problem);
-          if (!at) return;
-          controls.pick(at);
-          panel.current?.scrollIntoView?.({ block: "nearest" });
-        }}
-      />
+      <div className="flow-editor-checks">
+        <StageCheckAlerts
+          problems={problems}
+          warnings={warnings}
+          problemsTitle={props.problemsTitle ?? "The Pipeline can't be saved yet"}
+          onPick={(problem) => {
+            const at = pickOfProblem(problem);
+            if (!at) return;
+            controls.pick(at);
+            panel.current?.scrollIntoView?.({ block: "nearest" });
+          }}
+        />
+      </div>
       {fullScreen && props.fullScreenBar && (
         <div className="flow-editor-full-screen-bar">{props.fullScreenBar}</div>
       )}

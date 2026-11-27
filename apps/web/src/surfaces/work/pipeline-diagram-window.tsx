@@ -121,7 +121,7 @@ export function PipelineDiagramWindow({
         </div>
         <div className="pipeline-diagram-body">
           <div className="pipeline-diagram-canvas">
-            {/* A window has no page to scroll, so a scroll moves the view, as in full screen. */}
+            {/* A window has no page around it, so the frame fills the height, as in full screen. */}
             <FlowViewport fullScreen>
               <FlowCanvas
                 stages={flowStages}

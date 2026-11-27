@@ -43,9 +43,9 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 ## Hint
 
 - A line with an info icon under the legend (`role=status`); it says how to use the editor, and after an edit says what the edit did, until the next pick.
-- How to use it, wide: "Drag a Stage anywhere: it snaps to the grid and to other Stages; hold Alt (⌥) to place it freely, Shift to keep it in line. Drag from its + to any Stage, itself or an earlier one too, or to End, to draw a route; pick a route to set its condition and its limit. Auto-align lays out the whole Pipeline. Without a mouse: Tab to a Stage, Shift + arrows move it, Enter opens it below. Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline."
+- How to use it, wide: "Drag a Stage anywhere: it snaps to the grid and to other Stages; hold Alt (⌥) to place it freely, Shift to keep it in line. Drag from its + to any Stage, itself or an earlier one too, or to End, to draw a route; pick a route to set its condition and its limit. Auto-align lays out the whole Pipeline. Without a mouse: Tab to a Stage, Shift + arrows move it, Enter opens it below. Drag the canvas with the right mouse button to move around; scroll zooms around the pointer, and F fits the whole Pipeline."
 - How to use it, narrow (canvas under 560px wide): "Press a Stage or a route to edit it below. The Pipeline reads top to bottom here, as its Stages stand from left to right on a wider screen. Move and Routes out do everything without dragging; drag from a Stage's + to draw a route."
-- Read-only: "Pick a Stage or a route to read it below. Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline."
+- Read-only: "Pick a Stage or a route to read it below. Drag the canvas with the right mouse button to move around; scroll zooms around the pointer, and F fits the whole Pipeline."
 - What an edit says:
   - Stage added: "<name> was added after <Stage> in the Pipeline's order (or: as the last Stage), beside it on the canvas. Drag it where it goes, then draw its routes: drag from a Stage's + to another Stage or to End. Without dragging: Move and Routes out, below."
   - Dropped clear of a card: "<name> was put beside <Stage>, so it doesn't cover it."
@@ -75,7 +75,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
   - A **+** handle named "Draw a route from <Stage>" (hidden on a read-only flow and on locked Stages).
   - Pressing the card picks the Stage.
 - **Route rows**: a Stage with several routes, or one with a condition or a limit, lists them inside its card, each row "→ <target> <when> ≤N×".
-  - A row shows its port dot only when its line leaves from it ([Route drawing](#route-drawing)).
+  - A row shows its port dot only when its line leaves from it, on the side of the card it leaves ([Route drawing](#route-drawing)).
   - The when: "when it fails", "if the Agent chooses: <words>", "when <condition in words>", "when it ends Conflict" (a Publish Stage's results, joined by "or"), "otherwise", "always".
   - The mark ≤N× only on a route with a limit.
   - A Stage with one route, with no condition and No limit, lists none, and the line leaves its edge.
@@ -94,7 +94,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - How the routes are drawn is this browser's choice, from the [Route drawing](#head) switch: **Right angles** (the default), **Curves** or **Straight lines**.
 - Kept in this browser's local storage (`the-office.flow-route-drawing`), never sent to the service; every flow on the page and in the browser's other tabs follows a change at once.
 - A stored value that isn't one of the three counts as Right angles.
-- Right angles is the default: it alone keeps lines apart in a shared corridor, it draws the test Pipelines with no crossing, its lines leave from their own rows so a row and its line read as one, its marks sit on level stretches, and it is closest to what Auto-align lays out.
+- Right angles is the default: it alone keeps lines apart in a shared corridor, it draws the test Pipelines with no crossing, each line leaves from its own row, on the right or left edge, so a row and its line read as one, its marks sit on level stretches, and it is closest to what Auto-align lays out.
 - Switching redraws the lines only: no Stage moves, nothing is saved, and what is picked stays.
 - The Proposal card's small drawing of route changes follows the choice and has no switch of its own.
 - The Task page's Pipeline diagram draws with the same choice ([task-page.md](task-page.md#pipeline-diagram)).
@@ -113,8 +113,14 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 ### Right angles
 
 - Level and upright stretches with corners rounded by 6, going around Stages.
-- The sides: to a Stage ahead the line leaves the right edge at its route's row and enters the left edge; to one clearly above or below, the facing edges; otherwise (behind, or close on every side) the top edges, or the bottom edges where fewer cards stand over the span there.
-- Wide, a line never leaves a left edge and never enters a right edge.
+- The sides of a route listed as a row in its card: the line leaves the card at its row, on the right edge when its target's centre is ahead of or level with the Stage's, on the left edge when it is behind.
+  - To a Stage clearly ahead of the right edge it enters the left edge.
+  - To one clearly above or below it enters the facing edge (the bottom of one above, the top of one below).
+  - Otherwise, level with the Stage: a target ahead is entered from above or below, whichever faces the row, and one behind from outside its left edge, except the first Stage, whose left edge is the start marker's: it is entered from above or below like one ahead.
+  - Where several lines come level to a top or bottom edge, the one from furthest off enters outermost, so lines don't cross next to the card.
+  - A route to its own Stage with a row leaves its row on the right edge and comes back into the card's top edge (bottom edge when another card stands over it), a small loop.
+- A card that lists no rows leaves by its edges: to a Stage ahead the right edge at its middle, entering the left edge; to one clearly above or below, the facing edges; otherwise (behind, or close on every side) the top edges, or the bottom edges where fewer cards stand over the span there. Wide, such a line never leaves a left edge.
+- Wide, a line never enters a right edge.
 - Several lines on one side stand 16 apart round its middle, in the order of where their other ends stand, 12 clear of the corners (never under 8 on a crowded side); beside a line with a ≤N× mark they stand 24 apart where the side has room, so the mark fits by its neighbour.
 - Each line takes the cheapest way over tracks along the cards and down the middle of the gaps: its length, plus 48 a bend, plus 192 a crossing; the shortest lines go first.
 - Lines that share a corridor stand 16 apart (24 beside a stretch with a mark), never under 6, nested so they don't cross where they part; lines cross only at right angles and never share a stretch.
@@ -122,7 +128,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 ### Curves
 
-- One smooth curve per route, using the sides and points of Right angles, leaving and entering square to the edge.
+- One smooth curve per route, using the sides and points of Right angles (a row's line leaves its row on the right or left edge), leaving and entering square to the edge.
 - Between facing sides each end reaches half the gap between the edges (at least 24); back over one side the arc reaches 0.3 of the distance between its ends (40 to 160; 64 narrow), so longer arcs nest over shorter ones.
 - A curve that would pass within 8 of a card goes round through the corners of the cards grown by 16, as one smooth curve; with no room, it falls back to straight stretches with corners rounded by 12.
 - Curves may run close to each other but never share an end point.
@@ -142,7 +148,8 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - A ≤N× mark, 40 × 18, sits on its own line with 4 clear of every card, every other line and every other mark; a line with no room draws none, and its row still shows ≤N×.
 - A press on a mark picks its route; the mark is no Tab stop and is hidden from screen readers, as its row or line names the limit.
 - Each line keeps its 12-wide hit line along its path in every mode.
-- A row shows its port dot only when its line leaves from it; none in Straight lines or the narrow view.
+- A row shows its port dot only when its line leaves from it, and only on the side it leaves: on the right edge of the card or the left, never both; none in Straight lines or the narrow view.
+- A press on a line, its row or its mark picks the route and draws no box around the line: the picked route's colour and its bolder stroke are the whole highlight.
 - The picked route is highlighted on its line, its mark and its row together.
 
 ### Proposals
@@ -211,8 +218,8 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 - A Stage keeps its size on the canvas; a large Pipeline grows past the view, which moves and zooms instead of squeezing it.
 - The view is a group named "Flow view: arrow keys move it, + and − zoom, F fits the Pipeline"; focused, arrow keys move it, + and − zoom, F fits.
-- Moving the view: a drag with the right mouse button, the middle one, Space + drag, or a drag on the empty canvas. A plain scroll stays the page's.
-- Zooming: Ctrl/⌘ + scroll, or the controls in the canvas's corner (a toolbar named "Canvas"), from 25% to 100%.
+- Moving the view: a drag with the right mouse button, the middle one, Space + drag, or a drag on the empty canvas. A sideways scroll or Shift + scroll moves it sideways; a plain scroll over the canvas zooms (below), so the page scrolls only while the pointer is off the canvas.
+- Zooming: a scroll over the canvas, plain or with Ctrl/⌘, zooms around the pointer (the point under it stays put), on the page and in full screen; or the controls in the canvas's corner (a toolbar named "Canvas"), from 25% to 100%.
   - **Zoom out (−)** and **Zoom in (+)**; at the ends disabled with "Already at 25%, the smallest" or "Already at 100%, a Stage's own size".
   - The zoom readout (e.g. "75%") opens a menu: **Fit the Pipeline** (F), **100%** (0), **75%**, **50%**, **25%**.
   - **Fit the Pipeline (F)** shows the whole Pipeline.
@@ -225,7 +232,8 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 - **Full screen** in the canvas's controls gives the editor the whole window (a dialog named "Stages and routes, full screen"); the page under it doesn't scroll.
 - Its title is the editor's title after "<name> ·": the Pipeline's name (or "New Pipeline"), or the Task's title.
 - Its bar keeps the host's Save at hand: Settings' and a Project Pipeline's save row, "Edit for this Task"'s save actions.
-- **Exit full screen** (in its head, and the control's "Exit full screen (Esc)") or Esc goes back.
+- **Exit full screen** (in its head, in the accent tone at the default size so it stands apart from the head's other buttons, and the control's "Exit full screen (Esc)") or Esc goes back.
+- The canvas uses the whole width; the panel, the problems and warnings and the bar are at most 1120 wide, centred under it.
 
 ## Stage panel
 

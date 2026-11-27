@@ -21,13 +21,13 @@ import {
  */
 export const straightLines: RouteDrawer = (scene) => {
   const frame = routeFrame(scene);
-  const { laid } = laidInArrivalOrder(frame, (ends) => laidLines(frame, ends));
+  const { laid } = laidInArrivalOrder(frame, "by-sides", (ends) => laidLines(frame, ends));
   return drawnRoutes(
     frame,
     frame.lines.map((line, index) => ({
       line,
       shape: straightShape(laid[index]!.points, 0),
-      fromPort: false,
+      fromPort: undefined,
     })),
     "longest-stretch",
   );

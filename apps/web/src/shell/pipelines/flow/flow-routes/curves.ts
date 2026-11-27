@@ -30,7 +30,9 @@ import {
  */
 export const curves: RouteDrawer = (scene) => {
   const frame = routeFrame(scene);
-  const { ends, laid } = laidInArrivalOrder(frame, (tried) => laidCurves(frame, tried));
+  const { ends, laid } = laidInArrivalOrder(frame, "from-rows", (tried) =>
+    laidCurves(frame, tried),
+  );
   return drawnRoutes(
     frame,
     frame.lines.map((line, index) => ({

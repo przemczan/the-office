@@ -4,6 +4,7 @@ import {
   endKey,
   OUTWARD,
   type RouteEnds,
+  type RowLines,
   routeEnds,
   type Side,
 } from "./route-ends.ts";
@@ -170,13 +171,14 @@ export interface LaidLine {
  */
 export function laidInArrivalOrder<Laid extends LaidLine>(
   frame: RouteFrame,
+  rowLines: RowLines,
   lay: (ends: readonly RouteEnds[]) => readonly Laid[],
 ): { readonly ends: readonly RouteEnds[]; readonly laid: readonly Laid[] } {
-  const ends = routeEnds(frame);
+  const ends = routeEnds(frame, rowLines);
   const laid = lay(ends);
   const order = arrivalOrder(ends, laid);
   if (order.size === 0) return { ends, laid };
-  const reordered = routeEnds(frame, order);
+  const reordered = routeEnds(frame, rowLines, order);
   const again = lay(reordered);
   return crossingsIn(again) < crossingsIn(laid) ? { ends: reordered, laid: again } : { ends, laid };
 }

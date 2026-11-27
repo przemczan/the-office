@@ -27,7 +27,7 @@ export function flowSummary(stages: readonly Stage[]): string {
 
 /** How to move around the canvas (docs/design/pipeline-editor.html), after how to edit on it. */
 const MOVE_AROUND =
-  " Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline.";
+  " Drag the canvas with the right mouse button to move around; scroll zooms around the pointer, and F fits the whole Pipeline.";
 
 /** How to use the editor, when no edit has just said something else. */
 export function howToHint(orientation: FlowOrientation, readOnly: boolean): string {

@@ -347,6 +347,11 @@
   pointer-events: none;
 }
 
+.flow-canvas-port--left {
+  right: auto;
+  left: -5px;
+}
+
 .flow-canvas[data-orientation="down"] .flow-canvas-port {
   display: none;
 }
@@ -544,8 +549,13 @@
   cursor: pointer;
 }
 
-.flow-canvas-hit:focus-visible {
+/* A press focuses the line; the browser's box around it stays off, the picked line's colour and
+   weight show it. Tab still shows the stroke below. */
+.flow-canvas-hit:focus {
   outline: none;
+}
+
+.flow-canvas-hit:focus-visible {
   stroke: var(--accent-subtle);
 }
 

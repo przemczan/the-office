@@ -6,6 +6,9 @@ import type {
   MeasuredStage,
 } from "../flow-layout.ts";
 
+/** The side of a card a row's port, and so its line, is on. */
+export type PortSide = "left" | "right";
+
 /**
  * The route drawer boundary (docs/design/pipeline-route-drawing.html, "The drawer boundary"): one
  * function per way of drawing, each with the same input and output, apart from React and the DOM.
@@ -44,8 +47,8 @@ export interface DrawnRoute {
   readonly arrow: string;
   /** The middle of its ≤N× mark; undefined with no limit, or no room for one. */
   readonly mark: FlowPoint | undefined;
-  /** The line leaves its row's port, so the row shows its dot. */
-  readonly fromPort: boolean;
+  /** The side its row's port is on, when the line leaves it, so the row shows its dot there. */
+  readonly fromPort: PortSide | undefined;
   /** The line from edge to edge as straight steps: its corners unrounded, a curve in short steps. */
   readonly points: readonly FlowPoint[];
 }

@@ -40,10 +40,7 @@ import {
 import "./flow-viewport.css";
 
 export interface FlowViewportProps {
-  /**
-   * In full screen, or filling a window, there is no page to scroll, so a plain scroll moves the
-   * view, and the host gives the frame its height.
-   */
+  /** In full screen, or filling a window: the host gives the frame its height. */
   readonly fullScreen?: boolean;
   /** Without it, there is no full screen button. */
   readonly onFullScreen?: (on: boolean) => void;
@@ -60,11 +57,11 @@ const FOLLOW_STEP = 14;
 
 /**
  * Around the flow canvas (docs/design/pipeline-editor.html, "The canvas"): it pans with the right or
- * middle mouse button, Space + drag or a drag on the empty canvas, zooms from 25% to 100% with Ctrl/⌘
- * + scroll or its controls, fits the whole Pipeline, and shows an Overview while the Pipeline doesn't
- * fit. A plain vertical scroll stays the page's, except in full screen. It owns its view and nothing
- * of the Pipeline: it opens at 100% with the Start in view, and a host opening another Pipeline gives
- * it a new key.
+ * middle mouse button, Space + drag, a drag on the empty canvas or a sideways scroll, zooms from 25%
+ * to 100% around the pointer with a scroll or with its controls, fits the whole Pipeline, and shows
+ * an Overview while the Pipeline doesn't fit. The page scrolls only off the canvas. It owns its view
+ * and nothing of the Pipeline: it opens at 100% with the Start in view, and a host opening another
+ * Pipeline gives it a new key.
  */
 export function FlowViewport(props: FlowViewportProps): ReactNode {
   const { fullScreen = false } = props;
@@ -112,7 +109,7 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
         : clampedView(last, frameSize, contentSize),
     );
   }, [frameSize, contentSize]);
-  useWheel(frame, fullScreen, sizes, change);
+  useWheel(frame, sizes, change);
 
   const orientation = orientationFor(frameSize.width);
   const link = useMemo<FlowViewportLink>(
@@ -437,10 +434,9 @@ function useElementSize(
   }, [element, onSize, box]);
 }
 
-/** Ctrl/⌘ + scroll zooms around the pointer; a sideways scroll pans, and in full screen any scroll. */
+/** A scroll over the canvas zooms around the pointer, as does Ctrl/⌘ + any scroll; a sideways or Shift + scroll pans. */
 function useWheel(
   frame: RefObject<HTMLDivElement | null>,
-  fullScreen: boolean,
   sizes: RefObject<{ frame: FlowSize; content: FlowSize }>,
   change: (next: (last: FlowZoomView) => FlowZoomView) => void,
 ): void {
@@ -449,31 +445,25 @@ function useWheel(
     if (!element) return undefined;
     const onWheel = (event: WheelEvent): void => {
       const { frame: frameSize, content } = sizes.current;
-      if (event.ctrlKey || event.metaKey) {
-        event.preventDefault();
-        const box = element.getBoundingClientRect();
-        const point = { x: event.clientX - box.left, y: event.clientY - box.top };
-        change((last) =>
-          zoomedAround(
-            last,
-            last.zoom * Math.exp(-event.deltaY * 0.0022),
-            point,
-            frameSize,
-            content,
-          ),
-        );
+      // Ctrl/⌘ always zooms, as a trackpad's pinch sends it, whichever way the scroll leans.
+      const zooms = event.ctrlKey || event.metaKey;
+      const sideways =
+        !zooms && (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY));
+      event.preventDefault();
+      if (sideways) {
+        const dx = event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
+        change((last) => pannedBy(last, -dx, 0, frameSize, content));
         return;
       }
-      const sideways = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
-      if (!fullScreen && !sideways) return;
-      event.preventDefault();
-      const dx = event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
-      const dy = fullScreen && !event.shiftKey ? event.deltaY : 0;
-      change((last) => pannedBy(last, -dx, -dy, frameSize, content));
+      const box = element.getBoundingClientRect();
+      const point = { x: event.clientX - box.left, y: event.clientY - box.top };
+      change((last) =>
+        zoomedAround(last, last.zoom * Math.exp(-event.deltaY * 0.0022), point, frameSize, content),
+      );
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
-  }, [frame, fullScreen, sizes, change]);
+  }, [frame, sizes, change]);
 }
 
 /** Whether Space is held while the pointer is over the canvas, which makes a left drag pan. */

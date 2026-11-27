@@ -7,6 +7,7 @@ import {
   bottom,
   boxAround,
   boxesOverlap,
+  centre,
   crossingsOf,
   distance,
   grown,
@@ -26,19 +27,25 @@ const EDGE = 0.01;
 /** Ends on one card stand at least this far apart. */
 const ENDS_APART = 8;
 
-/** The design's table: the most crossings each mode may draw, per Pipeline, wide and narrow. */
+/**
+ * The design's table: the most crossings each mode may draw, per Pipeline, wide and narrow. Wide,
+ * every route with a row leaves from it, so a lower row's line going up across a higher row's
+ * going down is a crossing no drawing avoids (Loops' Review to itself against Review to Publish,
+ * Branching's Implement to Review against Implement to Design); Curves also cross where two lines
+ * turn back to one Stage's bottom edge at the same height.
+ */
 const MOST_CROSSINGS: Readonly<
   Record<RouteDrawing, Readonly<Record<FixtureName, Readonly<Record<FlowOrientation, number>>>>>
 > = {
   "right-angles": {
     straight: { across: 0, down: 0 },
-    loops: { across: 0, down: 0 },
-    branching: { across: 0, down: 0 },
+    loops: { across: 1, down: 0 },
+    branching: { across: 1, down: 0 },
   },
   curves: {
     straight: { across: 0, down: 0 },
-    loops: { across: 0, down: 0 },
-    branching: { across: 0, down: 0 },
+    loops: { across: 2, down: 0 },
+    branching: { across: 1, down: 0 },
   },
   "straight-lines": {
     straight: { across: 0, down: 0 },
@@ -155,6 +162,26 @@ describe.each(CASES)(
         );
       });
       expect(astray.map(({ line }) => line.id)).toEqual([]);
+    });
+
+    it("leaves each route listed as a row from its row's port, on the side its target is on", () => {
+      const lists = drawn.routes.filter(({ line }) => line.port !== undefined);
+      const wrong = lists.filter((route) => {
+        const stage = scene.stages.get(route.line.fromKey)!;
+        const target = cardOf(scene, route.line.to);
+        const [x, y] = pointsOf(route)[0]!;
+        if (drawing === "straight-lines" || orientation === "down")
+          return route.fromPort !== undefined;
+        const side = centre(target)[0] >= centre(stage.box)[0] ? "right" : "left";
+        const edge = side === "right" ? right(stage.box) : stage.box.x;
+        return !(
+          route.fromPort === side &&
+          near(x, edge) &&
+          near(y, stage.rowCentres[route.line.port!]!)
+        );
+      });
+      expect(fixture === "straight" || lists.length > 0).toBe(true);
+      expect(wrong.map(({ line }) => line.id)).toEqual([]);
     });
 
     it("brings each route back onto its target, its arrow there", () => {
