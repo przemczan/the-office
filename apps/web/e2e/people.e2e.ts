@@ -97,8 +97,11 @@ const SKILL = "people-handover";
 const expect = playwrightExpect.configure({ timeout: 30_000 });
 
 // One person fills each Role and the database lives for the whole run, so the tests build on each
-// other's hires; this is the only file that hires.
-test.describe.configure({ mode: "serial", timeout: 90_000 });
+// other's hires; this is the only file that hires. A retry would start the file over from its
+// first test, which needs a fresh Office, with the engine's scripts already handed out, so it can
+// never pass: none is run. Each step's own wait catches a hang, so a test's timeout only bounds a
+// whole journey, which on a busy workstation took over 90s.
+test.describe.configure({ mode: "serial", retries: 0, timeout: 180_000 });
 
 test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 

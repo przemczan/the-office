@@ -365,16 +365,20 @@ export class WorkOfficeActions implements OnModuleInit {
   }
 
   /**
-   * As the user's Start: In progress, or in the queue when only waits held it. `onUsageCaps` starts
-   * it past its usage caps, so it is part of what the person's call asks to approve.
+   * As the user's Start: In progress, or in the queue when only waits held it. `onUsageCaps` and
+   * `onLimits` start it past its usage caps or the limits, so they are part of what
+   * the person's call asks to approve.
    */
   private startTask(): AnyWorkActionHandler {
     return handler({
       action: START_TASK_ACTION,
-      handle: async ({ taskId, onOverlap, onUsageCaps }, by): Promise<StartedOrQueued> => {
+      handle: async (
+        { taskId, onOverlap, onUsageCaps, onLimits },
+        by,
+      ): Promise<StartedOrQueued> => {
         const starting = await this.starting.start(
           taskId,
-          { onOverlap, usageCaps: onUsageCaps ?? "wait" },
+          { onOverlap, usageCaps: onUsageCaps ?? "wait", limits: onLimits ?? "wait" },
           by,
         );
         if (starting.kind === "started") return { task: starting.change.task, queued: null };

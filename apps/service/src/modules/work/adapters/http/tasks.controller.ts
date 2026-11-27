@@ -138,7 +138,7 @@ export class TasksController {
    */
   @Get(":id/start")
   async startCheck(@Param("id", ParseUUIDPipe) id: string): Promise<StartCheck> {
-    const { refusals, waits, blockers, overlaps, usageEstimate, pastUsageCaps } =
+    const { refusals, waits, blockers, overlaps, usageEstimate, pastUsageCaps, pastLimits } =
       await this.starting.check(id);
     return {
       refusals: [...refusals],
@@ -155,6 +155,9 @@ export class TasksController {
             })),
             refusals: [...pastUsageCaps.refusals],
           }
+        : null,
+      pastLimits: pastLimits
+        ? { passes: [...pastLimits.passes], refusals: [...pastLimits.refusals] }
         : null,
     };
   }

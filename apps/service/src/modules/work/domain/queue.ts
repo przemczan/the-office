@@ -12,6 +12,7 @@ import {
   startTask,
   usageOnStandIns,
   type HeldAtStart,
+  type LimitsChoice,
   type StartConditions,
 } from "./task-start.js";
 import { overlapsOf, overlapWords } from "./task-overlap.js";
@@ -52,9 +53,11 @@ export type Starting =
 /**
  * Start (spec §2.1): starts the Task, queues it when only waits stand in its way, or refuses with
  * every reason when any refuses. An Overlap with a started Task refuses until the user chooses to
- * start anyway or to queue behind it (spec §2.1, "Overlaps at Start"). A Task already queued keeps
- * its place, and the Tasks it is behind unless queued behind others now. `by` asked for the Start.
- * Started anyway past the usage caps, it never queues: whatever still holds it refuses Start.
+ * start anyway or to queue behind it (spec §2.1, "Overlaps at Start"); a Task already queued had
+ * its Overlaps answered as it joined. It keeps its place, and the Tasks it is behind unless queued
+ * behind others now. `by` asked for the Start.
+ * Started anyway past the usage caps or the limits, it never queues: whatever still holds it
+ * refuses Start.
  */
 export function startOrQueue(
   task: Task,
@@ -65,29 +68,32 @@ export function startOrQueue(
     now,
     onOverlap,
     usageCaps = "wait",
+    limits = "wait",
     by,
   }: {
     readonly now: Date;
     readonly onOverlap: OverlapChoice;
     readonly usageCaps?: UsageCapsChoice;
+    readonly limits?: LimitsChoice;
     readonly by: Author;
   },
 ): Starting {
-  const { refusals, waits } = startReasons(task, conditions, held, usageCaps);
+  const { refusals, waits } = startReasons(task, conditions, held, usageCaps, limits);
   if (refusals.length > 0) throw new TaskRefused([...refusals, ...reasonsOf(waits)]);
+  const queued = queue.find(({ taskId }) => taskId === task.id);
   const overlaps = overlapsOf(task, held.startedTasks);
-  if (overlaps.length > 0 && onOverlap === undefined) {
+  if (overlaps.length > 0 && onOverlap === undefined && !queued) {
     throw new TaskRefused(overlaps.map(overlapWords));
   }
-  const queued = queue.find(({ taskId }) => taskId === task.id);
   const behind =
     overlaps.length > 0 && onOverlap === "queue-behind"
       ? overlaps.map(({ taskId }) => taskId)
       : (queued?.behind ?? []);
   const allWaits = [...waits, ...behindWaits(behind, held.startedTasks)];
   if (allWaits.length === 0)
-    return { kind: "started", change: startTask(task, conditions, held, by, usageCaps) };
-  if (usageCaps === "start-anyway") throw new TaskRefused(reasonsOf(allWaits));
+    return { kind: "started", change: startTask(task, conditions, held, by, usageCaps, limits) };
+  if (usageCaps === "start-anyway" || limits === "start-anyway")
+    throw new TaskRefused(reasonsOf(allWaits));
   if (queued) return { kind: "queued", queued: { ...queued, ...heldBy(allWaits), behind } };
   const joined = {
     taskId: task.id,
@@ -109,7 +115,7 @@ function heldBy(waits: readonly Wait[]): Pick<QueuedTask, "reasons" | "shortReas
  * What holds a Task queued behind others: each of them not yet Done or Dropped, which `tasks`
  * holds as started (a Task it is behind that isn't there has ended or left).
  */
-function behindWaits(behind: readonly string[], tasks: readonly TaskSummary[]): Wait[] {
+export function behindWaits(behind: readonly string[], tasks: readonly TaskSummary[]): Wait[] {
   return tasks
     .filter(({ id, state }) => behind.includes(id) && STARTED_STATES.includes(state))
     .map(({ title }) => ({

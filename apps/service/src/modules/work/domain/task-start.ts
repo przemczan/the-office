@@ -35,6 +35,12 @@ type AgentStartingStage = StartingStage & ({ readonly role: string } | { readonl
 /** The Office-wide limit on started Tasks until the user changes it in Settings (spec §9). */
 export const DEFAULT_OFFICE_WIDE_LIMIT = 3;
 
+/**
+ * Whether Start waits for the Office-wide limit and the Project limit, or starts anyway past them
+ * (spec §2.1, "Start now past the limits").
+ */
+export type LimitsChoice = "wait" | "start-anyway";
+
 /** How many Tasks a person may work at once; "none" means they only talk (spec §2.2). */
 export type TaskLimit = number | "none";
 
@@ -136,8 +142,9 @@ export function startReasons(
   conditions: StartConditions,
   held: HeldAtStart,
   usageCaps: UsageCapsChoice = "wait",
+  limits: LimitsChoice = "wait",
 ): StartReasons {
-  const { refusals, waits } = reasonsBesideUsage(task, conditions, held);
+  const { refusals, waits } = reasonsBesideUsage(task, conditions, held, limits);
   if (!hasPipeline(task) || task.state !== "ready") return { refusals, waits };
   return { refusals, waits: [...waits, ...usageOnStandIns(conditions, usageCaps).waits] };
 }
@@ -150,6 +157,7 @@ export function reasonsBesideUsage(
   task: Task,
   conditions: StartConditions,
   { startedTasks, blockers, fireAlarmOn, initiativePaused }: HeldAtStart,
+  limits: LimitsChoice = "wait",
 ): StartReasons {
   if (task.state !== "ready") {
     return refusedFor(
@@ -174,8 +182,8 @@ export function reasonsBesideUsage(
       ...(fireAlarmOn ? [{ reason: FIRE_ALARM_ON, short: "Fire alarm on" }] : []),
       ...(initiativePaused ? [{ reason: INITIATIVE_PAUSED, short: "Initiative paused" }] : []),
       ...(conditions.scheduledExitWait ? [conditions.scheduledExitWait] : []),
-      ...officeWideLimitWaits(conditions.officeWideLimit, others),
-      ...projectLimitWaits(task, conditions.project, others),
+      ...(limits === "wait" ? officeWideLimitWaits(conditions.officeWideLimit, others) : []),
+      ...(limits === "wait" ? projectLimitWaits(task, conditions.project, others) : []),
       ...taskLimitWaits(stage, conditions.person, others),
     ],
   };
@@ -192,8 +200,9 @@ export function startTask(
   held: HeldAtStart,
   by: StateChangeCause,
   usageCaps: UsageCapsChoice = "wait",
+  limits: LimitsChoice = "wait",
 ): TaskChange<TaskStarted> {
-  const { refusals, waits } = startReasons(task, conditions, held, usageCaps);
+  const { refusals, waits } = startReasons(task, conditions, held, usageCaps, limits);
   if (refusals.length > 0 || waits.length > 0) {
     throw new TaskRefused([...refusals, ...reasonsOf(waits)]);
   }
@@ -259,6 +268,21 @@ function initiativeBranchRefusals(task: Task, conditions: StartConditions): stri
   if (!problem) return [];
   if (problem.kind === "not-made") return [problem.reason];
   return [initiativeBranchGoneRefusal(problem.branch, conditions.project?.name ?? task.projectId)];
+}
+
+/** The Office-wide and Project limit waits that hold the Task now, as Start now past them passes. */
+export function limitWaits(
+  task: Task,
+  conditions: StartConditions,
+  { startedTasks }: HeldAtStart,
+): Wait[] {
+  const others = startedTasks.filter(
+    (other) => other.id !== task.id && STARTED_STATES.includes(other.state),
+  );
+  return [
+    ...officeWideLimitWaits(conditions.officeWideLimit, others),
+    ...projectLimitWaits(task, conditions.project, others),
+  ];
 }
 
 function officeWideLimitWaits(limit: number, others: readonly TaskSummary[]): Wait[] {

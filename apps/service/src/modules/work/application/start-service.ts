@@ -9,7 +9,13 @@ import { blockingTasks } from "../domain/task-dependencies.js";
 import { overlapsOf, type Overlap } from "../domain/task-overlap.js";
 import { startPastUsageCaps, type StartPastUsageCaps } from "../domain/start-past-usage-caps.js";
 import type { UsageCapsChoice } from "../domain/stand-ins-at-start.js";
-import { startReasons, usageOnStandIns, type StartReasons } from "../domain/task-start.js";
+import { startPastLimits, type StartPastLimits } from "../domain/start-past-limits.js";
+import {
+  startReasons,
+  usageOnStandIns,
+  type LimitsChoice,
+  type StartReasons,
+} from "../domain/task-start.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { STATES_A_START_WEIGHS } from "../domain/task-states.js";
 import type { UsageEstimate } from "../domain/usage-estimate.js";
@@ -32,12 +38,18 @@ export interface StartCheck extends StartReasons {
   readonly usageEstimate: UsageEstimate | undefined;
   /** Undefined unless only its usage holds it. */
   readonly pastUsageCaps: StartPastUsageCaps | undefined;
+  /** Undefined unless the Office-wide limit or the Project limit holds it. */
+  readonly pastLimits: StartPastLimits | undefined;
 }
 
-/** The user's answers at Start: to an Overlap, and whether to start anyway past the usage caps. */
+/**
+ * The user's answers at Start: to an Overlap, and whether to start anyway past the usage caps or
+ * the limits.
+ */
 export interface StartChoices {
   readonly onOverlap: OverlapChoice;
   readonly usageCaps?: UsageCapsChoice;
+  readonly limits?: LimitsChoice;
 }
 
 /**
@@ -60,13 +72,18 @@ export class StartService {
     private readonly schedule: Schedule,
   ) {}
 
-  async start(id: string, { onOverlap, usageCaps }: StartChoices, by: Author): Promise<Starting> {
+  async start(
+    id: string,
+    { onOverlap, usageCaps, limits }: StartChoices,
+    by: Author,
+  ): Promise<Starting> {
     const conditions = await this.conditions.of(await this.read(id));
     const starting = await this.queue.start(id, (task, held, queue) =>
       startOrQueue(task, conditions, held, queue, {
         now: this.schedule.now(),
         onOverlap,
         usageCaps,
+        limits,
         by,
       }),
     );
@@ -84,10 +101,12 @@ export class StartService {
   /** What Start would meet now, for the Task page to show beside Start; all empty when nothing. */
   async check(id: string): Promise<StartCheck> {
     const task = await this.read(id);
-    const [weighed, blockers] = await Promise.all([
+    const [weighed, blockers, queue] = await Promise.all([
       this.tasks.summariesIn(STATES_A_START_WEIGHS),
       task.blockedBy.length === 0 ? [] : this.tasks.findAll(task.blockedBy),
+      this.queue.list(),
     ]);
+    const queued = queue.find(({ taskId }) => taskId === task.id);
     const conditions = await this.conditions.of(task);
     const held = {
       startedTasks: weighed,
@@ -98,6 +117,7 @@ export class StartService {
     return {
       ...startReasons(task, conditions, held),
       pastUsageCaps: startPastUsageCaps(task, conditions, held),
+      pastLimits: startPastLimits(task, conditions, held, queued),
       blockers: blockingTasks(blockers),
       overlaps: overlapsOf(task, weighed),
       usageEstimate: await this.usageEstimates.of(task, weighed),

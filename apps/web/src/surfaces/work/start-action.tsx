@@ -19,6 +19,7 @@ import { useToast } from "../../shell/toasts.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueuedMark, useQueueActions, useQueued } from "./queue-parts.tsx";
 import type { RecordAction } from "./record-actions.tsx";
+import { useStartPastLimitsAction } from "./start-past-limits.tsx";
 import { useStartPastUsageCapsAction } from "./start-past-usage-caps.tsx";
 
 interface StartStanding {
@@ -55,10 +56,25 @@ function useStartStanding(task: Task): StartStanding {
  * (spec §2.1, "Overlaps at Start"). A blocked Task can't start anyway, so "Queue behind it" is all
  * it offers, behind any Overlap too. A queued Task has the queue's actions instead, after Start
  * anyway while only its usage holds it (spec §2.1, "Start anyway past the usage caps"). What each
- * of these says is in `StartNotes`. None but on a Ready Task.
+ * of these says is in `StartNotes`. While the Office-wide or the Project limit holds it, Start now
+ * follows them, queued or not, starting it anyway past an Overlap not yet answered (spec §2.1,
+ * "Start now past the limits"). None but on a Ready Task.
  */
 export function useStartActions(task: Task): RecordAction[] {
-  const { ready, check, queued, refused, blockers, overlaps } = useStartStanding(task);
+  const standing = useStartStanding(task);
+  const startNow = useStartPastLimitsAction(
+    task,
+    standing.check?.pastLimits,
+    standing.queued ? [] : standing.overlaps,
+  );
+  const actions = useStartingActions(task, standing);
+  return startNow && actions.length > 0 ? [...actions, startNow] : actions;
+}
+
+function useStartingActions(
+  task: Task,
+  { ready, check, queued, refused, blockers, overlaps }: StartStanding,
+): RecordAction[] {
   const starting = useStarting();
   const queueActions = useQueueActions(queued);
   const startPastCaps = useStartPastUsageCapsAction(task, queued && check?.pastUsageCaps);

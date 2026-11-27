@@ -774,7 +774,8 @@ export function markReady(id: string, request: MarkReadyRequest = {}): Promise<T
 /**
  * Start: Ready → In progress, or into the queue when only a limit holds it or `onOverlap` queues
  * it behind the Tasks it overlaps; refused with the reasons when anything else does, or an Overlap
- * stands unanswered. `onUsageCaps` starts it anyway past its usage caps, never queueing it.
+ * stands unanswered. `onUsageCaps` starts it anyway past its usage caps, `onLimits` past the
+ * Office-wide and Project limits, never queueing it.
  */
 export function startTask(id: string, request: StartRequest = {}): Promise<StartAnswer> {
   return sendToApi("POST", `${taskPath(id)}/start`, request, startAnswerSchema);

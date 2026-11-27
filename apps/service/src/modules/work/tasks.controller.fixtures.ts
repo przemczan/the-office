@@ -61,6 +61,7 @@ export const nothing: StartCheck = {
   overlaps: [],
   usageEstimate: { basis: { source: "none" }, engines: [] },
   pastUsageCaps: null,
+  pastLimits: null,
 };
 
 export function blockedBy(title: string): string {

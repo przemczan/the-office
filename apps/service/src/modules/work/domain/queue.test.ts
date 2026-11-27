@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Task } from "./task.js";
 import { TaskQueued } from "./queue-events.js";
 import { releaseQueue, startOrQueue, type QueuedTask } from "./queue.js";
+import { startPastLimits } from "./start-past-limits.js";
 import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
 import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
@@ -158,6 +159,78 @@ describe("startOrQueue", () => {
     expect(() => startOrQueue(ready("a"), capped, held, [], pastCaps)).toThrow(
       new TaskRefused([AT_TASK_LIMIT.reason]),
     );
+  });
+
+  it("starts a Task the Office-wide limit holds, queued or not, when started past the limits", () => {
+    const held = {
+      startedTasks: [started("x", "developer")],
+      blockers: [],
+      fireAlarmOn: false,
+      initiativePaused: false,
+    };
+    const full = conditionsFor("developer", 5, 1);
+    const pastLimits = { ...NO_CHOICE, limits: "start-anyway" as const };
+
+    expect(startOrQueue(ready("a"), full, held, [], NO_CHOICE).kind).toBe("queued");
+    expect(startOrQueue(ready("a"), full, held, [], pastLimits).kind).toBe("started");
+    expect(startOrQueue(ready("a"), full, held, [queued("a", 1)], pastLimits).kind).toBe("started");
+  });
+
+  it("refuses to start past the limits while anything else holds it, queuing nothing", () => {
+    const held = {
+      startedTasks: [started("x", "developer")],
+      blockers: [],
+      fireAlarmOn: false,
+      initiativePaused: false,
+    };
+    const pastLimits = { ...NO_CHOICE, limits: "start-anyway" as const };
+
+    expect(() =>
+      startOrQueue(ready("a"), conditionsFor("developer", 1, 1), held, [], pastLimits),
+    ).toThrow(new TaskRefused([AT_TASK_LIMIT.reason]));
+  });
+
+  it("starts a queued Task past the limits without asking again about the Overlap it answered", () => {
+    const files = { filesToChange: ["src/queue.ts"] };
+    const held = {
+      startedTasks: [started("x", "developer", files)],
+      blockers: [],
+      fireAlarmOn: false,
+      initiativePaused: false,
+    };
+    const full = conditionsFor("developer", 5, 1);
+    const pastLimits = { ...NO_CHOICE, limits: "start-anyway" as const };
+
+    expect(() => startOrQueue(ready("a", files), full, held, [], pastLimits)).toThrow(TaskRefused);
+    expect(startOrQueue(ready("a", files), full, held, [queued("a", 1)], pastLimits).kind).toBe(
+      "started",
+    );
+  });
+});
+
+describe("startPastLimits", () => {
+  const held = {
+    startedTasks: [started("x", "developer")],
+    blockers: [],
+    fireAlarmOn: false,
+    initiativePaused: false,
+  };
+  const full = conditionsFor("developer", 5, 1);
+
+  it("passes the limits that hold the Task, and none while no limit does", () => {
+    expect(startPastLimits(ready("a"), full, held, undefined)).toEqual({
+      passes: ["Office-wide limit reached (1)"],
+      refusals: [],
+    });
+    expect(startPastLimits(ready("a"), developer, held, undefined)).toBeUndefined();
+  });
+
+  it("refuses while the Task is queued behind a started Task", () => {
+    const behindX = queued("a", 1, [], ["x"]);
+
+    expect(startPastLimits(ready("a"), full, held, behindX)?.refusals).toEqual([
+      'Queued behind "Task x" until it is Done or Dropped.',
+    ]);
   });
 });
 

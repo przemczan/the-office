@@ -838,7 +838,11 @@ describe("The queue", () => {
     const response = await requestStart(second.id);
     const answer = startAnswerSchema.parse(await response.json());
 
-    expect(check).toEqual({ ...nothing, waits: [ONLY_DESK] });
+    expect(check).toEqual({
+      ...nothing,
+      waits: [ONLY_DESK],
+      pastLimits: { passes: ["Office-wide limit reached (1)"], refusals: [] },
+    });
     expect(response.status).toBe(200);
     expect(answer.task.state).toBe("ready");
     const shortly = { reasons: [ONLY_DESK], shortReasons: ["Office-wide limit reached (1)"] };
@@ -858,6 +862,21 @@ describe("The queue", () => {
       why: "started",
       refusals: [],
     });
+  });
+
+  it("starts a queued Task the limit holds at once when started past the limits, leaving the queue", async () => {
+    await deskTaken();
+    const second = await ownReadyTask();
+    await requestStart(second.id);
+    expect(await ownQueue()).toEqual([second.id]);
+
+    const response = await requestStart(second.id, { onLimits: "start-anyway" });
+    const answer = startAnswerSchema.parse(await response.json());
+
+    expect(response.status).toBe(200);
+    expect(answer.task.state).toBe("in-progress");
+    expect(answer.queued).toBeNull();
+    expect(await ownQueue()).toEqual([]);
   });
 
   /** `count` of the test's own Ready Tasks queued behind the taken desk. */

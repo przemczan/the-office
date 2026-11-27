@@ -56,6 +56,7 @@ function startCheckWith(pastUsageCaps: PastUsageCaps | null): StartCheck {
     overlaps: [],
     usageEstimate: null,
     pastUsageCaps,
+    pastLimits: null,
   };
 }
 

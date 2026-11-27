@@ -1309,6 +1309,17 @@ export const pastUsageCapsSchema = z.object({
 export type PastUsageCaps = z.infer<typeof pastUsageCapsSchema>;
 
 /**
+ * What starting a Task now past the limits does, offered while the Office-wide limit or its Project
+ * limit holds it: the limits it passes, short. `refusals` says why it can't, whatever else holds
+ * the Task; empty when it can.
+ */
+export const pastLimitsSchema = z.object({
+  passes: z.array(z.string()),
+  refusals: z.array(z.string()),
+});
+export type PastLimits = z.infer<typeof pastLimitsSchema>;
+
+/**
  * GET /tasks/:id/start: why the Task can't start now; all empty when it can. A refusal stops
  * Start; a wait (a blocker, the Office-wide limit, its person's Task limit) only holds the Task
  * until its blockers end and a desk and its person are free; an Overlap asks the user to start
@@ -1324,6 +1335,8 @@ export const startCheckSchema = z.object({
   usageEstimate: usageEstimateSchema.nullable(),
   /** Start anyway past the usage caps; null unless only its usage holds the Task. */
   pastUsageCaps: pastUsageCapsSchema.nullable(),
+  /** Start now past the limits; null unless the Office-wide or the Project limit holds the Task. */
+  pastLimits: pastLimitsSchema.nullable(),
 });
 export type StartCheck = z.infer<typeof startCheckSchema>;
 
@@ -1338,14 +1351,19 @@ export type OverlapChoice = z.infer<typeof overlapChoiceSchema>;
 export const usageCapsChoiceSchema = z.enum(["start-anyway"]);
 export type UsageCapsChoice = z.infer<typeof usageCapsChoiceSchema>;
 
+/** The user's word to start a Task now past the Office-wide and Project limits, never queueing it. */
+export const limitsChoiceSchema = z.enum(["start-anyway"]);
+export type LimitsChoice = z.infer<typeof limitsChoiceSchema>;
+
 /**
  * POST /tasks/:id/start: the answer to an Overlap; while one stands, Start without it refuses. No
- * body is no answer. `onUsageCaps` starts it anyway past its usage caps, or refuses with whatever
- * still holds it.
+ * body is no answer. `onUsageCaps` starts it anyway past its usage caps, `onLimits` past the
+ * Office-wide and Project limits, or refuses with whatever still holds it.
  */
 export const startRequestFieldsSchema = z.object({
   onOverlap: overlapChoiceSchema.optional(),
   onUsageCaps: usageCapsChoiceSchema.optional(),
+  onLimits: limitsChoiceSchema.optional(),
 });
 export const startRequestSchema = startRequestFieldsSchema.default({});
 export type StartRequest = z.infer<typeof startRequestSchema>;
@@ -2221,7 +2239,7 @@ export const START_TASK_ACTION = officeAction({
   name: "start_task",
   title: "Start a Task",
   description:
-    "Starts a Ready Task: In progress, or into the queue when only a blocker or a limit holds it, or when onOverlap queues it behind an Overlap; refused with the reasons when anything else does, or an Overlap not answered. With onUsageCaps start-anyway it starts past its usage caps and never queues.",
+    "Starts a Ready Task: In progress, or into the queue when only a blocker or a limit holds it, or when onOverlap queues it behind an Overlap; refused with the reasons when anything else does, or an Overlap not answered. With onUsageCaps start-anyway it starts past its usage caps, with onLimits start-anyway past the Office-wide and Project limits, and never queues.",
   input: startRequestFieldsSchema.extend({ taskId: taskIdInput }),
   answer: startAnswerSchema,
   route: { method: "POST", path: "/tasks/:taskId/start" },

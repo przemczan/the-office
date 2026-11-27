@@ -481,6 +481,7 @@ test(
       overlaps: [],
       usageEstimate: null,
       pastUsageCaps: null,
+      pastLimits: null,
     };
     await page.route(`**/api/tasks/${task.id}/start`, async (route) => {
       if (route.request().method() === "GET") return route.fulfill({ json: check });
@@ -530,6 +531,7 @@ test(
         engines: [{ name: "Personal", standingInFor: "Claude Code" }],
         refusals: [],
       },
+      pastLimits: null,
     };
     await page.route(`**/api/tasks/${task.id}/start`, (route) => route.fulfill({ json: check }));
 
@@ -604,6 +606,7 @@ test(
       overlaps: [],
       usageEstimate: fromHistory,
       pastUsageCaps: null,
+      pastLimits: null,
     };
     await page.route(`**/api/tasks/${learned.id}/start`, (route) => route.fulfill({ json: check }));
     const HISTORY_WORDS =
@@ -759,6 +762,7 @@ test(
         engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
       },
       pastUsageCaps: null,
+      pastLimits: null,
     };
     await page.route(`**/api/tasks/${task.id}/start`, (route) => route.fulfill({ json: check }));
 
