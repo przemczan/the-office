@@ -59,7 +59,7 @@ function publishStage(...outcomes: readonly StageRun["outcome"][]): TaskStage {
   };
 }
 
-function linkOf(taskStage: TaskStage): HTMLAnchorElement | null {
+function buttonOf(taskStage: TaskStage): HTMLAnchorElement | null {
   const page = document.createElement("div");
   const action = pullRequestAction([taskStage]);
   act(() => createRoot(page).render(action && <RecordActionButton action={action} />));
@@ -67,20 +67,24 @@ function linkOf(taskStage: TaskStage): HTMLAnchorElement | null {
 }
 
 describe("the head's pull request button", () => {
-  it("links to the pull request the Task's Publish opened, in a new tab", () => {
-    const link = linkOf(publishStage(published(PULL_REQUEST_URL)));
-    expect(link?.textContent).toContain("Open pull request");
-    expect(link?.getAttribute("href")).toBe(PULL_REQUEST_URL);
+  it("is an icon linking to the pull request the Task's Publish opened, in a new tab", () => {
+    const link = buttonOf(publishStage(published(PULL_REQUEST_URL)));
+    expect(link?.getAttribute("aria-label")).toBe("Open pull request");
+    expect(link?.title).toBe("Open pull request");
+    expect(link?.href).toBe(PULL_REQUEST_URL);
     expect(link?.target).toBe("_blank");
     expect(link?.rel).toBe("noopener noreferrer");
+    expect(link?.querySelector("svg")).not.toBeNull();
   });
 
   it("isn't there on an older run, which kept no pull request", () => {
-    expect(linkOf(publishStage(published(null)))).toBeNull();
+    expect(buttonOf(publishStage(published(null)))).toBeNull();
   });
 
   it("stays while Publish goes again or is skipped, as the pull request is still open", () => {
-    expect(linkOf(publishStage(published(PULL_REQUEST_URL), null))).not.toBeNull();
-    expect(linkOf(publishStage(published(PULL_REQUEST_URL), published(null, true)))).not.toBeNull();
+    expect(buttonOf(publishStage(published(PULL_REQUEST_URL), null))).not.toBeNull();
+    expect(
+      buttonOf(publishStage(published(PULL_REQUEST_URL), published(null, true))),
+    ).not.toBeNull();
   });
 });

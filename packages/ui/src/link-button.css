@@ -28,3 +28,29 @@
   background: var(--control-press);
   transform: translateY(1px);
 }
+
+/* A link that looks like the design system's ghost IconButton at its medium size
+   (design-system/components/core/IconButton.jsx). */
+.link-icon-button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--fg-2);
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast);
+}
+
+.link-icon-button:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
+
+.link-icon-button:active {
+  background: var(--control-press);
+}

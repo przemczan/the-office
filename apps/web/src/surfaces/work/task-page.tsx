@@ -34,7 +34,10 @@ import { MissingRecord } from "./missing-record.tsx";
 import { PipelineDiagramWindow } from "./pipeline-diagram-window.tsx";
 import { OPEN_DIAGRAM_BUTTON_ID, PipelineRail, RailLoader } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
-import { RecordActions } from "./record-actions.tsx";
+import { actionsInZone, ControlBar, RecordActions } from "./record-actions.tsx";
+import { taskBarWords } from "./control-bar-words.ts";
+import { useQueued } from "./queue-parts.tsx";
+import { usePlanner } from "../../shell/work/use-planner.ts";
 import { TaskEngineBlock } from "./work-engine-block.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "../../shell/work/record-tab.ts";
 import { useStageHistory } from "./use-stage-history.ts";
@@ -227,6 +230,8 @@ function TaskHead({
   const editedForTask = taskStages?.editedForTask ?? false;
   const waitingOnYou = useWaitingOnYouInItsState();
   const actions = useTaskActions(task, taskStages?.stages);
+  const planner = usePlanner()?.card.name;
+  const queued = useQueued(task.id);
   return (
     <header className="task-head">
       <div className="task-head-grow">
@@ -266,13 +271,28 @@ function TaskHead({
         </div>
       </div>
       <RecordActions
-        actions={actions}
-        menu={<TaskMenu task={task} actions={actions} offersBranchDeletion />}
+        actions={actionsInZone(actions, "go-to")}
+        menu={
+          <TaskMenu
+            task={task}
+            actions={actions}
+            listed={actionsInZone(actions, "more")}
+            offersBranchDeletion
+          />
+        }
         className="task-head-actions"
       />
       <OffBoardTaskNote task={task} projects={projects} />
-      <StartNotes task={task} />
       <DropNote task={task} />
+      <ControlBar
+        words={taskBarWords(task, {
+          ...(planner && { planner }),
+          ...(queued && { queuedPlace: queued.place }),
+        })}
+        actions={actions}
+      >
+        <StartNotes task={task} />
+      </ControlBar>
     </header>
   );
 }

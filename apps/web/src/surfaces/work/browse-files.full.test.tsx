@@ -4,6 +4,7 @@ import {
   createRootRoute,
   createRouter,
   RouterProvider,
+  type RouterHistory,
 } from "@tanstack/react-router";
 import type { Initiative, Project, ProjectBranches, Task } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
@@ -47,6 +48,7 @@ function branchesWith(...names: string[]): ProjectBranches {
 }
 
 let root: Root | undefined;
+let router: { readonly history: RouterHistory } | undefined;
 
 beforeEach(() => {
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json({}, { status: 404 })));
@@ -71,20 +73,21 @@ async function rendered(
   }
   queryClient.setQueryData(projectQueries.list().queryKey, PROJECTS);
   queryClient.setQueryData(initiativeQueries.one(INITIATIVE_ID).queryKey, INITIATIVE);
-  const router = createRouter({
+  const made = createRouter({
     routeTree: createRootRoute({ component: Actions }),
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
+  router = made;
   const page = document.createElement("div");
   document.body.append(page);
   await act(async () => {
     root = createRoot(page);
     root.render(
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <RouterProvider router={made} />
       </QueryClientProvider>,
     );
-    await router.load();
+    await made.load();
   });
   return page;
 }
@@ -100,12 +103,22 @@ function InitiativeButtons({ initiative }: { readonly initiative: Initiative }):
   ));
 }
 
-/** Each link's words, with the Project and the branch it opens the Files tab on. */
-function links(page: HTMLElement): [string, string, string | null][] {
-  return [...page.querySelectorAll("a")].map((link) => {
-    const url = new URL(link.getAttribute("href") ?? "", "http://office.test");
-    return [link.textContent, url.pathname, url.searchParams.get("branch")];
+/** Each Go to icon's words: a link, so middle-click and copying it work. */
+function links(page: HTMLElement): string[] {
+  return [...page.querySelectorAll("a")].map((link) => link.getAttribute("aria-label") ?? "");
+}
+
+/** Where clicking the only link leads: the Project and the branch the Files tab opens on. */
+async function clickedThrough(page: HTMLElement): Promise<[string, string | null]> {
+  const link = page.querySelector("a");
+  expect(link?.getAttribute("href")).toMatch(/^\/projects\/[^/]+\/files\?branch=/);
+  await act(async () => {
+    link?.click();
+    await new Promise((resolve) => setTimeout(resolve));
   });
+  const location = router?.history.location;
+  const url = new URL(`${location?.pathname}${location?.search}`, "http://office.test");
+  return [url.pathname, url.searchParams.get("branch")];
 }
 
 describe("Browse files on a Task", () => {
@@ -114,7 +127,8 @@ describe("Browse files on a Task", () => {
       <TaskActions task={TASK} />
     ));
 
-    expect(links(page)).toEqual([["Browse files", "/projects/shop/files", `office/${TASK_ID}`]]);
+    expect(links(page)).toEqual(["Browse files"]);
+    expect(await clickedThrough(page)).toEqual(["/projects/shop/files", `office/${TASK_ID}`]);
   });
 
   it("isn't offered while the Task's branch isn't there", async () => {
@@ -130,7 +144,8 @@ describe("Browse files on a Task", () => {
       <TaskActions task={PUBLISHING_TASK} />
     ));
 
-    expect(links(page)).toEqual([["Browse files", "/projects/shop/files", "initiative/exports"]]);
+    expect(links(page)).toEqual(["Browse files"]);
+    expect(await clickedThrough(page)).toEqual(["/projects/shop/files", "initiative/exports"]);
   });
 });
 
@@ -140,7 +155,8 @@ describe("Browse files on an Initiative", () => {
       <InitiativeButtons initiative={INITIATIVE} />
     ));
 
-    expect(links(page)).toEqual([["Browse files", "/projects/shop/files", "initiative/exports"]]);
+    expect(links(page)).toEqual(["Browse files"]);
+    expect(await clickedThrough(page)).toEqual(["/projects/shop/files", "initiative/exports"]);
   });
 
   it("names the Project in each, only where the branch is there", async () => {
@@ -152,9 +168,8 @@ describe("Browse files on an Initiative", () => {
       () => <InitiativeButtons initiative={{ ...INITIATIVE, projectIds: ["shop", "admin"] }} />,
     );
 
-    expect(links(page)).toEqual([
-      ["Browse files in Shop", "/projects/shop/files", "initiative/exports"],
-    ]);
+    expect(links(page)).toEqual(["Browse files in Shop"]);
+    expect(await clickedThrough(page)).toEqual(["/projects/shop/files", "initiative/exports"]);
   });
 
   it("isn't offered without a Short name", async () => {

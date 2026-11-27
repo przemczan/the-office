@@ -31,30 +31,35 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Pipeline fact: the Pipeline's name, with the "edited for this Task" label once the Task has its own Stages; "Pipeline Not chosen yet" while none is chosen, never "removed".
 - Tokens: a plain count labelled "tokens", or a meter against the Planner's estimate when the Task has one.
 - Tags: the shell's tags input, saved as each is added or removed, in any state; the last change sent wins.
-- Right: the actions (see Head actions), then **More**.
-- Under the head: the Off-board Task note, the Start notes (see Start and the queue), then the drop note.
+- Right: the Go to icons (see Head actions), then **More**.
+- Under the head: the Off-board Task note, the drop note, then the control bar (see Head actions), which holds the Start notes (see Start and the queue).
 - Off-board Task note: on an Off-board Task, "The Office started this Off-board Task at once and keeps it off the Work board. Follow it here or on <Project>'s page.", the last words a link to the Project page's Onboarding (an Onboard Task) or Run environment (a "Set up the run environment" Task).
 - Drop note: on a Task dropped with a reason, "Dropped: won't fix", "Dropped: can't reproduce", "Dropped: <Other's words>" or "Dropped as a duplicate of <Task>" (linked, with its state badge), then when; none for a Task dropped with no reason ([2.1.3](../2.1.3-tasks.md#drop-reason)); gone once the Task is reopened, the reason staying in History.
 
 ## Head actions
 
-- One line of buttons; whatever wraps past it is hidden, the last first, and the **More** menu always holds every action as its first items.
-- The line keeps room for its first button and **More**: when the title leaves less, the actions go under the title, never a blank where a hidden button was.
-- In order: planning actions, Start or the queue's actions, run controls, **Open pull request**, **Browse files**, **Restore**.
-- Each is coloured by its tone, in the buttons and in **More** ([Action tones](../4.1-ui-rules.md#action-tones)).
+- Every action has one place ([the design](../../design/head-actions.html), C): **Go to** icons in the head, then in the control bar under it **hold** actions, a divider, and the **next step** last.
+- The head holds only the Go to icons and **More**: the places the Task leads to, each a link drawn as a ghost icon button, with its words in its tooltip and no tone.
+- The control bar is a card under the head: an icon and a sentence on where the Task is, then its buttons; it wraps the buttons under the sentence, at its end, on a narrow page and shows the sentence alone when the Task offers no button, as on a Done Task.
+- The sentence, by state: "Shaping.", "Backlog. Plan it with <Planner>, or mark it Ready as it stands.", "Planning. <Planner> is making its plan.", "Ready. Start it to begin its Pipeline.", "Queued, place <n>.", "In progress. Pause holds it once the Agent's turn ends; Stop interrupts it now.", "Waiting on you. A Decision or a Gate needs you; Pause or Stop hold it meanwhile.", "Paused. Resume goes on from where you paused it, or pick another way back from its menu." (a Task The Office holds: "The Office holds it and goes on by itself when it can."), "Done.", "Dropped."
+- The Start notes (see Start and the queue) sit in the bar under the sentence.
+- Hold zone: **Pause**, **Stop**, **Queue behind it**, **Move up**, **Take out of the queue**; amber and red. Next step: **Start**, **Start anyway**, **Mark Ready**, **Plan with <Planner>**, **Resume**, **Reopen…**, **Restore**; the one primary, always last.
+- Go to icons: **Open pull request**, **Browse files**; the planning Thread isn't one on a Task.
+- **More** lists only what the head and the bar don't show (see Task menu).
+- Each button is coloured by its tone ([Action tones](../4.1-ui-rules.md#action-tones)).
 - Planning actions: **Plan with <Planner>** and **Mark Ready** (see Planning actions).
-- Run controls: **Pause**, **Stop**, **Resume**, **Restart from…**, **Start over** (see Run controls).
+- Run controls: **Pause**, **Stop**, **Resume**, with **Restart from…** and **Start over** in Resume's split menu (see Run controls).
 - **Reopen…**: on a Dropped Task, after the planning actions (see Reopen window).
-- **Open pull request**: a link in a new tab, shown once the newest finished Publish opened a pull request, or the ended pull request's address is known.
-- Once the pull request ended, a badge sits beside it: "Pull request merged" or "Pull request closed"; hover says the method, who ("on GitHub" for the code host) and when.
+- **Open pull request**: an icon that opens the pull request in a new tab, shown once the newest finished Publish opened a pull request, or the ended pull request's address is known.
+- Once the pull request ended, a badge sits beside the icon: "Pull request merged" or "Pull request closed"; hover says the method, who ("on GitHub" for the code host) and when.
 - The Task's record gets a line for it, such as "Pull request #12 (<url>) merged (squash) by the user Ann Lee on …".
-- **Browse files**: a link to the Project's Files tab with `?branch=office/<task id>` (a Publishing Task's: its Initiative's branch), shown only while that branch is known on this workstation; it never fetches.
+- **Browse files**: an icon to the Project's Files tab with `?branch=office/<task id>` (a Publishing Task's: its Initiative's branch), shown only while that branch is known on this workstation; it never fetches.
 - **Restore**: shown on an archived Task; one click, no confirmation; the Task is back on the board in the state it had.
 
 ## Task menu
 
 - **More for <title>** (ellipsis).
-- First the head's actions, then:
+- First what the head and the bar don't show (none today on a Task), then:
 - While not started: a **Priority** heading with **High**, **Normal**, **Low**, a check on the current one; choosing one toasts "<title> is now <priority> priority."
 - Until it ends: a **Kind** heading with **Feature**, **Bug**, **Chore**, each with its glyph and a check on the current one; choosing one toasts "<title> is now a <Kind>." ([2.1.3](../2.1.3-tasks.md#task-kind)).
 - **Archive**: on a Done or Dropped Task that isn't archived.
@@ -94,14 +99,14 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 ## Start and the queue
 
 - **Start**: on a Ready Task; disabled until the start check is read or while a refusal (such as a vacant Role) holds it; it starts the Task and toasts "<title> started."
-- With an Overlap with a Task in progress: **Start anyway** (primary) and **Queue behind it**.
+- With an Overlap with a Task in progress: **Queue behind it** (hold zone) and **Start anyway** (primary).
 - With a blocker (a Task it waits for): only **Queue behind it** (**Queue behind them** for several), counting its blockers and Overlaps together.
 - A Start that only joins the queue toasts "<title> is queued, place <n>: <reasons>".
 - A queued Task shows, instead of Start: **Move up** (a split button whose menu holds **Move to top**; none for the first place), and **Take out of the queue**.
 - While only its usage holds it ([2.1](../2.1.5-planning-and-start.md#start-anyway-past-the-usage-caps)), **Start anyway** (primary) comes first; disabled, with why on hover, while every engine its Stages could run on has a used-up window.
   - It asks first in a dialog, "Start <title> anyway?": the caps it passes ("It starts now, past these usage caps:", one per line, such as "Personal: 5-hour window cap (90%) · resets 14:30"), the engines it runs on ("Its Stages run on Personal, standing in for Work."), and that its Usage estimate counts as usual; **Start anyway** starts it and toasts "<title> started.", and a refusal shows in the dialog.
 - Take out of the queue toasts "Taken out of the queue; it stays Ready."
-- Start notes, a line each, in a block under the head, none with nothing to say:
+- Start notes, a line each, in the control bar under its sentence, none with nothing to say:
   - "Overlap: “<title>” is in progress and expects to change some of the same files." (files icon);
   - what holds Start: the refusals and waits (lock icon);
   - "Start joins the queue: <waits>" (clock icon);
@@ -125,8 +130,8 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - **Pause** and **Stop**: while the Task is In progress or Waiting on you.
 - Pause hint: "Hold the Task once the Agent's current turn ends, keeping the Stage's edits"; toast "Pausing once the Agent's current turn ends."
 - Stop hint: "Interrupt the Agent now and discard the Stage's uncommitted edits"; toast "Stopped: the Stage's uncommitted edits are discarded."
-- **Resume** (play, primary): on a Paused Task; its label and hint say how the Task goes on (from the latest run, its Thread's context and whether a Decision is open); toast "Resumed."
-- **Restart from…** and **Start over**: on a Paused Task, including one Stopped; an Agent's call to either is in Work › Gates and runs, ruled by its [Authority](../6-permissions-and-safety.md#authority) ([6](../6-permissions-and-safety.md#authority-by-role)), not [the user's alone](../6-permissions-and-safety.md#the-users-alone); while the fire alarm, a usage window or a paused Initiative holds the Task they are refused with the reason, as Pause and Stop are.
+- **Resume** (play, primary, a split button): on a Paused Task; its label and hint say how the Task goes on (from the latest run, its Thread's context and whether a Decision is open); toast "Resumed."
+- **Restart from…** and **Start over**: in Resume's split menu, on a Paused Task, including one Stopped; an Agent's call to either is in Work › Gates and runs, ruled by its [Authority](../6-permissions-and-safety.md#authority) ([6](../6-permissions-and-safety.md#authority-by-role)), not [the user's alone](../6-permissions-and-safety.md#the-users-alone); while the fire alarm, a usage window or a paused Initiative holds the Task they are refused with the reason, as Pause and Stop are.
 - Restart from… opens a window "Restart <title> from…" with a **Restart from** picker of every Stage of the Pipeline, later ones too, optional **Feedback**, and the button **Restart**; it says the held run ends and the Stage's uncommitted edits Pause kept are discarded; toast "Restarted from <Stage>."
 - Start over opens "Start <title> over?" with the checkbox **Reset the branch to <base>**, checked, <base> being the Initiative's branch for an Initiative Task, else the Project's base branch; it says the Task goes to Ready, keeps its Plan, Definition of Done and Pipeline, and keeps its earlier Stage runs as history; the button **Start over**; toast "Started over: the Task is Ready."
 - A Task whose Publish pushed its branch or opened a pull request refuses Start over: "Its work has left the workstation: use Restart from… instead."

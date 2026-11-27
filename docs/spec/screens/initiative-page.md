@@ -26,36 +26,42 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 - The Project chips of its Tasks, or "No Project yet".
 - "· <done> of <counted> Tasks done" with "· <n> ready to start" when Ready Tasks wait for no Task; a Dropped Task no longer counts; Publishing Tasks count.
 - Once it has a planning Thread: "· <planned> of <n> Tasks planned" with "· <n> waiting for your answer" (see Task planning steps).
-- Right: the head's actions and **More for <name>**.
+- Right: the Go to icons (see Head actions) and **More for <name>**.
+- Under the head: the control bar (see Head actions).
 
 ## Head actions
 
-- One line of buttons; whatever wraps past it is hidden, the last first, and **More** always holds every action as its first items.
-- The line keeps room for its first button and **More**: when the title leaves less, the actions go under the title, never a blank where a hidden button was.
-- In order: **Confirm the Initiative**, **Planning Thread**, **Plan the Initiative**, **Plan with <Planner>**, **Start Ready Tasks**, **Pause the Initiative** or **Resume the Initiative**, **Add a Task**, **Add an existing Task**, **Browse files**, **Back to Shaping**, **Restore**.
-- Each is coloured by its tone, in the buttons and in **More** ([Action tones](../4.1-ui-rules.md#action-tones)).
+- Every action has one place ([the design](../../design/head-actions.html), C): **Go to** icons in the head, then in the control bar under it the **hold** action, a divider, and the **next step** last.
+- The head holds only the Go to icons (**Planning Thread**, **Browse files**) and **More**, each a link drawn as a ghost icon button, with its words in its tooltip and no tone.
+- The control bar is a card under the head: an icon and a sentence on where the Initiative is, then its buttons; it wraps the buttons under the sentence, at its end, on a narrow page and shows the sentence alone when the Initiative offers no button, as on a Done one.
+- The sentence, by state: "Shaping with <Shaper>. Confirm it to move its <n> Tasks to Backlog, for <Planner> to plan.", "Active. <n> Tasks are Ready to start, and <n> wait in Backlog for a Plan." (each count only when it has a Task; with neither, "Its Tasks are on their way."), "Paused. None of its Tasks starts until you resume it.", "Done. <done> of <counted> Tasks done.", "Dropped."
+- Hold zone: **Pause the Initiative**. Next step, the one primary last: **Confirm the Initiative**, **Plan the Initiative**, **Start Ready Tasks**, **Resume the Initiative**, **Restore**.
+- The one primary is **Resume the Initiative** while it is paused, else **Start Ready Tasks**, else **Plan the Initiative**; the others are secondary.
+- **Add a Task** and **Add an existing Task** are in the Tasks block's head ([Tasks block](#tasks-block)); **Back to Shaping** is only in **More**.
+- Each button is coloured by its tone ([Action tones](../4.1-ui-rules.md#action-tones)).
 - **Confirm the Initiative** (check, primary): while shaping; toast "Initiative confirmed. Its Tasks moved to Backlog, to wait until <Planner> plans them." or "Initiative confirmed, and done: its Tasks are."
-- **Planning Thread**: a link to the Initiative's latest planning Thread (`?initiativeThread=`), once it has one.
-- **Plan the Initiative** (map, primary) beside an **Auto mode** switch: offered while it is active with a Task in Backlog and someone holds Plans.
-  - The switch starts at the remembered default; the choice made becomes it; from More it plans as the switch stands.
+- **Planning Thread**: a Go to icon (messages-square) to the Initiative's latest planning Thread (`?initiativeThread=`), once it has one.
+- **Plan the Initiative** (map, a split button): offered while it is active with a Task in Backlog and someone holds Plans.
+  - Its menu has an **Auto mode** heading with **On** and **Off**, a check on the current one, then **Plan with <Planner>**; while Auto mode is on the button carries a small "Auto" tag.
+  - The choice starts at the remembered default; the choice made becomes it.
   - One planning Thread with the Planner, who plans its Backlog Tasks in their dependency order.
   - Toast: "<Planner> is planning the Initiative's Tasks in Backlog, in their dependency order, in auto mode: each is marked Ready once planned." or "… . You confirm each one as it is planned."
   - Disabled while the Initiative's latest planning Thread's person is answering there, with the hint "<Planner> is still planning in the planning Thread: write there, or wait until they finish."; **Planning Thread** stays the way in.
   - The service's other refusals show as a toast.
-- **Plan with <Planner>** (message icon): same offer, disabled with the same hint while the latest planning Thread's person is answering; opens a new planning Thread where the Planner waits for the user's first message on how to plan; auto mode is off; toast "<Planner> waits for your message: say how to plan the Initiative's Tasks in Backlog. Auto mode is off: you confirm each one as it is planned."; the conversation then opens on that Thread.
-- **Start Ready Tasks** (play): while it is active and a Task of it is Ready; the normal Start on each Ready Task, an Overlap queued behind; toast "<n> started, <n> queued, <n> refused"; a refusal of the whole action shows as a toast.
-- **Back to Shaping** (undo icon): while it is active; opens the confirm window ([Back to Shaping](#back-to-shaping)).
+- **Plan with <Planner>** (message icon, in Plan the Initiative's menu): same offer, disabled with the same hint while the latest planning Thread's person is answering; opens a new planning Thread where the Planner waits for the user's first message on how to plan; auto mode is off; toast "<Planner> waits for your message: say how to plan the Initiative's Tasks in Backlog. Auto mode is off: you confirm each one as it is planned."; the conversation then opens on that Thread.
+- **Start Ready Tasks** (play, primary): while it is active and a Task of it is Ready; the normal Start on each Ready Task, an Overlap queued behind; toast "<n> started, <n> queued, <n> refused"; a refusal of the whole action shows as a toast.
+- **Back to Shaping** (undo icon): only in More, while it is active; opens the confirm window ([Back to Shaping](#back-to-shaping)).
 - **Pause the Initiative** (pause): while it is active and not paused; holds its running Tasks once each Agent's current turn ends and starts none of its Tasks; hint "Hold its running Tasks once each Agent's current turn ends, and start none of its Tasks"; toast "Initiative paused: <n> Tasks paused. None of its Tasks starts until you resume it." (or "none of its Tasks was running").
 - **Resume the Initiative** (play): while paused; hint "Resume the Tasks its Pause held and let its Tasks start again"; toast "Initiative resumed: <n> Tasks resumed.", or "… go on at the fire alarm's all clear." while the fire alarm is on, or "Initiative resumed: its Tasks may start again." when none were held.
 - A refusal of Pause or Resume shows its reason as a toast.
-- **Add a Task** (plus) and **Add an existing Task** (list-plus): while it is Shaping or active (see Membership).
-- **Browse files**: a link to the Project's Files tab with `?branch=` the Initiative's branch, one per Project it spans where that branch is known on this workstation ("Browse files in <Project>" when it spans several); it never fetches.
+- **Add a Task** (plus, a split button whose menu holds **Add an existing Task**, list-plus): in the Tasks block's head, while it is Shaping or active (see Membership).
+- **Browse files**: a Go to icon to the Project's Files tab with `?branch=` the Initiative's branch, one per Project it spans where that branch is known on this workstation ("Browse files in <Project>" when it spans several); it never fetches.
 - **Restore**: while archived; back on the board in Done or Dropped, as it was.
 - Rules: [2.1.4](../2.1.4-initiatives.md), [2.1.5](../2.1.5-planning-and-start.md).
 
 ## Initiative menu
 
-- **More for <name>** (ellipsis): the head's actions, then:
+- **More for <name>** (ellipsis): **Back to Shaping** while it is active, then:
 - **Copy link**.
 - **Archive**: once Done or Dropped and not archived.
 - **Drop the Initiative** (danger): while Shaping or active.
@@ -87,7 +93,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 
 - A fold "Tasks" (git-fork icon), open by default, remembered per Initiative in this browser.
 - Summary: "None yet"; "<n> across <m> Projects"; "· in Shaping until you confirm" while shaping; else with "· <n> done · <n> in progress · <n> waiting on you · <n> dropped", each only when a Task is in it.
-- **Take out a Task** at its side while a Task of it hasn't started (see Membership).
+- **Take out a Task** at its side while a Task of it hasn't started, and **Add a Task** beside it (see Head actions, Membership).
 - Empty: "No Tasks yet." with, while shaping and someone shapes, "<Shaper> drafts them with you in the conversation, straight onto this page."
 - Publishing Tasks are left out of the graph and shown in the Pipelines block; progress counts them.
 

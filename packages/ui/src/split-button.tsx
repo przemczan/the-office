@@ -17,11 +17,15 @@ export interface SplitButtonProps {
   readonly variant?: ButtonProps["variant"];
   readonly size?: ButtonProps["size"];
   readonly loading?: boolean;
+  /** Only the action: its menu of other ways stays open to choose from. */
+  readonly disabled?: boolean;
   readonly menuWidth?: number;
   /** Given to both halves, such as a colour for the action. */
   readonly className?: string;
   /** Where the menu opens: below the control, or above it, as in a window's bottom bar. */
   readonly menuPlacement?: "below" | "above";
+  /** Which edge of the control the menu lines up with: its start, or its end at a page's edge. */
+  readonly menuAlign?: "start" | "end";
 }
 
 const ARROW_PADDING = { sm: "0 6px", md: "0 8px", lg: "0 10px" } as const;
@@ -40,9 +44,11 @@ export function SplitButton({
   variant = "secondary",
   size = "md",
   loading = false,
+  disabled = false,
   menuWidth = 180,
   className,
   menuPlacement = "below",
+  menuAlign = "start",
 }: SplitButtonProps): ReactNode {
   const [open, setOpen] = useState(false);
   return (
@@ -54,16 +60,17 @@ export function SplitButton({
         title={title}
         iconLeft={iconLeft}
         loading={loading}
+        disabled={disabled}
         onClick={onClick}
         style={{ borderStartEndRadius: 0, borderEndEndRadius: 0 }}
       >
         {children}
       </Button>
-      {/* Static, so the menu opens under the whole control, from its start. */}
+      {/* Static, so the menu opens under the whole control, from the edge it is aligned with. */}
       <Menu
         open={open}
         onOpenChange={setOpen}
-        align="start"
+        align={menuAlign}
         width={menuWidth}
         style={{ position: "static" }}
         items={items}

@@ -16,14 +16,14 @@ import {
   planningStepOf,
   stillPlanningReason,
 } from "./initiative-planning-words.ts";
-import { RecordActionButton } from "./record-actions.tsx";
+import { ControlBar } from "./record-actions.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-/** The action as the head's row shows it, beside its Auto mode switch. */
+/** The action as the head's row shows it, in the control bar, a split button with its Auto mode choice. */
 function PlanTheInitiative({
   initiative,
   initiativeTasks,
@@ -32,7 +32,9 @@ function PlanTheInitiative({
   readonly initiativeTasks: readonly Task[];
 }): ReactNode {
   const action = usePlanTheInitiativeAction(initiative, initiativeTasks);
-  return action && <RecordActionButton action={action} />;
+  return (
+    action && <ControlBar words={{ lead: "Active.", icon: "circle-dot" }} actions={[action]} />
+  );
 }
 
 const INITIATIVE: Initiative = {
@@ -138,8 +140,23 @@ function rendered(
   return page;
 }
 
-function autoModeSwitch(page: HTMLElement): HTMLElement | null {
-  return page.querySelector('[role="switch"]');
+function autoTag(page: HTMLElement): string | undefined {
+  return page.querySelector(".action-tag")?.textContent;
+}
+
+async function chooseAutoMode(page: HTMLElement, choice: "On" | "Off"): Promise<void> {
+  await act(async () => {
+    page
+      .querySelector<HTMLElement>('button[aria-label="More ways to plan the initiative"]')
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve));
+  });
+  await act(async () => {
+    [...document.querySelectorAll<HTMLElement>('[role="menu"] button')]
+      .find(({ textContent }) => textContent === choice)
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve));
+  });
 }
 
 function planButton(page: HTMLElement): HTMLButtonElement | undefined {
@@ -154,13 +171,25 @@ describe("Plan the Initiative", () => {
     document.body.replaceChildren();
   });
 
-  it("starts its Auto mode switch at the remembered default", () => {
-    expect(autoModeSwitch(rendered([aTask("a")], true))?.ariaChecked).toBe("true");
+  it("starts its Auto mode at the remembered default, tagged Auto while on", async () => {
+    const on = rendered([aTask("a")], true);
+    expect(autoTag(on)).toBe("Auto");
+    await act(async () => {
+      on.querySelector<HTMLElement>(
+        'button[aria-label="More ways to plan the initiative"]',
+      )?.click();
+      await new Promise((resolve) => setTimeout(resolve));
+    });
+    expect(document.body.textContent).toContain("Auto mode");
+    const current = [...document.querySelectorAll('[role="menu"] button')].filter(
+      (item) => item.querySelector("svg") !== null,
+    );
+    expect(current.map(({ textContent }) => textContent)).toEqual(["On"]);
     document.body.replaceChildren();
-    expect(autoModeSwitch(rendered([aTask("a")], false))?.ariaChecked).toBe("false");
+    expect(autoTag(rendered([aTask("a")], false))).toBeUndefined();
   });
 
-  it("sends the switch's choice and shows the service's refusal", async () => {
+  it("sends the Auto mode choice and shows the service's refusal", async () => {
     const refusal = "None of the Initiative's Tasks is in Backlog: nothing is left to plan.";
     const fetched = vi.fn<typeof fetch>(() =>
       Promise.resolve(Response.json({ message: refusal }, { status: 409 })),
@@ -168,7 +197,7 @@ describe("Plan the Initiative", () => {
     vi.stubGlobal("fetch", fetched);
     const page = rendered([aTask("a")], false);
 
-    act(() => autoModeSwitch(page)?.click());
+    await chooseAutoMode(page, "On");
     await act(async () => {
       planButton(page)?.click();
       await new Promise((resolve) => setTimeout(resolve));

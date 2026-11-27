@@ -58,6 +58,7 @@ export function useBackToShapingAction(
     key: "back-to-shaping",
     label: "Back to Shaping",
     icon: "undo-2",
+    zone: "more",
     hint: "Make it shaping again, its Tasks not started yet back in Shaping and its branches removed",
     onSelect: () => setAsking(true),
     ...(asking && {

@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { projectQueries } from "../../api/projects.ts";
 import { ideaQueries, taskQueries } from "../../api/work.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
+import { AddTasks } from "./add-tasks.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
 import { OriginBlock } from "./origin-block.tsx";
 
@@ -83,6 +84,7 @@ async function rendered(
       component: () => (
         <>
           <InitiativeActions initiative={initiative} onStartedReadyTasks={() => undefined} />
+          <AddTasks initiative={initiative} initiativeTasks={[]} tasks={[]} />
           <OriginBlock
             record={{ kind: "initiative", id: initiative.id }}
             ideaId={initiative.originIdeaId}
@@ -111,6 +113,19 @@ async function addATask(page: HTMLElement): Promise<void> {
   await act(async () => {
     [...page.querySelectorAll("button")]
       .find((button) => button.textContent.includes("Add a Task"))
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve));
+  });
+}
+
+async function addAnExistingTask(page: HTMLElement): Promise<void> {
+  await act(async () => {
+    page.querySelector<HTMLElement>('button[aria-label="More ways to add a Task"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve));
+  });
+  await act(async () => {
+    [...document.querySelectorAll<HTMLElement>('[role="menu"] button')]
+      .find((item) => item.textContent.includes("Add an existing Task"))
       ?.click();
     await new Promise((resolve) => setTimeout(resolve));
   });
@@ -150,6 +165,14 @@ describe("Add a Task on an Initiative's page", () => {
     await addATask(page);
 
     expect(chosenProject()).toContain("API service");
+  });
+
+  it("offers Add an existing Task in the menu beside Add a Task", async () => {
+    const page = await renderedWithIdeaIn("admin-panel");
+
+    await addAnExistingTask(page);
+
+    expect(windowShown()?.textContent).toContain("Add an existing Task");
   });
 
   it("works on one created from no Idea, asking for no Idea and showing no Origin", async () => {
@@ -203,10 +226,30 @@ async function renderedActive(initiative: Initiative = ACTIVE): Promise<HTMLElem
   );
 }
 
-function backToShapingButton(page: HTMLElement): HTMLButtonElement | undefined {
-  return [...page.querySelectorAll("button")].find(({ textContent }) =>
-    textContent.startsWith("Back to Shaping"),
+function moreMenuButton(page: HTMLElement): HTMLElement | null {
+  return page.querySelector<HTMLElement>('button[aria-label="More for Usage exports"]');
+}
+
+function backToShapingItem(): HTMLElement | undefined {
+  return [...document.querySelectorAll<HTMLElement>('[role="menu"] button')].find(
+    ({ textContent }) => textContent.startsWith("Back to Shaping"),
   );
+}
+
+/** Opens the Initiative's More menu, where Back to Shaping is listed, and chooses it if it is. */
+async function chooseBackToShaping(page: HTMLElement): Promise<boolean> {
+  let found = false;
+  await act(async () => {
+    moreMenuButton(page)?.click();
+    await new Promise((resolve) => setTimeout(resolve));
+  });
+  await act(async () => {
+    const item = backToShapingItem();
+    found = item !== undefined;
+    item?.click();
+    await new Promise((resolve) => setTimeout(resolve));
+  });
+  return found;
 }
 
 function windowShown(): HTMLElement | null {
@@ -230,12 +273,18 @@ describe("Back to Shaping on an Initiative's page", () => {
 
   it("is offered only while the Initiative is active", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>());
-    expect(backToShapingButton(await renderedActive())).toBeDefined();
+    const active = await renderedActive();
+    expect(
+      [...active.querySelectorAll("button")].some(({ textContent }) =>
+        textContent.startsWith("Back to Shaping"),
+      ),
+    ).toBe(false);
+    expect(await chooseBackToShaping(active)).toBe(true);
     document.body.replaceChildren();
-    expect(backToShapingButton(await rendered(INITIATIVE))).toBeUndefined();
+    expect(await chooseBackToShaping(await rendered(INITIATIVE))).toBe(false);
     document.body.replaceChildren();
     const done = await renderedActive({ ...ACTIVE, state: "done", endedAt: INITIATIVE.createdAt });
-    expect(backToShapingButton(done)).toBeUndefined();
+    expect(await chooseBackToShaping(done)).toBe(false);
   });
 
   it("asks first, saying how many Tasks go back to Shaping and how many branches are removed", async () => {
@@ -243,7 +292,7 @@ describe("Back to Shaping on an Initiative's page", () => {
     vi.stubGlobal("fetch", fetched);
     const page = await renderedActive();
 
-    act(() => backToShapingButton(page)?.click());
+    await chooseBackToShaping(page);
 
     expect(fetched.mock.calls.filter(([, init]) => init?.method === "POST")).toEqual([]);
     expect(windowShown()?.textContent).toContain(
@@ -260,7 +309,7 @@ describe("Back to Shaping on an Initiative's page", () => {
     );
     vi.stubGlobal("fetch", fetched);
     const page = await renderedActive();
-    act(() => backToShapingButton(page)?.click());
+    await chooseBackToShaping(page);
 
     await goBack();
 
@@ -289,7 +338,7 @@ describe("Back to Shaping on an Initiative's page", () => {
       ),
     );
     const page = await renderedActive();
-    act(() => backToShapingButton(page)?.click());
+    await chooseBackToShaping(page);
 
     await goBack();
 

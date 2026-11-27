@@ -1,4 +1,11 @@
-import { Button, Icon, type ButtonProps, type MenuItem } from "@the-office/ui";
+import {
+  Button,
+  Icon,
+  IconButton,
+  SplitButton,
+  type ButtonProps,
+  type MenuItem,
+} from "@the-office/ui";
 import { Fragment, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
 /**
@@ -8,11 +15,19 @@ import { Fragment, useLayoutEffect, useRef, type ReactNode, type RefObject } fro
  */
 export type ActionTone = "go" | "plan" | "hold" | "stop";
 
+/**
+ * Where an action sits (docs/spec/4.1-ui-rules.md, Action tones): go-to is a place the record leads
+ * to, an icon in the head; hold holds or takes the work out, and next is the step that moves it on,
+ * both in the control bar, hold first, next last; more is the rare step only the More menu lists.
+ * Next when left out.
+ */
+export type ActionZone = "go-to" | "hold" | "next" | "more";
+
 export type RecordActionVariant = "primary" | "secondary" | "ghost";
 
 /**
- * One action on a Task, an Initiative or an Idea, defined once: a button in its row of actions,
- * as long as it fits there, and an item of its More menu always.
+ * One action on a Task, an Initiative or an Idea, defined once: a button in its row of actions or
+ * its control bar, as its zone places it, or an item of its More menu.
  */
 export interface RecordAction {
   /** Unique among the record's actions. */
@@ -21,6 +36,12 @@ export interface RecordAction {
   readonly icon: string;
   readonly variant?: RecordActionVariant;
   readonly tone?: ActionTone;
+  readonly zone?: ActionZone;
+  /**
+   * The key of the action whose split button lists this one, another way to do the same thing,
+   * instead of a button of its own.
+   */
+  readonly alternativeTo?: string;
   /** What it does, on hover over its button. */
   readonly hint?: string;
   readonly ariaLabel?: string;
@@ -32,11 +53,43 @@ export interface RecordAction {
    * null for an action only the menu lists, as one another action's control already offers.
    */
   readonly control?: ReactNode;
+  /** A small word on its button, such as "Auto" while a mode it offers is on. */
+  readonly tag?: string;
+  /**
+   * Choices its split button lists above its alternatives, such as a mode to switch; they make it
+   * a split button even with none.
+   */
+  readonly choices?: readonly MenuItem[];
+  /** A mark beside a go-to icon, such as how a pull request ended. */
+  readonly mark?: ReactNode;
+  /**
+   * A go-to icon as the link to its place, given what draws it as an icon: middle-click and copying
+   * the link work, as a button's `onSelect` can't offer. The More menu still uses `onSelect`.
+   */
+  readonly link?: (anchor: GoToAnchor) => ReactNode;
   /**
    * The window the action opens, such as one asking first, while it is open: the record's More
    * menu (`TaskMenu`) shows it, as the menu is there whether or not the button fits the row.
    */
   readonly dialog?: ReactNode;
+}
+
+/** What a go-to link takes to look and read as the head's other icons. */
+export interface GoToAnchor {
+  readonly className: string;
+  readonly "aria-label": string;
+  readonly title: string;
+  readonly children: ReactNode;
+}
+
+/** The zone an action sits in. */
+export function zoneOf(action: RecordAction): ActionZone {
+  return action.zone ?? "next";
+}
+
+/** The actions in one of the zones, in their order, leaving out those a split button lists. */
+export function actionsInZone(actions: readonly RecordAction[], zone: ActionZone): RecordAction[] {
+  return actions.filter((action) => zoneOf(action) === zone && !action.alternativeTo);
 }
 
 /** The action as a button, or as its own control. */
@@ -48,6 +101,31 @@ export function RecordActionButton({
   readonly size?: ButtonProps["size"];
 }): ReactNode {
   if (action.control !== undefined) return action.control;
+  if (zoneOf(action) === "go-to") {
+    const label = action.ariaLabel ?? action.label;
+    const title = action.hint ?? action.label;
+    const icon = <Icon name={action.icon} size={16} />;
+    const goTo = action.link ? (
+      action.link({ className: "link-icon-button", "aria-label": label, title, children: icon })
+    ) : (
+      <IconButton
+        variant="ghost"
+        icon={icon}
+        label={label}
+        title={title}
+        disabled={action.disabled}
+        onClick={action.onSelect}
+      />
+    );
+    if (action.mark === undefined) return goTo;
+    // One item of the row, so the mark is never shown or hidden apart from its icon.
+    return (
+      <span className="go-to-marked">
+        {action.mark}
+        {goTo}
+      </span>
+    );
+  }
   const variant = action.variant ?? "secondary";
   return (
     <Button
@@ -140,6 +218,108 @@ export function RecordActions({
       </div>
       {menu}
     </div>
+  );
+}
+
+/** What the control bar says about where the work is: a lead, then why these buttons are offered. */
+export interface ControlBarWords {
+  readonly lead: string;
+  readonly words?: ReactNode;
+  readonly icon: string;
+  readonly tone?: ActionTone;
+}
+
+/**
+ * The control bar under a record's head (docs/spec/4.1-ui-rules.md, Action tones): a sentence on
+ * where the work is, then the hold zone (Pause, Stop, the queue's), a divider and the next step
+ * last. An action another one's split button lists is no button of its own. Nothing but the
+ * sentence once the record offers no action; it wraps under the sentence on a narrow page.
+ */
+export function ControlBar({
+  words,
+  actions,
+  size,
+  children,
+}: {
+  readonly words: ControlBarWords;
+  readonly actions: readonly RecordAction[];
+  readonly size?: ButtonProps["size"];
+  /** More lines under the sentence, such as the Overlaps and the Usage estimate. */
+  readonly children?: ReactNode;
+}): ReactNode {
+  const hold = actionsInZone(actions, "hold");
+  const next = actionsInZone(actions, "next");
+  return (
+    <section className="control-bar" aria-label="Controls">
+      <div className="control-bar-main">
+        <div className={`control-bar-words${words.tone ? ` action-tone-${words.tone}` : ""}`}>
+          <Icon name={words.icon} size={16} />
+          <span>
+            <b>{words.lead}</b> {words.words}
+          </span>
+        </div>
+        {(hold.length > 0 || next.length > 0) && (
+          <div className="control-bar-actions">
+            {hold.map((action) => (
+              <ActionWithAlternatives key={action.key} action={action} all={actions} size={size} />
+            ))}
+            {hold.length > 0 && next.length > 0 && (
+              <span className="control-bar-divider" aria-hidden="true" />
+            )}
+            {next.map((action) => (
+              <ActionWithAlternatives key={action.key} action={action} all={actions} size={size} />
+            ))}
+          </div>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** The action as a button, a split button when other actions are other ways to do it. */
+function ActionWithAlternatives({
+  action,
+  all,
+  size,
+}: {
+  readonly action: RecordAction;
+  readonly all: readonly RecordAction[];
+  readonly size?: ButtonProps["size"];
+}): ReactNode {
+  const alternatives = all.filter(({ alternativeTo }) => alternativeTo === action.key);
+  const choices = action.choices ?? [];
+  if (action.control !== undefined || (alternatives.length === 0 && choices.length === 0)) {
+    return <RecordActionButton action={action} size={size} />;
+  }
+  const variant = action.variant ?? "secondary";
+  return (
+    <SplitButton
+      variant={variant}
+      {...(size && { size })}
+      {...(action.tone && { className: actionToneClassName(action.tone, variant) })}
+      iconLeft={<Icon name={action.icon} size={14} />}
+      {...(action.hint && { title: action.hint })}
+      loading={action.pending ?? false}
+      disabled={action.disabled ?? false}
+      onClick={action.onSelect}
+      menuLabel={`More ways to ${(action.label.split(" · ")[0] ?? action.label).toLowerCase()}`}
+      // The bar's buttons end at the page's right edge, so the menu opens leftwards from there.
+      menuAlign="end"
+      items={[
+        ...choices,
+        ...(choices.length > 0 && alternatives.length > 0 ? [{ divider: true }] : []),
+        ...alternatives.map((alternative) => ({
+          icon: <ActionToneIcon tone={alternative.tone} name={alternative.icon} size={14} />,
+          label: alternative.label,
+          disabled: (alternative.disabled ?? false) || (alternative.pending ?? false),
+          onSelect: alternative.onSelect,
+        })),
+      ]}
+    >
+      {action.label}
+      {action.tag && <span className="action-tag">{action.tag}</span>}
+    </SplitButton>
   );
 }
 

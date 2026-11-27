@@ -186,6 +186,7 @@ export function useQueueActions(
     label: "Take out of the queue",
     icon: "x",
     tone: "stop",
+    zone: "hold",
     variant: "ghost",
     pending: takingOut.isPending,
     onSelect: () => takingOut.mutate(queued.taskId),
@@ -196,6 +197,7 @@ export function useQueueActions(
       key: "move-up",
       label: "Move up",
       icon: "arrow-up",
+      zone: "hold",
       pending: moving,
       onSelect: moveUp,
       control: (
@@ -223,6 +225,7 @@ export function useQueueActions(
       key: "move-to-top",
       label: "Move to top",
       icon: "arrow-up-to-line",
+      zone: "hold",
       pending: moving,
       onSelect: moveToTop,
       control: null,

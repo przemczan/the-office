@@ -1,22 +1,14 @@
 import type { Initiative, ReadyTasksStarted, TaskSummary } from "@the-office/contracts";
-import { Button, Icon, IconButton, Menu, Switch, type MenuItem } from "@the-office/ui";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Icon, IconButton, Menu, type MenuItem } from "@the-office/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
-import {
-  autoModeQuery,
-  confirmInitiative,
-  ideaQueries,
-  planInitiative,
-  useEveryTask,
-} from "../../api/work.ts";
+import { autoModeQuery, confirmInitiative, planInitiative, useEveryTask } from "../../api/work.ts";
 import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { canBeArchived } from "../../shell/work/work-words.ts";
-import { canHoldBack } from "../../shell/work/initiative-progress.ts";
 import { useBrowseInitiativeFilesActions } from "./browse-files.tsx";
 import { useRestoreInitiativeAction } from "./archive-parts.tsx";
 import { useBackToShapingAction } from "./initiative-back-to-shaping.tsx";
@@ -24,17 +16,17 @@ import { useInitiativePauseAction } from "./initiative-pause.tsx";
 import { usePlanWithAction, useStillPlanningReason } from "./initiative-plan-with.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
 import { DropInitiativeDialog } from "./drop-initiative-dialog.tsx";
-import { AddExistingTaskDialog } from "./initiative-membership.tsx";
-import { tasksToAdd } from "./initiative-membership-words.ts";
 import { tasksOfInitiative } from "./initiative-words.ts";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 import {
-  actionToneClassName,
+  actionsInZone,
+  ControlBar,
   RecordActions,
   withActionItems,
   type RecordAction,
 } from "./record-actions.tsx";
+import { initiativeBarWords } from "./control-bar-words.ts";
 import { useStartReadyTasksAction } from "./start-ready-tasks.tsx";
 import { useRememberedAutoMode } from "./use-planning.ts";
 
@@ -54,19 +46,16 @@ import { useRememberedAutoMode } from "./use-planning.ts";
 export function InitiativeActions({
   initiative,
   onStartedReadyTasks,
+  shaper,
   className,
 }: {
   readonly initiative: Initiative;
   readonly onStartedReadyTasks: (started: ReadyTasksStarted) => void;
+  /** Who shapes it, named in the control bar's sentence. */
+  readonly shaper?: string;
   readonly className?: string;
 }): ReactNode {
-  const [adding, setAdding] = useState<"new" | "existing">();
   const tasks = useEveryTask();
-  const originIdea = useQuery({
-    ...ideaQueries.one(initiative.originIdeaId ?? ""),
-    enabled: initiative.originIdeaId !== null,
-  });
-  const open = initiative.state === "shaping" || initiative.state === "active";
   const initiativeTasks = tasksOfInitiative(initiative, tasks.data ?? []);
   const confirm = useConfirmAction(initiative);
   const planningThread = usePlanningThreadAction(initiative);
@@ -81,6 +70,9 @@ export function InitiativeActions({
   const backToShaping = useBackToShapingAction(initiative, initiativeTasks);
   const restore = useRestoreInitiativeAction(initiative);
   const browseFiles = useBrowseInitiativeFilesActions(initiative);
+  const resume = pause?.zone === "next" ? pause : undefined;
+  // The bar's one primary, its next step last: Resume while paused, then Start Ready Tasks, then Plan.
+  const primary = resume ?? startReadyTasks ?? plan;
   const actions = [
     confirm,
     planningThread,
@@ -88,16 +80,17 @@ export function InitiativeActions({
     planWith,
     startReadyTasks,
     pause,
-    ...(open ? addingActions(setAdding) : []),
     ...browseFiles,
-    // Last of the row, so this rare step is the first left to the More menu when space runs out.
     backToShaping,
     restore,
-  ].filter((action) => action !== undefined);
+  ]
+    .filter((action) => action !== undefined)
+    .map((action) => (primary ? withOnePrimary(action, primary) : action));
+  const planner = usePlanner()?.card.name;
   return (
     <>
       <RecordActions
-        actions={actions}
+        actions={actionsInZone(actions, "go-to")}
         {...(className && { className })}
         menu={
           <InitiativeMenu
@@ -107,36 +100,21 @@ export function InitiativeActions({
           />
         }
       />
-      {adding === "new" && (
-        <NewTaskDialog
-          initiative={initiative}
-          projectId={originIdea.data?.projectId}
-          canWaitFor={initiativeTasks.filter(canHoldBack)}
-          onClose={() => setAdding(undefined)}
-        />
-      )}
-      {adding === "existing" && (
-        <AddExistingTaskDialog
-          initiative={initiative}
-          candidates={tasksToAdd(initiative, tasks.data ?? [])}
-          onClose={() => setAdding(undefined)}
-        />
-      )}
+      <ControlBar
+        words={initiativeBarWords(initiative, initiativeTasks, {
+          ...(shaper && { shaper }),
+          ...(planner && { planner }),
+        })}
+        actions={actions}
+      />
     </>
   );
 }
 
-/** Add a Task and Add an existing Task, each opening its window. */
-function addingActions(setAdding: (adding: "new" | "existing") => void): RecordAction[] {
-  return [
-    { key: "add-task", label: "Add a Task", icon: "plus", onSelect: () => setAdding("new") },
-    {
-      key: "add-existing-task",
-      label: "Add an existing Task",
-      icon: "list-plus",
-      onSelect: () => setAdding("existing"),
-    },
-  ];
+/** The action as the one primary when it is `primary`, else never a primary. */
+function withOnePrimary(action: RecordAction, primary: RecordAction): RecordAction {
+  if (action === primary) return { ...action, variant: "primary" };
+  return action.variant === "primary" ? { ...action, variant: "secondary" } : action;
 }
 
 /** Confirm the Initiative, while it is shaping. */
@@ -161,9 +139,10 @@ function useConfirmAction(initiative: Initiative): RecordAction | undefined {
 }
 
 /**
- * Plan the Initiative, beside its Auto mode switch: one planning Thread with the Planner, who plans
- * its Backlog Tasks in their dependency order. The switch starts at the remembered default, which
- * the choice becomes, as with Make a plan; from the More menu it plans as the switch stands. None
+ * Plan the Initiative, a split button whose menu chooses Auto mode, tagged on the button while it
+ * is on: one planning Thread with the Planner, who plans its Backlog Tasks in their dependency
+ * order. The choice starts at the remembered default, which the choice made becomes, as with Make
+ * a plan. Secondary, as Start Ready Tasks is the next step once a Task is Ready. None
  * while nobody is the Planner; disabled, saying why, while the latest planning Thread's person is
  * answering there.
  */
@@ -195,27 +174,24 @@ export function usePlanTheInitiativeAction(
     label: "Plan the Initiative",
     icon: "map",
     tone: "plan",
-    variant: "primary",
+    variant: "secondary",
     pending: planning.isPending,
     disabled: stillPlanning !== undefined,
     ...(stillPlanning !== undefined && { hint: stillPlanning }),
     onSelect: plan,
-    control: (
-      <div className="make-a-plan">
-        <Button
-          variant="primary"
-          className={actionToneClassName("plan", "primary")}
-          iconLeft={<Icon name="map" size={14} />}
-          loading={planning.isPending}
-          disabled={stillPlanning !== undefined}
-          title={stillPlanning}
-          onClick={plan}
-        >
-          Plan the Initiative
-        </Button>
-        <Switch checked={autoMode} onChange={setChosen} label="Auto mode" />
-      </div>
-    ),
+    ...(autoMode && { tag: "Auto" }),
+    choices: [
+      { heading: "Auto mode" },
+      ...[true, false].map((inAutoMode) => ({
+        label: (
+          <span className="menu-choice">
+            {inAutoMode ? "On" : "Off"}
+            {inAutoMode === autoMode && <Icon name="check" size={14} />}
+          </span>
+        ),
+        onSelect: () => setChosen(inAutoMode),
+      })),
+    ],
   };
 }
 
@@ -241,13 +217,9 @@ function usePlanningThreadAction(initiative: Initiative): RecordAction | undefin
     key: "planning-thread",
     label: "Planning Thread",
     icon: "messages-square",
-    tone: "plan",
+    zone: "go-to",
     onSelect: () => void navigate(to),
-    control: (
-      <Link className={`link-button ${actionToneClassName("plan", "secondary")}`} {...to}>
-        Planning Thread
-      </Link>
-    ),
+    link: (anchor) => <Link {...anchor} {...to} />,
   };
 }
 
@@ -306,7 +278,7 @@ function InitiativeMenu({
             label={`More for ${initiative.name}`}
           />
         }
-        items={withActionItems(actions, items)}
+        items={withActionItems(actionsInZone(actions, "more"), items)}
       />
       {actions.map(
         (action) => action.dialog && <Fragment key={action.key}>{action.dialog}</Fragment>,

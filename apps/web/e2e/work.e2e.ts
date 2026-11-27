@@ -1144,7 +1144,8 @@ test("the user adds a Task to an Initiative and takes it out, on the Task's page
 
   // On the Initiative's page: an existing Task added, then taken out.
   await page.goto(`/work/initiatives/${initiativeId}`);
-  await page.getByRole("button", { name: "Add an existing Task" }).click();
+  await page.getByRole("button", { name: "More ways to add a Task" }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Add an existing Task" }).click();
   await dialog.getByRole("textbox", { name: "Find a Task" }).fill(retry.title);
   await dialog.getByText(retry.title).click();
   await expect(dialog).toContainText("It stays in Backlog.");
@@ -1163,23 +1164,23 @@ test("the user adds a Task to an Initiative and takes it out, on the Task's page
 });
 
 test(
-  "an Initiative's More menu holds every action of its head, whose buttons stay on one line and hide what doesn't fit",
+  "an Initiative's control bar holds its hold and next-step actions, its Tasks block adds Tasks, and More keeps only the rare ones",
   { tag: "@full" },
   async ({ page }) => {
     const name = "Head actions that fit";
     const initiativeId = await seedActiveInitiative(page, name, "2026-11-16T10:00:00.000Z");
-    const ACTIONS = ["Pause the Initiative", "Add a Task", "Add an existing Task"];
     const head = page.locator(".task-head-actions");
+    const bar = page.getByRole("region", { name: "Controls" });
 
     await page.goto(`/work/initiatives/${initiativeId}`);
-    for (const action of ACTIONS) {
-      await expect(head.getByRole("button", { name: action, exact: true })).toBeVisible();
-    }
+    await expect(
+      bar.getByRole("button", { name: "Pause the Initiative", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add a Task", exact: true })).toBeVisible();
     const more = head.getByRole("button", { name: `More for ${name}` });
     await more.click();
     const menu = page.getByRole("menu");
     await expect(menu.getByRole("button")).toHaveText([
-      ...ACTIONS,
       "Back to Shaping",
       "Copy link",
       "Drop the Initiative",
@@ -1188,34 +1189,24 @@ test(
     await more.click();
     await expect(menu).toBeHidden();
 
-    await page.setViewportSize({ width: 960, height: 900 });
-    const shown = head.getByRole("button", { name: "Pause the Initiative" });
-    const hidden = head.getByRole("button", { name: "Add an existing Task" });
-    await expect(shown).toBeVisible();
-    await expect(hidden).toBeHidden();
-    // One line: the row is as high as the buttons it shows.
-    const row = await head.locator(".record-actions-row").boundingBox();
-    expect(row!.height).toBe((await shown.boundingBox())!.height);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-960-initiative-head.png") });
-
-    // Where the title leaves less room than the first button and More, the head wraps them under
-    // the title rather than hiding the first button and keeping its blank room beside More.
-    for (let width = 700; width <= 1000; width += 20) {
+    // The bar wraps its buttons under its sentence rather than hiding any.
+    for (const width of [960, 760, 700]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(shown, `at ${width}px`).toBeVisible();
+      await expect(
+        bar.getByRole("button", { name: "Pause the Initiative", exact: true }),
+        `at ${width}px`,
+      ).toBeVisible();
     }
-    await page.setViewportSize({ width: 760, height: 900 });
-    await expect(page.getByRole("button", { name: "Conversation", exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-760-initiative-head.png") });
 
-    await more.click();
+    await page.getByRole("button", { name: "More ways to add a Task" }).click();
     await menu.getByRole("button", { name: "Add an existing Task" }).click();
     await expect(page.getByRole("dialog")).toContainText(`Add an existing Task to ${name}`);
   },
 );
 
 test(
-  "a Task's and an Idea's More menus hold the actions of their buttons too",
+  "a Task's More menu keeps its own items, and an Idea's holds the actions of its buttons too",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Menus with every action", "ME");
@@ -1224,14 +1215,15 @@ test(
     await queryOfficeDatabase(`update tasks set state = 'in-progress' where id = $1`, [task.id]);
 
     await page.goto(`/tasks/${task.id}`);
-    const head = page.locator(".task-head-actions");
-    await expect(head.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
-    await expect(head.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
-    await head.getByRole("button", { name: `More for ${task.title}` }).click();
+    const bar = page.getByRole("region", { name: "Controls" });
+    await expect(bar.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+    await page
+      .locator(".task-head-actions")
+      .getByRole("button", { name: `More for ${task.title}` })
+      .click();
     const menu = page.getByRole("menu");
     await expect(menu.getByRole("button")).toHaveText([
-      "Pause",
-      "Stop",
       "Feature",
       "Bug",
       "Chore",
@@ -4003,17 +3995,20 @@ test(
 
     try {
       await page.goto(`/tasks/${task.id}`);
-      const head = page.locator(".task-head-actions");
+      const head = page.getByRole("region", { name: "Controls" });
       await head.getByRole("button", { name: "Stop", exact: true }).click();
       await expect(
         page.getByText("Stopped: the Stage's uncommitted edits are discarded."),
       ).toBeVisible();
       await expect.poll(stateOf).toBe("paused");
 
-      // Held by the user's own Stop: Restart from… and Start over sit beside Resume.
+      // Held by the user's own Stop: Restart from… and Start over are in Resume's menu.
       await expect(head.getByRole("button", { name: /^Resume/ })).toBeVisible();
-      await expect(head.getByRole("button", { name: "Start over", exact: true })).toBeVisible();
-      await head.getByRole("button", { name: "Restart from…", exact: true }).click();
+      await head.getByRole("button", { name: "More ways to resume" }).click();
+      await expect(
+        page.getByRole("menu").getByRole("button", { name: "Start over" }),
+      ).toBeVisible();
+      await page.getByRole("menu").getByRole("button", { name: "Restart from…" }).click();
       const dialog = page.getByRole("dialog", { name: `Restart ${task.title} from…` });
       const from = dialog.getByLabel("Restart from");
       await expect(from).toBeEnabled();
@@ -4060,10 +4055,9 @@ test(
     expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
 
     await page.goto(`/tasks/${task.id}`);
-    const head = page.locator(".task-head-actions");
-    await expect(head.getByRole("button", { name: "Reopen…", exact: true })).toBeVisible();
-    await head.getByRole("button", { name: `More for ${task.title}` }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Reopen…", exact: true }).click();
+    const bar = page.getByRole("region", { name: "Controls" });
+    await expect(bar.getByRole("button", { name: "Reopen…", exact: true })).toBeVisible();
+    await bar.getByRole("button", { name: "Reopen…", exact: true }).click();
 
     const dialog = page.getByRole("dialog", { name: `Reopen ${task.title}?` });
     const to = dialog.getByRole("radiogroup", { name: "Reopen to" });
@@ -4084,7 +4078,7 @@ test(
     expect(
       taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json()).state,
     ).toBe("backlog");
-    await expect(head.getByRole("button", { name: "Reopen…", exact: true })).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Reopen…", exact: true })).toHaveCount(0);
   },
 );
 

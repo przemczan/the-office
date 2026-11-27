@@ -1,6 +1,6 @@
 import type { PullRequestEnd } from "@the-office/contracts";
 import { act } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { pullRequestAction } from "./pull-request-button.tsx";
@@ -50,15 +50,18 @@ async function hoverWords(page: HTMLElement): Promise<string | null | undefined>
   return document.querySelector('[role="tooltip"]')?.textContent;
 }
 
-afterEach(closePage);
+afterEach(() => {
+  vi.restoreAllMocks();
+  closePage();
+});
 
 describe("how the Task's pull request ended, beside Open pull request", () => {
   it("says it was merged, how, by whom and when, in the user's own time", async () => {
     const page = await showHead(MERGED_BY_ANN);
 
     await until(() => expect(page.textContent).toContain("Pull request merged"));
-    expect(page.querySelector("a")?.getAttribute("href")).toBe(MERGED_BY_ANN.url);
-    expect(page.textContent).toContain("Open pull request");
+    const link = page.querySelector<HTMLAnchorElement>('a[aria-label="Open pull request"]');
+    expect(link?.href).toBe(MERGED_BY_ANN.url);
     expect(await hoverWords(page)).toBe(`#12 merged (squash) by Ann Lee, ${dayAndClockOf(AT)}`);
   });
 

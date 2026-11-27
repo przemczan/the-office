@@ -6,7 +6,6 @@ import {
   type ProjectBranches,
   type Task,
 } from "@the-office/contracts";
-import { Icon } from "@the-office/ui";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries } from "../../api/work.ts";
 import { isPublishingTask } from "./initiative-words.ts";
@@ -31,12 +30,7 @@ export function useBrowseFilesAction(task: Task): RecordAction | undefined {
       : initiativeBranchOf(shortName)
     : `office/${task.id}`;
   if (branch === undefined || !hasBranch(branches.data, branch)) return undefined;
-  return browseFilesAction(
-    task.projectId,
-    branch,
-    "Browse files",
-    () => void navigate(filesOf(task.projectId, branch)),
-  );
+  return browseFilesAction(task.projectId, branch, "Browse files", navigate);
 }
 
 /**
@@ -59,9 +53,7 @@ export function useBrowseInitiativeFilesActions(initiative: Initiative): RecordA
     if (!hasBranch(branchesOf[index]?.data, branch)) return [];
     const name = projects.data?.find(({ id }) => id === projectId)?.name ?? projectId;
     const label = several ? `Browse files in ${name}` : "Browse files";
-    return [
-      browseFilesAction(projectId, branch, label, () => void navigate(filesOf(projectId, branch))),
-    ];
+    return [browseFilesAction(projectId, branch, label, navigate)];
   });
 }
 
@@ -69,19 +61,16 @@ function browseFilesAction(
   projectId: string,
   branch: string,
   label: string,
-  onSelect: () => void,
+  navigate: ReturnType<typeof useNavigate>,
 ): RecordAction {
+  const files = filesOf(projectId, branch);
   return {
     key: `browse-files-${projectId}`,
     label,
     icon: "folder-tree",
-    onSelect,
-    control: (
-      <Link className="link-button" {...filesOf(projectId, branch)}>
-        <Icon name="folder-tree" size={14} />
-        {label}
-      </Link>
-    ),
+    zone: "go-to",
+    onSelect: () => void navigate(files),
+    link: (anchor) => <Link {...anchor} {...files} />,
   };
 }
 

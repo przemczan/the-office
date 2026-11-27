@@ -1,0 +1,2240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Head actions · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens: design-system/tokens/colors.css, radius.css and elevation.css, as used here ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-500: #f23d0f;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-control: var(--radius-md);
+        --radius-card: 10px;
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+      }
+
+      /* Light: the design system's light aliases, then packages/ui/src/appearance/palettes/light.css */
+      :root,
+      .pal-light {
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-strong: var(--gray-150);
+        --primary: var(--gray-900);
+        --primary-hover: var(--gray-700);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --accent: var(--ember-500);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+        --tooltip-bg: var(--gray-900);
+        --tooltip-fg: var(--white);
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        color-scheme: light;
+      }
+      /* Dark: the design system's [data-theme="dark"] aliases, then palettes/dark.css */
+      .pal-dark {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-hover: #e6e6e2;
+        --primary-fg: #161615;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+        --tooltip-bg: #e6e6e2;
+        --tooltip-fg: #161615;
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        color-scheme: dark;
+      }
+
+      /* ---------- The tones, as work.css sets them (docs/spec/4.1-ui-rules.md, Action tones) ---------- */
+      [data-tone="go"] {
+        --tone-fg: var(--success-fg);
+        --tone-subtle: var(--success-subtle);
+        --tone-border: var(--success-border);
+        --tone-base: var(--success);
+      }
+      [data-tone="plan"] {
+        --tone-fg: var(--info-fg);
+        --tone-subtle: var(--info-subtle);
+        --tone-border: var(--info-border);
+        --tone-base: var(--info);
+      }
+      [data-tone="hold"] {
+        --tone-fg: var(--warning-fg);
+        --tone-subtle: var(--warning-subtle);
+        --tone-border: var(--warning-border);
+        --tone-base: var(--warning);
+      }
+      [data-tone="stop"] {
+        --tone-fg: var(--danger-fg);
+        --tone-subtle: var(--danger-subtle);
+        --tone-border: var(--danger-border);
+        --tone-base: var(--danger);
+      }
+      .btn-secondary[data-tone],
+      .split[data-tone] .btn-secondary {
+        background: var(--tone-subtle);
+        border-color: var(--tone-border);
+        color: var(--tone-fg);
+        box-shadow: none;
+      }
+      .btn-secondary[data-tone]:hover,
+      .split[data-tone] .btn-secondary:hover {
+        background: var(--tone-border);
+      }
+      .split[data-tone] .btn-secondary.split-arrow {
+        border-left-color: var(--tone-border);
+      }
+      .btn-ghost[data-tone] {
+        color: var(--tone-fg);
+      }
+      .btn-ghost[data-tone]:hover {
+        background: var(--tone-subtle);
+      }
+      .btn-primary[data-tone] > .ico,
+      .split[data-tone] .btn-primary.split-main > .ico {
+        color: var(--tone-base);
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        background: var(--gray-50);
+      }
+      body {
+        margin: 0;
+        font: 400 14px/1.5 var(--font-sans);
+        color: var(--fg-1);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      :is(button, a, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      code {
+        font: 400 12px/1.4 var(--font-mono);
+        background: var(--neutral-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0 4px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+      .ico {
+        flex: none;
+        display: block;
+      }
+      [hidden] {
+        display: none !important;
+      }
+
+      /* ---------- packages/ui, re-drawn: Button, SplitButton, Badge, Switch, Menu, Tooltip ---------- */
+      .btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        font: 500 13px/1 var(--font-sans);
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        white-space: nowrap;
+        flex: none;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn.sm {
+        height: 28px;
+        padding: 0 10px;
+      }
+      .btn-secondary {
+        background: var(--surface);
+        color: var(--fg-1);
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-1);
+      }
+      .btn-secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .btn-primary:hover {
+        background: var(--primary-hover);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .btn-ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn-icon {
+        width: 32px;
+        padding: 0;
+      }
+      .btn-icon.has-text {
+        width: auto;
+        padding: 0 8px;
+      }
+      .btn-icon.has-caret {
+        width: auto;
+        padding: 0 6px 0 8px;
+        gap: 2px;
+      }
+      .btn .caret {
+        opacity: 0.7;
+      }
+      .btn-text {
+        font: 500 12px/1 var(--font-mono);
+      }
+      .btn-tag {
+        padding: 3px 5px;
+        border-radius: var(--radius-sm);
+        font: 600 10px/1 var(--font-mono);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        background: color-mix(in oklab, currentColor 14%, transparent);
+      }
+      .btn-count {
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        font: 600 11px/18px var(--font-sans);
+        text-align: center;
+        background: color-mix(in oklab, currentColor 18%, transparent);
+      }
+      .pr-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      .pr-dot[data-state="merged"] {
+        background: var(--violet-500);
+      }
+      .pr-dot[data-state="closed"] {
+        background: var(--danger);
+      }
+      .split {
+        display: inline-flex;
+        flex: none;
+      }
+      .split .split-main {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .split .split-arrow {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        margin-left: -1px;
+        padding: 0 7px;
+      }
+      .split .btn-secondary.split-arrow {
+        border-left-color: var(--border);
+      }
+      .split .btn-primary.split-arrow {
+        margin-left: 0;
+        border-left: 1px solid color-mix(in oklab, var(--primary-fg) 24%, transparent);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        font: 500 12px/1 var(--font-sans);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--neutral-border);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        white-space: nowrap;
+        flex: none;
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.merged {
+        border-color: color-mix(in oklab, var(--violet-500) 30%, transparent);
+        background: color-mix(in oklab, var(--violet-500) 12%, transparent);
+        color: var(--violet-500);
+      }
+      .switch {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+        font: 400 12px/1 var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .switch-track {
+        width: 26px;
+        height: 16px;
+        border-radius: 999px;
+        background: var(--primary);
+        position: relative;
+      }
+      .switch-track::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 12px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--primary-fg);
+      }
+      .menu-anchor {
+        position: relative;
+        display: inline-flex;
+        flex: none;
+      }
+      .menu {
+        width: 268px;
+        padding: 4px;
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-3);
+        text-align: left;
+      }
+      .menu-anchor > .menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        z-index: 30;
+      }
+      .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-height: 32px;
+        padding: 6px 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        font: 400 13px/1.25 var(--font-sans);
+        color: var(--fg-1);
+        text-align: left;
+        cursor: pointer;
+      }
+      .menu-item:hover {
+        background: var(--control-hover);
+      }
+      .menu-item > .ico {
+        color: var(--fg-3);
+      }
+      .menu-item[data-tone] > .ico {
+        color: var(--tone-fg);
+      }
+      .menu-item.danger,
+      .menu-item.danger > .ico {
+        color: var(--danger-fg);
+      }
+      .menu-item.danger:hover {
+        background: var(--danger-subtle);
+      }
+      .menu-label {
+        flex: 1;
+        display: grid;
+        gap: 2px;
+      }
+      .menu-label small {
+        font: 400 12px/1.3 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .menu-item .check {
+        color: var(--fg-2);
+      }
+      .menu-heading {
+        padding: 8px 10px 4px;
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .menu-divider {
+        height: 1px;
+        margin: 4px 0;
+        background: var(--border);
+      }
+      /* Tooltip, on hover and keyboard focus, for a control that shows no words */
+      [data-tip]:is(:hover, :focus-visible)::after {
+        content: attr(data-tip);
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 40;
+        width: max-content;
+        max-width: 260px;
+        padding: 6px 9px;
+        border-radius: var(--radius-md);
+        background: var(--tooltip-bg);
+        color: var(--tooltip-fg);
+        font: 400 12px/1.35 var(--font-sans);
+        white-space: normal;
+        text-align: left;
+        box-shadow: var(--shadow-3);
+        pointer-events: none;
+      }
+
+      /* ---------- The record heads, re-drawn from task-page.tsx and initiative-page.tsx ---------- */
+      .head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 10px 16px;
+      }
+      .head-main {
+        flex: 1 1 380px;
+        min-width: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .head-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .head h4 {
+        margin: 0;
+        font: 600 18px/1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+        color: var(--fg-1);
+      }
+      .project-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .project-mark {
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        font: 600 9px/1 var(--font-sans);
+        color: var(--white);
+        background: var(--ember-500);
+      }
+      .project-mark.teal {
+        background: var(--teal-500);
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .facts > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .facts > span:not(:first-child)::before {
+        content: "·";
+        margin-right: 9px;
+        color: var(--border-strong);
+      }
+      .head-notes {
+        flex-basis: 100%;
+        display: grid;
+        gap: 4px;
+      }
+      .head-note {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .head-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .head.task .head-actions {
+        padding-top: 18px;
+      }
+      /* Today and A: as work.css lays out .task-head-actions and .record-actions */
+      .head-actions.row-today {
+        flex: 100 1 0;
+        max-width: max-content;
+        min-width: min(100%, 200px);
+      }
+      /* As RecordActions keeps the row to its first line: what wraps past it is hidden. */
+      .actions-row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+      .actions-row.clip {
+        flex: 0 1 auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        row-gap: 14px;
+        height: 34px;
+        padding-top: 1px;
+        overflow: clip;
+        overflow-clip-margin: 4px;
+      }
+      .actions-row.clip:has([aria-expanded="true"]) {
+        overflow: visible;
+      }
+      .actions-row.clip > [data-overflowing] {
+        visibility: hidden;
+      }
+      /* B and C: the zones never wrap; the head puts them under the title when it runs out of room. */
+      .head-actions.row-zones {
+        flex: 0 0 auto;
+        max-width: 100%;
+      }
+      .zone-sep {
+        flex: none;
+        width: 1px;
+        height: 20px;
+        margin: 0 4px;
+        background: var(--border-strong);
+      }
+      .overflow-note {
+        flex-basis: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--warning-fg);
+      }
+      /* C: the control bar under the head */
+      .control-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
+        padding: 9px 10px 9px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-1);
+      }
+      .bar-words {
+        flex: 1 1 320px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        font: 400 13px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .bar-words > .ico {
+        color: var(--tone-fg, var(--fg-3));
+      }
+      .bar-words b {
+        font-weight: 600;
+        color: var(--tone-fg, var(--fg-1));
+      }
+      .control-bar .head-actions {
+        flex: none;
+      }
+      /* The Initiative page's Tasks block, its head only */
+      .tasks-block {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .tasks-block-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px 8px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tasks-block-head h5 {
+        margin: 0;
+        font: 600 13px/1.3 var(--font-sans);
+      }
+      .tasks-block-head .muted {
+        flex: 1;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .tasks-block-rows {
+        display: grid;
+        gap: 8px;
+        padding: 10px 14px 12px;
+      }
+      .skeleton-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .skeleton-row i {
+        display: block;
+        height: 8px;
+        border-radius: 4px;
+        background: var(--control-press);
+      }
+      .pin {
+        display: inline-grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        margin-left: 2px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--white);
+        font: 700 10px/1 var(--font-sans);
+        flex: none;
+      }
+
+      /* ---------- The page ---------- */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 24px;
+        padding: 14px 32px;
+        background: color-mix(in oklab, var(--surface) 92%, transparent);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border);
+      }
+      .topbar h1 {
+        margin: 0;
+        font: 600 16px/1.3 var(--font-sans);
+      }
+      .topbar h1 small {
+        display: block;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        margin-left: auto;
+      }
+      .control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .segmented {
+        display: inline-flex;
+        padding: 2px;
+        background: var(--control-press);
+        border-radius: 8px;
+      }
+      .segmented button {
+        height: 26px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .segmented button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+      }
+      main {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 28px 32px 80px;
+        display: grid;
+        gap: 44px;
+      }
+      section > h2 {
+        margin: 0 0 4px;
+        font: 600 16px/1.3 var(--font-sans);
+      }
+      section > .lede {
+        margin: 0 0 16px;
+        max-width: 880px;
+        font: 400 13px/1.55 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .scenarios {
+        display: grid;
+        gap: 24px;
+      }
+      .scenario {
+        display: grid;
+        gap: 10px;
+      }
+      .scenario-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 12px;
+      }
+      .scenario-head h3 {
+        margin: 0;
+        font: 600 14px/1.3 var(--font-sans);
+      }
+      .scenario-head p {
+        margin: 0;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .panels {
+        display: grid;
+        gap: 12px;
+      }
+      /* Menus open past a panel's foot, so the panel doesn't clip; its first and last parts take its corners. */
+      .panel {
+        background: var(--bg);
+        color: var(--fg-1);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+      }
+      .panel > :first-child {
+        border-radius: 11px 11px 0 0;
+      }
+      .panel > :last-child {
+        border-radius: 0 0 11px 11px;
+      }
+      .panel-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+        border-bottom: 1px solid var(--border);
+      }
+      .variant {
+        padding: 14px 18px 18px;
+        background: var(--surface);
+        display: grid;
+        gap: 12px;
+      }
+      .variant + .variant {
+        border-top: 1px solid var(--border);
+      }
+      .variant-label {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        font: 500 12px/1.3 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .variant-label b {
+        display: inline-grid;
+        place-items: center;
+        min-width: 22px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 4px;
+        font: 600 11px/1 var(--font-mono);
+        background: var(--neutral-subtle);
+        border: 1px solid var(--neutral-border);
+        color: var(--fg-1);
+      }
+      .variant[data-option="today"] .variant-label b {
+        font-weight: 500;
+        color: var(--fg-3);
+      }
+      .variant-label .what {
+        font-weight: 400;
+        color: var(--fg-3);
+      }
+      .rec {
+        display: inline-flex;
+        align-items: center;
+        height: 18px;
+        padding: 0 6px;
+        border-radius: 4px;
+        font: 600 10px/1 var(--font-mono);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--success-fg);
+        background: var(--success-subtle);
+        border: 1px solid var(--success-border);
+      }
+
+      /* Show only what the controls ask for */
+      body[data-palette="light"] .pal-dark,
+      body[data-palette="dark"] .pal-light {
+        display: none;
+      }
+      body[data-show="today"] .variant.filterable:not([data-option="today"]),
+      body[data-show="a"] .variant.filterable:not([data-option="a"]),
+      body[data-show="b"] .variant.filterable:not([data-option="b"]),
+      body[data-show="c"] .variant.filterable:not([data-option="c"]),
+      body[data-show="abc"] .variant.filterable[data-option="today"] {
+        display: none;
+      }
+
+      /* Problems */
+      .problems {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+        gap: 12px;
+        margin: 16px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .problems li {
+        display: flex;
+        gap: 10px;
+        padding: 12px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-card);
+        font: 400 13px/1.5 var(--font-sans);
+      }
+      .problems li .pin {
+        margin: 2px 0 0;
+      }
+      .problems b {
+        display: block;
+        font-weight: 600;
+      }
+      .problems span {
+        color: var(--fg-2);
+      }
+
+      /* Options */
+      .options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+        gap: 16px;
+      }
+      .option {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+        padding: 16px 18px 18px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        font: 400 13px/1.55 var(--font-sans);
+      }
+      .option.recommended {
+        border-color: var(--success-border);
+        box-shadow: 0 0 0 3px var(--success-subtle);
+      }
+      .option h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font: 600 15px/1.3 var(--font-sans);
+      }
+      .option h3 b {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        font: 600 12px/1 var(--font-mono);
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .option p {
+        margin: 0;
+        color: var(--fg-2);
+      }
+      .option h4 {
+        margin: 4px 0 0;
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .option ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .option li + li {
+        margin-top: 3px;
+      }
+      .plus li::marker {
+        color: var(--success);
+      }
+      .minus li::marker {
+        color: var(--danger);
+      }
+
+      table.compare {
+        width: 100%;
+        margin-top: 16px;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        overflow: hidden;
+        font: 400 13px/1.45 var(--font-sans);
+      }
+      .compare th,
+      .compare td {
+        padding: 10px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border);
+      }
+      .compare tr:last-child td {
+        border-bottom: 0;
+      }
+      .compare thead th {
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+        background: var(--bg);
+      }
+      .compare tbody th {
+        font-weight: 500;
+        color: var(--fg-1);
+        width: 26%;
+      }
+      .compare td.good {
+        color: var(--success-fg);
+      }
+      .compare td.bad {
+        color: var(--danger-fg);
+      }
+      .compare td.meh {
+        color: var(--warning-fg);
+      }
+
+      /* Rules of B, and the zone legend */
+      .zones-legend {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .zone-card {
+        padding: 12px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-card);
+        font: 400 12.5px/1.5 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .zone-card h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 4px;
+        font: 600 13px/1.3 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .zone-card h4 small {
+        font: 500 11px/1 var(--font-mono);
+        color: var(--fg-3);
+      }
+      .zone-sample {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      /* Menus side by side */
+      .menus {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px 28px;
+        padding: 18px;
+        background: var(--surface);
+      }
+      .menu-column {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+      }
+      .menu-column > small {
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      /* Narrow */
+      .narrow-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px 28px;
+        align-items: flex-start;
+        padding: 18px;
+        background: var(--surface);
+      }
+      .frame-narrow {
+        width: 390px;
+        max-width: 100%;
+        padding: 14px 16px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        box-shadow: var(--shadow-1);
+      }
+      .frame-narrow .head-main {
+        flex-basis: 100%;
+      }
+      .frame-narrow .head-actions {
+        flex-basis: 100%;
+        padding-top: 4px !important;
+      }
+      .frame-narrow [data-tip]:is(:hover, :focus-visible)::after {
+        left: 0;
+        right: auto;
+      }
+
+      /* Notes */
+      .notes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+        gap: 16px;
+      }
+      .note {
+        padding: 16px 18px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        font: 400 13px/1.55 var(--font-sans);
+      }
+      .note h3 {
+        margin: 0 0 6px;
+        font: 600 14px/1.3 var(--font-sans);
+      }
+      .note p {
+        margin: 0 0 8px;
+      }
+      .note ul,
+      .note ol {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .note li + li {
+        margin-top: 4px;
+      }
+      .note.recommend {
+        border-color: var(--success-border);
+        background: color-mix(in oklab, var(--success-subtle) 60%, var(--surface));
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        z-index: 60;
+        transform: translate(-50%, 16px);
+        opacity: 0;
+        pointer-events: none;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: var(--gray-900);
+        color: var(--white);
+        font: 400 13px/1.3 var(--font-sans);
+        box-shadow: var(--shadow-3);
+        transition:
+          opacity 160ms var(--ease-out),
+          transform 160ms var(--ease-out);
+      }
+      .toast.shown {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    </style>
+  </head>
+  <body data-palette="light" data-show="all">
+    <header class="topbar">
+      <h1>
+        Head actions
+        <small>The buttons and the More menu at the top right of a Task and an Initiative: three ways to tidy them.</small>
+      </h1>
+      <div class="controls">
+        <div class="control">
+          Palette
+          <div class="segmented" data-control="palette">
+            <button type="button" data-value="light" aria-pressed="true">Light</button>
+            <button type="button" data-value="dark" aria-pressed="false">Dark</button>
+            <button type="button" data-value="both" aria-pressed="false">Both</button>
+          </div>
+        </div>
+        <div class="control">
+          Show
+          <div class="segmented" data-control="show">
+            <button type="button" data-value="all" aria-pressed="true">Today, A, B and C</button>
+            <button type="button" data-value="abc" aria-pressed="false">A, B and C</button>
+            <button type="button" data-value="today" aria-pressed="false">Today</button>
+            <button type="button" data-value="a" aria-pressed="false">A</button>
+            <button type="button" data-value="b" aria-pressed="false">B</button>
+            <button type="button" data-value="c" aria-pressed="false">C</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What gets in the way today</h2>
+        <p class="lede">
+          The two busiest heads, as the app draws them now. An active Initiative can offer ten actions at once, and a stopped Task five. The numbers mark the problems listed under them.
+          Resize the browser window: the row hides its actions from the end, so what you see depends on the width.
+        </p>
+        <div class="scenarios" id="problem-scenarios"></div>
+        <ol class="problems" id="problems"></ol>
+      </section>
+
+      <section>
+        <h2>Three options</h2>
+        <p class="lede">
+          All three keep the design system&#8217;s Button, SplitButton and Menu, and the four tones. They differ in how far they go: A only merges actions that are alike, B also gives each
+          kind of action a fixed place, and C moves the actions out of the head into a bar of their own.
+        </p>
+        <div class="options" id="options"></div>
+        <table class="compare" id="compare"></table>
+      </section>
+
+      <section>
+        <h2>B&#8217;s zones</h2>
+        <p class="lede">
+          B sorts every head action into one of three zones, always in this order, so each kind is always in the same place. A zone with nothing to offer takes no room, and its divider goes
+          with it.
+        </p>
+        <div class="zones-legend" id="zones-legend"></div>
+      </section>
+
+      <section>
+        <h2>Task page head</h2>
+        <p class="lede">
+          The states with the most actions, in each option. Click a split button&#8217;s arrow or More to open its menu; hover an icon to see its words.
+        </p>
+        <div class="scenarios" id="task-scenarios"></div>
+      </section>
+
+      <section>
+        <h2>Initiative page head</h2>
+        <p class="lede">
+          The Initiative has the longest row. In B and C, Add a Task and Add an existing Task move to the head of the Tasks block, under the head, where the Tasks they add show up.
+        </p>
+        <div class="scenarios" id="initiative-scenarios"></div>
+      </section>
+
+      <section>
+        <h2>More menu</h2>
+        <p class="lede">
+          Today More lists every head action first, then its own items, so an active Initiative&#8217;s menu runs to 13 items and repeats the ten buttons beside it. In B and C, More holds
+          only what the head doesn&#8217;t show: its own items, in groups, plus whatever the width hides.
+        </p>
+        <div class="scenarios" id="menus"></div>
+      </section>
+
+      <section>
+        <h2>B on a narrow page</h2>
+        <p class="lede">
+          At 900px and below the actions go under the title, as today. B then folds the Go to zone into More, under the heading Go to, and shows Hold and stop and the secondary step as icons
+          in their tone, with their words on hover. The primary keeps its words.
+        </p>
+        <div class="scenarios" id="narrow"></div>
+      </section>
+
+      <section>
+        <h2>Notes for the review</h2>
+        <div class="notes" id="notes">
+          <div class="note recommend">
+            <h3>Recommendation: B, zones with one next step</h3>
+            <ul>
+              <li>It answers each complaint at its root: no tone shows twice in a head, the switch is gone from the row, links read as links, and the primary is always last before More.</li>
+              <li>The busiest head drops from ten buttons to four controls and two icons, so nothing is hidden at a usual width, and the row no longer changes with the window.</li>
+              <li>It stays where the eye already looks (top right) and costs no height, unlike C.</li>
+              <li>It is mostly a change to <code>RecordActions</code> and the hooks that build the actions; no new design-system part is needed.</li>
+              <li>C&#8217;s bar is worth a later look if you want each state to say why its buttons are there, but it overlaps the Needs you card and the Start notes, so I would not start there.</li>
+            </ul>
+          </div>
+
+          <div class="note">
+            <h3>Choices B makes that you may want to change</h3>
+            <ul>
+              <li>
+                <b>One primary.</b> When an active Initiative offers both Plan the Initiative and Start Ready Tasks, Start Ready Tasks is the primary (work that waits only on you) and Plan
+                the Initiative is the secondary. Today Plan the Initiative is the primary.
+              </li>
+              <li><b>Resume the Initiative</b> becomes the primary while the Initiative is paused, as Resume is on a Task.</li>
+              <li>
+                <b>Auto mode</b> becomes a choice in Plan the Initiative&#8217;s menu (On or Off, with a check), and the button shows a small &#8220;Auto&#8221; tag while it is on. The
+                remembered default stays as it is.
+              </li>
+              <li><b>Restart from&#8230;</b> and <b>Start over</b> move into Resume&#8217;s menu: they are the other ways a paused Task goes on.</li>
+              <li><b>Back to Shaping</b> moves to More: it is rare and undoes a step, so it shouldn&#8217;t sit among the buttons that move work on.</li>
+              <li><b>More stops repeating</b> the head&#8217;s actions. It lists only those the width hides, under Go to on a narrow page.</li>
+            </ul>
+          </div>
+
+          <div class="note">
+            <h3>What the build changes, for B</h3>
+            <ul>
+              <li><code>RecordAction</code> gets a <code>zone</code> (go-to, hold, next) in place of the order the hooks push today; <code>RecordActions</code> draws the zones with their dividers.</li>
+              <li>An action can carry <code>alternatives</code> (menu items), which draws it as a <code>SplitButton</code>; a go-to action is an <code>IconButton</code> with its words in a <code>Tooltip</code>.</li>
+              <li>
+                <code>withActionItems</code> adds only the hidden actions to More, and the hide-from-the-end logic gives way to the narrow rule: the go-to zone into More, the others as icons.
+              </li>
+              <li>The Initiative page&#8217;s Tasks block head gets Add a Task as a split button, with Add an existing Task in its menu.</li>
+              <li>
+                Spec: <code>screens/task-page.md</code> (Head actions, Task menu, Run controls), <code>screens/initiative-page.md</code> (Head actions, Initiative menu, Tasks block),
+                <code>4.1-ui-rules.md</code> (Action tones: one of each tone per head, go-to actions have none).
+              </li>
+              <li>The Idea card uses the same <code>RecordActions</code> at the small size, so B&#8217;s rules carry over to it; it isn&#8217;t drawn here.</li>
+            </ul>
+          </div>
+
+          <div class="note">
+            <h3>For the Gate</h3>
+            <p>Say which option to build, and anything to change in it. When you choose B, also say whether you are happy with:</p>
+            <ol>
+              <li>Start Ready Tasks as the primary over Plan the Initiative.</li>
+              <li>Add a Task and Add an existing Task in the Tasks block, not in the head.</li>
+              <li>More holding only what the head doesn&#8217;t show.</li>
+              <li>Auto mode as a choice in Plan the Initiative&#8217;s menu, with the &#8220;Auto&#8221; tag on the button.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      "use strict";
+
+      const ICONS = {
+        play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+        pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+        square: '<rect width="18" height="18" x="3" y="3" rx="2"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+        "arrow-up-to-line": '<path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        "external-link": '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+        "folder-tree": '<path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M3 5a2 2 0 0 0 2 2h3"/><path d="M3 3v13a2 2 0 0 0 2 2h3"/>',
+        "message-circle": '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+        "messages-square": '<path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        "list-plus": '<path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="M18 9v6"/><path d="M21 12h-6"/>',
+        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+        "folder-input": '<path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+        sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+        bug: '<path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/>',
+        wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+        "signal-high": '<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/>',
+        "signal-medium": '<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/>',
+        "signal-low": '<path d="M2 20h.01"/><path d="M7 20v-4"/>',
+        files: '<path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/>',
+        "git-pull-request": '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/>',
+        "git-branch": '<line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+        "undo-2": '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+        "rotate-ccw": '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+        "skip-back": '<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/>',
+        "eye-off": '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+        "circle-dot": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
+        "circle-check": '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+        "circle-pause": '<circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/>',
+        "circle-dashed": '<path d="M10.1 2.182a10 10 0 0 1 3.8 0"/><path d="M13.9 21.818a10 10 0 0 1-3.8 0"/><path d="M17.609 3.721a10 10 0 0 1 2.69 2.7"/><path d="M2.182 13.9a10 10 0 0 1 0-3.8"/><path d="M20.279 17.609a10 10 0 0 1-2.7 2.69"/><path d="M21.818 10.1a10 10 0 0 1 0 3.8"/><path d="M3.721 6.391a10 10 0 0 1 2.7-2.69"/><path d="M6.391 20.279a10 10 0 0 1-2.69-2.7"/>',
+        lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+      };
+
+      function icon(name, size = 14) {
+        const paths = ICONS[name] || ICONS["circle-dot"];
+        return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+      }
+
+      function esc(text) {
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      /* ---------- What the drawings are made of ---------- */
+
+      const PLANNER = "Angela";
+
+      const btn = (label, iconName, options = {}) => ({ kind: "button", label, icon: iconName, ...options });
+      const split = (label, iconName, menu, options = {}) => ({ kind: "split", label, icon: iconName, menu, ...options });
+      const menuButton = (label, iconName, menu, options = {}) => ({ kind: "menu-button", label, icon: iconName, menu, ...options });
+      const toggle = (label, options = {}) => ({ kind: "switch", label, ...options });
+      const badge = (label, tone, options = {}) => ({ kind: "badge", label, tone, ...options });
+      const divider = { kind: "zone-divider" };
+
+      /* One Auto mode, shared by every drawing, so choosing it in one menu shows in every button. */
+      const autoMode = { on: true };
+
+      const AUTO_MODE_ITEMS = [
+        { heading: "Auto mode" },
+        { label: "On", hint: "Each Task is marked Ready once planned", autoMode: true },
+        { label: "Off", hint: "You confirm each Task as it is planned", autoMode: false },
+      ];
+
+      /* Actions, by what the app calls them */
+      const act = {
+        planWith: (o) => btn(`Plan with ${PLANNER}`, "map", { tone: "plan", narrowIcon: true, ...o }),
+        markReady: (o) => btn("Mark Ready", "check", { tone: "go", variant: "primary", ...o }),
+        startAnyway: (o) => btn("Start anyway", "play", { tone: "go", variant: "primary", ...o }),
+        queueBehind: (o) => btn("Queue behind it", "clock", { tone: "hold", narrowIcon: true, ...o }),
+        moveUp: (o) => split("Move up", "arrow-up", [{ label: "Move to top", icon: "arrow-up-to-line" }], { menuLabel: "More ways to move up", ...o }),
+        takeOut: (o) => btn("Take out of the queue", "x", { tone: "stop", variant: "ghost", narrowIcon: true, ...o }),
+        pause: (o) => btn("Pause", "pause", { tone: "hold", narrowIcon: true, hint: "Hold the Task once the Agent’s current turn ends, keeping the Stage’s edits", ...o }),
+        stop: (o) => btn("Stop", "square", { tone: "stop", narrowIcon: true, hint: "Interrupt the Agent now and discard the Stage’s uncommitted edits", ...o }),
+        resume: (o) => btn("Resume", "play", { tone: "go", variant: "primary", ...o }),
+        restartFrom: (o) => btn("Restart from…", "skip-back", { tone: "go", ...o }),
+        startOver: (o) => btn("Start over", "rotate-ccw", { tone: "go", ...o }),
+        resumeWithAlternatives: (o) =>
+          split(
+            "Resume",
+            "play",
+            [
+              { heading: "Other ways to go on" },
+              { label: "Restart from…", icon: "skip-back", tone: "go", hint: "Run a Stage you pick again, with feedback" },
+              { label: "Start over", icon: "rotate-ccw", tone: "go", hint: "Back to Ready, the branch reset" },
+            ],
+            { tone: "go", variant: "primary", menuLabel: "Other ways to go on", ...o },
+          ),
+        reopen: (o) => btn("Reopen…", "rotate-ccw", { tone: "go", ...o }),
+        openPullRequest: (o) => btn("Open pull request", "external-link", o),
+        browseFiles: (o) => btn("Browse files", "folder-tree", o),
+        pullRequestIcon: (number, state, o) =>
+          btn("Open pull request", "git-pull-request", {
+            variant: "ghost",
+            iconOnly: true,
+            text: `#${number}`,
+            dot: state,
+            tip: `Open pull request #${number}, ${state}`,
+            goTo: true,
+            ...o,
+          }),
+        browseFilesIcon: (o) => btn("Browse files", "folder-tree", { variant: "ghost", iconOnly: true, tip: "Browse files on the Task’s branch", goTo: true, ...o }),
+
+        confirmInitiative: (o) => btn("Confirm the Initiative", "check", { tone: "go", variant: "primary", ...o }),
+        planningThread: (o) => btn("Planning Thread", "messages-square", { tone: "plan", ...o }),
+        planningThreadIcon: (o) => btn("Planning Thread", "messages-square", { variant: "ghost", iconOnly: true, tip: "Open the planning Thread", goTo: true, ...o }),
+        planTheInitiative: (o) => btn("Plan the Initiative", "map", { tone: "plan", variant: "primary", ...o }),
+        planInitiativeWith: (o) => btn(`Plan with ${PLANNER}`, "message-circle", { tone: "plan", ...o }),
+        planTheInitiativeWithAlternatives: (variant, withThread, o) =>
+          split(
+            "Plan the Initiative",
+            "map",
+            [
+              ...AUTO_MODE_ITEMS,
+              { divider: true },
+              { label: `Plan with ${PLANNER}…`, icon: "message-circle", tone: "plan", hint: "Talk it through first, in a new planning Thread" },
+              ...(withThread ? [{ label: "Open the planning Thread", icon: "messages-square" }] : []),
+            ],
+            { tone: "plan", variant, menuLabel: "More ways to plan", autoTag: true, narrowIcon: variant !== "primary", ...o },
+          ),
+        startReadyTasks: (o) => btn("Start Ready Tasks", "play", { tone: "go", ...o }),
+        pauseInitiative: (o) => btn("Pause the Initiative", "pause", { tone: "hold", narrowIcon: true, hint: "Hold its running Tasks once each Agent’s current turn ends, and start none of its Tasks", ...o }),
+        resumeInitiative: (o) => btn("Resume the Initiative", "play", { tone: "go", ...o }),
+        addTask: (o) => btn("Add a Task", "plus", o),
+        addExistingTask: (o) => btn("Add an existing Task", "list-plus", o),
+        addTaskWithAlternatives: (o) =>
+          split("Add a Task", "plus", [{ label: "Add an existing Task", icon: "list-plus", hint: "One in no Initiative yet" }], { menuLabel: "Other ways to add a Task", ...o }),
+        browseFilesIn: (project, o) => btn(`Browse files in ${project}`, "folder-tree", o),
+        browseFilesMenu: (o) =>
+          menuButton(
+            "Browse files",
+            "folder-tree",
+            [{ heading: "Browse files in" }, { label: "the-office", icon: "folder-tree" }, { label: "not-astray", icon: "folder-tree" }],
+            { menuLabel: "Browse files", ...o },
+          ),
+        browseFilesMenuIcon: (o) =>
+          menuButton(
+            "Browse files",
+            "folder-tree",
+            [{ heading: "Browse files in" }, { label: "the-office", icon: "folder-tree" }, { label: "not-astray", icon: "folder-tree" }],
+            { variant: "ghost", iconOnly: true, tip: "Browse files, in each of its Projects", menuLabel: "Browse files", goTo: true, ...o },
+          ),
+        backToShaping: (o) => btn("Back to Shaping", "undo-2", o),
+      };
+
+      /* Menu items */
+      const asItem = (control) => ({ label: control.label, icon: control.icon, tone: control.tone });
+      const PRIORITY = [{ heading: "Priority" }, { label: "High", icon: "signal-high" }, { label: "Normal", icon: "signal-medium", checked: true }, { label: "Low", icon: "signal-low" }];
+      const KIND = [{ heading: "Kind" }, { label: "Feature", icon: "sparkles", checked: true }, { label: "Bug", icon: "bug" }, { label: "Chore", icon: "wrench" }];
+      const TASK_EDITS = [{ label: "Edit Stages for this Task", icon: "route" }, { label: "Move to another Project…", icon: "folder-input" }];
+      const DROP_TASK = [{ divider: true }, { label: "Drop…", icon: "x", danger: true }];
+      const DONE_TASK = [{ label: "Archive", icon: "archive" }, { label: "Delete branch…", icon: "git-branch" }];
+      const COPY_LINK = { label: "Copy link", icon: "link" };
+      const DROP_INITIATIVE = [{ divider: true }, { label: "Drop the Initiative", icon: "x", danger: true }];
+
+      /** Today: More starts with every head action, a divider, then its own items. */
+      function todayMenu(row, own) {
+        const actions = row.filter((c) => c.kind === "button" || c.kind === "split" || c.kind === "menu-button").map(asItem);
+        return [...actions, { divider: true }, ...own];
+      }
+
+      /** B and C on a narrow page: the Go to zone first, under its heading. */
+      function withGoTo(goTo, own) {
+        return [{ heading: "Go to" }, ...goTo, { divider: true }, ...own];
+      }
+
+      /* ---------- Rendering ---------- */
+
+      let menuCount = 0;
+
+      function renderMenuItems(items) {
+        return items
+          .map((item) => {
+            if (item.divider) return '<div class="menu-divider" role="separator"></div>';
+            if (item.heading) return `<div class="menu-heading">${esc(item.heading)}</div>`;
+            const tone = item.tone ? ` data-tone="${item.tone}"` : "";
+            const hint = item.hint ? `<small>${esc(item.hint)}</small>` : "";
+            const isAuto = item.autoMode !== undefined;
+            const checked = isAuto ? item.autoMode === autoMode.on : Boolean(item.checked);
+            const check = isAuto || item.checked ? `<span class="check"${checked ? "" : " hidden"} data-check>${icon("check")}</span>` : "";
+            const role = isAuto ? ` role="menuitemradio" aria-checked="${checked}" data-auto-mode="${item.autoMode}"` : ' role="menuitem"';
+            const iconHtml = item.icon ? icon(item.icon) : isAuto ? icon(item.autoMode ? "sparkles" : "circle-check") : "";
+            return `<button type="button" class="menu-item${item.danger ? " danger" : ""}"${tone}${role} data-act="${esc(item.label)}">${iconHtml}<span class="menu-label">${esc(item.label)}${hint}</span>${check}</button>`;
+          })
+          .join("");
+      }
+
+      function renderMenu(items) {
+        menuCount += 1;
+        const id = `menu-${menuCount}`;
+        return { id, html: `<div class="menu" role="menu" id="${id}" hidden>${renderMenuItems(items)}</div>` };
+      }
+
+      function pinHtml(control, context) {
+        return context.pins && control.pin ? `<span class="pin" aria-hidden="true">${control.pin}</span>` : "";
+      }
+
+      function showsIconOnly(control, context) {
+        return Boolean(control.iconOnly || (context.narrow && control.narrowIcon));
+      }
+
+      function innerHtml(control, context, iconOnly) {
+        const label = iconOnly ? "" : `<span>${esc(control.label)}</span>`;
+        const text = control.text ? `<span class="btn-text">${esc(control.text)}</span>` : "";
+        const dot = control.dot ? `<span class="pr-dot" data-state="${control.dot}"></span>` : "";
+        const tag = control.autoTag && !iconOnly ? `<span class="btn-tag" data-auto-tag${autoMode.on ? "" : " hidden"}>Auto</span>` : "";
+        const count = control.count ? `<span class="btn-count">${control.count}</span>` : "";
+        return `${icon(control.icon)}${label}${text}${dot}${tag}${count}${pinHtml(control, context)}`;
+      }
+
+      function buttonClasses(control, variant, iconOnly, extra = "") {
+        const classes = ["btn", `btn-${variant}`];
+        if (iconOnly) classes.push("btn-icon");
+        if (iconOnly && control.text) classes.push("has-text");
+        if (control.size === "sm") classes.push("sm");
+        if (extra) classes.push(extra);
+        return classes.join(" ");
+      }
+
+      function tipOf(control, iconOnly) {
+        if (iconOnly) return control.tip || control.label;
+        return control.hint || "";
+      }
+
+      function renderButton(control, context) {
+        const variant = control.variant || "secondary";
+        const iconOnly = showsIconOnly(control, context);
+        const tone = control.tone ? ` data-tone="${control.tone}"` : "";
+        const tip = tipOf(control, iconOnly);
+        const tipAttr = tip ? ` data-tip="${esc(tip)}"` : "";
+        const aria = iconOnly ? ` aria-label="${esc(control.tip || control.label)}"` : "";
+        return `<button type="button" class="${buttonClasses(control, variant, iconOnly)}"${tone}${tipAttr}${aria} data-name="${esc(control.label)}" data-act="${esc(control.label)}">${innerHtml(control, context, iconOnly)}</button>`;
+      }
+
+      function renderSplit(control, context) {
+        const variant = control.variant || "secondary";
+        const iconOnly = showsIconOnly(control, context);
+        const menu = renderMenu(control.menu);
+        const tone = control.tone ? ` data-tone="${control.tone}"` : "";
+        const tip = tipOf(control, iconOnly);
+        const tipAttr = tip ? ` data-tip="${esc(tip)}"` : "";
+        const aria = iconOnly ? ` aria-label="${esc(control.label)}"` : "";
+        const main = `<button type="button" class="${buttonClasses(control, variant, iconOnly, "split-main")}"${tipAttr}${aria} data-act="${esc(control.label)}">${innerHtml(control, context, iconOnly)}</button>`;
+        const arrow = `<button type="button" class="${buttonClasses({ size: control.size }, variant, false, "split-arrow")}" aria-haspopup="menu" aria-expanded="false" aria-controls="${menu.id}" aria-label="${esc(control.menuLabel)}" data-menu="${menu.id}">${icon("chevron-down")}</button>`;
+        return `<span class="split menu-anchor" role="group"${tone} data-name="${esc(control.label)}">${main}${arrow}${menu.html}</span>`;
+      }
+
+      function renderMenuButton(control, context) {
+        const variant = control.variant || "secondary";
+        const iconOnly = showsIconOnly(control, context);
+        const menu = renderMenu(control.menu);
+        const classes = buttonClasses(control, variant, iconOnly, iconOnly ? "has-caret" : "");
+        const tip = iconOnly ? ` data-tip="${esc(control.tip || control.label)}"` : "";
+        const label = iconOnly ? "" : `<span>${esc(control.label)}</span>`;
+        const trigger = `<button type="button" class="${classes}"${tip} aria-haspopup="menu" aria-expanded="false" aria-controls="${menu.id}" aria-label="${esc(control.menuLabel)}" data-menu="${menu.id}">${icon(control.icon)}${label}<span class="caret">${icon("chevron-down", 12)}</span>${pinHtml(control, context)}</button>`;
+        return `<span class="menu-anchor" data-name="${esc(control.label)}">${trigger}${menu.html}</span>`;
+      }
+
+      function renderControl(control, context) {
+        if (context.narrow && control.goTo) return "";
+        switch (control.kind) {
+          case "button":
+            return renderButton(control, context);
+          case "split":
+            return renderSplit(control, context);
+          case "menu-button":
+            return renderMenuButton(control, context);
+          case "switch":
+            return `<span class="switch" data-name="${esc(control.label)} switch"><span class="switch-track"></span>${esc(control.label)}${pinHtml(control, context)}</span>`;
+          case "badge":
+            return `<span class="badge ${control.tone}" data-name="${esc(control.label)}">${control.icon ? icon(control.icon, 12) : ""}${esc(control.label)}</span>`;
+          case "zone-divider":
+            return '<span class="zone-sep" aria-hidden="true"></span>';
+          default:
+            return "";
+        }
+      }
+
+      /** Zones on a narrow page lose their go-to controls; a divider left with nothing before it goes too. */
+      function renderControls(controls, context) {
+        const parts = controls.map((control) => renderControl(control, context)).filter(Boolean);
+        const kept = [];
+        for (const part of parts) {
+          const isDivider = part.includes("zone-sep");
+          const last = kept[kept.length - 1];
+          if (isDivider && (!last || last.includes("zone-sep"))) continue;
+          kept.push(part);
+        }
+        while (kept.length && kept[kept.length - 1].includes("zone-sep")) kept.pop();
+        return kept.join("");
+      }
+
+      function renderMore(items, label, context, pin) {
+        const menu = renderMenu(items);
+        const pinMark = context.pins && pin ? `<span class="pin" aria-hidden="true">${pin}</span>` : "";
+        const classes = pinMark ? "btn btn-secondary btn-icon has-text" : "btn btn-secondary btn-icon";
+        return `<span class="menu-anchor"><button type="button" class="${classes}" aria-haspopup="menu" aria-expanded="false" aria-controls="${menu.id}" aria-label="More for ${esc(label)}" data-tip="More for ${esc(label)}" data-menu="${menu.id}">${icon("ellipsis", 16)}${pinMark}</button>${menu.html}</span>`;
+      }
+
+      function renderHeadMain(record) {
+        const chip = record.kind === "task" ? `<span class="project-chip"><span class="project-mark">TO</span>the-office</span>` : "";
+        const badges = record.badges.map((b) => `<span class="badge ${b.tone || ""}">${b.icon ? icon(b.icon, 12) : ""}${esc(b.label)}</span>`).join("");
+        const facts = record.facts.map((fact) => `<span>${fact}</span>`).join("");
+        return `<div class="head-main">${chip}<div class="head-title"><h4>${esc(record.title)}</h4>${badges}</div><div class="facts">${facts}</div></div>`;
+      }
+
+      function renderNotes(notes) {
+        if (!notes || notes.length === 0) return "";
+        return `<div class="head-notes">${notes.map((n) => `<div class="head-note">${icon(n.icon)}<span>${n.text}</span></div>`).join("")}</div>`;
+      }
+
+      function renderTasksBlock(controls, context) {
+        const rows = [62, 48, 70]
+          .map((width) => `<div class="skeleton-row"><i style="width:14px"></i><i style="width:${width}%"></i></div>`)
+          .join("");
+        return `<div class="tasks-block"><div class="tasks-block-head"><h5>Tasks</h5><span class="muted">3 of 9 done · drawn short</span>${renderControls(controls, context)}</div><div class="tasks-block-rows">${rows}</div></div>`;
+      }
+
+      /**
+       * One head as an option draws it. `layout` is { row, more, notes?, bar?, tasks?, morePin? }:
+       * today and A clip the row as RecordActions does; B and C draw zones that never wrap.
+       */
+      function renderHead(record, option, layout, context = {}) {
+        const headClass = `head ${record.kind}`;
+        const clipped = option === "today" || option === "a";
+        const rowClass = clipped ? "actions-row clip" : "actions-row";
+        const actionsClass = clipped ? "head-actions row-today" : "head-actions row-zones";
+        const more = renderMore(context.narrow && layout.narrowMore ? layout.narrowMore : layout.more, record.title, context, layout.morePin);
+        const row = renderControls(layout.row, context);
+        const overflowNote = clipped ? '<div class="overflow-note" hidden></div>' : "";
+        const head = `<div class="${headClass}">${renderHeadMain(record)}<div class="${actionsClass}">${row ? `<div class="${rowClass}">${row}</div>` : ""}${more}</div>${overflowNote}${option === "c" ? "" : renderNotes(layout.notes)}</div>`;
+        const bar = layout.bar ? renderBar(layout.bar, context) : "";
+        const tasks = layout.tasks ? renderTasksBlock(layout.tasks, context) : "";
+        return head + bar + tasks;
+      }
+
+      function renderBar(bar, context) {
+        const tone = bar.tone ? ` data-tone="${bar.tone}"` : "";
+        const controls = bar.row && bar.row.length ? `<div class="head-actions row-zones"><div class="actions-row">${renderControls(bar.row, context)}</div></div>` : "";
+        return `<div class="control-bar"><div class="bar-words"${tone}>${icon(bar.icon, 16)}<span><b>${esc(bar.lead)}</b> ${bar.words}</span></div>${controls}</div>`;
+      }
+
+      const OPTION_NAMES = {
+        today: ["Today", "As the app draws it now"],
+        a: ["A", "Merge alike actions"],
+        b: ["B", "Zones with one next step"],
+        c: ["C", "A control bar"],
+      };
+
+      function renderVariant(record, option, layout, extraClass = "filterable") {
+        const [letter, name] = OPTION_NAMES[option];
+        const rec = option === "b" ? '<span class="rec">Recommended</span>' : "";
+        const what = layout.what ? `<span class="what">· ${layout.what}</span>` : "";
+        return `<div class="variant ${extraClass}" data-option="${option}"><div class="variant-label"><b>${letter}</b>${name}${rec}${what}</div>${renderHead(record, option, layout, { pins: layout.pins })}</div>`;
+      }
+
+      function renderScenario(target, scenario, options = ["today", "a", "b", "c"], extraClass = "filterable") {
+        const panels = ["light", "dark"]
+          .map((palette) => {
+            const variants = options.map((option) => renderVariant(scenario.record, option, scenario.layouts[option], extraClass)).join("");
+            return `<div class="panel pal-${palette}"><div class="panel-name">${palette === "light" ? "Light" : "Dark"}</div>${variants}</div>`;
+          })
+          .join("");
+        target.insertAdjacentHTML(
+          "beforeend",
+          `<div class="scenario"><div class="scenario-head"><h3>${esc(scenario.name)}</h3><p>${scenario.note}</p></div><div class="panels">${panels}</div></div>`,
+        );
+      }
+
+      /* ---------- The records ---------- */
+
+      const fact = (iconName, text) => `${icon(iconName, 13)}${text}`;
+      const projectChip = (mark, name, teal) => `<span class="project-chip"><span class="project-mark${teal ? " teal" : ""}">${mark}</span>${name}</span>`;
+
+      const taskFacts = (tokens) => [fact("sparkles", "Feature"), fact("signal-medium", "Normal priority"), fact("route", "Pipeline Default"), `${tokens} tokens`];
+
+      /* ---------- Task scenarios ---------- */
+
+      const TASK_SCENARIOS = [
+        {
+          name: "Backlog, with a Pipeline",
+          note: "Two planning actions. Fine today; drawn so you can see the same Task in every option.",
+          record: { kind: "task", title: "Show the usage caps on the Stats page", badges: [{ label: "Backlog" }], facts: taskFacts("0") },
+          layouts: {
+            today: { row: [act.planWith(), act.markReady()], more: todayMenu([act.planWith(), act.markReady()], [...PRIORITY, ...KIND, ...TASK_EDITS, ...DROP_TASK]) },
+            a: { what: "Unchanged", row: [act.planWith(), act.markReady()], more: todayMenu([act.planWith(), act.markReady()], [...PRIORITY, ...KIND, ...TASK_EDITS, ...DROP_TASK]) },
+            b: { what: "Next step: the secondary, then the primary", row: [act.planWith(), act.markReady()], more: [...PRIORITY, ...KIND, ...TASK_EDITS, ...DROP_TASK] },
+            c: {
+              row: [],
+              more: [...PRIORITY, ...KIND, ...TASK_EDITS, ...DROP_TASK],
+              bar: { lead: "Backlog.", words: `Plan it with ${PLANNER}, or mark it Ready as it stands.`, icon: "circle-dashed", row: [act.planWith(), act.markReady()] },
+            },
+          },
+        },
+        {
+          name: "Ready, with an Overlap",
+          note: "Start anyway (go, primary) beside Queue behind it (hold).",
+          record: { kind: "task", title: "Show the Stage history in the Task’s conversation", badges: [{ label: "Ready", tone: "success" }], facts: taskFacts("0") },
+          layouts: (() => {
+            const notes = [{ icon: "files", text: "Overlap: “Group the Stage history by run” is in progress and expects to change some of the same files." }];
+            const own = [...PRIORITY, ...KIND, ...TASK_EDITS, ...DROP_TASK];
+            return {
+              today: { notes, row: [act.queueBehind(), act.startAnyway()], more: todayMenu([act.queueBehind(), act.startAnyway()], own) },
+              a: { what: "Unchanged", notes, row: [act.queueBehind(), act.startAnyway()], more: todayMenu([act.queueBehind(), act.startAnyway()], own) },
+              b: { what: "Hold and stop | Next step", notes, row: [act.queueBehind(), divider, act.startAnyway()], more: own },
+              c: {
+                row: [],
+                more: own,
+                bar: { lead: "Overlap:", words: "“Group the Stage history by run” is in progress and expects to change some of the same files.", icon: "files", tone: "hold", row: [act.queueBehind(), divider, act.startAnyway()] },
+              },
+            };
+          })(),
+        },
+        {
+          name: "Ready and queued",
+          note: "Move up (a neutral split button) and Take out of the queue (stop, ghost).",
+          record: { kind: "task", title: "Import GitHub issues as Bug Tasks", badges: [{ label: "Ready", tone: "success" }, { label: "Queued", tone: "warning", icon: "clock" }], facts: taskFacts("0") },
+          layouts: (() => {
+            const notes = [{ icon: "clock", text: "Place 2 · the Developer’s Task limit is reached" }];
+            const own = [...PRIORITY, ...KIND, ...TASK_EDITS, ...DROP_TASK];
+            return {
+              today: { notes, row: [act.moveUp(), act.takeOut()], more: todayMenu([act.moveUp(), act.takeOut()], own) },
+              a: { what: "Unchanged", notes, row: [act.moveUp(), act.takeOut()], more: todayMenu([act.moveUp(), act.takeOut()], own) },
+              b: { what: "Take out of the queue moves to Hold and stop, before Move up", notes, row: [act.takeOut(), divider, act.moveUp()], more: own },
+              c: { row: [], more: own, bar: { lead: "Queued, place 2.", words: "The Developer’s Task limit is reached.", icon: "clock", tone: "hold", row: [act.takeOut(), divider, act.moveUp()] } },
+            };
+          })(),
+        },
+        {
+          name: "In progress, with a pull request",
+          note: "An earlier Publish opened a pull request, and the Task was restarted.",
+          record: { kind: "task", title: "Let a Stage stopped by the fire alarm start again", badges: [{ label: "In progress", tone: "info" }], facts: taskFacts("412k") },
+          layouts: (() => {
+            const own = [...KIND, ...TASK_EDITS, ...DROP_TASK];
+            const todayRow = [act.pause(), act.stop(), act.openPullRequest(), act.browseFiles()];
+            const goTo = [act.pullRequestIcon(212, "open"), act.browseFilesIcon()];
+            return {
+              today: { row: todayRow, more: todayMenu(todayRow, own) },
+              a: { what: "Unchanged", row: todayRow, more: todayMenu(todayRow, own) },
+              b: { what: "Go to (icons) | Hold and stop", row: [...goTo, divider, act.pause(), act.stop()], more: own, narrowMore: withGoTo([{ label: "Open pull request #212", icon: "git-pull-request" }, { label: "Browse files", icon: "folder-tree" }], own) },
+              c: { row: goTo, more: own, bar: { lead: "In progress", words: "at Implement, with Jim.", icon: "circle-dot", tone: "plan", row: [act.pause(), act.stop()] } },
+            };
+          })(),
+        },
+        {
+          name: "Stopped, with a pull request",
+          note: "The busiest Task head: five actions, three of them green.",
+          record: { kind: "task", title: "Retry a failed Publish from the Task page", badges: [{ label: "Stopped", tone: "warning" }], facts: taskFacts("1.2M") },
+          layouts: (() => {
+            const own = [...KIND, ...TASK_EDITS, ...DROP_TASK];
+            const todayRow = [act.resume(), act.restartFrom(), act.startOver(), act.openPullRequest(), act.browseFiles()];
+            const aRow = [act.resumeWithAlternatives(), act.openPullRequest(), act.browseFiles()];
+            const goTo = [act.pullRequestIcon(231, "open"), act.browseFilesIcon()];
+            return {
+              today: { row: todayRow, more: todayMenu(todayRow, own) },
+              a: { what: "Restart from… and Start over join Resume’s menu", row: aRow, more: todayMenu([act.resume(), act.restartFrom(), act.startOver(), act.openPullRequest(), act.browseFiles()], own) },
+              b: { what: "Go to (icons) | Next step, with its alternatives", row: [...goTo, divider, act.resumeWithAlternatives()], more: own, narrowMore: withGoTo([{ label: "Open pull request #231", icon: "git-pull-request" }, { label: "Browse files", icon: "folder-tree" }], own) },
+              c: { row: goTo, more: own, bar: { lead: "Stopped at Implement.", words: "Resume goes on from the latest run, in its Thread.", icon: "circle-pause", tone: "hold", row: [act.resumeWithAlternatives()] } },
+            };
+          })(),
+        },
+        {
+          name: "Done, its pull request merged",
+          note: "Only places to go, and the menu’s Archive and Delete branch.",
+          record: { kind: "task", title: "Show who answered a Decision", badges: [{ label: "Done", tone: "success" }], facts: taskFacts("688k") },
+          layouts: (() => {
+            const todayRow = [act.openPullRequest(), badge("Pull request merged", "merged"), act.browseFiles()];
+            const goTo = [act.pullRequestIcon(198, "merged"), act.browseFilesIcon()];
+            return {
+              today: { row: todayRow, more: todayMenu([act.openPullRequest(), act.browseFiles()], DONE_TASK) },
+              a: { what: "Unchanged", row: todayRow, more: todayMenu([act.openPullRequest(), act.browseFiles()], DONE_TASK) },
+              b: { what: "Go to only; the pull request’s state is its dot", row: goTo, more: DONE_TASK },
+              c: { row: goTo, more: DONE_TASK, bar: { lead: "Done.", words: "Pull request #198 merged.", icon: "circle-check", tone: "go", row: [] } },
+            };
+          })(),
+        },
+      ];
+
+      /* ---------- Initiative scenarios ---------- */
+
+      const initiativeFacts = (done, total, extra) => [`${projectChip("TO", "the-office")}&nbsp;&nbsp;${projectChip("NA", "not-astray", true)}`, `${done} of ${total} Tasks done`, ...extra];
+
+      const ACTIVE_RECORD = {
+        kind: "initiative",
+        title: "Connected devices",
+        badges: [{ label: "Active", tone: "info" }],
+        facts: initiativeFacts(3, 9, ["2 ready to start", "4 of 6 Tasks planned"]),
+      };
+
+      function activeInitiativeLayouts(pins) {
+        const todayRow = [
+          act.planningThread(),
+          act.planTheInitiative({ pin: pins ? 6 : undefined }),
+          toggle("Auto mode", { pin: pins ? 2 : undefined }),
+          act.planInitiativeWith({ pin: pins ? 1 : undefined }),
+          act.startReadyTasks(),
+          act.pauseInitiative(),
+          act.addTask(),
+          act.addExistingTask(),
+          act.browseFilesIn("the-office", { pin: pins ? 3 : undefined }),
+          act.browseFilesIn("not-astray"),
+          act.backToShaping(),
+        ];
+        const ownToday = [COPY_LINK, ...DROP_INITIATIVE];
+        const own = [{ label: "Back to Shaping", icon: "undo-2" }, COPY_LINK, ...DROP_INITIATIVE];
+        const goTo = [act.planningThreadIcon(), act.browseFilesMenuIcon()];
+        const nextStep = [act.planTheInitiativeWithAlternatives("secondary", false), act.startReadyTasks({ variant: "primary", count: 2 })];
+        const aRow = [act.planTheInitiativeWithAlternatives("primary", true), act.startReadyTasks(), act.pauseInitiative(), act.addTaskWithAlternatives(), act.browseFilesMenu(), act.backToShaping()];
+        return {
+          today: { pins, morePin: 5, row: todayRow, more: todayMenu(todayRow, ownToday) },
+          a: {
+            what: "Plan the Initiative takes Plan with, the planning Thread and Auto mode; the adds and Browse files merge",
+            row: aRow,
+            more: todayMenu(aRow, ownToday),
+          },
+          b: {
+            what: "Go to | Hold and stop | Next step; adding Tasks moves to the Tasks block",
+            row: [...goTo, divider, act.pauseInitiative(), divider, ...nextStep],
+            more: own,
+            narrowMore: withGoTo([{ label: "Planning Thread", icon: "messages-square" }, { label: "Browse files in the-office", icon: "folder-tree" }, { label: "Browse files in not-astray", icon: "folder-tree" }], own),
+            tasks: [act.addTaskWithAlternatives({ size: "sm" })],
+          },
+          c: {
+            row: goTo,
+            more: own,
+            bar: { lead: "Active.", words: "2 Tasks are Ready to start, and 2 wait in Backlog for a Plan.", icon: "circle-dot", tone: "plan", row: [act.pauseInitiative(), divider, ...nextStep] },
+            tasks: [act.addTaskWithAlternatives({ size: "sm" })],
+          },
+        };
+      }
+
+      const INITIATIVE_SCENARIOS = [
+        {
+          name: "Shaping",
+          note: "Confirm the Initiative, then the two adds.",
+          record: { kind: "initiative", title: "Usage caps across engines", badges: [{ label: "Shaping with Michael", tone: "info" }], facts: [projectChip("TO", "the-office"), "0 of 5 Tasks done"] },
+          layouts: (() => {
+            const todayRow = [act.confirmInitiative(), act.addTask(), act.addExistingTask()];
+            const own = [COPY_LINK, ...DROP_INITIATIVE];
+            return {
+              today: { row: todayRow, more: todayMenu(todayRow, own) },
+              a: { what: "The adds merge into one split button", row: [act.confirmInitiative(), act.addTaskWithAlternatives()], more: todayMenu([act.confirmInitiative(), act.addTaskWithAlternatives()], own) },
+              b: { what: "Next step only; adding Tasks is in the Tasks block", row: [act.confirmInitiative()], more: own, tasks: [act.addTaskWithAlternatives({ size: "sm" })] },
+              c: {
+                row: [],
+                more: own,
+                bar: { lead: "Shaping with Michael.", words: "Confirm it to move its 5 Tasks to Backlog, for Angela to plan.", icon: "lightbulb", tone: "plan", row: [act.confirmInitiative()] },
+                tasks: [act.addTaskWithAlternatives({ size: "sm" })],
+              },
+            };
+          })(),
+        },
+        {
+          name: "Active, with Tasks to plan and Tasks Ready",
+          note: "The busiest head of all: ten actions and a switch. Today the row hides what doesn’t fit, so the exact set you see depends on the width.",
+          record: ACTIVE_RECORD,
+          layouts: activeInitiativeLayouts(false),
+        },
+        {
+          name: "Paused",
+          note: "Resume the Initiative, the planning Thread, the adds and Browse files.",
+          record: { ...ACTIVE_RECORD, badges: [{ label: "Active", tone: "info" }, { label: "Paused", tone: "warning", icon: "pause" }] },
+          layouts: (() => {
+            const todayRow = [act.planningThread(), act.resumeInitiative(), act.addTask(), act.addExistingTask(), act.browseFilesIn("the-office"), act.browseFilesIn("not-astray"), act.backToShaping()];
+            const own = [{ label: "Back to Shaping", icon: "undo-2" }, COPY_LINK, ...DROP_INITIATIVE];
+            const goTo = [act.planningThreadIcon(), act.browseFilesMenuIcon()];
+            return {
+              today: { row: todayRow, more: todayMenu(todayRow, [COPY_LINK, ...DROP_INITIATIVE]) },
+              a: {
+                what: "The adds and Browse files merge",
+                row: [act.planningThread(), act.resumeInitiative(), act.addTaskWithAlternatives(), act.browseFilesMenu(), act.backToShaping()],
+                more: todayMenu([act.planningThread(), act.resumeInitiative(), act.addTaskWithAlternatives(), act.browseFilesMenu(), act.backToShaping()], [COPY_LINK, ...DROP_INITIATIVE]),
+              },
+              b: { what: "Resume the Initiative becomes the primary", row: [...goTo, divider, act.resumeInitiative({ variant: "primary" })], more: own, tasks: [act.addTaskWithAlternatives({ size: "sm" })] },
+              c: {
+                row: goTo,
+                more: own,
+                bar: { lead: "Paused.", words: "None of its Tasks starts until you resume it.", icon: "circle-pause", tone: "hold", row: [act.resumeInitiative({ variant: "primary" })] },
+                tasks: [act.addTaskWithAlternatives({ size: "sm" })],
+              },
+            };
+          })(),
+        },
+        {
+          name: "Done",
+          note: "Browse files, then Copy link and Archive in More.",
+          record: { kind: "initiative", title: "Pipeline flow editor", badges: [{ label: "Done", tone: "success" }], facts: [projectChip("TO", "the-office"), "6 of 6 Tasks done"] },
+          layouts: (() => {
+            const todayRow = [act.browseFiles()];
+            const own = [COPY_LINK, { label: "Archive", icon: "archive" }];
+            const goTo = [act.browseFilesIcon({ tip: "Browse files on the Initiative’s branch" })];
+            return {
+              today: { row: todayRow, more: todayMenu(todayRow, own) },
+              a: { what: "Unchanged", row: todayRow, more: todayMenu(todayRow, own) },
+              b: { what: "Go to only", row: goTo, more: own },
+              c: { row: goTo, more: own, bar: { lead: "Done.", words: "6 of 6 Tasks done.", icon: "circle-check", tone: "go", row: [] } },
+            };
+          })(),
+        },
+      ];
+
+      /* ---------- The problems ---------- */
+
+      const PROBLEMS = [
+        ["Same colour, different jobs", "Plan the Initiative, Plan with Angela and Planning Thread are all blue; Resume, Restart from… and Start over all green. The tone no longer points at one button."],
+        ["A switch among buttons", "Auto mode sits in the row as a switch, the only control there that doesn’t do something when pressed."],
+        ["Links look like actions", "Open pull request, Browse files and Planning Thread only take you somewhere, but look like the buttons that change the work."],
+        ["The width decides what shows", "The row hides from its end, so Back to Shaping or Add a Task are there on one screen and gone on another."],
+        ["More repeats everything", "More lists every head action again before its own items, so Drop and Archive sit at the foot of a 13-item menu."],
+        ["The primary moves", "It is first on a Task and second or third on an Initiative, so the eye has to look for it each time."],
+      ];
+
+      function renderProblems() {
+        const stopped = TASK_SCENARIOS[4];
+        const stoppedToday = {
+          ...stopped.layouts.today,
+          pins: true,
+          morePin: 5,
+          row: [act.resume({ pin: 6 }), act.restartFrom(), act.startOver({ pin: 1 }), act.openPullRequest({ pin: 3 }), act.browseFiles()],
+        };
+        renderScenario(
+          document.getElementById("problem-scenarios"),
+          { name: "Active Initiative", note: "Ten actions, a switch and More.", record: ACTIVE_RECORD, layouts: { today: activeInitiativeLayouts(true).today } },
+          ["today"],
+          "fixed",
+        );
+        renderScenario(document.getElementById("problem-scenarios"), { name: "Stopped Task", note: "Five actions and More.", record: stopped.record, layouts: { today: stoppedToday } }, ["today"], "fixed");
+        document.getElementById("problems").innerHTML = PROBLEMS.map(([title, words], index) => `<li><span class="pin">${index + 1}</span><div><b>${esc(title)}</b><span>${esc(words)}</span></div></li>`).join("");
+      }
+
+      /* ---------- Options and the comparison ---------- */
+
+      const OPTIONS = [
+        {
+          letter: "A",
+          name: "Merge alike actions",
+          summary: "The smallest change. Actions that are other ways of doing the same thing join one split button; the row and More stay as they are.",
+          changes: [
+            "Resume’s menu holds Restart from… and Start over.",
+            "Plan the Initiative’s menu holds Auto mode, Plan with Angela and the planning Thread.",
+            "Add a Task’s menu holds Add an existing Task; Browse files becomes one menu for every Project.",
+          ],
+          plus: ["No tone shows twice.", "The switch leaves the row.", "Little to build: three hooks and SplitButton."],
+          minus: ["An active Initiative still has six buttons, and the row still hides some at medium widths.", "Links still look like actions; the primary still moves."],
+        },
+        {
+          letter: "B",
+          name: "Zones with one next step",
+          recommended: true,
+          summary: "Every action has a fixed place: Go to, then Hold and stop, then Next step, then More. One primary, always last before More.",
+          changes: [
+            "Everything A merges, plus: places to go become icons on the left.",
+            "Back to Shaping goes to More; Add a Task to the Tasks block.",
+            "More lists only its own items and what the width hides.",
+          ],
+          plus: ["At most four controls and two icons, so nothing is hidden at a usual width.", "Each kind of action is always in the same place, in the same colour.", "No new height, no new design-system part."],
+          minus: ["Go to icons need their tooltip the first few times.", "Changes the primary on an active Initiative (Start Ready Tasks over Plan the Initiative)."],
+        },
+        {
+          letter: "C",
+          name: "A control bar",
+          summary: "B’s zones, moved out of the head into a bar under it, beside a sentence that says where the work is and why these buttons are offered.",
+          changes: ["The head keeps only Go to and More.", "The Start notes (Overlap, the queue) become the bar’s sentence.", "Done records show the bar with words only."],
+          plus: ["Each state explains itself; most room for labels.", "Clear on a narrow page: the bar wraps under its sentence."],
+          minus: ["About 56px more on every Task and Initiative page.", "Says again what the Needs you card and the Pipeline rail say.", "The largest change, to two screens and their specs."],
+        },
+      ];
+
+      function renderOptions() {
+        document.getElementById("options").innerHTML = OPTIONS.map(
+          (option) => `<article class="option${option.recommended ? " recommended" : ""}">
+            <h3><b>${option.letter}</b>${esc(option.name)}${option.recommended ? '<span class="rec">Recommended</span>' : ""}</h3>
+            <p>${esc(option.summary)}</p>
+            <h4>What changes</h4><ul>${option.changes.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+            <h4>Gains</h4><ul class="plus">${option.plus.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+            <h4>Costs</h4><ul class="minus">${option.minus.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+          </article>`,
+        ).join("");
+
+        const rows = [
+          ["Controls on the busiest head (active Initiative)", ["bad", "10 buttons, a switch, More"], ["meh", "6 buttons, More"], ["good", "4 controls, 2 icons, More"], ["good", "4 in the bar; 2 icons, More in the head"]],
+          ["A tone shown twice", ["bad", "Yes: 3 blue, 3 green"], ["good", "No"], ["good", "No"], ["good", "No"]],
+          ["Auto mode", ["bad", "A switch in the row"], ["good", "In Plan’s menu, an Auto tag"], ["good", "In Plan’s menu, an Auto tag"], ["good", "In Plan’s menu, an Auto tag"]],
+          ["Places to go", ["bad", "Look like actions"], ["bad", "Look like actions"], ["good", "Icons, on their own"], ["good", "Icons, on their own"]],
+          ["The primary’s place", ["bad", "Moves"], ["bad", "Moves"], ["good", "Always last before More"], ["good", "Always last in the bar"]],
+          ["More", ["bad", "Repeats the head"], ["bad", "Repeats the head"], ["good", "Its own items, and what’s hidden"], ["good", "Its own items, and what’s hidden"]],
+          ["Height of the page", ["good", "As today"], ["good", "As today"], ["good", "As today"], ["meh", "About 56px more"]],
+          ["Size of the change", ["good", "None"], ["good", "Small"], ["meh", "Medium"], ["bad", "Large"]],
+        ];
+        document.getElementById("compare").innerHTML =
+          "<thead><tr><th></th><th>Today</th><th>A · Merge</th><th>B · Zones</th><th>C · Bar</th></tr></thead><tbody>" +
+          rows.map(([label, ...cells]) => `<tr><th>${esc(label)}</th>${cells.map(([grade, words]) => `<td class="${grade}">${esc(words)}</td>`).join("")}</tr>`).join("") +
+          "</tbody>";
+      }
+
+      /* ---------- B's zones ---------- */
+
+      function renderZonesLegend() {
+        const context = {};
+        const zones = [
+          {
+            name: "Go to",
+            order: "1 · left",
+            words: "Places the record leads to: its pull request (number and state), its files, its planning Thread. Ghost icons with their words on hover; no tone.",
+            sample: [act.pullRequestIcon(212, "open"), act.browseFilesIcon(), act.planningThreadIcon()],
+          },
+          {
+            name: "Hold and stop",
+            order: "2 · middle",
+            words: "What holds the work or takes it out: Pause, Stop, Queue behind it, Take out of the queue, Pause the Initiative. Amber and red.",
+            sample: [act.pause(), act.stop()],
+          },
+          {
+            name: "Next step",
+            order: "3 · right",
+            words: "What moves the work on: at most one secondary, then the one primary. Other ways of doing the step are its split button’s menu.",
+            sample: [act.planTheInitiativeWithAlternatives("secondary", false), act.startReadyTasks({ variant: "primary", count: 2 })],
+          },
+          {
+            name: "More",
+            order: "4 · last",
+            words: "The record’s own items, in groups, with Drop last and red. On a narrow page, the Go to zone first, under its heading.",
+            sample: [],
+            more: true,
+          },
+        ];
+        document.getElementById("zones-legend").innerHTML = zones
+          .map((zone) => {
+            const sample = zone.more ? renderMore([...KIND, ...TASK_EDITS, ...DROP_TASK], "the Task", context) : renderControls(zone.sample, context);
+            return `<div class="zone-card"><h4>${esc(zone.name)}<small>${esc(zone.order)}</small></h4>${esc(zone.words)}<div class="zone-sample">${sample}</div></div>`;
+          })
+          .join("");
+      }
+
+      /* ---------- More menus side by side ---------- */
+
+      function renderMenus() {
+        const target = document.getElementById("menus");
+        const active = activeInitiativeLayouts(false);
+        const stopped = TASK_SCENARIOS[4].layouts;
+        const columns = (palette) => {
+          const column = (title, items) => `<div class="menu-column"><small>${esc(title)}</small><div class="menu">${renderMenuItems(items)}</div></div>`;
+          return `<div class="panel pal-${palette}"><div class="panel-name">${palette === "light" ? "Light" : "Dark"}</div><div class="menus">
+            ${column("Active Initiative · today", active.today.more)}
+            ${column("Active Initiative · B and C", active.b.more)}
+            ${column("Stopped Task · today", stopped.today.more)}
+            ${column("Stopped Task · B and C", stopped.b.more)}
+            ${column("Plan the Initiative’s menu · A, B, C", act.planTheInitiativeWithAlternatives("secondary", false).menu)}
+            ${column("Resume’s menu · A, B, C", act.resumeWithAlternatives().menu)}
+          </div></div>`;
+        };
+        target.innerHTML = `<div class="panels">${columns("light")}${columns("dark")}</div>`;
+      }
+
+      /* ---------- B on a narrow page ---------- */
+
+      function renderNarrow() {
+        const target = document.getElementById("narrow");
+        const frames = [
+          { record: ACTIVE_RECORD, layout: activeInitiativeLayouts(false).b, label: "Active Initiative" },
+          { record: TASK_SCENARIOS[3].record, layout: TASK_SCENARIOS[3].layouts.b, label: "Task in progress" },
+          { record: TASK_SCENARIOS[4].record, layout: TASK_SCENARIOS[4].layouts.b, label: "Stopped Task" },
+        ];
+        const panel = (palette) => {
+          const items = frames
+            .map(({ record, layout, label }) => {
+              const head = renderHead(record, "b", { ...layout, tasks: undefined }, { narrow: true });
+              const menu = `<div class="menu-column"><small>Its More, narrow</small><div class="menu">${renderMenuItems(layout.narrowMore || layout.more)}</div></div>`;
+              return `<div class="menu-column"><small>${esc(label)} · 390px</small><div class="frame-narrow">${head}</div></div>${menu}`;
+            })
+            .join("");
+          return `<div class="panel pal-${palette}"><div class="panel-name">${palette === "light" ? "Light" : "Dark"}</div><div class="narrow-row">${items}</div></div>`;
+        };
+        target.innerHTML = `<div class="panels">${panel("light")}${panel("dark")}</div>`;
+      }
+
+      /* ---------- Behaviour ---------- */
+
+      function closeMenus() {
+        document.querySelectorAll(".menu-anchor > .menu:not([hidden])").forEach((menu) => {
+          menu.hidden = true;
+        });
+        document.querySelectorAll('[data-menu][aria-expanded="true"]').forEach((trigger) => trigger.setAttribute("aria-expanded", "false"));
+      }
+
+      function toggleMenu(trigger) {
+        const menu = document.getElementById(trigger.dataset.menu);
+        if (!menu) return;
+        const wasOpen = !menu.hidden;
+        closeMenus();
+        if (wasOpen) return;
+        menu.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+        const first = menu.querySelector(".menu-item");
+        if (first) first.focus({ preventScroll: true });
+      }
+
+      function chooseAutoMode(on) {
+        autoMode.on = on;
+        document.querySelectorAll("[data-auto-tag]").forEach((tag) => {
+          tag.hidden = !on;
+        });
+        document.querySelectorAll("[data-auto-mode]").forEach((item) => {
+          const checked = (item.dataset.autoMode === "true") === on;
+          item.setAttribute("aria-checked", String(checked));
+          const check = item.querySelector("[data-check]");
+          if (check) check.hidden = !checked;
+        });
+      }
+
+      let toastTimer;
+      function toast(words) {
+        const element = document.getElementById("toast");
+        element.textContent = words;
+        element.classList.add("shown");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => element.classList.remove("shown"), 2200);
+      }
+
+      /** As RecordActions does: what wraps past the first line is hidden, and the drawing says which. */
+      function measureRows() {
+        document.querySelectorAll(".actions-row.clip").forEach((row) => {
+          const items = [...row.children];
+          if (items.length === 0) return;
+          const firstTop = items[0].offsetTop;
+          const hidden = [];
+          for (const item of items) {
+            const overflows = item.offsetTop > firstTop + 4;
+            item.toggleAttribute("data-overflowing", overflows);
+            item.inert = overflows;
+            if (overflows && item.dataset.name) hidden.push(item.dataset.name);
+          }
+          const note = row.closest(".head").querySelector(".overflow-note");
+          if (!note) return;
+          note.hidden = hidden.length === 0;
+          const pinned = row.closest(".variant").querySelector(".pin") ? '<span class="pin" aria-hidden="true">4</span>' : "";
+          note.innerHTML = hidden.length ? `${icon("eye-off", 13)}<span>Hidden at this width, only in More: ${hidden.map(esc).join(", ")}</span>${pinned}` : "";
+        });
+      }
+
+      function setControl(name, value) {
+        document.body.dataset[name] = value;
+        document.querySelectorAll(`[data-control="${name}"] button`).forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.value === value)));
+        closeMenus();
+        requestAnimationFrame(measureRows);
+      }
+
+      document.addEventListener("click", (event) => {
+        const segment = event.target.closest("[data-control] button");
+        if (segment) {
+          setControl(segment.parentElement.dataset.control, segment.dataset.value);
+          return;
+        }
+        const trigger = event.target.closest("[data-menu]");
+        if (trigger) {
+          toggleMenu(trigger);
+          return;
+        }
+        const autoItem = event.target.closest("[data-auto-mode]");
+        if (autoItem) {
+          const on = autoItem.dataset.autoMode === "true";
+          chooseAutoMode(on);
+          closeMenus();
+          toast(on ? "Auto mode on: each Task is marked Ready once planned." : "Auto mode off: you confirm each Task as it is planned.");
+          return;
+        }
+        const action = event.target.closest("[data-act]");
+        if (action) {
+          closeMenus();
+          toast(`${action.dataset.act}: the app would do this here.`);
+          return;
+        }
+        if (!event.target.closest(".menu")) closeMenus();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeMenus();
+      });
+
+      window.addEventListener("resize", () => requestAnimationFrame(measureRows));
+
+      renderProblems();
+      renderOptions();
+      renderZonesLegend();
+      TASK_SCENARIOS.forEach((scenario) => renderScenario(document.getElementById("task-scenarios"), scenario));
+      INITIATIVE_SCENARIOS.forEach((scenario) => renderScenario(document.getElementById("initiative-scenarios"), scenario));
+      renderMenus();
+      renderNarrow();
+      requestAnimationFrame(measureRows);
+    </script>
+  </body>
+</html>

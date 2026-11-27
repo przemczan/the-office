@@ -77,6 +77,7 @@ export function usePlanWithAction(
     label: `Plan with ${planner}`,
     icon: "message-circle",
     tone: "plan",
+    alternativeTo: "plan-the-initiative",
     variant: "secondary",
     hint:
       stillPlanning ??

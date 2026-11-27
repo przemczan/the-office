@@ -1520,6 +1520,12 @@ function detailsSwitch(place: Locator) {
   return place.getByRole("group", { name: "Details" }).getByRole("switch");
 }
 
+/** Chooses On in Plan the Initiative's menu, whatever the remembered default was. */
+async function chooseInitiativeAutoMode(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "More ways to plan the initiative" }).click();
+  await page.getByRole("menu").getByRole("button", { name: "On", exact: true }).click();
+}
+
 /** The Auto mode switch beside Make a plan, in the Planner's tab of a Task in Backlog. */
 function autoModeSwitch(place: Locator) {
   return place.locator("label", { hasText: "Auto mode" }).getByRole("switch");
@@ -2875,7 +2881,9 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   const rail = page.getByRole("region", { name: "Pipeline · Quick fix" });
   const conversation = page.getByRole("complementary", { name: "Conversation" });
   const implement = stageOnRail(rail, "Implement");
-  await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
+  await expect(
+    page.locator(".task-head").getByText("Waiting on you", { exact: true }),
+  ).toBeVisible();
   await expect(implement).toContainText("Waiting on you");
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
@@ -3252,7 +3260,9 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     const implement = stageOnRail(rail, "Implement");
     const acceptance = stageOnRail(rail, "UI acceptance");
     await expect(gate).toBeVisible();
-    await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
+    await expect(
+      page.locator(".task-head").getByText("Waiting on you", { exact: true }),
+    ).toBeVisible();
     await expect(rail.getByText("At UI acceptance: waiting on you")).toBeVisible();
     await expect(page.getByRole("region", { name: "Needs you" })).toContainText("a Gate");
     // The card says what it waits for and a line of its facts. Only the checks before the Gate
@@ -3874,7 +3884,7 @@ test(
       await drop.click();
       await expect(details).toHaveCount(0);
       await expect(gate).toHaveCount(0);
-      await expect(page.locator(".task-head").getByText("Dropped")).toBeVisible();
+      await expect(page.locator(".task-head").getByText("Dropped", { exact: true })).toBeVisible();
       await expect(needsYou).toHaveText("This Task was dropped.");
       await expect(page.getByText("This Task was dropped, so you can read")).toBeVisible();
       await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
@@ -6183,7 +6193,7 @@ async function addTaskToInitiative(
   projectName: string,
   mustWaitFor: readonly string[],
 ): Promise<void> {
-  await page.getByRole("button", { name: "Add a Task" }).click();
+  await page.getByRole("button", { name: "Add a Task", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Add a Task to Usage exports for customers")).toBeVisible();
   await dialog.getByLabel("Title").fill(title);
@@ -7345,16 +7355,18 @@ test(
       );
 
       await page.goto(`/work/initiatives/${initiative.id}`);
-      const head = page.locator(".task-head");
-      const autoMode = autoModeSwitch(head);
-      // The switch starts at the remembered default.
+      // The choice starts at the remembered default.
       const remembered = autoModeSettingSchema.parse(
         await (await page.request.get("/api/settings/auto-mode")).json(),
       ).autoMode;
-      await expect(autoMode).toHaveAttribute("aria-checked", String(remembered));
-      if (!remembered) await head.getByText("Auto mode", { exact: true }).click();
-      await expect(autoMode).toHaveAttribute("aria-checked", "true");
-      await page.getByRole("button", { name: "Plan the Initiative" }).click();
+      await expect(page.getByRole("button", { name: /^Plan the Initiative/ })).toContainText(
+        remembered ? "Auto" : "Plan the Initiative",
+      );
+      await chooseInitiativeAutoMode(page);
+      await expect(page.getByRole("button", { name: /^Plan the Initiative/ })).toContainText(
+        "Auto",
+      );
+      await page.getByRole("button", { name: /^Plan the Initiative/ }).click();
       await expect(page.getByRole("link", { name: "Planning Thread" })).toBeVisible();
 
       const read = async (id: string) =>
@@ -7479,16 +7491,11 @@ test(
 
       const initiativeUrl = `/work/initiatives/${initiative.id}`;
       await page.goto(initiativeUrl);
-      const head = page.locator(".task-head");
-      const autoMode = autoModeSwitch(head);
-      // Read once the switch shows the remembered default, so the click never turns it off.
-      const remembered = autoModeSettingSchema.parse(
-        await (await page.request.get("/api/settings/auto-mode")).json(),
-      ).autoMode;
-      await expect(autoMode).toHaveAttribute("aria-checked", String(remembered));
-      if (!remembered) await head.getByText("Auto mode", { exact: true }).click();
-      await expect(autoMode).toHaveAttribute("aria-checked", "true");
-      await page.getByRole("button", { name: "Plan the Initiative" }).click();
+      await chooseInitiativeAutoMode(page);
+      await expect(page.getByRole("button", { name: /^Plan the Initiative/ })).toContainText(
+        "Auto",
+      );
+      await page.getByRole("button", { name: /^Plan the Initiative/ }).click();
 
       const read = async (id: string) =>
         taskSchema.parse(await (await page.request.get(`/api/tasks/${id}`)).json());
@@ -8267,7 +8274,7 @@ test(
 
       const initiativeUrl = `/work/initiatives/${initiative.id}`;
       await page.goto(initiativeUrl);
-      await page.getByRole("button", { name: "Plan the Initiative" }).click();
+      await page.getByRole("button", { name: /^Plan the Initiative/ }).click();
       await expect.poll(() => openDecisionAsking(page, ARCHIVE_SCOPE_QUESTION)).toBeTruthy();
       const { planningThreadId } = initiativeSchema.parse(
         await (await page.request.get(`/api/initiatives/${initiative.id}`)).json(),

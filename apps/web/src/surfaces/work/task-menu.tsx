@@ -34,11 +34,17 @@ export function TaskMenu({
   task,
   actions,
   offersBranchDeletion = false,
+  listed,
 }: {
   readonly task: TaskSummary;
   readonly actions?: readonly RecordAction[];
   /** Whether the menu asks for the Task's branch, which only its page does. */
   readonly offersBranchDeletion?: boolean;
+  /**
+   * The actions the menu lists, where the page's head and control bar already show the rest (their
+   * windows still open from here); all of `actions` when left out.
+   */
+  readonly listed?: readonly RecordAction[];
 }): ReactNode {
   const [open, setOpen] = useState(false);
   // The branch whose window is open, kept while the deletion it makes takes it off the menu.
@@ -155,24 +161,26 @@ export function TaskMenu({
         ]),
   ];
   const shownActions = actions ?? planningActions;
-  const items = withActionItems(shownActions, ownItems);
-  if (items.length === 0) return null;
+  const items = withActionItems(listed ?? shownActions, ownItems);
+  if (items.length === 0 && !shownActions.some(({ dialog }) => dialog)) return null;
   return (
     <>
-      <FloatingMenu
-        open={open}
-        onOpenChange={setOpen}
-        align="end"
-        width={220}
-        trigger={
-          <IconButton
-            size="xs"
-            icon={<Icon name="ellipsis" size={14} />}
-            label={`More for ${task.title}`}
-          />
-        }
-        items={items}
-      />
+      {items.length > 0 && (
+        <FloatingMenu
+          open={open}
+          onOpenChange={setOpen}
+          align="end"
+          width={220}
+          trigger={
+            <IconButton
+              size="xs"
+              icon={<Icon name="ellipsis" size={14} />}
+              label={`More for ${task.title}`}
+            />
+          }
+          items={items}
+        />
+      )}
       {shownActions.map(
         (action) => action.dialog && <Fragment key={action.key}>{action.dialog}</Fragment>,
       )}

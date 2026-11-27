@@ -75,6 +75,7 @@ export function useStartActions(task: Task): RecordAction[] {
       label: behind.size === 1 ? "Queue behind it" : "Queue behind them",
       icon: "clock",
       tone: "hold",
+      zone: "hold",
       disabled: starting.isPending,
       pending: pendingFor(queueBehind),
       onSelect: () => startWith(queueBehind),

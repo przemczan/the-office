@@ -97,6 +97,8 @@ export function useInitiativePauseAction(initiative: Initiative): RecordAction |
     label: paused ? "Resume the Initiative" : "Pause the Initiative",
     icon: paused ? "play" : "pause",
     tone: paused ? "go" : "hold",
+    zone: paused ? "next" : "hold",
+    ...(paused && { variant: "primary" as const }),
     hint: paused
       ? "Resume the Tasks its Pause held and let its Tasks start again"
       : "Hold its running Tasks once each Agent's current turn ends, and start none of its Tasks",

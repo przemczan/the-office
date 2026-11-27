@@ -773,7 +773,7 @@ test(
     ]);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-notes.png") });
 
-    const actions = page.locator(".task-head-actions");
+    const actions = page.locator(".control-bar-actions");
     await expect(actions).not.toContainText("Overlap");
     const startAnyway = await actions.getByRole("button", { name: "Start anyway" }).boundingBox();
     const queueBehind = await actions

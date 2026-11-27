@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { PullRequestEnd, TaskStage } from "@the-office/contracts";
-import { Badge, Icon, LinkButton, Tooltip } from "@the-office/ui";
+import { Badge, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { useSignedInUserId } from "../../shell/use-user-name.ts";
@@ -9,8 +9,8 @@ import type { RecordAction } from "./record-actions.tsx";
 import { pullRequestUrlOf } from "./stage-words.ts";
 
 /**
- * "Open pull request" in a Task's head, once its Publish has opened one: a link, in a new tab; once
- * the pull request was merged or closed, a badge beside it says so.
+ * "Open pull request" in a Task's head, once its Publish has opened one: a Go to icon, opening it in
+ * a new tab; once the pull request was merged or closed, a badge beside it says so.
  */
 export function pullRequestAction(
   taskStages: readonly TaskStage[] | null | undefined,
@@ -18,26 +18,14 @@ export function pullRequestAction(
 ): RecordAction | undefined {
   const url = pullRequestUrlOf(taskStages) ?? pullRequestEnd?.url;
   if (url === undefined) return undefined;
-  const link = (
-    <LinkButton href={url} target="_blank" rel="noopener noreferrer">
-      Open pull request
-      <Icon name="external-link" size={14} />
-    </LinkButton>
-  );
   return {
     key: "open-pull-request",
     label: "Open pull request",
     icon: "external-link",
+    zone: "go-to",
     onSelect: () => window.open(url, "_blank", "noopener,noreferrer"),
-    control:
-      pullRequestEnd === null ? (
-        link
-      ) : (
-        <span className="pull-request-end">
-          <PullRequestEndBadge end={pullRequestEnd} />
-          {link}
-        </span>
-      ),
+    link: (anchor) => <a {...anchor} href={url} target="_blank" rel="noopener noreferrer" />,
+    ...(pullRequestEnd !== null && { mark: <PullRequestEndBadge end={pullRequestEnd} /> }),
   };
 }
 

@@ -31,6 +31,7 @@ export function useRunControlActions(task: Task): RecordAction[] {
       label: "Pause",
       icon: "pause",
       tone: "hold",
+      zone: "hold",
       hint: "Hold the Task once the Agent's current turn ends, keeping the Stage's edits",
       pending: pausing.isPending,
       onSelect: () => pausing.mutate(task.id),
@@ -40,6 +41,7 @@ export function useRunControlActions(task: Task): RecordAction[] {
       label: "Stop",
       icon: "square",
       tone: "stop",
+      zone: "hold",
       hint: "Interrupt the Agent now and discard the Stage's uncommitted edits",
       pending: stopping.isPending,
       onSelect: () => stopping.mutate(task.id),
@@ -61,6 +63,7 @@ function useWaysBackActions(task: Task, offered: boolean): RecordAction[] {
       label: "Restart from…",
       icon: "rotate-ccw",
       tone: "go",
+      alternativeTo: "resume",
       ...offeredOrWhy(
         waysBack.restart,
         "End the held run and go on from a Stage you pick, with feedback if you like",
@@ -73,6 +76,7 @@ function useWaysBackActions(task: Task, offered: boolean): RecordAction[] {
       label: "Start over",
       icon: "refresh-ccw",
       tone: "go",
+      alternativeTo: "resume",
       ...offeredOrWhy(
         waysBack.startOver,
         "Take the Task back to Ready, to start from its first Stage",

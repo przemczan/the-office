@@ -19,6 +19,7 @@ import { useShaper } from "../../shell/work/use-shaper.ts";
 import { ArchivedBadge } from "./archive-parts.tsx";
 import { InitiativeAttachments } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
+import { AddTasks } from "./add-tasks.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
 import { InitiativeConversation } from "./initiative-conversation.tsx";
 import { TakeOutDialog } from "./initiative-membership.tsx";
@@ -171,6 +172,7 @@ function InitiativeHead({
       <InitiativeActions
         initiative={initiative}
         onStartedReadyTasks={onStartedReadyTasks}
+        {...(shaper && { shaper: shaper.card.name })}
         className="task-head-actions"
       />
     </header>
@@ -208,11 +210,14 @@ function TasksBlock({
       title="Tasks"
       summary={tasksFoldSummary(initiative, initiativeTasks)}
       side={
-        toTakeOut.length > 0 ? (
-          <Button size="sm" variant="secondary" onClick={() => setTakingOut(true)}>
-            Take out a Task
-          </Button>
-        ) : undefined
+        <>
+          {toTakeOut.length > 0 && (
+            <Button size="sm" variant="secondary" onClick={() => setTakingOut(true)}>
+              Take out a Task
+            </Button>
+          )}
+          <AddTasks initiative={initiative} initiativeTasks={initiativeTasks} tasks={tasks} />
+        </>
       }
     >
       {takingOut && (

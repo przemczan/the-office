@@ -2334,7 +2334,8 @@
 
 .record-fold-row {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 0 10px;
   align-items: center;
   padding-right: 14px;
 }
@@ -2343,16 +2344,22 @@
   background: var(--surface-hover);
 }
 
+/* Room for the arrow and the title: a side wider than what is left wraps under them, at the end. */
 .record-fold-head {
   gap: 8px;
+  min-width: min(100%, 180px);
   padding: 12px 0 12px 16px;
 }
 
 .record-fold-side {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   align-items: center;
+  margin-inline-start: auto;
+  padding-block: 6px;
 }
 
 .record-fold-body {
@@ -3530,8 +3537,8 @@
   color: var(--fg-3);
 }
 
-/* A Task's head: how its pull request ended, beside Open pull request. */
-.pull-request-end {
+/* A Go to icon with its mark beside it, such as how a Task's pull request ended (record-actions.tsx). */
+.go-to-marked {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -4960,4 +4967,84 @@ button.initiative-track-body:hover .stage-mark {
   .pipeline-diagram-body {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* The control bar under a Task's or an Initiative's head (record-actions.tsx): the sentence on
+   where the work is, then the hold zone, a divider and the next step last. It wraps under the
+   sentence on a narrow page. */
+.control-bar {
+  container-type: inline-size;
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px 10px 9px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-1);
+}
+
+.control-bar-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.control-bar-words {
+  flex: 1 1 320px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font: 400 13px/1.4 var(--font-sans);
+  color: var(--fg-2);
+}
+
+.control-bar-words > svg {
+  flex: none;
+  color: var(--action-tone-fg, var(--fg-3));
+}
+
+.control-bar-words b {
+  font-weight: 600;
+  color: var(--action-tone-fg, var(--fg-1));
+}
+
+/* At the end even when wrapped under the sentence, so a split button's menu, aligned with its end,
+   opens within the page. */
+.control-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+.control-bar-divider {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--border-strong);
+}
+
+/* On a narrow bar the buttons wrap, where the divider would end a line on its own. */
+@container (max-width: 560px) {
+  .control-bar-divider {
+    display: none;
+  }
+}
+
+/* "Auto" on Plan the Initiative's button while Auto mode is on. */
+.action-tag {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in oklab, currentColor 14%, transparent);
+  font: 600 10px/16px var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
