@@ -422,11 +422,7 @@ describe("the whole app, signed out", () => {
         "write_tags",
       ],
       initiatives: ["create_initiative"],
-      officeSettings: [
-        "post_link_card",
-        "propose_office_setup",
-        "show_office_status",
-      ],
+      officeSettings: ["post_link_card", "propose_office_setup", "show_office_status"],
       operations: ["run_environment_check"],
       projectsAndSettings: ["change_project_settings", "propose_project"],
       work: ["create_task"],

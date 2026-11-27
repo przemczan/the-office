@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
+import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
@@ -14,6 +15,7 @@ import { OfficeUpdates, OfficeUpdatesModule, ScheduledExits } from "../../office
 import { createOfficeCheckout, updateSystem } from "../../office-updates/index.fixtures.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
+import { SubAgentMessagesKept } from "../domain/conversation-events.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import type { Thread } from "../domain/thread.js";
 import { NO_MASK } from "../ports/project-output-masks.js";
@@ -194,6 +196,43 @@ describe("a session's background Sub-agents", () => {
     expect(app.get(BusyWork).list()).toEqual([{ kind: "sub-agents", label: LABEL }]);
     await following.end();
     expect(app.get(BusyWork).list()).toEqual([]);
+  });
+});
+
+describe("a Sub-agent's messages", () => {
+  it("are kept and published when its text and tool calls arrive within its call", async () => {
+    const following = follow();
+    const kept: SubAgentMessagesKept[] = [];
+    app.get(EventBus).subscribe(SubAgentMessagesKept, (event) => void kept.push(event));
+    await following.take(subAgentStarted("agent-1", false));
+
+    await following.take({
+      kind: "text",
+      text: "The launcher exits with code 75.",
+      withinToolCall: "agent-1",
+    });
+    await following.take({
+      kind: "tool-call",
+      callId: "read-1",
+      tool: "Read",
+      officeTool: false,
+      input: { file_path: "/work/tools/office-launcher/launcher.ts" },
+      withinToolCall: "agent-1",
+    });
+    await following.take({
+      kind: "text",
+      text: "Not a Sub-agent's.",
+      withinToolCall: "unknown-call",
+    });
+
+    expect(kept.map(({ callId, messages }) => ({ callId, messages }))).toMatchObject([
+      {
+        callId: "agent-1",
+        messages: [{ kind: "text", text: "The launcher exits with code 75." }],
+      },
+      { callId: "agent-1", messages: [{ kind: "tool-activity", tool: "Read" }] },
+    ]);
+    await following.end();
   });
 });
 

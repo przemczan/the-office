@@ -71,6 +71,9 @@ export function sdkOptions({
     skills: [...(options.skills?.names ?? [])],
     settings: sessionSettings(options, apiKeyHelper),
     permissionPrompts: "none",
+    // Without it the SDK forwards a Sub-agent's tool calls only, never its text, so the
+    // Sub-agents tab would show no messages (docs/engine-check.md, engine.foreground-sub-agents).
+    forwardSubagentText: true,
     systemPrompt: {
       type: "preset",
       preset: "claude_code",

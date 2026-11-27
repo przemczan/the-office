@@ -353,6 +353,7 @@ Slow: 11 minutes each (`ENGINE_CHECK_LONG_TOOL_MINUTES`); run only with `--inclu
 ### engine.foreground-sub-agents
 
 - **Run:** one session whose `PreToolUse` hook allows a Sub-agent call (`Agent` or `Task`) with `updatedInput` setting `run_in_background: false`, every other field as the model gave it, as the Office rules hook does in a Stage session (spec 2.9, "In a Stage"). One turn asks for a background Sub-agent (`general-purpose`, `model: "haiku"`) that replies with a word, then for the Agent to repeat what it answered.
+- **Note:** a Sub-agent's text streams with `parent_tool_use_id` only when the query option `forwardSubagentText` is true (the SDK's `sdk.d.ts`); by default the SDK forwards just its `tool_use` and `tool_result` blocks. The service sets it (`sdk-options.ts`), and the same holds for `engine.background-tasks`' Sub-agents.
 - **Records:** how the turn ended; whether the model's call still asked for the background; the call's structured result status (`completed` in the foreground, `async_launched` in the background); `task_started`'s `is_backgrounded`, if it came; whether the word is in the call's result and in the turn's result.
 - **Observed:** not recorded. The service's hook and `BackgroundTasks` assume the engine takes the hook's `updatedInput` in place of the call's input: the call answers `completed` with the Sub-agent's word, within the turn.
 
