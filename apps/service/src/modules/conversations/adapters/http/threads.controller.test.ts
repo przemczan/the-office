@@ -15,6 +15,7 @@ import {
   threadListSchema,
   threadRefusalSchema,
   threadSchema,
+  threadStopSchema,
   threadWebEventSchema,
 } from "@the-office/contracts";
 import type { Pool } from "pg";
@@ -33,6 +34,7 @@ import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DecisionAnswered } from "../../domain/conversation-events.js";
+import { closeDecision } from "../../domain/thread-changes.js";
 import { oneWordsAnswer, type Decision, type DecisionDraft } from "../../domain/decision.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
@@ -110,6 +112,7 @@ import { PostgresFireAlarmLiftRepository } from "../postgres/postgres-fire-alarm
 import { ChangesAllowedRepository } from "../../ports/changes-allowed-repository.js";
 import { PostgresChangesAllowedRepository } from "../postgres/postgres-changes-allowed-repository.js";
 import { ChatActivity } from "../../application/chat-activity.js";
+import { ChatThreadDeletions } from "../../application/chat-thread-deletions.js";
 import { ChatActivityRepository } from "../../ports/chat-activity-repository.js";
 import { PostgresChatActivityRepository } from "../postgres/postgres-chat-activity-repository.js";
 import { ProjectOutputMasks } from "../../ports/project-output-masks.js";
@@ -315,6 +318,7 @@ function setUpEachTest(): void {
         { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
         { provide: ChatActivityRepository, useClass: PostgresChatActivityRepository },
         ChatActivity,
+        ChatThreadDeletions,
         MentionedRecords,
         ...openPageRecordProviders(),
         WorkRecords,
@@ -1181,6 +1185,200 @@ describe("what each signed-in user does", () => {
     const { version } = await app.get(OfficeInstructions).current();
     const versions = app.get(OfficeInstructionsRepository) as OfficeInstructionsRepositoryForTests;
     expect(versions.savedBy.get(version)).toEqual(BEN_ITO);
+  });
+});
+
+describe("Stop in a Thread", () => {
+  it("does nothing between turns, in a chat or on a Task", async () => {
+    const chat = await aThreadAt({ kind: "chat", roleKey: aPerson("Pam", true) });
+    const onTask = await aThreadAt({ kind: "task", taskId: randomUUID() });
+
+    for (const { id } of [chat, onTask]) {
+      const response = await send("POST", `/threads/${id}/stop`);
+      expect(response.status).toBe(200);
+      expect(threadStopSchema.parse(await response.json())).toEqual({
+        stopped: false,
+        sessionEnded: false,
+      });
+    }
+    expect(await app.get(ThreadRepository).messages(chat.id)).toEqual([]);
+  });
+
+  it("is refused in a Stage Thread and in a Consultation, and is not found for a Thread that isn't there", async () => {
+    const roleKey = aPerson("Pam", true);
+    const stage = aThread({
+      id: randomUUID(),
+      home: { kind: "task", taskId: randomUUID() },
+      roleKey,
+      stageThread: true,
+    });
+    const consultation = aThread({
+      id: randomUUID(),
+      home: { kind: "chat", roleKey },
+      roleKey,
+      consultation: {
+        decisionId: randomUUID(),
+        askerThreadId: randomUUID(),
+        askerRoleKey: undefined,
+      },
+    });
+    await app.get(ThreadRepository).add(stage);
+    await app.get(ThreadRepository).add(consultation);
+
+    for (const { id } of [stage, consultation]) {
+      const response = await send("POST", `/threads/${id}/stop`);
+      expect(response.status).toBe(422);
+      expect(threadRefusalSchema.parse(await response.json()).reasons).toHaveLength(1);
+    }
+    expect((await send("POST", `/threads/${randomUUID()}/stop`)).status).toBe(404);
+  });
+});
+
+/** A chat Thread of the person's with a session of its own. */
+async function inChatOf(roleKey: string): Promise<{ thread: Thread; sessionId: string }> {
+  const sessionId = randomUUID();
+  const thread = aThread({
+    id: randomUUID(),
+    home: { kind: "chat", roleKey },
+    roleKey,
+    title: "Docs-only Tasks",
+    session: {
+      id: sessionId,
+      roleKey,
+      cardVersion: 1,
+      officeInstructionsVersion: 0,
+      engineId: "claude-code",
+      startedAt: new Date(),
+      lastCallAt: new Date(),
+      contextTokens: 34_000,
+      startContextTokens: 33_000,
+      full: false,
+      changesAllowed: false,
+    },
+  });
+  await app.get(ThreadRepository).add(thread);
+  return { thread, sessionId };
+}
+
+const deletion = (roleKey: string, threadIds: string[]) =>
+  send("POST", `/chats/${roleKey}/threads/delete`, { threadIds });
+
+describe("deleting chat Threads", () => {
+  const question = {
+    kind: "choice",
+    question: "Which Pipeline for docs-only Tasks?",
+    options: ["Docs", "Default"],
+    recommendation: { option: 0, reason: "No code changes." },
+  } as const;
+  const draft: DecisionDraft = { context: "A docs-only Task.", questions: [question] };
+
+  it("deletes the Threads with what they hold, and keeps what was made in them", async () => {
+    const roleKey = aPerson("Pam", true);
+    const kept = await inChatOf(roleKey);
+    const gone = await inChatOf(roleKey);
+    app.get(ProposalAppliers).register("hire", {
+      problemsWith: () => Promise.resolve([]),
+      apply: (hire) => Promise.resolve({ ...hire, roleKey: "tester" }),
+    });
+    const asked = await app.get(DecisionService).open(gone.sessionId, draft);
+    const proposal = await app.get(ProposalService).draft(gone.sessionId, {
+      kind: "hire",
+      card: aProposedCard(),
+      skills: [],
+      roleKey: undefined,
+    });
+    await messageImages.keep({ kind: "thread", threadId: gone.thread.id }, "screen.png");
+    await messageImages.keep({ kind: "thread", threadId: kept.thread.id }, "kept.png");
+    await app
+      .get(ThreadService)
+      .log(gone.thread.id, [
+        { kind: "person", roleKey, text: "Docs go through the Docs Pipeline." },
+      ]);
+    published = [];
+
+    const response = await deletion(roleKey, [gone.thread.id]);
+
+    expect(response.status).toBe(204);
+    expect((await get(`/threads/${gone.thread.id}`)).status).toBe(404);
+    expect((await get(`/threads/${gone.thread.id}/messages`)).status).toBe(404);
+    expect((await get(`/threads/${kept.thread.id}`)).status).toBe(200);
+    const repository = app.get(ThreadRepository);
+    expect(await repository.decision(asked.decision.id)).toBeUndefined();
+    expect(await repository.proposal(proposal.id)).toBeUndefined();
+    expect([...messageImages.kept.values()].map(({ name }) => name)).toEqual(["kept.png"]);
+    const names = { threadId: gone.thread.id, home: gone.thread.home };
+    expect(webEvents()).toEqual([
+      { type: "thread.decision-closed", ...names, decisionId: asked.decision.id },
+      { type: "thread.proposal-declined", ...names, proposalId: proposal.id },
+      { type: "thread.deleted", ...names },
+    ]);
+  });
+
+  it("deletes none of them when one isn't in the person's chat, isn't there, or is a Task's", async () => {
+    const roleKey = aPerson("Pam", true);
+    const mine = await inChatOf(roleKey);
+    const another = await inChatOf(aPerson("Jan", true));
+    const onTask = await aThreadAt({ kind: "task", taskId: randomUUID() });
+
+    for (const refused of [another.thread.id, onTask.id, randomUUID()]) {
+      const response = await deletion(roleKey, [mine.thread.id, refused]);
+      expect(response.status).toBe(422);
+      expect(threadRefusalSchema.parse(await response.json()).reasons).toHaveLength(1);
+    }
+
+    expect((await get(`/threads/${mine.thread.id}`)).status).toBe(200);
+    expect((await get(`/threads/${another.thread.id}`)).status).toBe(200);
+    expect(published.map(({ constructor }) => constructor.name)).not.toContain("ThreadDeleted");
+  });
+
+  it("refuses a Consultation still waiting on its person and a Thread whose call is still out, until the Decision is closed", async () => {
+    const asker = await inChatOf(aPerson("Pam", true));
+    const consultantKey = aPerson("Jan", true);
+    const { decision } = await app
+      .get(DecisionService)
+      .open(asker.sessionId, draft, { putTo: consultantKey });
+    const consultation = aThread({
+      id: randomUUID(),
+      home: { kind: "chat", roleKey: consultantKey },
+      roleKey: consultantKey,
+      consultation: {
+        decisionId: decision.id,
+        askerThreadId: asker.thread.id,
+        askerRoleKey: asker.thread.roleKey,
+      },
+    });
+    await app.get(ThreadRepository).add(consultation);
+    const lockOf = async (id: string) =>
+      threadSchema.parse(await (await get(`/threads/${id}`)).json()).deletionLock;
+
+    expect([await lockOf(asker.thread.id), await lockOf(consultation.id)]).toEqual([
+      "open-call",
+      "open-consultation",
+    ]);
+    const listed = chatThreadPageSchema.parse(
+      await (await get(`/chats/${asker.thread.roleKey}/threads`)).json(),
+    );
+    expect(listed.rows.map(({ deletionLock }) => deletionLock)).toEqual(["open-call"]);
+    const refusedAsker = await deletion(asker.thread.roleKey, [asker.thread.id]);
+    const refusedConsultation = await deletion(consultantKey, [consultation.id]);
+    expect([refusedAsker.status, refusedConsultation.status]).toEqual([422, 422]);
+    expect((await get(`/threads/${asker.thread.id}`)).status).toBe(200);
+
+    await app
+      .get(ThreadRepository)
+      .update(asker.thread.id, (current) => closeDecision(current, decision.id, new Date()));
+
+    expect([await lockOf(asker.thread.id), await lockOf(consultation.id)]).toEqual([null, null]);
+    expect((await deletion(consultantKey, [consultation.id])).status).toBe(204);
+    expect((await deletion(asker.thread.roleKey, [asker.thread.id])).status).toBe(204);
+  });
+
+  it("has no lock for a Thread outside a chat", async () => {
+    const onTask = await aThreadAt({ kind: "task", taskId: randomUUID() });
+
+    expect(
+      threadSchema.parse(await (await get(`/threads/${onTask.id}`)).json()).deletionLock,
+    ).toBeNull();
   });
 });
 

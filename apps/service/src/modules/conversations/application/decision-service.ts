@@ -222,6 +222,21 @@ export class DecisionService {
   }
 
   /**
+   * The Thread is being deleted (spec §2.4.1): every Decision it still waits on is closed, so it
+   * leaves Needs you and can no longer be answered. A Decision a Consultant is to answer isn't
+   * closed here, as the Thread's deletion is refused while one is out.
+   */
+  async closeInDeletedThread(threadId: string): Promise<void> {
+    const thread = await this.repository.find(threadId);
+    for (const { id } of thread?.openDecisions ?? []) {
+      const { event } = await this.repository.update(threadId, (latest) =>
+        closeDecision(latest, id, new Date()),
+      );
+      if (event) await this.events.publish(event);
+    }
+  }
+
+  /**
    * Every Decision waiting on the user, the first asked first: what Needs you shows. Each is on a
    * Task, or on an Initiative as a whole in one of its Threads (`initiativeId` set); a chat's
    * Decision waits on the user inline in the chat, never here (spec §2.7).

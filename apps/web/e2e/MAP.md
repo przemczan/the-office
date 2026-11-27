@@ -32,6 +32,7 @@
 - `activity.e2e.ts`
 - `add-a-project.ts`: chooseFolder, sourceLine, fillTheForm, addAnswering
 - `authenticator.e2e.ts`
+- `chat-stop-and-delete.e2e.ts`
 - `desktop-notifications.ts`: DesktopRecord, recordDesktopNotifications, desktopShown, focusTab
 - `e2e-user.ts`: E2E_USER, E2E_STORAGE_STATE, NOT_SIGNED_IN, signInWithPassword
 - `fake-github.ts`: FAKE_GITHUB_URL, FAKE_GITHUB_API_URL, fakeGitHubVariables, InstalledRepository, startFakeGitHub, installApp, PullRequestControl, controlPullRequest, FakeWorkflowRun, addRun, setRun, FakeWorkflow, FakeDispatch, addWorkflow, addRef, dispatches, grantPermissions, FakeIssue, addIssue

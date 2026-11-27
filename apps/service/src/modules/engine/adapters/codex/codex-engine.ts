@@ -1,3 +1,4 @@
+import { rm } from "node:fs/promises";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { execFile } from "node:child_process";
 import { dirname } from "node:path";
@@ -47,7 +48,7 @@ import { pinnedCodexPath } from "./codex-binary.js";
 import type { CodexListedModel, CodexRequests, CodexThreadSettings } from "./codex-protocol.js";
 import { CodexAppServer, CodexRpcError, METHOD_NOT_FOUND, type CodexWireTap } from "./codex-rpc.js";
 import { codexEffort, CodexSession, type CodexConnect } from "./codex-session.js";
-import { CodexThreadFile } from "./codex-thread-file.js";
+import { CodexThreadFile, CodexThreadMissing } from "./codex-thread-file.js";
 import { codexUsageWindows, codexWindowsOf } from "./codex-usage-windows.js";
 import { startCodexUsageWindow } from "./codex-usage-window-start.js";
 import { WINDOW_START_PROMPT, windowStartWhat } from "../claude-code/usage-window-start.js";
@@ -269,6 +270,34 @@ export class CodexAppServerEngine extends AgentEngine {
         timeoutMs: this.setup.readTimeoutMs,
       },
     );
+  }
+
+  /**
+   * Deletes the session's thread and its history from the engine's folder (`thread/delete`) on an
+   * app-server started for it alone, then the file that kept the thread's id. A session that kept
+   * no thread has nothing to delete.
+   */
+  override async forgetSession(sessionId: string, engine: Engine): Promise<void> {
+    if (engine.kind !== "codex") return;
+    const file = this.threadFile(sessionId);
+    let threadId: string;
+    try {
+      threadId = await file.read();
+    } catch (error) {
+      if (error instanceof CodexThreadMissing) return;
+      throw error;
+    }
+    await this.readOnAppServer(
+      engine,
+      {
+        what: `Deleting the thread of the session ${sessionId}`,
+        signal: AbortSignal.timeout(60_000),
+      },
+      async (server) => {
+        await server.rpc.request("thread/delete", { threadId });
+      },
+    );
+    await rm(file.path, { force: true });
   }
 
   private threadFile(sessionId: string): CodexThreadFile {

@@ -80,7 +80,7 @@ Covers: the People grid, a person's page (head, Overview, Work, Conversations, M
 ## Conversations tab
 
 - Two columns.
-- Left: "Chat threads · N" (the person's chat Threads, newest first). Each row is a button with the Thread's title ("New thread" when it has none), "<context> · <tokens> tokens" and the start day and time; it opens that Thread in the chat.
+- Left: "Chat threads · N" (the person's chat Threads, newest first). Each row is a button with the Thread's title ("New thread" when it has none), "<context> · <tokens> tokens" and the start day and time; it opens that Thread in the chat. A Thread the user deletes ([2.4.1](../2.4.1-threads.md#deleting-a-chat-thread)) leaves the list as it goes, in every browser, and the total drops.
 - The block's **Open the chat** button shows when Chat is on and the person isn't let go.
 - With Chat off: "Chat is off for <name>: talk to them on a Task. It can be turned on on the Role card; earlier Threads stay readable."
 - Empty (Chat on): "No threads yet."

@@ -148,6 +148,12 @@ export const threadSchema = z.object({
   /** Its newest message's time, or when it started while it has none. Null outside a chat. */
   lastMovedAt: z.iso.datetime().nullable(),
   /**
+   * Why a chat Thread can't be deleted yet (spec §2.4.1, "Deleting a chat Thread"): it is a
+   * Consultation still waiting on the person, or the person's call to someone is still out. Null
+   * when it can be, and outside a chat, whose Threads are never deleted.
+   */
+  deletionLock: z.enum(["open-consultation", "open-call"]).nullable(),
+  /**
    * The skill commands the session that takes the next message offers: its library skills but
    * those an Office command's name takes. Empty in a Stage Thread, which takes no commands.
    */
@@ -213,6 +219,7 @@ export const threadSummarySchema = threadSchema
     consultation: true,
     answered: true,
     lastMovedAt: true,
+    deletionLock: true,
   })
   .extend({
     context: threadContextSchema.pick({
@@ -242,6 +249,18 @@ export type TaskThreadPage = z.infer<typeof taskThreadPageSchema>;
 /** PUT /threads/:id/seen: the newest message of the chat Thread the web has shown. */
 export const threadSeenSchema = z.object({ messageId: z.uuid() });
 export type ThreadSeen = z.infer<typeof threadSeenSchema>;
+
+/**
+ * POST /threads/:id/stop: stops the person answering in the Thread now (spec §2.4.5, "Stop in a
+ * person's Thread"). `stopped` is false when they weren't answering, which changes nothing;
+ * `sessionEnded` is true on an engine that can't interrupt, where the session ends instead.
+ */
+export const threadStopSchema = z.object({ stopped: z.boolean(), sessionEnded: z.boolean() });
+export type ThreadStop = z.infer<typeof threadStopSchema>;
+
+/** POST /chats/:roleKey/threads/delete: the chat Threads to delete, all or nothing. */
+export const chatThreadsDeletionSchema = z.object({ threadIds: z.array(z.uuid()).min(1).max(200) });
+export type ChatThreadsDeletion = z.infer<typeof chatThreadsDeletionSchema>;
 
 /**
  * GET /chats/activity: where each person's chat stands (spec §2.4); someone with no Threads isn't
@@ -957,6 +976,8 @@ export type ProposedChange = z.infer<typeof proposedChangeSchema>;
  */
 export const proposalDeclinedBecauseSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("consultation-closed") }),
+  /** Its chat Thread was deleted, which took the Proposal with it: the event only says so. */
+  z.object({ kind: z.literal("thread-deleted") }),
   z.object({ kind: z.literal("superseded"), proposalId: z.uuid() }),
 ]);
 export type ProposalDeclinedBecause = z.infer<typeof proposalDeclinedBecauseSchema>;
@@ -1441,6 +1462,8 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   /** The user saw more of a chat Thread, in one tab: the others update what they show as answered. */
   webEventSchema.extend({ type: z.literal("thread.seen"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.messages-logged"), ...threadWebEventFields }),
+  /** A chat Thread was deleted: every browser drops its row, its tab and an open Thread says so. */
+  webEventSchema.extend({ type: z.literal("thread.deleted"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.turn-ended"), ...threadWebEventFields }),
   /** The running turn counted more tokens: the Thread's tokens now, as GET /threads/:id has them. */
   webEventSchema.extend({

@@ -21,6 +21,7 @@ import { threadReadingLook } from "./context-reading-words.ts";
 import { useHandoverNotes } from "./handover-notes.tsx";
 import type { UploadMessageImages } from "./message-images.ts";
 import { useThreadDrafts } from "./thread-drafts.tsx";
+import { mayStopThread, StopButton, useStopping, type Stopping } from "./stop-button.tsx";
 import { takesMessages, writingPlaceholder } from "./thread-writing.ts";
 
 /**
@@ -87,12 +88,16 @@ export function ThreadComposer({
       await queryClient.invalidateQueries(threadQueries.messages(answering.id));
     },
   });
-  const commands = useOfficeCommands(thread);
+  const stopping = useStopping(thread);
+  const commands = useOfficeCommands(thread, personName, stopping);
   const closed = !takesMessages(thread);
   return (
     <>
       {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
       {commands.error && <RefusalAlert title="That didn't change" error={commands.error} />}
+      {stopping.error && (
+        <RefusalAlert title={`${personName} wasn't stopped`} error={stopping.error} />
+      )}
       {readOnlyReason === undefined && !thread.stageThread && (
         // A Stage's session is held at its safe point instead.
         <AlarmNote threadId={threadId} personName={personName} />
@@ -135,6 +140,8 @@ export function ThreadComposer({
             })
           }
           onLeaveNoteOut={() => handoverNotes.clear(threadId)}
+          // Send stays beside it: a message while the person answers redirects them.
+          stop={mayStopThread(thread) && <StopButton personName={personName} stopping={stopping} />}
           // A Stage's session is the Pipeline's: "/" stays ordinary text there.
           {...(thread.stageThread
             ? {}
@@ -157,14 +164,19 @@ interface SentMessage {
   readonly uploadImages: UploadMessageImages;
 }
 
-type ShownCommandNote = "help" | "starts-fresh" | "nothing-to-clear";
+type ShownCommandNote = "help" | "starts-fresh" | "nothing-to-clear" | "nothing-to-stop";
 
 /**
  * The Office commands of a Thread's message box (spec §2.4), carried out here and never sent: /clear
- * chooses Start fresh for the next message, where the context bar offers it, and /help lists the
- * commands. Each answers in a note above the composer, which isn't logged.
+ * chooses Start fresh for the next message, where the context bar offers it, /stop stops the person
+ * answering as the Stop button does, and /help lists the commands. Each answers in a note above
+ * the composer, which isn't logged.
  */
-function useOfficeCommands(thread: Thread): {
+function useOfficeCommands(
+  thread: Thread,
+  personName: string,
+  stopping: Stopping,
+): {
   readonly run: (name: OfficeCommandName) => void;
   readonly note: ReactNode;
   readonly closeNote: () => void;
@@ -186,20 +198,37 @@ function useOfficeCommands(thread: Thread): {
   const run = (name: OfficeCommandName): void => {
     choosing.reset();
     if (name === "help") setShown("help");
-    else if (startsFreshOffered) choosing.mutate();
+    else if (name === "stop") {
+      // Between turns there is nothing to stop; the person's own answer is what it ends.
+      if (mayStopThread(thread)) stopping.stop();
+      else setShown("nothing-to-stop");
+    } else if (startsFreshOffered) choosing.mutate();
     else setShown("nothing-to-clear");
   };
   const closeNote = (): void => setShown(undefined);
   const note = shown && (
-    <CommandNote label={shown === "help" ? "Commands" : "Clear"} onClose={closeNote}>
+    <CommandNote label={noteLabel(shown)} onClose={closeNote}>
       {shown === "help" ? (
         <CommandHelp skillCommands={thread.skillCommands} />
+      ) : shown === "nothing-to-stop" ? (
+        `${personName} isn't answering: nothing to stop.`
       ) : (
         clearWords(shown, thread)
       )}
     </CommandNote>
   );
   return { run, note, closeNote, error: choosing.error };
+}
+
+function noteLabel(shown: ShownCommandNote): string {
+  switch (shown) {
+    case "help":
+      return "Commands";
+    case "nothing-to-stop":
+      return "Stop";
+    default:
+      return "Clear";
+  }
 }
 
 function clearWords(shown: "starts-fresh" | "nothing-to-clear", { context }: Thread): string {

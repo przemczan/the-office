@@ -1920,3 +1920,10 @@ a.person-tag:hover .person-tag-name {
   justify-content: center;
   padding-top: 8px;
 }
+
+/* The second line of a tooltip, under its words. */
+.tooltip-sub {
+  display: block;
+  font-weight: 400;
+  opacity: 0.8;
+}

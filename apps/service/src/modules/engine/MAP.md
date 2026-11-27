@@ -82,6 +82,7 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `sdk-events.fixtures.ts`: message, RESULT
 - `sdk-events.ts`: sessionEvents, TurnTokens, toolResultText, RefusedTurns, usageWindows
 - `session-carry-over.ts`: carrySessionOver, carrySessionBetweenFolders, folderRewrite
+- `session-forget.ts`: forgetSessionFiles
 - `session-mcp-servers.ts`: McpServerConfig, mcpServerConfigs
 - `session-office-rules.ts`: ClaudeCodeSessionPlaces, claudeCodeOfficeRules
 - `session-settings.ts`: sessionTools, sessionSettings, sessionEnvironment
@@ -90,7 +91,7 @@ EngineSessions, StandInOptions, EngineRefused, EngineCapability, OfficeToolRegis
 - `stream-events.ts`: StreamEvents, userMessage, isInit, engineStopped
 - `tool-refusals.ts`: ToolRefusals
 - `usage-window-start.ts`: WINDOW_START_MODEL, WINDOW_START_PROMPT, windowStartWhat, requireUsageWindows, resultTokens, windowStartOf
-- Tests: background-tasks.full.test.ts, background-tasks.test.ts, claude-code-cli-accounts.full.test.ts, claude-code-cli-accounts.test.ts, engine-task-folder.full.test.ts, language-server-plugin.full.test.ts, listed-models.test.ts, mcp-config-file.test.ts, office-rules-hook.test.ts, office-tools.test.ts, refused-turns.test.ts, sdk-events.full.test.ts, sdk-events.test.ts, session-carry-over.test.ts, start-check.full.test.ts, start-check.test.ts, stream-events.full.test.ts, tool-refusals.full.test.ts
+- Tests: background-tasks.full.test.ts, background-tasks.test.ts, claude-code-cli-accounts.full.test.ts, claude-code-cli-accounts.test.ts, engine-task-folder.full.test.ts, language-server-plugin.full.test.ts, listed-models.test.ts, mcp-config-file.test.ts, office-rules-hook.test.ts, office-tools.test.ts, refused-turns.test.ts, sdk-events.full.test.ts, sdk-events.test.ts, session-carry-over.test.ts, session-forget.test.ts, start-check.full.test.ts, start-check.test.ts, stream-events.full.test.ts, tool-refusals.full.test.ts
 
 ### adapters/claude-code-p/
 

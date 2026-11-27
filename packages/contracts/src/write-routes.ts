@@ -49,6 +49,8 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
   // Decisions, Proposals, Threads.
   { route: "POST /proposals/:id/apply", specHeading: THE_USERS_ALONE },
   { route: "PUT /threads/:id/allow-changes", specHeading: THE_USERS_ALONE },
+  { route: "POST /threads/:id/stop", specHeading: THE_USERS_ALONE },
+  { route: "POST /chats/:roleKey/threads/delete", specHeading: THE_USERS_ALONE },
 
   // The fire alarm: an Agent may sound it, only the user eases it.
   { route: "POST /fire-alarm/all-clear", specHeading: THE_USERS_ALONE },

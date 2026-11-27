@@ -71,6 +71,7 @@ import { AllowChanges } from "./application/allow-changes.js";
 import { PostgresChangesAllowedRepository } from "./adapters/postgres/postgres-changes-allowed-repository.js";
 import { PostgresChatActivityRepository } from "./adapters/postgres/postgres-chat-activity-repository.js";
 import { ChatActivity } from "./application/chat-activity.js";
+import { ChatThreadDeletions } from "./application/chat-thread-deletions.js";
 import { ChatActivityRepository } from "./ports/chat-activity-repository.js";
 import { ChangesAllowedRepository } from "./ports/changes-allowed-repository.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
@@ -181,6 +182,7 @@ export class ConversationsModule implements NestModule {
         SubAgentsAndProcesses,
         SessionStops,
         ChatActivity,
+        ChatThreadDeletions,
         ContextPolicySettingsService,
         OfficeInstructions,
         ThreadService,

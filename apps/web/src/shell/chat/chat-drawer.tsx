@@ -3,19 +3,31 @@ import { Link } from "@tanstack/react-router";
 import type { ChatActivity, Decision, Role, ThreadSummary } from "@the-office/contracts";
 import {
   Button,
+  Checkbox,
   EmptyState,
   Icon,
   IconButton,
   SidePanelEdge,
+  Tooltip,
   useCloseOnEscape,
 } from "@the-office/ui";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { ApiError } from "../../api/api-client.ts";
 import { markThreadSeen, startChatThread, threadQueries } from "../../api/conversations.ts";
+import { useThreadDeleted } from "../../api/deleted-threads.ts";
 import { rowsOf, totalOf } from "../../api/pages.ts";
 import { roleQueries } from "../../api/people.ts";
 import { MentionedDecisionWindow } from "../conversation/decision-window.tsx";
 import { ThreadView } from "../conversation/thread-view.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
+import { roleFirstName } from "../person-name.ts";
 import { OpenMentionedDecisionContext } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { ShowMore } from "../show-more.tsx";
@@ -32,7 +44,18 @@ import {
 import { StandingDot, StandingWords } from "./chat-standing.tsx";
 import { ChatTabs } from "./chat-tabs.tsx";
 import { chatStanding } from "./chat-words.ts";
+import { DeleteThreadsDialog, type DoomedThread } from "./delete-threads-dialog.tsx";
+import { deletionLockWords } from "./deletion-words.ts";
 import { useOpenPage } from "./open-page.ts";
+import {
+  NOTHING_PICKED,
+  pickable,
+  pickedAmong,
+  pickedMark,
+  pressAll,
+  pressRow,
+  type ThreadSelection,
+} from "./thread-selection.ts";
 import { useChatPeople } from "./use-chat-people.ts";
 import { useChat } from "./use-chat.tsx";
 import "./chat.css";
@@ -272,6 +295,11 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
   const threads = useInfiniteQuery(threadQueries.inChat(role.key));
   const activity = useQuery(threadQueries.chatActivity());
   const queryClient = useQueryClient();
+  const [selection, setSelection] = useState<ThreadSelection>();
+  const [deleting, setDeleting] = useState<{
+    readonly threads: readonly DoomedThread[];
+    readonly fromHead: boolean;
+  }>();
   const starting = useMutation({
     mutationFn: () => startChatThread(role.key),
     onSuccess: async (thread) => {
@@ -300,6 +328,20 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
       New thread
     </Button>
   );
+  const dialog = deleting && (
+    <DeleteThreadsDialog
+      roleKey={role.key}
+      personName={role.card.name}
+      threads={deleting.threads}
+      fromHead={deleting.fromHead}
+      onClose={() => setDeleting(undefined)}
+      onDeleted={() => {
+        setDeleting(undefined);
+        setSelection(undefined);
+        if (deleting.fromHead) chat.showThreadList();
+      }}
+    />
+  );
   if (shownId === undefined) {
     return (
       <div className="chat-threads">
@@ -318,11 +360,16 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
               total={totalOf(threads.data)}
               current={current}
               newThread={newThread}
+              personName={role.card.name}
+              selection={selection}
+              onSelection={setSelection}
+              onDelete={(doomed) => setDeleting({ threads: doomed, fromHead: false })}
               onOpen={chat.showThread}
             />
             <ShowMore list={threads} />
           </>
         )}
+        {dialog}
       </div>
     );
   }
@@ -344,7 +391,9 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
             onClick={() => starting.mutate()}
           />
         }
+        onDelete={(doomed) => setDeleting({ threads: [doomed], fromHead: true })}
       />
+      {dialog}
     </div>
   );
 }
@@ -364,6 +413,10 @@ function ThreadList({
   total,
   current,
   newThread,
+  personName,
+  selection,
+  onSelection,
+  onDelete,
   onOpen,
 }: {
   readonly threads: readonly ThreadSummary[];
@@ -371,21 +424,240 @@ function ThreadList({
   readonly total: number;
   readonly current: string | undefined;
   readonly newThread: ReactNode;
+  readonly personName: string;
+  /** What is picked to delete; undefined while the list isn't a selection. */
+  readonly selection: ThreadSelection | undefined;
+  readonly onSelection: (selection: ThreadSelection | undefined) => void;
+  readonly onDelete: (threads: readonly DoomedThread[]) => void;
   readonly onOpen: (threadId: string) => void;
 }): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  // The press that moved a box: its Shift isn't in the box's own change.
+  const shift = useRef(false);
+  const noteShift = (event: MouseEvent): void => {
+    shift.current = event.shiftKey;
+  };
   return (
     <>
-      {newThread}
-      <div className="chat-threads-count">Threads · {total}</div>
-      {threads.map((thread) => (
-        <ThreadItem
-          key={thread.id}
-          thread={thread}
-          active={thread.id === current}
-          onOpen={() => onOpen(thread.id)}
+      {selection ? (
+        <SelectionBar
+          threads={threads}
+          selection={selection}
+          onSelection={onSelection}
+          onDelete={() => onDelete(pickedAmong(selection, threads).map(doomedOf))}
         />
-      ))}
+      ) : (
+        <div className="chat-list-head">
+          {newThread}
+          <span className="chat-list-head-gap" />
+          <Tooltip content="Select Threads to delete">
+            <Button
+              variant="ghost"
+              iconLeft={<Icon name="list-checks" size={14} />}
+              onClick={() => onSelection(NOTHING_PICKED)}
+            >
+              Select
+            </Button>
+          </Tooltip>
+        </div>
+      )}
+      <div className="chat-threads-count">Threads · {total}</div>
+      {threads.map((thread) => {
+        const lock = thread.deletionLock;
+        return selection ? (
+          <SelectableThread
+            key={thread.id}
+            thread={thread}
+            picked={selection.picked.has(thread.id)}
+            lock={
+              lock &&
+              deletionLockWords(
+                lock,
+                personName,
+                thread.consultation?.askerRoleKey
+                  ? roleFirstName(thread.consultation.askerRoleKey, roles)
+                  : undefined,
+              )
+            }
+            onClickCapture={noteShift}
+            onPress={() => onSelection(pressRow(selection, threads, thread.id, shift.current))}
+          />
+        ) : (
+          <ThreadItem
+            key={thread.id}
+            thread={thread}
+            active={thread.id === current}
+            onOpen={() => onOpen(thread.id)}
+          />
+        );
+      })}
     </>
+  );
+}
+
+function doomedOf(thread: ThreadSummary): DoomedThread {
+  return {
+    id: thread.id,
+    title: thread.title ?? "New thread",
+    answering: thread.state === "answering",
+  };
+}
+
+/** The selection bar: it stays at the top while the list scrolls. */
+function SelectionBar({
+  threads,
+  selection,
+  onSelection,
+  onDelete,
+}: {
+  readonly threads: readonly ThreadSummary[];
+  readonly selection: ThreadSelection;
+  readonly onSelection: (selection: ThreadSelection | undefined) => void;
+  readonly onDelete: () => void;
+}): ReactNode {
+  const mark = pickedMark(selection, threads);
+  const count = pickedAmong(selection, threads).length;
+  const canPick = threads.filter(pickable).length;
+  const deleteButton = (
+    <Button
+      variant="danger"
+      iconLeft={<Icon name="trash-2" size={14} />}
+      disabled={count === 0}
+      onClick={onDelete}
+    >
+      Delete
+    </Button>
+  );
+  return (
+    <div className="chat-list-head selecting" role="toolbar" aria-label="Selected Threads">
+      <Checkbox
+        checked={mark === true}
+        indeterminate={mark === "mixed"}
+        label={
+          count === 0 ? (
+            <>
+              Select threads
+              <small className="chat-select-all-of">
+                {" "}
+                · {canPick} of {threads.length} shown
+              </small>
+            </>
+          ) : (
+            `${count} selected`
+          )
+        }
+        onChange={() => onSelection(pressAll(selection, threads))}
+      />
+      <span className="chat-list-head-gap" />
+      {count === 0 ? (
+        <Tooltip content="Pick the Threads to delete first">{deleteButton}</Tooltip>
+      ) : (
+        deleteButton
+      )}
+      <Button variant="ghost" onClick={() => onSelection(undefined)}>
+        Cancel
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * A row while selecting: a box, and a press anywhere on the row picks it. A locked Thread's box is
+ * off and its tooltip says why.
+ */
+function SelectableThread({
+  thread,
+  picked,
+  lock,
+  onClickCapture,
+  onPress,
+}: {
+  readonly thread: ThreadSummary;
+  readonly picked: boolean;
+  readonly lock: ReturnType<typeof deletionLockWords> | null;
+  readonly onClickCapture: (event: MouseEvent) => void;
+  readonly onPress: () => void;
+}): ReactNode {
+  const row = (
+    <div
+      className={`chat-thread selectable${picked ? " picked" : ""}${lock ? " locked" : ""}`}
+      onClickCapture={onClickCapture}
+    >
+      <Checkbox
+        checked={picked}
+        disabled={lock !== null}
+        label={<ThreadTitleLine thread={thread} />}
+        description={<ThreadSubLine thread={thread} lockReason={lock?.short} />}
+        onChange={onPress}
+        style={{ width: "100%" }}
+      />
+    </div>
+  );
+  if (!lock) return row;
+  return (
+    <Tooltip
+      focusable
+      content={
+        <>
+          {lock.tip}
+          <small className="tooltip-sub">{lock.detail}</small>
+        </>
+      }
+    >
+      {row}
+    </Tooltip>
+  );
+}
+
+function ThreadTitleLine({ thread }: { readonly thread: ThreadSummary }): ReactNode {
+  return (
+    <span className="chat-thread-title">
+      <span>{thread.title ?? "New thread"}</span>
+      {thread.answered === true && <span className="chat-dot answered" />}
+    </span>
+  );
+}
+
+function ThreadSubLine({
+  thread,
+  lockReason,
+}: {
+  readonly thread: ThreadSummary;
+  readonly lockReason?: string | undefined;
+}): ReactNode {
+  const warm = thread.context.cacheWarm;
+  return (
+    <span className="chat-thread-sub">
+      <span
+        className={warm ? "context-dot warm" : "context-dot"}
+        title={warm ? "Cache warm" : "Starts fresh with a brief, or continues a small context"}
+      />
+      {dayAndClockOf(thread.lastMovedAt ?? thread.startedAt)}
+      {thread.state === "answering" && (
+        <>
+          {" · "}
+          <span className="chat-standing answering">
+            <span className="chat-dot answering" />
+            answering
+          </span>
+        </>
+      )}
+      {thread.answered === true && (
+        <>
+          {" · "}
+          <span className="chat-standing answered">answered</span>
+        </>
+      )}
+      {lockReason !== undefined && (
+        <>
+          {" · "}
+          <span className="chat-lock-reason">
+            <Icon name="lock" size={11} />
+            {lockReason}
+          </span>
+        </>
+      )}
+    </span>
   );
 }
 
@@ -398,7 +670,6 @@ function ThreadItem({
   readonly active: boolean;
   readonly onOpen: () => void;
 }): ReactNode {
-  const warm = thread.context.cacheWarm;
   const answered = thread.answered === true;
   return (
     <button
@@ -407,32 +678,8 @@ function ThreadItem({
       aria-current={active}
       onClick={onOpen}
     >
-      <span className="chat-thread-title">
-        <span>{thread.title ?? "New thread"}</span>
-        {answered && <span className="chat-dot answered" />}
-      </span>
-      <span className="chat-thread-sub">
-        <span
-          className={warm ? "context-dot warm" : "context-dot"}
-          title={warm ? "Cache warm" : "Starts fresh with a brief, or continues a small context"}
-        />
-        {dayAndClockOf(thread.lastMovedAt ?? thread.startedAt)}
-        {thread.state === "answering" && (
-          <>
-            {" · "}
-            <span className="chat-standing answering">
-              <span className="chat-dot answering" />
-              answering
-            </span>
-          </>
-        )}
-        {answered && (
-          <>
-            {" · "}
-            <span className="chat-standing answered">answered</span>
-          </>
-        )}
-      </span>
+      <ThreadTitleLine thread={thread} />
+      <ThreadSubLine thread={thread} />
     </button>
   );
 }
@@ -442,16 +689,66 @@ function ShownThread({
   personName,
   othersAnswered,
   newThread,
+  onDelete,
 }: {
   readonly threadId: string;
   readonly personName: string;
   readonly othersAnswered: boolean;
   /** Starts another Thread with the same person, beside the way back to the list. */
   readonly newThread: ReactNode;
+  /** Asks to delete the open Thread, which the trash icon in its head does. */
+  readonly onDelete: (thread: DoomedThread) => void;
 }): ReactNode {
   const chat = useChat();
   const openPage = useOpenPage();
-  useReportingSeen(threadId);
+  const thread = useQuery(threadQueries.one(threadId));
+  const roles = useQuery(roleQueries.list()).data;
+  // Deleted by this browser, another or another user; a Thread the service no longer knows, as one
+  // a tab kept from before, is gone too.
+  const deleted =
+    useThreadDeleted(threadId) || (thread.error instanceof ApiError && thread.error.status === 404);
+  useReportingSeen(threadId, !deleted);
+  const back = (
+    <button
+      type="button"
+      className="chat-back"
+      title={`Every Thread with ${personName}`}
+      onClick={chat.showThreadList}
+    >
+      <Icon name="chevron-left" size={14} />
+      Threads
+      {othersAnswered && <span className="chat-dot answered" />}
+    </button>
+  );
+  if (deleted) {
+    return (
+      <section className="thread-view">
+        <div className="thread-view-head">{back}</div>
+        <div className="chat-thread-deleted">
+          <EmptyState
+            icon="trash-2"
+            title="This Thread was deleted"
+            description="Its messages are gone; what was made in it stays."
+            action={
+              <Button
+                variant="secondary"
+                iconLeft={<Icon name="chevron-left" size={14} />}
+                onClick={chat.showThreadList}
+              >
+                Back to Threads
+              </Button>
+            }
+          />
+        </div>
+      </section>
+    );
+  }
+  const shown = thread.data;
+  const lock = shown?.deletionLock;
+  const askerKey = shown?.consultation?.askerRoleKey;
+  const lockWords =
+    lock &&
+    deletionLockWords(lock, personName, askerKey ? roleFirstName(askerKey, roles) : undefined);
   return (
     <ThreadView
       threadId={threadId}
@@ -459,18 +756,42 @@ function ShownThread({
       openPage={openPage}
       back={
         <>
-          <button
-            type="button"
-            className="chat-back"
-            title={`Every Thread with ${personName}`}
-            onClick={chat.showThreadList}
-          >
-            <Icon name="chevron-left" size={14} />
-            Threads
-            {othersAnswered && <span className="chat-dot answered" />}
-          </button>
+          {back}
           {newThread}
         </>
+      }
+      headActions={
+        shown && (
+          <Tooltip
+            focusable={!!lockWords}
+            content={
+              lockWords ? (
+                <>
+                  {lockWords.tip}
+                  <small className="tooltip-sub">{lockWords.detail}</small>
+                </>
+              ) : (
+                "Delete the Thread"
+              )
+            }
+          >
+            <IconButton
+              className="thread-delete"
+              icon={<Icon name="trash-2" size={14} />}
+              label="Delete the Thread"
+              size="sm"
+              title=""
+              disabled={!!lockWords}
+              onClick={() =>
+                onDelete({
+                  id: threadId,
+                  title: shown.title ?? "New thread",
+                  answering: shown.state === "answering",
+                })
+              }
+            />
+          </Tooltip>
+        )
       }
     />
   );
@@ -480,9 +801,9 @@ function ShownThread({
  * Tells the service the newest message on screen, so what the user has seen holds in every browser
  * (spec §2.4). A hidden tab tells it nothing until the user comes back to it.
  */
-function useReportingSeen(threadId: string): void {
-  const messages = useQuery(threadQueries.messages(threadId));
-  const visible = useTabVisible();
+function useReportingSeen(threadId: string, enabled: boolean): void {
+  const messages = useQuery({ ...threadQueries.messages(threadId), enabled });
+  const visible = useTabVisible() && enabled;
   const newest = messages.data?.at(-1)?.id;
   const reported = useRef<string>(undefined);
   useEffect(() => {

@@ -105,6 +105,7 @@ export function toThreadResponse(
     changesAllowed: changesAllowed ?? null,
     answered: activity?.answered ?? null,
     lastMovedAt: activity?.lastMovedAt.toISOString() ?? null,
+    deletionLock: activity?.deletionLock ?? null,
     // A skill an Office command's name takes can't run as a command (spec §2.4).
     skillCommands: skillCommands
       .filter(({ name }) => !officeCommandClash(name))
@@ -152,6 +153,7 @@ export function toThreadSummaryResponse({
       : null,
     answered: activity?.answered ?? null,
     lastMovedAt: activity?.lastMovedAt.toISOString() ?? null,
+    deletionLock: activity?.deletionLock ?? null,
   };
 }
 

@@ -19,6 +19,7 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 - The place's way back first (in the chat drawer **Threads** and the new-Thread button, see [shell.md](shell.md#a-persons-chat)).
 - The Thread's title as `h3`: a chat Thread's title or "New thread"; a Task's or Initiative's Thread "With <name>" or "<title> · <name>"; a Consultation's own title.
 - A pencil icon button, "Rename the Thread", shows once the Thread has a title; it turns the title into a field "Thread title" with **Save** and **Cancel** (Enter saves, Esc cancels); a refusal shows "The title wasn't saved".
+- In a chat Thread a trash icon button, "Delete the Thread", opens the confirmation window of [shell.md](shell.md#a-persons-chat); it is off, its tooltip saying why, while the Thread is locked ([2.4.1](../2.4.1-threads.md#deleting-a-chat-thread)). No other Thread has it.
 - The **Details** switch (group "Details", title "Tool activity and context lines"): on shows tool activity and the context lines in every Thread's log; one browser setting for all Threads.
 
 ## Context bar
@@ -72,10 +73,11 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 
 - **Handover note · <name>**: the note as Markdown; a long one shows its first lines with **Read it in full** where a reader exists.
 - **Refusal**: "<tool> refused: <reason>"; **MCP server**: "The MCP server <name> didn't start: <reason>."; **Failure**: "<reason> · <time>"; **Consultation line**: the Office's own line.
-- Office lines (small, muted): "Changes allowed" / "Changes switched off", a usage-window used-up notice ("Usage window used up · resumes 14:00", local time), an engine switched, a held line (a square for Stop, a pause icon for Pause or the fire alarm).
+- Office lines (small, muted): "Changes allowed" / "Changes switched off", a usage-window used-up notice ("Usage window used up · resumes 14:00", local time), an engine switched, a held line (a square for Stop, a pause icon for Pause or the fire alarm), and the stopped line "<user> stopped <name>." (a square) where a user stopped their answer, adding "Their session ended, as their engine can't interrupt a turn: the next message starts a new one." on such an engine.
+- A user message's delivery mark reads "Lands at the next safe point", "Delivered" or "Not delivered: <name> finished first" / "Not delivered: you stopped <name>"; the user's own message that was stopped shows **Send again** beside it.
 - A **Decision** card ([decision-card.md](decision-card.md)) and the answer line of a Decision.
 - A **Proposal** card (Apply change, Not now, and by kind: Edit before hiring, Show it on the flow, Apply anyway; the card says what changes, as it was and as proposed; a generic Proposal is titled "Proposal: <action's title>", links its subject, adds Edit before applying where the subject has its own editor, and reads "Out of date" once its subject changed, [2.4.2](../2.4.2-decisions.md#proposals-and-approvals)), a **Link card** (a person's status and the button that opens a new chat Thread whose composer takes the Handover note, which the user edits or leaves out), an **Idea** card (an Idea captured in the Thread, with Shaped or Dropped when it is), the **Office status** card ("Office status", reading "Reading what waits on you…" until read). Their rules are in [2.4.1](../2.4.1-threads.md#what-a-thread-reads), [2.2](../2.2-people.md) and [6](../6-permissions-and-safety.md#a-persons-office-tools), which logs them in whichever Thread the user talks in, never in a Stage's Thread.
-- A Proposal The Office declined on its own says why instead of who declined it: "Declined as its Consultation closed" or "Declined as a newer Proposal changing the same was applied" ([2.2](../2.2-people.md), [2.4.3](../2.4.3-consultations.md#proposals-in-a-consultation)).
+- A Proposal The Office declined on its own says why instead of who declined it: "Declined as its Consultation closed", "Declined as its Thread was deleted" or "Declined as a newer Proposal changing the same was applied" ([2.2](../2.2-people.md), [2.4.3](../2.4.3-consultations.md#proposals-in-a-consultation)).
 - A link to a Proposal (`?proposal=<id>` with `taskThread` or `initiativeThread`, or its Waiting for you card opening a chat) brings its card into view and marks it (`aria-current`, the focus ring), as a link to a Decision does ([decision-card.md](decision-card.md)).
 
 ## Composer
@@ -86,6 +88,7 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 - Keys: Enter sends, Shift+Enter breaks the line; Enter that confirms an input method's word is no send. While nothing can be sent, Enter shows the reason under the field instead of doing nothing.
 - A message may be images alone.
 - While the person answers, a message lands at the next safe point (barge-in); a Stage Thread takes the user's messages only while the Stage's person is answering ([2.4.4](../2.4.4-messages.md#barge-in)). A refusal shows "The message wasn't sent".
+- While the person answers, a **Stop** button (square icon, "Stop <name>", "Stopping <name>…" while it ends the turn) shows between Mention and Send, and Send stays for a message that redirects them, in every Thread but a Stage Thread and a Consultation; one click stops, with no confirmation ([2.4.5](../2.4.5-stopping-and-restarts.md#stop-in-a-persons-thread)). A refusal shows "<name> wasn't stopped".
 - A draft is kept while the Thread is out of sight where the place says so (the chat drawer), and goes once sent.
 - A Task's first message to a person is written before its Thread exists and offers no commands.
 
@@ -109,8 +112,8 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 ### Commands
 
 - Offered in every Thread but a Stage Thread, where "/" stays ordinary text.
-- A "/" list shows while the draft starts with "/" and has no whitespace yet: the Office commands (`/clear`, `/help`), then the Thread's skill commands, each by its kind and filtered by prefix; arrows, Tab and Enter complete "/<name> ", Enter on a name typed whole sends.
-- An Office command never reaches the person, even while the Thread is busy: `/clear` chooses Start fresh where the context bar offers it, answering "Your next message starts a fresh session." (else "There's no session to start fresh yet: your next message starts one." or "Your next message starts a fresh session already."); `/help` lists the commands. Each answers in a note above the composer (labelled "Clear" or "Commands"), not logged, closed by Esc, its × or the next message.
+- A "/" list shows while the draft starts with "/" and has no whitespace yet: the Office commands (`/clear`, `/help`, `/stop`), then the Thread's skill commands, each by its kind and filtered by prefix; arrows, Tab and Enter complete "/<name> ", Enter on a name typed whole sends.
+- An Office command never reaches the person, even while the Thread is busy: `/clear` chooses Start fresh where the context bar offers it, answering "Your next message starts a fresh session." (else "There's no session to start fresh yet: your next message starts one." or "Your next message starts a fresh session already."); `/help` lists the commands; `/stop` stops the person as Stop does, answering "<name> isn't answering: nothing to stop." when idle. Each answers in a note above the composer (labelled "Clear", "Stop" or "Commands"), not logged, closed by Esc, its × or the next message.
 - A skill command is sent as ordinary text.
 - See [2.4.4](../2.4.4-messages.md#commands-in-the-message-box).
 
@@ -178,4 +181,5 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 - Context policy and the Brief: [2.5](../2.5-context-policy.md).
 - Sub-agents and Processes: [2.9](../2.9-sub-agents-and-processes.md), [2.9.3](../2.9.3-streaming-and-ui.md#the-ui).
 - Decisions in a Thread: [2.4.2](../2.4.2-decisions.md), [decision-card.md](decision-card.md).
-- Stopping: [2.4.5](../2.4.5-stopping-and-restarts.md); Stop is on the Task page's run controls, not in the Thread ([task-page.md](task-page.md)).
+- Stopping: [2.4.5](../2.4.5-stopping-and-restarts.md); in a Stage Thread Stop is on the Task page's run controls ([task-page.md](task-page.md)), in every other Thread it is in the Composer ([2.4.5](../2.4.5-stopping-and-restarts.md#stop-in-a-persons-thread)).
+- Deleting a chat Thread: [2.4.1](../2.4.1-threads.md#deleting-a-chat-thread).

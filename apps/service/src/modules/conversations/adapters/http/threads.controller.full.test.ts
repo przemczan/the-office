@@ -105,6 +105,7 @@ import { PostgresFireAlarmLiftRepository } from "../postgres/postgres-fire-alarm
 import { ChangesAllowedRepository } from "../../ports/changes-allowed-repository.js";
 import { PostgresChangesAllowedRepository } from "../postgres/postgres-changes-allowed-repository.js";
 import { ChatActivity } from "../../application/chat-activity.js";
+import { ChatThreadDeletions } from "../../application/chat-thread-deletions.js";
 import { ChatActivityRepository } from "../../ports/chat-activity-repository.js";
 import { PostgresChatActivityRepository } from "../postgres/postgres-chat-activity-repository.js";
 import { ProjectOutputMasks } from "../../ports/project-output-masks.js";
@@ -289,6 +290,7 @@ function setUpEachTest(): void {
         { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
         { provide: ChatActivityRepository, useClass: PostgresChatActivityRepository },
         ChatActivity,
+        ChatThreadDeletions,
         MentionedRecords,
         ...openPageRecordProviders(),
         WorkRecords,

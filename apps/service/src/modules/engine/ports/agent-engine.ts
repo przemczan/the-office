@@ -201,6 +201,18 @@ export abstract class AgentEngine {
   }
 
   /**
+   * Removes the ended session `sessionId`'s files from `engine`'s folder, its transcript and the
+   * history it kept (a chat Thread was deleted, spec §2.4.1), so nothing of it stays on the
+   * workstation. Nothing happens for a session the engine holds no files of, or an engine that keeps
+   * none; the session must have ended. Not a capability: an engine that keeps files overrides it.
+   */
+  forgetSession(sessionId: string, engine: Engine): Promise<void> {
+    void sessionId;
+    void engine;
+    return Promise.resolve();
+  }
+
+  /**
    * Starts `engine`'s 5-hour window (spec §5.4.6, "Starting the 5-hour window"): one turn with a
    * one-line prompt on the engine type's cheapest model, no tools, keeping no session, transcript
    * or thread. Needs the `startsUsageWindow` capability. Whatever process or query it opens ends

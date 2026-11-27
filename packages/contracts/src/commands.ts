@@ -9,6 +9,7 @@ import { z } from "zod";
 /** A command The Office carries out itself, which never reaches the engine. */
 export const OFFICE_COMMANDS = [
   { name: "clear", description: "Start the next message in a fresh session." },
+  { name: "stop", description: "Stop the person answering now; the session is kept." },
   { name: "help", description: "List the commands you can use here." },
 ] as const;
 

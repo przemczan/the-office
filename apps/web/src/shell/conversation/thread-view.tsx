@@ -2,16 +2,23 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OpenPage, Thread } from "@the-office/contracts";
 import { Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { homeThreadsKey, renameThread, threadQueries } from "../../api/conversations.ts";
+import {
+  homeThreadsKey,
+  renameThread,
+  sendMessage,
+  threadQueries,
+} from "../../api/conversations.ts";
 import { BlockLoaderOrProblem, type BlockRead } from "../block-loader.tsx";
 import { InlineTitleEdit } from "../inline-title-edit.tsx";
+import { RefusalAlert } from "../refusal-alert.tsx";
 import { AllowChangesBar } from "./allow-changes.tsx";
 import { ContextBar } from "./context-bar.tsx";
 import { useDetails } from "./details-store.ts";
 import { DetailsSwitch } from "./details-switch.tsx";
 import type { LogLine } from "./message-groups.ts";
-import { MessageList, type HandoverNoteReader } from "./message-list.tsx";
+import { MessageList, type HandoverNoteReader, type SendAgain } from "./message-list.tsx";
 import { ThreadComposer } from "./thread-composer.tsx";
+import type { UserMessage } from "./stopped-messages.ts";
 import { threadTitle } from "./thread-title.ts";
 import "./conversation.css";
 
@@ -25,6 +32,7 @@ export function ThreadView({
   back,
   readOnlyReason,
   openPage,
+  headActions,
 }: {
   readonly threadId: string;
   readonly personName: string;
@@ -34,6 +42,8 @@ export function ThreadView({
   readonly readOnlyReason?: string | undefined;
   /** The page open beside it, which a message goes with when it mentions it. */
   readonly openPage?: OpenPage | undefined;
+  /** Beside the Thread's title, such as the chat's trash icon. */
+  readonly headActions?: ReactNode;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId));
   if (!thread.data) {
@@ -48,6 +58,7 @@ export function ThreadView({
       <div className="thread-view-head">
         {back}
         <ThreadTitle thread={thread.data} personName={personName} />
+        {headActions}
         <DetailsSwitch />
       </div>
       <ContextBar thread={thread.data} personName={personName} />
@@ -90,11 +101,27 @@ export function ThreadLog({
 }): ReactNode {
   const messages = useQuery(threadQueries.messages(thread.id));
   const details = useDetails();
+  const queryClient = useQueryClient();
+  const sendingAgain = useMutation({
+    mutationFn: ({ text, images }: UserMessage) =>
+      sendMessage(thread.id, {
+        text,
+        ...(images.length > 0 && { images: images.map(({ attachmentId }) => attachmentId) }),
+      }),
+    onSuccess: async (answering) => {
+      queryClient.setQueryData(threadQueries.one(answering.id).queryKey, answering);
+      await queryClient.invalidateQueries(threadQueries.messages(answering.id));
+    },
+  });
+  const sendAgain: SendAgain = sendingAgain.mutateAsync;
   if (!messages.data) {
     return <ThreadLoader reads={[messages]} />;
   }
   return (
     <>
+      {sendingAgain.error && (
+        <RefusalAlert title="The message wasn't sent" error={sendingAgain.error} />
+      )}
       <MessageList
         messages={messages.data}
         roleKey={thread.roleKey}
@@ -105,6 +132,7 @@ export function ThreadLog({
         inTimeline={inTimeline}
         leavesReaderBe={leavesReaderBe}
         handoverNoteReader={handoverNoteReader}
+        onSendAgain={thread.stageThread ? undefined : sendAgain}
         {...(logLines && { logLines })}
       />
     </>

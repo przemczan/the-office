@@ -121,6 +121,16 @@ export class ProposalService {
     for (const id of unreachable) await this.declineOnItsOwn(id, { kind: "consultation-closed" });
   }
 
+  /**
+   * Declines every open Proposal drafted in the Thread, as it is deleted (spec §2.4.1): "Declined as
+   * its Thread was deleted", so none is left waiting on the user.
+   */
+  async declineInDeletedThread(threadId: string): Promise<void> {
+    for (const { id, status } of await this.repository.proposalsIn(threadId)) {
+      if (status.kind === "open") await this.declineOnItsOwn(id, { kind: "thread-deleted" });
+    }
+  }
+
   /** The ids of the open Proposals of `open` drafted in a Consultation on a Task that has closed. */
   private async inClosedConsultations(
     open: readonly ProposalInHome[],

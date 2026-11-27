@@ -114,6 +114,8 @@ export class ScriptedEngine extends AgentEngine {
   readonly usageWindowReads: EngineId[] = [];
   /** The sessions carried over from one engine to another (`carrySession`), in order. */
   readonly carried: CarriedSession[] = [];
+  /** The sessions whose files were removed (`forgetSession`), by the id of the engine, in order. */
+  readonly forgotten: { readonly sessionId: string; readonly engineId: EngineId }[] = [];
   private carryFailure: Error | undefined;
   private readonly scripts: SessionScript[];
   private readonly mcpClient: McpClient = new SdkMcpClient();
@@ -260,6 +262,12 @@ export class ScriptedEngine extends AgentEngine {
     this.require("carrySession");
     if (this.carryFailure !== undefined) throw this.carryFailure;
     this.carried.push({ sessionId, from: from.id, to: to.id });
+  }
+
+  /** Records the session in `forgotten` and removes nothing, as a scripted session keeps no files. */
+  override forgetSession(sessionId: string, engine: Engine): Promise<void> {
+    this.forgotten.push({ sessionId, engineId: engine.id });
+    return Promise.resolve();
   }
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {

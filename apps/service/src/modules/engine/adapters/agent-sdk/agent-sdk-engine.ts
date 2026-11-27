@@ -41,6 +41,7 @@ import { preparedEngineConfigFolder } from "../engine-folders/engine-config-fold
 import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { carrySessionOver } from "../claude-code/session-carry-over.js";
+import { forgetSessionFiles } from "../claude-code/session-forget.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
 import { serviceVariables } from "../claude-code/engine-read.js";
@@ -135,6 +136,11 @@ export class AgentSdkEngine extends AgentEngine {
       WINDOW_START_PROMPT,
       { what: windowStartWhat(engine), signal },
     );
+  }
+
+  /** Removes the session's transcript and what goes with it from the engine's config folder. */
+  override forgetSession(sessionId: string, engine: Engine): Promise<void> {
+    return forgetSessionFiles(this.officeData, sessionId, engine);
   }
 
   /** From one Claude Code engine's config folder to another's (`carrySessionOver`). */

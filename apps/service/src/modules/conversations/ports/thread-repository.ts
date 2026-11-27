@@ -87,6 +87,12 @@ export abstract class ThreadRepository {
 
   abstract find(id: string): Promise<Thread | undefined>;
 
+  /**
+   * Removes the Thread with its log, its Decisions and Proposals, what the user saw of it, its fire
+   * alarm lifts and its Sub-agents and Processes; false when there is no such Thread.
+   */
+  abstract remove(id: string): Promise<boolean>;
+
   /** The Thread whose engine session now is `sessionId`, if any. */
   abstract findBySession(sessionId: string): Promise<Thread | undefined>;
 

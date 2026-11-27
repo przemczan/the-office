@@ -239,6 +239,25 @@ export class EngineSessions {
   }
 
   /**
+   * Removes the ended session's files from the engine listed as `engineId`, as its Thread was
+   * deleted (spec §2.4.1): the transcript of a Claude Code session, the thread of a Codex one;
+   * nothing for an engine that keeps none, or one no longer listed. The session counts as running
+   * on the engine meanwhile, so removing that engine waits for it.
+   */
+  async forgetSession(sessionId: string, engineId: EngineId): Promise<void> {
+    const ended = this.running.started(engineId);
+    try {
+      const engine = await this.listed(engineId).catch((error: unknown) => {
+        if (error instanceof EngineNotListed) return undefined;
+        throw error;
+      });
+      if (engine) await this.engines.of(engine).forgetSession(sessionId, engine);
+    } finally {
+      ended();
+    }
+  }
+
+  /**
    * The Stand-in Engine a session running on `running` goes on on once its turn was refused for a
    * used-up usage window (spec §5.4.6): the first of `standIns`, the list that applies where the
    * session runs (the caller's to give), that has every capability of `needs` and has room

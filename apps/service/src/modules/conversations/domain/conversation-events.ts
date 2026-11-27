@@ -37,6 +37,17 @@ export class ThreadSeen extends DomainEvent {
   }
 }
 
+/** A chat Thread was deleted, with everything kept in it but the records made there. */
+export class ThreadDeleted extends DomainEvent {
+  constructor(
+    /** The Thread as it was, its home and person included. */
+    readonly thread: Thread,
+    deletedAt: Date,
+  ) {
+    super(deletedAt);
+  }
+}
+
 /** Messages joined the Thread's log; the first of the user's also titles an untitled Thread. */
 export class MessagesLogged extends DomainEvent {
   constructor(

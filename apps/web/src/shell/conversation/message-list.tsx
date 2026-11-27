@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Message, MessageDelivery, MessageImage } from "@the-office/contracts";
-import { Avatar, Badge, Icon, TextButton } from "@the-office/ui";
+import { Avatar, Badge, Button, Icon, TextButton } from "@the-office/ui";
 import {
+  createContext,
   Fragment,
   useCallback,
+  useContext,
+  useMemo,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -19,7 +22,13 @@ import { PersonAvatar } from "../person-avatar.tsx";
 import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
 import { engineSwitchedWords, usageWindowUsedUpWords } from "../usage-window-words.ts";
-import { userName, useSignedInUserId, useUserName, type UserNamer } from "../use-user-name.ts";
+import {
+  isSignedInUser,
+  userName,
+  useSignedInUserId,
+  useUserName,
+  type UserNamer,
+} from "../use-user-name.ts";
 import {
   contextLabel,
   earlierSessionLabel,
@@ -46,6 +55,7 @@ import {
 import { latestToolCall, onlyDetailsWouldShow, visibleMessages } from "./message-visibility.ts";
 import { OfficeStatusCard } from "./office-status-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
+import { stoppedMessages, type UserMessage } from "./stopped-messages.ts";
 import { piecesBySession, threadSessions, type ContextLineMessage } from "./thread-sessions.ts";
 
 const NO_LOG_LINES: readonly LogLine[] = [];
@@ -61,6 +71,20 @@ const YOUR_AVATAR_COLOURS: CSSProperties = {
 
 /** The card a Decision's or a Proposal's link opened its Thread at. */
 export const LINKED_CARD_SELECTOR = ".decision-card.linked-to, .proposal-card.linked-to";
+
+/** Sends a message the Stop kept from landing again, as a new message with the same words and images. */
+export type SendAgain = (message: UserMessage) => Promise<unknown>;
+
+/** The user's messages their Stop kept from landing, and what Send again does with one. */
+interface StoppedMessages {
+  readonly stopped: ReadonlyMap<string, boolean>;
+  readonly sendAgain: SendAgain | undefined;
+}
+
+const StoppedMessagesContext = createContext<StoppedMessages>({
+  stopped: new Map(),
+  sendAgain: undefined,
+});
 
 /** How to read a Handover note whole, when somewhere else holds it. */
 export type HandoverNoteReader = (note: string) => (() => void) | undefined;
@@ -80,6 +104,7 @@ export function MessageList({
   leavesReaderBe = false,
   logLines = NO_LOG_LINES,
   handoverNoteReader,
+  onSendAgain,
 }: {
   readonly messages: readonly Message[];
   /** Whose Thread it is. */
@@ -99,8 +124,14 @@ export function MessageList({
   readonly logLines?: readonly LogLine[];
   /** A note it can lead to shows its first lines here; any other shows whole. */
   readonly handoverNoteReader?: HandoverNoteReader | undefined;
+  /** Offered on the user's own message their Stop kept from landing. */
+  readonly onSendAgain?: SendAgain | undefined;
 }): ReactNode {
   const list = useRef<HTMLDivElement>(null);
+  const stopped = useMemo<StoppedMessages>(
+    () => ({ stopped: stoppedMessages(messages, stageThread), sendAgain: onSendAgain }),
+    [messages, stageThread, onSendAgain],
+  );
   const shownLinkedTo = useRef(false);
   const readerLeftEnd = useRef(false);
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
@@ -142,29 +173,31 @@ export function MessageList({
         readerLeftEnd.current = scrollHeight - scrollTop - clientHeight > FOLLOWING_DISTANCE_PX;
       }}
     >
-      <Sessions
-        messages={messages}
-        details={details}
-        logLines={logLines}
-        renderPiece={(piece) =>
-          piece.kind === "line" ? (
-            <p key={piece.line.id} className="message-log-line">
-              {piece.line.words}
-            </p>
-          ) : (
-            <GroupItem
-              key={piece.id}
-              group={piece}
-              roleKey={roleKey}
-              personName={personName}
-              answering={answering}
-              stageThread={stageThread}
-              handoverNoteReader={handoverNoteReader}
-            />
-          )
-        }
-        personName={personName}
-      />
+      <StoppedMessagesContext value={stopped}>
+        <Sessions
+          messages={messages}
+          details={details}
+          logLines={logLines}
+          renderPiece={(piece) =>
+            piece.kind === "line" ? (
+              <p key={piece.line.id} className="message-log-line">
+                {piece.line.words}
+              </p>
+            ) : (
+              <GroupItem
+                key={piece.id}
+                group={piece}
+                roleKey={roleKey}
+                personName={personName}
+                answering={answering}
+                stageThread={stageThread}
+                handoverNoteReader={handoverNoteReader}
+              />
+            )
+          }
+          personName={personName}
+        />
+      </StoppedMessagesContext>
       {answering && (
         <Working
           roleKey={roleKey}
@@ -396,6 +429,7 @@ function Turn({
 }): ReactNode {
   const [opening] = messages;
   const nameOfUser = useUserName();
+  const signedInUserId = useSignedInUserId();
   const writer = opening.kind === "user" ? nameOfUser(opening.writtenBy) : "";
   return (
     <TurnFrame
@@ -429,9 +463,10 @@ function Turn({
           )}
           {message.kind === "user" && (
             <DeliveryMark
-              delivery={message.delivery}
+              message={message}
               personName={personName}
               stageThread={stageThread}
+              ownMessage={isSignedInUser(message.writtenBy, signedInUserId)}
             />
           )}
         </div>
@@ -884,21 +919,61 @@ const DELIVERY_ICONS: Readonly<Record<MessageDelivery, string>> = {
  * lands at the next safe point (barge-in), unless the answer or the Stage ends first.
  */
 function DeliveryMark({
-  delivery,
+  message,
   personName,
   stageThread,
+  ownMessage,
 }: {
-  readonly delivery: MessageDelivery;
+  readonly message: UserMessage;
   readonly personName: string;
   readonly stageThread: boolean;
+  /** The message is the signed-in user's, who alone may send it again. */
+  readonly ownMessage: boolean;
 }): ReactNode {
+  const { delivery } = message;
+  const { stopped, sendAgain } = useContext(StoppedMessagesContext);
+  const offersSendAgain = stopped.get(message.id);
   const icon = DELIVERY_ICONS[delivery];
-  const words = deliveryWords(delivery, personName, stageThread);
+  const words =
+    stopped.has(message.id) && delivery === "not-delivered"
+      ? `Not delivered: you stopped ${personName}`
+      : deliveryWords(delivery, personName, stageThread);
   return (
     <div className={`message-delivery ${delivery}`}>
       <Icon name={icon} size={12} />
       {words}
+      {offersSendAgain === true && ownMessage && sendAgain && (
+        <SendAgainButton message={message} sendAgain={sendAgain} />
+      )}
     </div>
+  );
+}
+
+/** Sends the same words and images again, as a new message; it goes once it has been taken. */
+function SendAgainButton({
+  message,
+  sendAgain,
+}: {
+  readonly message: UserMessage;
+  readonly sendAgain: SendAgain;
+}): ReactNode {
+  const [sending, setSending] = useState(false);
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      iconLeft={<Icon name="rotate-ccw" size={12} />}
+      loading={sending}
+      onClick={() => {
+        setSending(true);
+        sendAgain(message)
+          // A refusal is shown where the message box shows its own; the button stays to try again.
+          .catch(() => undefined)
+          .finally(() => setSending(false));
+      }}
+    >
+      Send again
+    </Button>
   );
 }
 

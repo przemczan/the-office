@@ -34,7 +34,9 @@ import {
   type MessageDelivery,
   type MessageDraft,
   type MessageImage,
+  stoppedByUserLine,
   type StageSessionRestartedLine,
+  type StoppedByUser,
   type StageWorkClosing,
 } from "./message.js";
 import type { OpenPage } from "./open-page.js";
@@ -1313,6 +1315,34 @@ export function moveSessionBack(
  */
 function settleRunningTurn(thread: Thread): Thread {
   return { ...thread, tokens: tokensSoFar(thread), runningTurnTokens: NO_TOKENS };
+}
+
+/**
+ * The user stopped the person answering, and their session ended with the turn: the stopped line
+ * is logged and the Thread waits for the user again. A turn the engine interrupted ends through
+ * `endTurn` instead, after the line is logged.
+ */
+export function stopAnswer(
+  thread: Thread,
+  stopped: StoppedByUser,
+  stoppedAt: Date,
+): ThreadChange<MessagesLogged> {
+  const line: Message = {
+    ...stoppedByUserLine(stopped),
+    id: crypto.randomUUID(),
+    threadId: thread.id,
+    at: stoppedAt,
+  };
+  const waiting: Thread = {
+    ...settleRunningTurn(thread),
+    state: "waiting",
+    answeringSince: undefined,
+  };
+  return {
+    thread: waiting,
+    logged: [line],
+    event: new MessagesLogged(waiting, [line], stoppedAt),
+  };
 }
 
 /** A session the move started that never opened, and the one the Thread had before it. */

@@ -178,6 +178,8 @@ const WINDOW = 1_000_000;
 
 let app: INestApplication;
 let engine: ScriptedEngine;
+/** What the Claude Code engine's scripted sessions can't do, as a test sets it. */
+let engineCapabilities: ConstructorParameters<typeof ScriptedEngine>[1];
 /** The prompt templates' saved texts, the test's own, as a test saving a real template's text needs. */
 let promptTexts: PromptTemplateRepositoryForTests;
 let officeData: string;
@@ -257,6 +259,7 @@ const PROJECTS: BriefProject[] = [
 beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-threads-"));
   versions = [PLANNER];
+  engineCapabilities = {};
   roleKey = `role-${randomUUID()}`;
   duties = new DutiesStandIn();
   cascade = new EngineCascadeStandIn();
@@ -332,7 +335,7 @@ async function startOn(
   standIn?: ScriptedEngine,
   codex?: ScriptedEngine,
 ): Promise<void> {
-  engine = new ScriptedEngine(scripts);
+  engine = new ScriptedEngine(scripts, engineCapabilities);
   promptTexts = new PromptTemplateRepositoryForTests();
   forgotten = [];
   prepared = [];
@@ -1129,6 +1132,130 @@ describe("whether a Thread has a turn running", () => {
     await answered(thread.id, 3);
     expect(threads.isTurnRunning(thread.id)).toBe(false);
     expect(threads.isTurnRunning(randomUUID())).toBe(false);
+  });
+});
+
+/** The turn the engine ends once the user's Stop reached it. */
+const anInterruptedTurn: Step = {
+  step: "event",
+  event: {
+    kind: "turn-ended",
+    outcome: "interrupted",
+    consumedMessageIds: [],
+    usage: USAGE,
+    sessionCostUsd: 0.01,
+    output: undefined,
+    errors: [],
+  },
+};
+
+/** The steps the Thread's first session was asked for, but its context reads. */
+function receivedSteps(): string[] {
+  return (engine.sessions[0]?.received ?? [])
+    .map(({ step }) => step)
+    .filter((step) => step !== "read-context-usage");
+}
+
+/** The chat Thread's log until the stopped line is in, with the user's messages' deliveries. */
+async function stoppedLog(threadId: string): Promise<readonly Message[]> {
+  return vi.waitFor(
+    async () => {
+      const log = await threads.messages(threadId);
+      if (!log.some((message) => message.kind === "held")) throw new Error("Not stopped yet.");
+      if ((await threads.read(threadId)).state !== "waiting") throw new Error("Still ending.");
+      return log;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+describe("Stop in a person's Thread", () => {
+  const working: Step = {
+    step: "event",
+    event: { kind: "text", text: "Looking.", withinToolCall: undefined },
+  };
+  const contextRead: Step = {
+    step: "read-context-usage",
+    usage: { tokens: 30_000, window: WINDOW },
+  };
+
+  it("interrupts the turn, logs who stopped the person, keeps the session and does not deliver what waited", async () => {
+    await startWith(
+      started(working, aBargeIn("barge-in"), { step: "interrupt" }, anInterruptedTurn, contextRead),
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+    await vi.waitFor(() => expect(sentNext()).toHaveLength(1));
+
+    const result = await runner.stop(thread.id, ANN_LEE);
+
+    expect(result).toEqual({ stopped: true, sessionEnded: false });
+    const log = await stoppedLog(thread.id);
+    expect(drafts(log).at(-1)).toEqual({
+      kind: "held",
+      heldBy: "stop",
+      text: `Ann Lee stopped ${PLANNER.name}.`,
+    });
+    expect(log.map(({ kind }) => kind)).not.toContain("failure");
+    expect((await deliveries(thread.id))[1]).toEqual(["The build too.", "not-delivered"]);
+    const stopped = await threads.read(thread.id);
+    expect(stopped.state).toBe("waiting");
+    expect(stopped.session).toBeDefined();
+    // The session is kept: nothing ended it.
+    expect(receivedSteps()).toEqual(["start", "send", "interrupt"]);
+    expect(threads.isTurnRunning(thread.id)).toBe(false);
+  });
+
+  it("does nothing while the person doesn't answer", async () => {
+    await startWith(started(...aTurn("brief", "Done.")));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    expect(await runner.stop(thread.id, ANN_LEE)).toEqual({ stopped: false, sessionEnded: false });
+    expect(await runner.stop((await threads.startInChat(roleKey)).id, ANN_LEE)).toEqual({
+      stopped: false,
+      sessionEnded: false,
+    });
+    expect((await threads.messages(thread.id)).map(({ kind }) => kind)).not.toContain("held");
+  });
+
+  it("ends the session instead on an engine that can't interrupt, and says so", async () => {
+    engineCapabilities = { interrupt: false };
+    await startWith(started(working, aBargeIn("barge-in"), { step: "end" }));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+    await vi.waitFor(() => expect(sentNext()).toHaveLength(1));
+
+    const result = await runner.stop(thread.id, ANN_LEE);
+
+    expect(result).toEqual({ stopped: true, sessionEnded: true });
+    const log = await stoppedLog(thread.id);
+    expect(log.at(-1)).toMatchObject({
+      kind: "held",
+      heldBy: "stop",
+      text: expect.stringContaining("Their session ended"),
+    });
+    expect((await deliveries(thread.id))[1]).toEqual(["The build too.", "not-delivered"]);
+    expect(receivedSteps()).toEqual(["start", "send", "end"]);
+  });
+
+  it("is refused in a Stage Thread and in a Consultation", async () => {
+    await startWith();
+    const base = await threads.startInChat(roleKey);
+    const stage = { ...base, id: randomUUID(), stageThread: true };
+    const consultation = {
+      ...base,
+      id: randomUUID(),
+      consultation: { decisionId: randomUUID(), askerThreadId: base.id, askerRoleKey: undefined },
+    };
+    await repository.add(stage);
+    await repository.add(consultation);
+
+    await expect(runner.stop(stage.id, ANN_LEE)).rejects.toBeInstanceOf(ThreadRefused);
+    await expect(runner.stop(consultation.id, ANN_LEE)).rejects.toBeInstanceOf(ThreadRefused);
   });
 });
 

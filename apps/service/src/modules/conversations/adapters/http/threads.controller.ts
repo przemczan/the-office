@@ -13,6 +13,7 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  chatThreadsDeletionSchema,
   contextOverrideChoiceSchema,
   messageCommand,
   messageImageUploadQuerySchema,
@@ -22,6 +23,7 @@ import {
   threadSeenSchema,
   threadTitleSchema,
   type ChatActivity as ChatActivityResponse,
+  type ChatThreadsDeletion,
   type ChatThreadPage,
   type PageQuery,
   type TaskThreadPage,
@@ -34,6 +36,7 @@ import {
   type PeopleWorking as PeopleWorkingResponse,
   type Thread as ThreadResponse,
   type ThreadSeen,
+  type ThreadStop,
   type ThreadTitle,
   type FirstBrief,
   type TaskConversation as TaskConversationResponse,
@@ -44,6 +47,7 @@ import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.j
 import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { ChatActivity } from "../../application/chat-activity.js";
+import { ChatThreadDeletions } from "../../application/chat-thread-deletions.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
@@ -84,6 +88,7 @@ export class ThreadsController {
     private readonly chatActivity: ChatActivity,
     private readonly taskConversations: TaskConversations,
     private readonly images: ThreadImages,
+    private readonly deletions: ChatThreadDeletions,
   ) {}
 
   /** Where each person's chat stands, for the Chat button and the person picker. */
@@ -115,6 +120,19 @@ export class ThreadsController {
   @Post("chats/:roleKey/threads")
   async startInChat(@Param("roleKey") roleKey: string): Promise<ThreadResponse> {
     return this.toResponse(await this.threads.startInChat(roleKey));
+  }
+
+  /**
+   * Deletes the person's chat Threads, all or nothing (spec §2.4.1): refused, with its reasons, when
+   * one isn't in their chat or can't be deleted yet.
+   */
+  @Post("chats/:roleKey/threads/delete")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteInChat(
+    @Param("roleKey") roleKey: string,
+    @Body(new ContractPipe(chatThreadsDeletionSchema)) { threadIds }: ChatThreadsDeletion,
+  ): Promise<void> {
+    await this.deletions.delete(roleKey, threadIds);
   }
 
   @Get("tasks/:taskId/threads")
@@ -205,6 +223,19 @@ export class ThreadsController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<ThreadResponse> {
     return this.toResponse(await this.allowChanges.switchOff(id, userOf(signedIn)));
+  }
+
+  /**
+   * Stops the person answering in the Thread now, keeping their session (spec §2.4.5): nothing
+   * changes between turns, and a Stage Thread or a Consultation refuses.
+   */
+  @Post("threads/:id/stop")
+  @HttpCode(HttpStatus.OK)
+  async stop(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ThreadStop> {
+    return this.runner.stop(id, userOf(signedIn));
   }
 
   /** The user has seen the chat Thread up to the message (spec §2.4). */

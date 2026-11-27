@@ -18,6 +18,7 @@ import {
   SizeThresholdChanged,
   SubAgentMessagesKept,
   SubAgentOrProcessChanged,
+  ThreadDeleted,
   ThreadRenamed,
   ThreadSeen,
   ThreadSessionMovedToEngine,
@@ -57,6 +58,10 @@ export class ThreadWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(ThreadRenamed, (event): WebEventOf<"thread.renamed"> => ({
       type: "thread.renamed",
+      ...namesOf(event.thread),
+    }));
+    this.forwarding.forward(ThreadDeleted, (event): WebEventOf<"thread.deleted"> => ({
+      type: "thread.deleted",
       ...namesOf(event.thread),
     }));
     this.forwarding.forward(ThreadSeen, (event): WebEventOf<"thread.seen"> => ({

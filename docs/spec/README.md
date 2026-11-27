@@ -287,6 +287,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Tokens and cost**: [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md#levels); screen: [Stats › Tokens and estimated cost over time](screens/stats.md#tokens-and-estimated-cost-over-time)
 - **Tool area, Core, tool loading (a session loads Core and its home's areas, the rest deferred)**: [6 Tool areas](6-permissions-and-safety.md#tool-areas); [5.4.1 Loading by area](5.4.1-engine-kinds.md#loading-by-area); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions)
 - **Trust anchor (the tools settable only to Proposal or Ask me, or Never)**: [6 The trust anchor](6-permissions-and-safety.md#the-trust-anchor)
+- **Stop in a person's Thread, /stop, Not delivered: you stopped**: [2.4.5 Stop in a person's Thread](2.4.5-stopping-and-restarts.md#stop-in-a-persons-thread); screen: [Thread › Composer](screens/thread.md#composer)
+- **Deleting a chat Thread, Select (the Thread list)**: [2.4.1 Deleting a chat Thread](2.4.1-threads.md#deleting-a-chat-thread); screens: [Shell › A person's chat](screens/shell.md#a-persons-chat), [Thread › Head](screens/thread.md#head)
 - **Turn**: [2.4.4 Barge-in](2.4.4-messages.md#barge-in); [2.4.5 Stop and Pause](2.4.5-stopping-and-restarts.md#stop-and-pause)
 
 ### U

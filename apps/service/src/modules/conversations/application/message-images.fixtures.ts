@@ -53,6 +53,13 @@ export class MessageImagesInMemory implements MessageImageSource {
     return Promise.resolve(new Set(attachmentIds.filter((id) => this.kept.has(id))));
   }
 
+  removeKeptBy(threadId: string): Promise<void> {
+    for (const [id, { owner }] of this.kept) {
+      if (owner.kind === "thread" && owner.threadId === threadId) this.kept.delete(id);
+    }
+    return Promise.resolve();
+  }
+
   remove(attachmentId: string): void {
     this.kept.delete(attachmentId);
   }

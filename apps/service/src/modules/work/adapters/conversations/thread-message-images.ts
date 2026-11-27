@@ -60,6 +60,12 @@ export class ThreadMessageImages implements MessageImageSource, OnModuleInit {
   async existing(attachmentIds: readonly string[]): Promise<ReadonlySet<string>> {
     return new Set((await this.attachments.findAll(attachmentIds)).map(({ id }) => id));
   }
+
+  async removeKeptBy(threadId: string): Promise<void> {
+    for (const attachment of await this.attachments.listOf({ kind: "thread", threadId })) {
+      await this.attachments.remove(attachment.id);
+    }
+  }
 }
 
 function storedImageOf(attachment: StoredFileAttachment): StoredMessageImage {

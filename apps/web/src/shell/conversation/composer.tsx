@@ -50,6 +50,7 @@ export function Composer({
   onOfficeCommand,
   commandNote,
   onCloseCommandNote,
+  stop,
 }: {
   readonly placeholder: string;
   /** A message can't be sent now; a draft can still be written. */
@@ -91,6 +92,8 @@ export function Composer({
   /** What an Office command answered, above the composer, until Esc or the next message. */
   readonly commandNote?: ReactNode;
   readonly onCloseCommandNote?: (() => void) | undefined;
+  /** Stop, between Mention and Send, while the person answers (spec §2.4.5). */
+  readonly stop?: ReactNode;
 }): ReactNode {
   const [draft, setDraft] = useState(startingDraft ?? prefilledNote?.text ?? "");
   const [noteKept, setNoteKept] = useState(prefilledNote !== undefined);
@@ -230,6 +233,7 @@ export function Composer({
           variant="ghost"
           onClick={mentions.start}
         />
+        {stop}
         <IconButton
           icon={<Icon name="arrow-up" size={16} />}
           label={sendLabel}

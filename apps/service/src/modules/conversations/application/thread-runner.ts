@@ -68,10 +68,12 @@ import {
 import {
   engineSwitchedWords,
   latestWriter,
+  stoppedByUserLine,
   type Message,
   type MessageDelivery,
   type MessageDraft,
   type MessageImage,
+  type StoppedByUser,
 } from "../domain/message.js";
 import {
   cascadeLocationOf,
@@ -102,6 +104,7 @@ import {
   readRunningContext,
   reopenDecision,
   startSessionFreshOnEngine,
+  stopAnswer,
   type Opening,
   type ThreadChange,
   type UnopenedSession,
@@ -129,6 +132,12 @@ type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
 type SessionEvent = EngineSession["events"] extends AsyncIterable<infer Event> ? Event : never;
 type TurnEndedEvent = Extract<SessionEvent, { kind: "turn-ended" }>;
 type UserMessage = Parameters<EngineSession["send"]>[0];
+
+/** What Stop did (`ThreadRunner.stop`): the turn it stopped, and whether the session ended with it. */
+export interface ThreadStop {
+  readonly stopped: boolean;
+  readonly sessionEnded: boolean;
+}
 
 /** A skill command the user sent (spec §2.4): the library skill, by its name, and its input. */
 export interface SkillCommandSent {
@@ -279,6 +288,11 @@ interface LiveSession {
   readonly officeTools: readonly string[];
   /** The person writes their Handover note in the turn running now; the session ends after it. */
   handingOver: boolean;
+  /**
+   * The user stopped the turn running and the engine is interrupting it: the turn that ends
+   * interrupted logs who stopped the person.
+   */
+  stoppedBy: StoppedByUser | undefined;
   /** The Agent is in a turn: from a message sent until its turn ends, or a turn the engine began. */
   turnRunning: boolean;
   idle: NodeJS.Timeout | undefined;
@@ -933,6 +947,82 @@ export class ThreadRunner implements OnModuleDestroy {
       thread.state === "answering" ? failAnswer(thread, reason, new Date()) : undefined,
     );
     await this.endBargeIns(threadId);
+  }
+
+  /**
+   * The user `by` stops the person answering in the Thread now (spec §2.4.5, "Stop in a person's
+   * Thread"): the session's turn is interrupted, with its Sub-agents and Processes, background ones
+   * too, and the session is kept for the next message. The turn ends as stopped, with a line saying
+   * who stopped the person, and the messages written to it that never landed are not delivered. On
+   * an engine that can't interrupt, the session ends instead and the line says so. Nothing happens
+   * between turns. Refused in a Stage Thread, which the Task's Stop and Pause hold, and in a
+   * Consultation, whose asker waits on it.
+   */
+  async stop(threadId: string, by: UserRef): Promise<ThreadStop> {
+    const thread = await this.threadOf(threadId);
+    if (thread.stageThread) {
+      throw new ThreadRefused(["A Stage's Thread is held with the Task's Stop and Pause."]);
+    }
+    if (thread.consultation) {
+      throw new ThreadRefused(["A Consultation can't be stopped: whoever asked waits on it."]);
+    }
+    const live = this.live.get(threadId);
+    if (thread.state !== "answering" || !live?.turnRunning) {
+      return { stopped: false, sessionEnded: false };
+    }
+    // Stopping already: the turn's end comes, and a second Stop adds nothing.
+    if (live.stoppedBy) return { stopped: true, sessionEnded: false };
+    const personName = (await this.roleCards.find(thread.roleKey))?.card.name ?? thread.roleKey;
+    const stopped = { by, personName, sessionEnded: false };
+    if (await this.canInterrupt(thread)) {
+      live.stoppedBy = stopped;
+      try {
+        await live.session.interrupt();
+        return { stopped: true, sessionEnded: false };
+      } catch (error) {
+        live.stoppedBy = undefined;
+        this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
+      }
+    }
+    // The session ends instead, and its turn with it: the next message starts a new one.
+    await this.endLive(threadId);
+    await this.endBargeIns(threadId);
+    await this.change(threadId, (latest) =>
+      latest.state === "answering"
+        ? stopAnswer(latest, { ...stopped, sessionEnded: true }, new Date())
+        : undefined,
+    );
+    return { stopped: true, sessionEnded: true };
+  }
+
+  /** Whether the engine behind the Thread's session can interrupt a turn. */
+  private async canInterrupt({ session }: Thread): Promise<boolean> {
+    if (!session) return false;
+    try {
+      return (await this.engine.capabilitiesOf(session.engineId)).interrupt;
+    } catch {
+      // An engine no longer listed can't be asked: its session ends instead.
+      return false;
+    }
+  }
+
+  /**
+   * Ends what the Thread's person has running, whatever it was doing, and removes what the Thread's
+   * session left: its files in the engine's folder, its skills folder and its MCP servers' record.
+   * The Thread is deleted after (spec §2.4.1, "Deleting a chat Thread"); nothing is logged.
+   */
+  async endForDeletion(thread: Thread): Promise<void> {
+    const live = this.live.get(thread.id);
+    await this.endLive(thread.id);
+    // Its events are read to their end before the Thread goes, so none lands on a Thread not there.
+    await live?.reading;
+    this.closeBargeIns(thread.id);
+    const { session } = thread;
+    if (!session) return;
+    await this.engine.forgetSession(session.id, session.engineId).catch((error: unknown) => {
+      this.logger.warn(`Session ${session.id}'s engine files stay: ${messageOf(error)}`);
+    });
+    await this.forget(session.id);
   }
 
   /**
@@ -1657,6 +1747,7 @@ export class ThreadRunner implements OnModuleDestroy {
       mask,
       officeTools,
       handingOver: false,
+      stoppedBy: undefined,
       turnRunning: true,
       idle: undefined,
       ending: false,
@@ -1727,10 +1818,16 @@ export class ThreadRunner implements OnModuleDestroy {
     live: LiveSession,
     turn: TurnEndedEvent,
   ): Promise<void> {
+    // A Stop that reached the engine: its turn ends interrupted, and the line says who stopped it.
+    const stopped = live.stoppedBy;
+    live.stoppedBy = undefined;
     if (turn.outcome === "failed") {
       await this.log(threadId, [
         { kind: "failure", reason: turn.errors.join(" ") || "The engine ended the turn." },
       ]);
+    }
+    if (stopped && turn.outcome === "interrupted") {
+      await this.log(threadId, [stoppedByUserLine(stopped)]);
     }
     // Read before a switch to a Stand-in Engine ends the session.
     const usage = await this.contextUsageOf(threadId, live);
@@ -1754,6 +1851,7 @@ export class ThreadRunner implements OnModuleDestroy {
     const ended = live.ending;
     const handingOver =
       !ended &&
+      !stopped &&
       !stillToLand &&
       !wroteNote &&
       usage !== undefined &&

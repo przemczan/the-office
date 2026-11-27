@@ -91,6 +91,29 @@ export type StageWorkClosing =
   | { readonly kind: "failure"; readonly reason: string }
   | { readonly kind: "held"; readonly heldBy: HeldBy; readonly text: string };
 
+/** Who stopped the person answering in a Thread, and how it ended their turn. */
+export interface StoppedByUser {
+  readonly by: UserRef;
+  readonly personName: string;
+  /** Their engine can't interrupt a turn, so the session ended instead. */
+  readonly sessionEnded: boolean;
+}
+
+/**
+ * The line a user's Stop leaves in a Thread they talk to a person in (spec §2.4.5), a held line
+ * with `heldBy` "stop": "Ana stopped Pam.", and when the engine can't interrupt, that the session ended.
+ */
+export function stoppedByUserLine({
+  by,
+  personName,
+  sessionEnded,
+}: StoppedByUser): Extract<MessageDraft, { kind: "held" }> {
+  const ended = sessionEnded
+    ? " Their session ended, as their engine can't interrupt a turn: the next message starts a new one."
+    : "";
+  return { kind: "held", heldBy: "stop", text: `${by.name} stopped ${personName}.${ended}` };
+}
+
 /**
  * How a running Stage was held: by the user's Pause or Stop, by the fire alarm, or as its engine
  * refused a turn for a used-up usage window (spec 2.3).

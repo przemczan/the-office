@@ -1,6 +1,6 @@
 # 6 Permissions and safety
 
-Covers: threat models, stored hashes, the two layers, language servers, Authority (Hard switches, MCP tools), the trust anchor, the user's alone, tool areas, Project settings by Agents, no bypass, refusals, default profiles, what a record made in a Thread links to, reading records, a person's Office tools, Consultations' permissions and their one exception (the run environment definition), chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules, Authority by role.
+Covers: threat models, stored hashes, the two layers, language servers, Authority (Hard switches, MCP tools), the trust anchor, the user's alone (stopping a person's answer, deleting a chat Thread), tool areas, Project settings by Agents, no bypass, refusals, default profiles, what a record made in a Thread links to, reading records, a person's Office tools, Consultations' permissions and their one exception (the run environment definition), chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules, Authority by role.
 
 ## Threat model
 
@@ -125,6 +125,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **Deleting a Task's or an Initiative's branch:** deleting work isn't an Agent's call ([5.5](5.5-git-and-isolation.md#deleting-by-hand)).
 - **Starting or stopping an Action run:** no Agent starts an Action; one that leaves the workstation would need a Hard switch of its own ([2.15](2.15-actions.md#who-starts-an-action), [Actions](#actions)).
 - **Merging a pull request:** merging into the base is publishing, which a Publish Stage does ([2.3.4](2.3.4-publish.md)).
+- **Stopping a person's answer in a Thread:** an Agent stopping the user's own conversation isn't its call ([2.4.5](2.4.5-stopping-and-restarts.md#stop-in-a-persons-thread)).
+- **Deleting a chat Thread:** deleting the user's own conversation, for good, isn't an Agent's call ([2.4.1](2.4.1-threads.md#deleting-a-chat-thread)).
 - **Allow changes on a Caretaker Thread:** a Thread switch with no Office tool, which would widen the Caretaker's reach past Office tools, left out of scope; the user turns it on in the Thread ([2.4.1](2.4.1-threads.md#allow-changes)).
 - **Not the user's alone:** these are in Authority, each with a preset default ([Authority by role](#authority-by-role)):
   - Reopen a Dropped Task, Restart from a Stage (Skip a Stage among it) and Start over: Work › Gates and runs;

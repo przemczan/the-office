@@ -61,6 +61,7 @@ function aChatThread(n: number): ThreadSummary {
     consultation: null,
     answered: false,
     lastMovedAt: "2026-11-10T10:00:00.000Z",
+    deletionLock: null,
     context: {
       move: "resume",
       reason: "cache-warm",

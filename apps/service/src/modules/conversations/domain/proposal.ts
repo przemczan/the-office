@@ -431,6 +431,8 @@ export type PipelineRoutes = object;
  */
 export type ProposalDeclinedBecause =
   | { readonly kind: "consultation-closed" }
+  /** Its chat Thread was deleted, which takes the Proposal with it. */
+  | { readonly kind: "thread-deleted" }
   | { readonly kind: "superseded"; readonly proposalId: string };
 
 /**

@@ -1318,6 +1318,8 @@ function declinedBecauseWords(because: ProposalDeclinedBecause): string {
   switch (because.kind) {
     case "consultation-closed":
       return "Declined as its Consultation closed";
+    case "thread-deleted":
+      return "Declined as its Thread was deleted";
     case "superseded":
       return "Declined as a newer Proposal changing the same was applied";
   }

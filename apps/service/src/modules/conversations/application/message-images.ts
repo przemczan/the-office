@@ -39,6 +39,8 @@ export interface MessageImageSource {
   content(attachmentId: string): Promise<Uint8Array | undefined>;
   /** Which of the ids are Attachments there still are, for the Brief's "Image removed". */
   existing(attachmentIds: readonly string[]): Promise<ReadonlySet<string>>;
+  /** Removes every image the Thread itself keeps, as it is deleted: those sent and those not yet. */
+  removeKeptBy(threadId: string): Promise<void>;
 }
 
 @Injectable()
@@ -67,6 +69,10 @@ export class MessageImages implements MessageImageSource {
 
   existing(attachmentIds: readonly string[]): Promise<ReadonlySet<string>> {
     return this.registered().existing(attachmentIds);
+  }
+
+  removeKeptBy(threadId: string): Promise<void> {
+    return this.registered().removeKeptBy(threadId);
   }
 
   private registered(): MessageImageSource {

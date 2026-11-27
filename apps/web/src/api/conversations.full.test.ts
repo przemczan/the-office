@@ -46,6 +46,7 @@ function aStageThread(id: string, tokens: TokenTotals): Thread {
     skillCommands: [],
     answered: null,
     lastMovedAt: null,
+    deletionLock: null,
   };
 }
 
@@ -69,6 +70,7 @@ function onTasksPage(...threads: readonly Thread[]): InfiniteData<TaskThreadPage
     consultation: null,
     answered: null,
     lastMovedAt: null,
+    deletionLock: null,
     context: {
       move: context.move,
       reason: context.reason,

@@ -7,6 +7,7 @@ import {
 import {
   chatActivitySchema,
   chatThreadPageSchema,
+  threadStopSchema,
   decisionListSchema,
   fireAlarmLiftsSchema,
   messageImageSchema,
@@ -40,6 +41,7 @@ import {
   type StageContextLimits,
   type StageContextLimitsSetting,
   type ChatThreadPage,
+  type ThreadStop,
   type SubAgentMessages,
   type TaskThreadPage,
   type Thread,
@@ -47,7 +49,14 @@ import {
   type ThreadWebEvent,
   type WebEvent,
 } from "@the-office/contracts";
-import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
+import {
+  deleteFromApiReturning,
+  getFromApi,
+  sendFileToApi,
+  sendToApi,
+  sendToApiWithNoAnswer,
+} from "./api-client.ts";
+import { rememberDeletedThreads } from "./deleted-threads.ts";
 import { changeRows, pagedQueryOptions, rowsOf } from "./pages.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
 import { FIRE_ALARM, PERSON_TASKS, TASKS } from "./work.ts";
@@ -366,8 +375,27 @@ export function answerDecision(id: string, answer: DecisionFormAnswer): Promise<
   return sendToApi("POST", `/decisions/${encodeURIComponent(id)}/answer`, answer, threadSchema);
 }
 
+/**
+ * Stops the person answering in the Thread now (spec §2.4.5, "Stop in a person's Thread"). Nothing
+ * changes, and `stopped` is false, when they weren't answering; `sessionEnded` is true on an engine
+ * that can't interrupt.
+ */
+export function stopThread(id: string): Promise<ThreadStop> {
+  return sendToApi("POST", `${threadPath(id)}/stop`, {}, threadStopSchema);
+}
+
+/**
+ * Deletes chat Threads for good, all or nothing (spec §2.4.1, "Deleting a chat Thread"); the
+ * service refuses, with the reason, when one is locked or isn't in that chat.
+ */
+export function deleteChatThreads(roleKey: string, threadIds: readonly string[]): Promise<void> {
+  return sendToApiWithNoAnswer("POST", `/chats/${encodeURIComponent(roleKey)}/threads/delete`, {
+    threadIds,
+  });
+}
+
 /** The Conversations events that carry what changed, which `threadEventCacheUpdates` applies. */
-type CarryingEventType = "thread.tokens-counted" | "thread.context-read";
+type CarryingEventType = "thread.tokens-counted" | "thread.context-read" | "thread.deleted";
 
 /**
  * A session's Sub-agents and Processes (spec 2.9): each event carries the item or the new part,
@@ -485,6 +513,11 @@ export const threadEventCacheUpdates: Readonly<
       summary: (summary) => ({ ...summary, tokens }),
     });
   },
+  "thread.deleted": (event, queryClient) => {
+    const deleted = threadWebEventSchema.parse(event);
+    if (deleted.type !== "thread.deleted" || deleted.home.kind !== "chat") return;
+    dropDeletedThreads(queryClient, deleted.home.roleKey, [deleted.threadId]);
+  },
   "thread.context-read": (event, queryClient) => {
     const read = threadWebEventSchema.parse(event);
     if (read.type !== "thread.context-read") return;
@@ -498,6 +531,39 @@ export const threadEventCacheUpdates: Readonly<
     });
   },
 };
+
+/**
+ * A chat Thread deleted (by this browser, another or another user): the row leaves its chat's pages,
+ * which People › Conversations reads too, and the Thread is remembered as deleted, which an open
+ * Thread says; what it read stays in the cache as it was, for the title the note names, and is never
+ * read again.
+ */
+export function dropDeletedThreads(
+  queryClient: QueryClient,
+  roleKey: string,
+  threadIds: readonly string[],
+): void {
+  const gone = new Set(threadIds);
+  rememberDeletedThreads(threadIds);
+  for (const threadId of threadIds) {
+    void queryClient.cancelQueries({ queryKey: [...THREADS, threadId] });
+  }
+  queryClient.setQueryData<InfiniteData<ChatThreadPage>>(
+    threadQueries.inChat(roleKey).queryKey,
+    (pages) => {
+      if (!pages || !rowsOf(pages).some(({ id }) => gone.has(id))) return pages;
+      return {
+        ...pages,
+        pages: pages.pages.map((page) => ({
+          ...page,
+          rows: page.rows.filter(({ id }) => !gone.has(id)),
+          total: Math.max(0, page.total - threadIds.length),
+        })),
+      };
+    },
+  );
+  void queryClient.invalidateQueries(threadQueries.chatActivity());
+}
 
 /** A change to a Thread, as it reads in full and as a list's row shows it. */
 interface ThreadChange {

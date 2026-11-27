@@ -37,6 +37,12 @@ declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+// jsdom has no layout, so the chat drawer's room never resizes.
+globalThis.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
 
 type ServiceCall = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -82,9 +88,13 @@ async function cardOf(proposal: Proposal, queryClient = new QueryClient()): Prom
   const router = createRouter({
     routeTree: createRootRoute({
       component: () => (
-        <ToastProvider>
-          <ProposalCard proposal={proposal} />
-        </ToastProvider>
+        <ThreadDraftsProvider>
+          <ChatProvider>
+            <ToastProvider>
+              <ProposalCard proposal={proposal} />
+            </ToastProvider>
+          </ChatProvider>
+        </ThreadDraftsProvider>
       ),
     }),
     history: createMemoryHistory({ initialEntries: ["/now"] }),
@@ -232,6 +242,7 @@ describe("ProposalCard on the Office instructions", () => {
 
   it.each([
     [{ kind: "consultation-closed" }, "Declined as its Consultation closed"],
+    [{ kind: "thread-deleted" }, "Declined as its Thread was deleted"],
     [
       { kind: "superseded", proposalId: PROPOSAL_ID },
       "Declined as a newer Proposal changing the same was applied",
@@ -665,9 +676,13 @@ describe("ProposalCard on the set-up of The Office", () => {
     signIn(queryClient);
     const rootRoute = createRootRoute({
       component: () => (
-        <ToastProvider>
-          <ProposalCard proposal={applied} />
-        </ToastProvider>
+        <ThreadDraftsProvider>
+          <ChatProvider>
+            <ToastProvider>
+              <ProposalCard proposal={applied} />
+            </ToastProvider>
+          </ChatProvider>
+        </ThreadDraftsProvider>
       ),
     });
     const router = createRouter({

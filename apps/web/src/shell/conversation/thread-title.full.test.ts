@@ -30,6 +30,7 @@ function aThread(fields: Partial<Thread>): Thread {
     skillCommands: [],
     answered: null,
     lastMovedAt: null,
+    deletionLock: null,
     ...fields,
   };
 }

@@ -42,6 +42,7 @@ import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { carrySessionOver } from "../claude-code/session-carry-over.js";
+import { forgetSessionFiles } from "../claude-code/session-forget.js";
 import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import {
   initProblems,
@@ -190,6 +191,11 @@ export class ClaudeCodePEngine extends AgentEngine {
       this.operatingSystem.processTrees,
       { what: windowStartWhat(engine), signal },
     );
+  }
+
+  /** Removes the session's transcript and what goes with it from the engine's config folder. */
+  override forgetSession(sessionId: string, engine: Engine): Promise<void> {
+    return forgetSessionFiles(this.officeData, sessionId, engine);
   }
 
   /** From one Claude Code engine's config folder to another's (`carrySessionOver`). */

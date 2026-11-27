@@ -99,6 +99,7 @@ function aThread(context: Partial<ThreadContext>): Thread {
     skillCommands: [],
     answered: null,
     lastMovedAt: null,
+    deletionLock: null,
   };
 }
 

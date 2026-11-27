@@ -30,7 +30,7 @@ describe("messageCommand", () => {
 
   it("takes a message whose first word is no command as an ordinary one", () => {
     expect(messageCommand("/deploy now", skills)).toBeUndefined();
-    expect(messageCommand("/stop", skills)).toBeUndefined();
+    expect(messageCommand("/restart", skills)).toBeUndefined();
   });
 
   it("takes a '/' that isn't the first character as plain text", () => {

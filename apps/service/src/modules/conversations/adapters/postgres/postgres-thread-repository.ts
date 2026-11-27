@@ -106,6 +106,15 @@ export class PostgresThreadRepository extends ThreadRepository {
     await this.database.insert(threads).values(toRow(thread));
   }
 
+  async remove(id: string): Promise<boolean> {
+    // The rows that belong to the Thread go with it, by their foreign keys' cascade.
+    const removed = await this.database
+      .delete(threads)
+      .where(eq(threads.id, id))
+      .returning({ id: threads.id });
+    return removed.length > 0;
+  }
+
   async find(id: string): Promise<Thread | undefined> {
     const rows = await this.database.select().from(threads).where(eq(threads.id, id));
     const [thread] = await withOpenDecisions(this.database, rows);
