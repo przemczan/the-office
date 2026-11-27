@@ -82,10 +82,18 @@ export function scaleOf(
   return canvas.offsetWidth > 0 && rect.width > 0 ? rect.width / canvas.offsetWidth : 1;
 }
 
+/**
+ * Boxes are read through the viewport's zoom, so at a fractional zoom the same layout measures a
+ * hair differently on every read; comparing to a hundredth of a pixel keeps that from counting as a
+ * change, which would render, measure and render again without end.
+ */
 function sameView(a: FlowView, b: FlowView): boolean {
-  return JSON.stringify(plain(a)) === JSON.stringify(plain(b));
+  return atHundredths(a) === atHundredths(b);
 }
 
-function plain({ width, height, measure }: FlowView): unknown {
-  return [width, height, [...measure.stages], measure.end];
+function atHundredths({ width, height, measure }: FlowView): string {
+  return JSON.stringify(
+    [width, height, [...measure.stages], measure.end],
+    (_key, value: unknown) => (typeof value === "number" ? Math.round(value * 100) / 100 : value),
+  );
 }
