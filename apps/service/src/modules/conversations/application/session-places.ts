@@ -1,10 +1,16 @@
 import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
 import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
-import { OfficeToolRegistry } from "../../engine/index.js";
-import { CARETAKER, Duties, RoleCards } from "../../people/index.js";
+import {
+  CORE_AREA,
+  EngineSessions,
+  OfficeToolRegistry,
+  type HomeAreas,
+} from "../../engine/index.js";
+import { CARETAKER, Duties, EngineCascade, RoleCards } from "../../people/index.js";
 import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
-import type { Brief } from "../domain/brief.js";
+import { withOfficeToolAreas, type Brief, type BriefToolArea } from "../domain/brief.js";
+import { BRIEF_OFFICE_TOOLS } from "../domain/brief-templates.js";
 import { canCall } from "../domain/consult.js";
 import { offeredToPerson } from "../domain/hand-written-tool-groups.js";
 import {
@@ -26,7 +32,7 @@ import {
   type ThreadRecordKind,
   type ToolHolder,
 } from "../domain/session-instructions.js";
-import type { Thread } from "../domain/thread.js";
+import { cascadeLocationOf, type Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
 import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
@@ -59,6 +65,12 @@ export interface SessionPlace {
   /** Hides the Project's Secret variables in what the session writes into the Thread. */
   readonly mask: TextMask;
   readonly officeTools: readonly string[];
+  /**
+   * The areas, beside Core, whose tools the session loads from the start; the other areas' tools it
+   * reaches on demand (spec 2.4.1 › What each Thread adds). `all` for a Stage and a Consultation,
+   * whose lists are fixed.
+   */
+  readonly homeAreas: HomeAreas;
   /**
    * The session reaches the whole workstation but secrets, from the home folder: the Caretaker's
    * Thread with changes allowed (spec §2.4). Every other session only reads.
@@ -142,6 +154,8 @@ export class SessionPlaces {
     private readonly promptTemplates: PromptTemplates,
     private readonly knowledgeBase: KnowledgeBase,
     private readonly roleCards: RoleCards,
+    private readonly engineCascade: EngineCascade,
+    private readonly engineSessions: EngineSessions,
   ) {}
 
   /**
@@ -159,11 +173,53 @@ export class SessionPlaces {
     const officeTools = await this.offeredTools(thread, home.officeTools);
     return {
       ...home,
+      brief: await this.briefWithToolAreas(thread, home, officeTools),
       readableFolders: [...this.knowledgeBase.readableFolders, ...home.readableFolders],
       officeTools,
       heldDuties: held,
       instructions: (person) => home.instructions(prompts, person, officeTools),
     };
+  }
+
+  /**
+   * The home's Brief, followed by the Office tool areas the session loads and the other areas'
+   * tools with how to reach them, on the engine the cascade gives the Thread (spec 6 › Tool areas).
+   * As it is for a session that loads every tool: a Stage's or a Consultation's, or one on an
+   * engine that loads them all. `offeredTools` holds no tool ruled Never, so the Brief names none.
+   */
+  private async briefWithToolAreas(
+    thread: Thread,
+    home: HomePlace,
+    offeredTools: readonly string[],
+  ): Promise<Brief> {
+    const { homeAreas } = home;
+    if (homeAreas === "all") return home.brief;
+    const engine = await this.engineCascade.applying(
+      thread.roleKey,
+      cascadeLocationOf(thread.home, home.project?.id),
+    );
+    if (engine === null) return home.brief;
+    const loading = await this.engineSessions.officeToolLoadingOf(engine.engineId);
+    if (loading === "all") return home.brief;
+    return withOfficeToolAreas(
+      await this.promptTemplates.textsOf([BRIEF_OFFICE_TOOLS]),
+      home.brief,
+      { loading, homeAreas, others: this.otherAreas(offeredTools, homeAreas) },
+    );
+  }
+
+  /** The offered tools outside Core and `homeAreas`, by area in the order the registry has them. */
+  private otherAreas(
+    offeredTools: readonly string[],
+    homeAreas: readonly string[],
+  ): BriefToolArea[] {
+    const offered = new Set(offeredTools);
+    const byArea = new Map<string, string[]>();
+    for (const { name, area } of this.tools.areas()) {
+      if (!offered.has(name) || area === CORE_AREA || homeAreas.includes(area)) continue;
+      byArea.set(area, [...(byArea.get(area) ?? []), name]);
+    }
+    return [...byArea].map(([area, tools]) => ({ area, tools }));
   }
 
   /**
@@ -212,6 +268,7 @@ export class SessionPlaces {
         ? await this.checkoutsPlace(thread, setup)
         : this.worktreePlace(setup, setup.folder)),
       environment: setup.environment,
+      homeAreas: thread.consultation || thread.stageThread ? "all" : ["work"],
       mask: await this.masks.outputMaskOf(setup.projectId),
       workstation: false,
       readsEngineTranscripts: false,
@@ -312,6 +369,7 @@ export class SessionPlaces {
       return {
         ...this.basesPlace(thread),
         ...(await this.consultationTools(thread, held, false)),
+        homeAreas: "all",
         brief,
         span: {},
         metric: NO_PROJECT_METRIC,
@@ -323,6 +381,7 @@ export class SessionPlaces {
     const caretaker = thread.roleKey === CARETAKER;
     const chat = {
       officeTools: caretaker ? caretakerChatOfficeTools() : chatOfficeTools(),
+      homeAreas: [] as HomeAreas,
       brief,
       span: {},
       metric: NO_PROJECT_METRIC,
@@ -341,7 +400,7 @@ export class SessionPlaces {
   /** The Caretaker reads as any chat does until the user allows changes in the Thread. */
   private async caretakerPlace(
     thread: Thread,
-  ): Promise<Omit<HomePlace, "officeTools" | "brief" | "span" | "metric">> {
+  ): Promise<Omit<HomePlace, "officeTools" | "homeAreas" | "brief" | "span" | "metric">> {
     if (!(await this.changesAllowed.isAllowed(thread.id))) {
       return {
         ...this.basesPlace(thread),
@@ -386,6 +445,7 @@ export class SessionPlaces {
         ? this.basesPlace(thread)
         : this.initiativeBranchPlace(thread, setup.branchReads)),
       ...this.workThreadTools(thread, held, setup, "initiative"),
+      homeAreas: thread.stageThread ? "all" : ["work", "initiatives"],
       workstation: false,
       readsEngineTranscripts: false,
       refusalAdvice: undefined,

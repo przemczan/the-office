@@ -1,3 +1,4 @@
+import type { OfficeReach } from "./office-reach-commands.js";
 import type { PermissionProfile } from "./permission-profile.js";
 
 /** How the system The Office runs on reads paths, which the rules compare. */
@@ -61,6 +62,13 @@ export interface SessionRules {
    */
   readonly cloneFolders: readonly string[];
   readonly homeFolder: string;
+  /**
+   * Where the running Office's API and database are: a command naming them is refused to every
+   * session, the Caretaker's with changes allowed included. Undefined where none is configured.
+   */
+  readonly officeReach?: OfficeReach;
+  /** How the session loads the Office tools it isn't started with, which that refusal ends with. */
+  readonly officeToolsAdvice?: string;
   /** The variables the session's commands run with, which a command line may name. */
   readonly environment: Readonly<Record<string, string>>;
   readonly paths: PathSemantics;

@@ -31,6 +31,7 @@ function decide(
   input: unknown,
 ) {
   const options: SessionOptions = {
+    deferredOfficeTools: [],
     folder: BASES,
     ...(readableFolders !== undefined && { readableFolders }),
     environment: {},

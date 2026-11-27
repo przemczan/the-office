@@ -20,6 +20,7 @@ import {
   type EngineCapabilities,
   type NewSession,
   type UsageWindowStart,
+  type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
 import type {
   ContextUsage,
@@ -28,10 +29,15 @@ import type {
   UserMessage,
 } from "../../ports/engine-session.js";
 import type { SessionEvent } from "../../ports/session-events.js";
-import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
+import {
+  hasOfficeTools,
+  type SessionOptions,
+  type SessionSkills,
+} from "../../ports/session-options.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
+import { CLAUDE_CODE_OFFICE_TOOL_LOADING } from "../claude-code/office-tool-deferral.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
@@ -109,6 +115,7 @@ interface SessionResources {
 @Injectable()
 export class ClaudeCodePEngine extends AgentEngine {
   readonly capabilities = CLAUDE_CODE_P_CAPABILITIES;
+  readonly officeToolLoading: OfficeToolLoading = CLAUDE_CODE_OFFICE_TOOL_LOADING;
 
   private readonly operatingSystem: OperatingSystem = currentOperatingSystem();
 
@@ -215,10 +222,14 @@ export class ClaudeCodePEngine extends AgentEngine {
     });
     const resources: SessionResources = {
       endpoints,
-      officeTools:
-        options.officeTools.length === 0
-          ? undefined
-          : new OfficeToolServer(options.officeTools, officeToolCall(id, paths, decide), decide),
+      officeTools: hasOfficeTools(options)
+        ? new OfficeToolServer(
+            options.officeTools,
+            options.deferredOfficeTools,
+            officeToolCall(id, paths, decide),
+            decide,
+          )
+        : undefined,
       folder: options.instructions === "" ? undefined : await instructionsFolder(options),
       mcpConfigFile: await this.mcpConfigFile(id, options),
       sessionId: id,

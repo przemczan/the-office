@@ -35,6 +35,7 @@ function aTaskTool(
 ): OfficeTool {
   return {
     name,
+    area: "work",
     description: "Changes a Task's title.",
     input: z.object({ taskId: z.string(), title: z.string() }),
     authority: {
@@ -74,6 +75,7 @@ function aProjectTool(
 ): OfficeTool {
   return {
     name,
+    area: "projectsAndSettings",
     description: "Changes a Project's settings.",
     input: z.object({ project: z.string() }),
     authority: {
@@ -577,6 +579,8 @@ describe("the tools a session is offered", () => {
       {} as never,
       {} as never,
       roleCards,
+      {} as never,
+      {} as never,
     );
     const offered = (stageThread: boolean, homeTools: readonly string[]) =>
       (

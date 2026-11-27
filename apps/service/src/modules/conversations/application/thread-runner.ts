@@ -1615,6 +1615,7 @@ export class ThreadRunner implements OnModuleDestroy {
       readsEngineTranscripts: place.readsEngineTranscripts,
       refusalAdvice: place.refusalAdvice,
       officeTools: sessionOfficeTools(place.officeTools, { card }),
+      homeAreas: place.homeAreas,
       mcpServers,
       outputSchema: undefined,
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.

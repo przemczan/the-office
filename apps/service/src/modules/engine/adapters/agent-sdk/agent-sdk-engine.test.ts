@@ -73,6 +73,7 @@ const liveEngine = () => new AgentSdkEngine(OFFICE_DATA);
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
@@ -182,6 +183,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       const registry = new OfficeToolRegistry();
       registry.register({
         name: "note",
+        area: "core",
         description: "Notes down one word for The Office.",
         input: z.object({ word: z.string() }),
         run: ({ word }) => {
@@ -221,6 +223,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       const session = await sessions.start({
         id: randomUUID(),
         settings: {
+          homeAreas: "all",
           ...options(folder),
           officeToolRuling: RUN_EVERY_CALL,
           engineId: "claude-code",
@@ -252,6 +255,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       const input = z.object({ name: z.enum(["red.png", "noise.png"]) });
       const showPicture: OfficeTool = {
         name: "show_picture",
+        area: "core",
         description: "Shows the picture of the name given.",
         input,
         run: (given) => {
@@ -455,6 +459,7 @@ async function twoWorktrees(folder: string): Promise<[string, string]> {
 
 function options(folder: string): SessionOptions {
   return {
+    deferredOfficeTools: [],
     folder,
     environment: Object.fromEntries(
       Object.entries(process.env).filter(

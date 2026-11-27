@@ -3,6 +3,7 @@ import {
   BRIEF_ANSWERED_DECISIONS,
   BRIEF_LATEST_EXCHANGES,
   BRIEF_MEMORY,
+  BRIEF_OFFICE_TOOLS,
   BRIEF_OPEN_DECISION,
   BRIEF_OPEN_DECISION_ON_INITIATIVE,
   BRIEF_PROJECTS,
@@ -359,6 +360,47 @@ export function knowledgeBaseLine(index: string): string {
 export function withKnowledgeBase(brief: Brief, index: string | undefined): Brief {
   if (index === undefined) return brief;
   return briefOf(`${knowledgeBaseLine(index)}\n\n${brief.text}`);
+}
+
+/** The Office tools a session reaches on demand, of one area. */
+export interface BriefToolArea {
+  readonly area: string;
+  readonly tools: readonly string[];
+}
+
+/** How a session reaches the Office tools it isn't started with. */
+export interface BriefOfficeTools {
+  /** `deferred`: ToolSearch loads a tool by name; `pair`: `list_office_tools` and `call_office_tool`. */
+  readonly loading: "deferred" | "pair";
+  /** The areas besides Core whose tools are loaded from the start. */
+  readonly homeAreas: readonly string[];
+  readonly others: readonly BriefToolArea[];
+}
+
+/** The name Claude Code gives an Office tool, which ToolSearch's `select:` takes. */
+const DEFERRED_TOOL_PREFIX = "mcp__office__";
+
+/**
+ * `brief` followed by the loaded areas and the other areas' tools with how to load them; as it is
+ * when no tool is left to reach (an Agent Stage's Brief lists none).
+ */
+export function withOfficeToolAreas(
+  prompts: PromptTexts,
+  brief: Brief,
+  { loading, homeAreas, others }: BriefOfficeTools,
+): Brief {
+  if (others.length === 0) return brief;
+  const part = renderedPart(prompts, BRIEF_OFFICE_TOOLS, {
+    loadedAreas: ["core", ...homeAreas].join(", "),
+    toolSearch: loading === "deferred",
+    areas: others.map(({ area, tools }) => ({
+      area,
+      tools: tools
+        .map((name) => (loading === "deferred" ? `${DEFERRED_TOOL_PREFIX}${name}` : name))
+        .join(", "),
+    })),
+  });
+  return briefOf(`${brief.text.trimEnd()}\n\n${part}`);
 }
 
 const NO_REMOVED_IMAGES: ReadonlySet<string> = new Set();

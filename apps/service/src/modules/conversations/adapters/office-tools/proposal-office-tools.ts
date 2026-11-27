@@ -8,7 +8,7 @@ import {
   SIZE_THRESHOLD_TOKENS,
 } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import {
   DUTIES,
   Duties,
@@ -88,6 +88,7 @@ export class ProposalOfficeTools implements OnModuleInit {
   private registerProposeOfficeSetting(): void {
     this.registry.register({
       name: PROPOSE_OFFICE_SETTING_TOOL,
+      area: "officeSettings",
       description:
         "Drafts a new value for an Office setting as a Proposal the user applies with a click. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once.",
       input: z.object({
@@ -143,6 +144,7 @@ export class ProposalOfficeTools implements OnModuleInit {
       .join(", ");
     this.registry.register({
       name: PROPOSE_OFFICE_SETUP_TOOL,
+      area: "officeSettings",
       description: `Drafts the set-up of The Office as one Proposal the user applies with a click: the people to hire, each from a preset or from scratch, and the duties to give to a Role other than the one holding them by default. Applying hires everyone and assigns the duties together, or nothing. A hired preset holds its own duties with no assignment. The presets, with the duties each holds by default: ${presets}. The duties: ${DUTY_LIST}. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once.`,
       input: z.object({
         hires: z
@@ -245,6 +247,7 @@ export class ProposalOfficeTools implements OnModuleInit {
   private registerReadOfficeInstructions(): void {
     this.registry.register({
       name: READ_OFFICE_INSTRUCTIONS_TOOL,
+      area: CORE_AREA,
       description: `Reads the Office instructions as they are now, which may be newer than the ones in your session. Read them before drafting a change with ${PROPOSE_OFFICE_SETTING_TOOL}.`,
       input: z.object({}),
       run: async () => {

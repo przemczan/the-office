@@ -31,6 +31,13 @@ export interface EngineCapabilities {
   readonly startsUsageWindow: boolean;
 }
 
+/**
+ * How an engine's session reaches the Office tools it isn't started with: `all`, none is left out,
+ * every allowed tool is loaded; `deferred`, the engine's own tool search loads them on demand;
+ * `pair`, `list_office_tools` and `call_office_tool` reach them.
+ */
+export type OfficeToolLoading = "all" | "deferred" | "pair";
+
 export type EngineCapability = keyof EngineCapabilities;
 
 /** What `capabilities` lack, in the order they are declared. */
@@ -137,6 +144,11 @@ export interface NewSession {
  */
 export abstract class AgentEngine {
   abstract readonly capabilities: EngineCapabilities;
+  /**
+   * How the session loads the Office tools it isn't started with (spec 5.4.1 › Loading by area).
+   * Not a capability, so no card shows it as missing.
+   */
+  abstract readonly officeToolLoading: OfficeToolLoading;
 
   /**
    * Office tools need the `officeTools` capability, an output schema the `outputSchema` one.

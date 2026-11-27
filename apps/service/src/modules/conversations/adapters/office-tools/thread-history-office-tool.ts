@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import { ThreadHistory } from "../../application/thread-history.js";
 import { READ_THREADS_TOOL } from "../../domain/session-instructions.js";
 import { THREAD_HISTORY_READ_LIMIT } from "../../domain/thread-history-words.js";
@@ -19,6 +19,7 @@ export class ThreadHistoryOfficeTool implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: READ_THREADS_TOOL,
+      area: CORE_AREA,
       description: `Reads the messages of The Office's Threads logged in a range of dates or times: chats, Threads on Tasks (Stage Threads and Consultations too) and Threads on Initiatives, grouped by Thread with its subject, each message with its time, its speaker (the user, a person by name and Role, or The Office) and its text. Tool activity shows as its one-line summary, and Decisions and Proposals as their question or title with the answer or state. Narrow it by a person, a Task, an Initiative (its shaping and planning Threads), a Project or a text. An answer holds at most ${THREAD_HISTORY_READ_LIMIT} characters: a full one ends saying how many messages are left out and the message to read on after. It reads only The Office's log, never a file or an engine's transcript.`,
       input: z.object({
         from: z

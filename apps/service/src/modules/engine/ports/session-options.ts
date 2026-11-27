@@ -1,5 +1,6 @@
 import type { Effort, Engine } from "../domain/engines.js";
 import type { LanguageServer } from "../domain/language-servers.js";
+import type { OfficeReach } from "../domain/office-reach-commands.js";
 import type { ApprovalSetting, PermissionProfile } from "../domain/permission-profile.js";
 import type { OfficeTool } from "./office-tool.js";
 
@@ -135,7 +136,20 @@ export interface SessionOptions {
    * such as asking the user to Allow changes; undefined when there is nothing to add.
    */
   readonly refusalAdvice?: string;
+  /**
+   * Where the running Office's API and database are, for the hook to refuse a command naming them;
+   * undefined where none is configured.
+   */
+  readonly officeReach?: OfficeReach;
+  /** How the session reaches the Office tools it isn't started with, in words for a refusal to end with. */
+  readonly officeToolsAdvice?: string;
+  /** The Office tools the session loads from the start, each ruled (spec 5.4.1 › Loading by area). */
   readonly officeTools: readonly OfficeTool[];
+  /**
+   * The Office tools the engine's own tool search loads on demand, on an engine that defers them;
+   * none otherwise. Served beside `officeTools` on the same server, never loaded until looked up.
+   */
+  readonly deferredOfficeTools: readonly OfficeTool[];
   /** The Role's MCP servers that run in the session; none when it has none. */
   readonly mcpServers: readonly SessionMcpServer[];
   /**
@@ -154,4 +168,12 @@ export interface SessionOptions {
   readonly toolHold?: ToolHold;
   /** Undefined for a session where a call waiting on approval is refused. */
   readonly approvalHold?: ApprovalHold;
+}
+
+/** Whether the session has any Office tool, loaded or deferred, so it needs the Office tool server. */
+export function hasOfficeTools({
+  officeTools,
+  deferredOfficeTools,
+}: Pick<SessionOptions, "officeTools" | "deferredOfficeTools">): boolean {
+  return officeTools.length + deferredOfficeTools.length > 0;
 }

@@ -19,6 +19,7 @@ import {
   ModelNotOffered,
   SessionSkillsDiffer,
   type NewSession,
+  type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -69,6 +70,7 @@ function relayScript(): string {
 @Injectable()
 export class GeminiCliHeadlessEngine extends AgentEngine {
   readonly capabilities = GEMINI_CLI_CAPABILITIES;
+  readonly officeToolLoading: OfficeToolLoading = "pair";
 
   private readonly operatingSystem: OperatingSystem = currentOperatingSystem();
   private readonly cliEntry: string;

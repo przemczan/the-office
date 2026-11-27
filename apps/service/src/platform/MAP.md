@@ -146,6 +146,11 @@
 - `office-data-directory.ts`: OfficeDataFolder, OfficeDataDirectory
 - `office-data.module.ts`: OfficeDataModule
 
+### office-reach/
+
+- `office-reach-config.ts`: OfficeReachConfig
+- `office-reach.module.ts`: OfficeReachModule
+
 ### os/
 
 - `codex-build.ts`: codexBuild

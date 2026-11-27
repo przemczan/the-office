@@ -1,6 +1,11 @@
 import { homedir } from "node:os";
 import type { Engine } from "../../domain/engines.js";
-import { AgentEngine, type EngineCapabilities, type NewSession } from "../../ports/agent-engine.js";
+import {
+  AgentEngine,
+  type EngineCapabilities,
+  type NewSession,
+  type OfficeToolLoading,
+} from "../../ports/agent-engine.js";
 import type {
   ContextUsage,
   EngineSession,
@@ -26,6 +31,10 @@ export class RecordingEngine extends AgentEngine {
 
   get capabilities(): EngineCapabilities {
     return this.engine.capabilities;
+  }
+
+  get officeToolLoading(): OfficeToolLoading {
+    return this.engine.officeToolLoading;
   }
 
   async start(session: NewSession): Promise<EngineSession> {

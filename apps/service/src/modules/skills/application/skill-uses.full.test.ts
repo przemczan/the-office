@@ -168,6 +168,7 @@ function settingsOn(
   { folder, names, expected, userOnly, overrides }: PreparedSkills,
 ): SessionSettings {
   return {
+    homeAreas: "all",
     ...engine,
     officeToolRuling: RUN_EVERY_CALL,
     folder: checkout.path,

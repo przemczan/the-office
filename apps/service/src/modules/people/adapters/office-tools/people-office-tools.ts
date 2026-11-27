@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import {
+  CORE_AREA,
   ENGINE_TYPE_NAMES,
   OfficeToolRegistry,
   type EngineKind,
@@ -48,6 +49,7 @@ export class PeopleOfficeTools implements OnModuleInit {
   listPeople(): OfficeTool {
     return {
       name: LIST_PEOPLE,
+      area: CORE_AREA,
       description: `Lists the people of The Office: each one's Role, responsibilities, capabilities, Task limit and the duties they hold, and the duties nobody holds with who stands in. ${READ_ROLE} gives a Role's whole card.`,
       input: z.object({}),
       run: async () => ({ text: await this.personRecords.everyone(), isError: false }),
@@ -57,6 +59,7 @@ export class PeopleOfficeTools implements OnModuleInit {
   readRole(): OfficeTool<typeof READ_ROLE_INPUT> {
     return {
       name: READ_ROLE,
+      area: CORE_AREA,
       description:
         "Reads a Role's whole card as it is now, which may be newer than what your session knows: its instructions in full and every other field, its Skills and its MCP servers. Read it before drafting a change to the Role, as a change gives each field whole.",
       input: READ_ROLE_INPUT,

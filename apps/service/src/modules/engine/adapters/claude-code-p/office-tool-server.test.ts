@@ -9,7 +9,7 @@ describe("OfficeToolServer", () => {
   it("runs a call for its session and answers what the tool said", async () => {
     const notes = noteTool("take_note");
     const server = await connected(
-      new OfficeToolServer([notes.tool], anOfficeToolCall("s1"), ALLOWED),
+      new OfficeToolServer([notes.tool], [], anOfficeToolCall("s1"), ALLOWED),
     );
 
     expect(await callNote(server, "take_note")).toMatchObject({
@@ -33,7 +33,7 @@ describe("OfficeToolServer", () => {
       return Promise.resolve<ToolDecision>({ allowed: false, reason: "The fire alarm is on." });
     };
     const server = await connected(
-      new OfficeToolServer([notes.tool], anOfficeToolCall("s1"), refuse),
+      new OfficeToolServer([notes.tool], [], anOfficeToolCall("s1"), refuse),
     );
 
     expect(await callNote(server, "take_note")).toMatchObject({

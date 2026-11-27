@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import { MemoryService, RoleRefused } from "../../../people/index.js";
 import { REMEMBER_TOOL } from "../../domain/session-instructions.js";
 import { ThreadRepository } from "../../ports/thread-repository.js";
@@ -20,6 +20,7 @@ export class MemoryOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: REMEMBER_TOOL,
+      area: CORE_AREA,
       description:
         "Adds a note to your Memory, which every session you start later reads in its brief: something worth knowing next time, such as a preference of the user's or a lesson from a mistake. Notes are never edited, so write each one to stand alone, in a sentence or two. Name the Project when the note is about one; leave it out when it holds for all of them.",
       input: z.object({

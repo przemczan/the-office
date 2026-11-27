@@ -106,6 +106,7 @@ import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
+import { OfficeReachModule } from "./platform/office-reach/office-reach.module.js";
 import { OfficeTestInstanceModule } from "./platform/test-instance/office-test-instance.module.js";
 import { RequestAccessModule } from "./platform/http/request-access.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
@@ -322,6 +323,7 @@ export class AppModule {
         McpServerOfficeActionsModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
         OfficeTestInstanceModule.forRoot(config.testInstance ?? false),
+        OfficeReachModule.forRoot(config.port, config.databaseUrl),
         OfficeIdentityHttpModule,
         officeUpdates,
         notifications,

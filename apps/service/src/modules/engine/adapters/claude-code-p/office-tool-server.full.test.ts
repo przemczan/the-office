@@ -6,7 +6,7 @@ import { ALLOWED, noteTool, connected, result, callNote } from "./office-tool-se
 describe("OfficeToolServer", () => {
   it("lists the session's Office tools, each always loaded", async () => {
     const server = await connected(
-      new OfficeToolServer([noteTool("take_note").tool], anOfficeToolCall("s1"), ALLOWED),
+      new OfficeToolServer([noteTool("take_note").tool], [], anOfficeToolCall("s1"), ALLOWED),
     );
 
     const { tools } = (await result(server, "tools/list")) as { tools: unknown[] };
@@ -15,16 +15,36 @@ describe("OfficeToolServer", () => {
     expect(tools).toMatchObject([{ name: "take_note", _meta: { "anthropic/alwaysLoad": true } }]);
   });
 
+  it("marks only the loaded tools always loaded, leaving the deferred ones to the engine's tool search", async () => {
+    const server = await connected(
+      new OfficeToolServer(
+        [noteTool("take_note").tool],
+        [noteTool("deferred_note").tool],
+        anOfficeToolCall("s1"),
+        ALLOWED,
+      ),
+    );
+
+    const { tools } = (await result(server, "tools/list")) as { tools: { name: string }[] };
+
+    expect(tools.find(({ name }) => name === "take_note")).toMatchObject({
+      _meta: { "anthropic/alwaysLoad": true },
+    });
+    expect(tools.find(({ name }) => name === "deferred_note")).not.toMatchObject({
+      _meta: { "anthropic/alwaysLoad": true },
+    });
+  });
+
   it("answers a call to a tool the session doesn't have as a failed call", async () => {
     const server = await connected(
-      new OfficeToolServer([noteTool("take_note").tool], anOfficeToolCall("s1"), ALLOWED),
+      new OfficeToolServer([noteTool("take_note").tool], [], anOfficeToolCall("s1"), ALLOWED),
     );
 
     expect((await callNote(server, "other_note")).isError).toBe(true);
   });
 
   it("answers a notification at once, as the SDK does", async () => {
-    const server = new OfficeToolServer([], anOfficeToolCall("s1"), ALLOWED);
+    const server = new OfficeToolServer([], [], anOfficeToolCall("s1"), ALLOWED);
 
     await expect(
       server.answer({ jsonrpc: "2.0", method: "notifications/initialized" }),

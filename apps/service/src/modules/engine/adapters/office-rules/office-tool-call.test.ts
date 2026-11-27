@@ -38,6 +38,7 @@ afterEach(async () => {
 /** A session's Office tool call and its own tool decisions, from the same rules and holds. */
 function session(profile: PermissionProfile, holds: SessionHolds = {}) {
   const options: SessionOptions = {
+    deferredOfficeTools: [],
     folder: worktree,
     environment: {},
     engine: FIRST_CLAUDE_CODE_ENGINE,

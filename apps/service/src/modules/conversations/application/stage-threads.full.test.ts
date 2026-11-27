@@ -244,6 +244,7 @@ async function startOn(
   for (const name of STAGE_AUTHORITY_OFFICE_TOOLS) {
     app.get(OfficeToolRegistry).register({
       name,
+      area: "core",
       description: name,
       input: z.object({}),
       run: () => Promise.resolve({ text: "", isError: false }),

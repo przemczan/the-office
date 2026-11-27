@@ -15,6 +15,7 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
   type NewSession,
+  type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
@@ -80,6 +81,7 @@ interface SessionOpening {
 @Injectable()
 export class OpenAiCompatibleApiEngine extends AgentEngine {
   readonly capabilities = OPENAI_COMPATIBLE_API_CAPABILITIES;
+  readonly officeToolLoading: OfficeToolLoading = "pair";
 
   private readonly operatingSystem: OperatingSystem = currentOperatingSystem();
 

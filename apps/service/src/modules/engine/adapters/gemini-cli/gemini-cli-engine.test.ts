@@ -55,6 +55,7 @@ const WORD_SCHEMA = {
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: ({ word }) => Promise.resolve({ text: `Noted ${String(word)}.`, isError: false }),
@@ -116,6 +117,7 @@ describe("GeminiCliHeadlessEngine on a fake CLI", () => {
 
   function options(overrides: Partial<SessionOptions> = {}): SessionOptions {
     return {
+      deferredOfficeTools: [],
       folder,
       environment: {
         PATH: process.env["PATH"] ?? "",

@@ -96,6 +96,7 @@ export class OnboardingOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: PROPOSE_PROJECT_TOOL,
+      area: "projectsAndSettings",
       description:
         "Drafts a new Project to onboard as a Proposal the user applies with a click: applying it adds the Project and its Onboard Task, in which you make it build and test in a fresh worktree. Give a repository on the workstation by its `path`, or one on a host by its Repository URL as `url`, which The Office clones when the Proposal is applied. Look at the repository first, with read_repository: its base branch among its branches, and the commands that install, build, lint and test it, reading a package's folder with its folder argument when they live below the top level, and what it makes, to judge which of The Office's features the Project needs (`features`): Connected devices for an app that runs on a device, such as an Android app or embedded firmware; Test targets for something a user tries by hand, served or installed; GitHub issues for a repository on GitHub whose issues track the work. Give each one on or off with a short reason. It shows in this Thread as a card and adds nothing until the user applies it. It returns at once.",
       input: DRAFTED_INPUT,

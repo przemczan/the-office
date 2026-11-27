@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { SessionInitiatives } from "../../ports/session-initiatives.js";
 import { answered, WorkToolRefused } from "./work-tool-answers.js";
@@ -32,6 +32,7 @@ export class ShapingOfficeTools implements OnModuleInit {
   private registerReadInitiative(): void {
     this.registry.register({
       name: READ_INITIATIVE,
+      area: CORE_AREA,
       description:
         "Reads any Initiative's record as it stands now: its state, the Projects it spans, the Idea it was shaped from, its outcome, its Tasks with what each must wait for, and its Attachments by id. In a Thread on an Initiative it reads that one unless you name another; the user may have changed it since your Brief.",
       input: z.object({

@@ -239,6 +239,7 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: CHANGE_PROJECT_SETTINGS_TOOL,
+      area: "projectsAndSettings",
       description: DESCRIPTION,
       input,
       authority: {

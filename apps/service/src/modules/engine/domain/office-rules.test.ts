@@ -3,6 +3,7 @@ import { linux } from "../../../platform/os/linux.js";
 import type { OperatingSystem } from "../../../platform/os/operating-system.js";
 import { windows } from "../../../platform/os/windows.js";
 import type { AgentAction } from "./agent-action.js";
+import type { OfficeReach } from "./office-reach-commands.js";
 import { OfficeRules } from "./office-rules.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import type { ShellDialect } from "./shell-commands.js";
@@ -68,6 +69,8 @@ interface SessionReach {
   readonly workstation?: boolean;
   readonly readsEngineTranscripts?: boolean;
   readonly refusalAdvice?: string;
+  readonly officeReach?: OfficeReach;
+  readonly officeToolsAdvice?: string;
 }
 
 /** A chat's: it only reads (spec §6). */
@@ -85,6 +88,8 @@ function rulesOn(
     workstation = false,
     readsEngineTranscripts = false,
     refusalAdvice,
+    officeReach,
+    officeToolsAdvice,
   }: SessionReach = {},
 ): OfficeRules {
   const { paths } = platform.system;
@@ -113,6 +118,8 @@ function rulesOn(
         : { HOME: platform.home },
     paths,
     refusalAdvice,
+    ...(officeReach && { officeReach }),
+    ...(officeToolsAdvice && { officeToolsAdvice }),
   });
 }
 
@@ -844,6 +851,47 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
           });
         }
       });
+    });
+  });
+});
+
+describe("OfficeRules refusing the running Office's API and database", () => {
+  const officeReach: OfficeReach = {
+    apiPort: 4390,
+    databaseUrl: "postgres://office:secret@localhost:5432/the_office",
+  };
+  const advice = "Load other tools with ToolSearch.";
+  const refusal = {
+    allowed: false,
+    reason: expect.stringContaining("this reaches The Office's own API on port 4390."),
+  };
+  const databaseRefusal = {
+    allowed: false,
+    reason: expect.stringContaining("this reaches The Office's own database."),
+  };
+
+  it("refuses the loopback port in a Task's session and in the Caretaker's with changes allowed, naming how to load tools", () => {
+    const task = rulesOn(LINUX, { officeReach, officeToolsAdvice: advice });
+    const caretaker = rulesOn(LINUX, { workstation: true, officeReach, officeToolsAdvice: advice });
+    for (const rules of [task, caretaker]) {
+      const refused = rules.decide(command("bash", "curl -X POST http://127.0.0.1:4390/api/tasks"));
+      expect(refused).toEqual(refusal);
+      expect(refused).toMatchObject({ reason: expect.stringContaining(advice) });
+      expect(
+        rules.decide(command("bash", "psql postgres://office:secret@localhost:5432/the_office")),
+      ).toEqual(databaseRefusal);
+    }
+  });
+
+  it("lets through the health check, another port and a session with no Office to reach", () => {
+    const rules = rulesOn(LINUX, { officeReach });
+    expect(rules.decide(command("bash", "curl http://localhost:4390/api/health"))).toEqual({
+      allowed: true,
+    });
+    expect(rules.decide(command("bash", "curl http://localhost:3000/"))).toEqual({ allowed: true });
+    expect(rules.decide(command("bash", "echo 4390"))).toEqual({ allowed: true });
+    expect(rulesOn(LINUX).decide(command("bash", "curl http://localhost:4390/api/tasks"))).toEqual({
+      allowed: true,
     });
   });
 });

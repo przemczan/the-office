@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { TaskService } from "../../application/task-service.js";
 import {
@@ -55,6 +55,7 @@ export class AttachmentOfficeTools implements OnModuleInit {
     });
     this.registry.register({
       name: ATTACH_FILE,
+      area: CORE_AREA,
       description:
         "Attaches a file to a Task, such as a screenshot, a report or a document (.md), for the user to see with the Task: a file from the Task's worktree (path, in a Thread on the Task), or an image the user sent in this Thread (attachmentId). A design for the user to approve is attached before its Gate, as one self-contained .html file, since the preview loads nothing from outside the file. The Office keeps a copy, so a later change to the file doesn't change the Attachment; attaching the same path again replaces that copy until the user acts at the Task's next Gate.",
       input,

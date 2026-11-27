@@ -9,10 +9,12 @@ export interface OfficeTool {
   readonly name: string;
   readonly description: string;
   readonly input: ZodRawShape;
+  /** Served with no always-loaded mark, so the engine's tool search loads it on demand. */
+  readonly deferred?: boolean;
   run(input: Record<string, unknown>): Promise<string>;
 }
 
-/** What the SDK sets on each tool of a server made with `alwaysLoad`, so none waits behind tool search. */
+/** What the SDK sets on a tool made with `alwaysLoad`, so it waits behind no tool search. */
 const ALWAYS_LOAD = { "anthropic/alwaysLoad": true };
 
 /** The SDK's answer to a notification, which needs none (sdk.mjs, `mcp_message`). */
@@ -34,7 +36,11 @@ export class OfficeToolServer {
     for (const tool of tools) {
       server.registerTool(
         tool.name,
-        { description: tool.description, inputSchema: tool.input, _meta: ALWAYS_LOAD },
+        {
+          description: tool.description,
+          inputSchema: tool.input,
+          ...(!tool.deferred && { _meta: ALWAYS_LOAD }),
+        },
         async (input: Record<string, unknown>) => ({
           content: [{ type: "text" as const, text: await tool.run(input) }],
         }),

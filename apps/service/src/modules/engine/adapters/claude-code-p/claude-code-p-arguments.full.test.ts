@@ -18,6 +18,7 @@ import {
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: () => Promise.resolve({ text: "Noted.", isError: false }),

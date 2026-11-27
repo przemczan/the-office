@@ -177,6 +177,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
   function options(changes: Partial<SessionOptions> = {}): SessionOptions {
     return {
+      deferredOfficeTools: [],
       folder,
       environment: {},
       engine: endpoint(),

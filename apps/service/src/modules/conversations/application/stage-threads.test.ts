@@ -272,6 +272,7 @@ async function startOn(
   for (const name of STAGE_AUTHORITY_OFFICE_TOOLS) {
     app.get(OfficeToolRegistry).register({
       name,
+      area: "core",
       description: name,
       input: z.object({}),
       run: () => Promise.resolve({ text: "", isError: false }),
@@ -1135,6 +1136,7 @@ describe("Office tools on a Stage", () => {
     // Pipelines registers it in the service.
     app.get(OfficeToolRegistry).register({
       name: WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+      area: "core",
       description: WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
       input: z.object({}),
       run: () => Promise.resolve({ text: "", isError: false }),

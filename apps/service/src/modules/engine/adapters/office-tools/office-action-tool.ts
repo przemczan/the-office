@@ -22,6 +22,7 @@ export function officeActionTool<Input extends z.ZodObject>(
   const { floor, groupsOf, ...drafting } = proposal ?? {};
   return {
     name: action.name,
+    area: action.area,
     description: action.description,
     input: action.input,
     authority: {

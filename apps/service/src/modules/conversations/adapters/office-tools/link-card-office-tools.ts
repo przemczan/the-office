@@ -23,6 +23,7 @@ export class LinkCardOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: POST_LINK_CARD_TOOL,
+      area: "officeSettings",
       description:
         "Points the user to whoever is responsible with a Link card in this Thread: the person, with a Handover note the user may edit or leave out before sending it in a new Thread with them. You never relay a message or answer for someone else. It returns at once.",
       input: z.object({

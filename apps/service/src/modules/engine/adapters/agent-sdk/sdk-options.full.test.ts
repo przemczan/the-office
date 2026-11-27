@@ -1,4 +1,6 @@
 import { query, type SDKUserMessage, type SpawnOptions } from "@anthropic-ai/claude-agent-sdk";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { OfficeTool } from "../../ports/office-tool.js";
@@ -9,6 +11,7 @@ import { OPTIONS, optionsFor } from "./sdk-options.fixtures.js";
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
@@ -137,6 +140,32 @@ describe("sdkOptions", () => {
     expect(Object.keys(options.mcpServers ?? {})).toEqual(["office"]);
     expect(options.mcpServers?.["office"]).toMatchObject({ type: "sdk", name: "office" });
     expect(options.settings).toMatchObject({ permissions: { allow: ["mcp__office"] } });
+  });
+
+  it("marks only the loaded Office tools always loaded, serving the deferred ones on the same server", async () => {
+    const options = optionsFor({
+      options: {
+        ...OPTIONS,
+        officeTools: [NOTE_TOOL],
+        deferredOfficeTools: [{ ...NOTE_TOOL, name: "create_task", area: "work" }],
+      },
+    });
+    const server = options.mcpServers?.["office"];
+    if (server?.type !== "sdk") throw new Error("No in-process Office server.");
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "1.0.0" });
+    await server.instance.connect(serverSide);
+    await client.connect(clientSide);
+
+    const { tools } = await client.listTools();
+    await client.close();
+
+    expect(
+      tools.map(({ name, _meta }) => [name, _meta?.["anthropic/alwaysLoad"] === true]),
+    ).toEqual([
+      ["note", true],
+      ["create_task", false],
+    ]);
   });
 
   it("names the session's MCP config file, holding its servers, beside the in-process server", () => {

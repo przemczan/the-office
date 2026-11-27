@@ -7,6 +7,7 @@ import { sdkOptions, type SdkSession } from "./sdk-options.js";
 // What sdk-options.test.ts and sdk-options.full.test.ts share.
 
 export const OPTIONS: SessionOptions = {
+  deferredOfficeTools: [],
   folder: "/office/worktrees/task-1",
   environment: {
     PATH: "/usr/bin",

@@ -388,6 +388,48 @@ You are continuing a Thread on an Initiative in a fresh session: the earlier ses
 `,
 });
 
+/** The part of a Brief that says which Office tools are loaded and how to reach the others (spec 6 › Tool areas). */
+export const BRIEF_OFFICE_TOOLS = promptTemplate({
+  key: "conversations.brief-office-tools",
+  domain: "conversations",
+  name: "Brief: Office tools",
+  description:
+    "The part of a Brief that names the Office tool areas the session starts with and lists the tools of the others, with how to load them on its engine.",
+  variables: {
+    loadedAreas: {
+      kind: "text",
+      description:
+        "The areas whose tools are loaded from the start, Core first, such as Core, work.",
+    },
+    toolSearch: {
+      kind: "flag",
+      description: "The engine loads a tool by name with ToolSearch, not through the tool pair.",
+    },
+    areas: {
+      kind: "list",
+      description: "The areas not loaded, each with its tools.",
+      fields: {
+        area: "The area's key.",
+        tools: "Its tools' names as the session reaches them, comma separated.",
+      },
+    },
+  },
+  text: `## Your Office tools
+
+Loaded from the start: the tools of {{loadedAreas}}. The Office tools of the other areas are not loaded.
+{{#toolSearch}}
+Load one with ToolSearch, \`select:<tool name>\`, then call it.
+{{/toolSearch}}
+{{^toolSearch}}
+List an area's tools with \`list_office_tools\` (its \`area\`), then call one with \`call_office_tool\` (its \`name\` and \`input\`).
+{{/toolSearch}}
+
+{{#areas}}
+- {{area}}: {{tools}}
+{{/areas}}
+`,
+});
+
 /** Every Brief template, which `Briefs` loads together. */
 export const BRIEF_TEMPLATES = [
   NEW_CHAT_THREAD_BRIEF,
@@ -401,4 +443,5 @@ export const BRIEF_TEMPLATES = [
   BRIEF_ANSWERED_DECISIONS,
   BRIEF_OPEN_DECISION,
   BRIEF_OPEN_DECISION_ON_INITIATIVE,
+  BRIEF_OFFICE_TOOLS,
 ] as const;

@@ -237,6 +237,15 @@ Windows only.
 - **Observed:** the tool is in `init.tools` as `mcp__office__handover_note` and its server is `connected`. With the allow rule the hook sees the call first and the handler runs with the arguments asked for. Without it, `permissionPrompts: 'none'` refuses the call (`asyncAgent`) and the handler never runs.
 - **Meaning:** Office tools work in-process (§5.4), and The Office allows its own tools by rule (§6 build rules).
 
+### office-tools.deferred, office-tools.deferred-p
+
+The check behind `CLAUDE_CODE_DEFERS_OFFICE_TOOLS` (spec 5.4.1 › Loading by area), which ships `false`. On `claude-haiku-5-5`, on the SDK and on `-p`.
+
+- **Run:** one Office server with two tools, one always loaded (`_meta['anthropic/alwaysLoad']`) and one with no mark: on the SDK from `createSdkMcpServer()`, on `-p` served through the binary's stream. Turn 1 calls the loaded tool. Turn 2 loads the deferred tool with `ToolSearch` (`select:mcp__office__deferred_note`) and calls it.
+- **Observed:** not recorded; it needs a signed-in machine. Three facts: the deferred tool is out of the session's tool list at the start (`deferredToolListedAtStart`), its call reaches its handler with the input the model gave (`deferredCallReachedHandler`, after a `ToolSearch` call), and turn 2 reads turn 1's prompt from the cache (`secondTurnReadsFirstTurnsPromptFromCache`), so loading the tool left the cached prefix as it was.
+- **Run it** once Publish has landed the Task, on the machine that holds the engine's sign-in: `npm run engine-check -- --only office-tools. --record`. When both items pass, a follow-up Task sets `CLAUDE_CODE_DEFERS_OFFICE_TOOLS` to `true`.
+- **Meaning:** Claude Code can defer the Office tools of the areas a session isn't started with without breaking the prompt cache, so Core and the home's areas load from the start and the Agent loads the rest by name.
+
 ### engine.decision-wait
 
 Slow: about an hour; runs only with `--include-slow`, once per SDK bump. The same on Windows and Linux.

@@ -83,6 +83,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
     );
     const id = randomUUID();
     const options: SessionOptions = {
+      deferredOfficeTools: [],
       folder,
       environment: sessionEnvironment(
         Object.fromEntries(
@@ -100,6 +101,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
       officeTools: [
         {
           name: "note",
+          area: "core",
           description: "Notes a word.",
           input: z.object({ word: z.string() }),
           run: () => Promise.resolve({ text: "Noted.", isError: false }),
@@ -113,7 +115,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
     const mcpConfig = claudeCodePMcpConfig(options);
     if (mcpConfig === undefined) throw new Error("The session has MCP servers.");
     const mcpConfigFile = await McpConfigFile.write(OFFICE_DATA.folder("sessions"), id, mcpConfig);
-    const officeTools = new OfficeToolServer(options.officeTools, anOfficeToolCall(id), () =>
+    const officeTools = new OfficeToolServer(options.officeTools, [], anOfficeToolCall(id), () =>
       Promise.resolve({ allowed: true }),
     );
     const engineProcess = new EngineProcess(operatingSystem.processTrees);

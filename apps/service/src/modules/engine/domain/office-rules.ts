@@ -1,4 +1,5 @@
 import type { AgentAction } from "./agent-action.js";
+import { officeReach } from "./office-reach-commands.js";
 import { containerRuntimeReach, RUN_PROJECT_COMMAND_TOOL } from "./container-runtime-commands.js";
 import { directoryChange } from "./directory-change.js";
 import { gitChange, isGit, READ_ONLY_GIT_COMMANDS } from "./git-commands.js";
@@ -254,6 +255,8 @@ export class OfficeRules {
         if (secret !== undefined) return secret;
       }
     }
+    const reached = this.officeReachRefusal(command);
+    if (reached !== undefined) return reached;
     if (this.rules.workstation) return undefined;
     const outsideWrite = this.outsideWriteRefusal(command, directories);
     if (outsideWrite !== undefined) return outsideWrite;
@@ -273,6 +276,23 @@ export class OfficeRules {
       : this.advised(
           `Refused by The Office: Agents never change git (${change}); The Office commits, branches and publishes. Only ${READ_ONLY_GIT} runs.`,
         );
+  }
+
+  /** Refused to every session: a command naming the running Office's API port or its database. */
+  private officeReachRefusal(command: SimpleCommand): string | undefined {
+    const { officeReach: reach, officeToolsAdvice } = this.rules;
+    if (reach === undefined) return undefined;
+    const words = [...command.words, ...command.redirects.map(({ target }) => target)];
+    const reached = officeReach(words, reach);
+    if (reached === undefined) return undefined;
+    return this.advised(
+      [
+        `Not allowed: this reaches The Office's own ${reached}. Change Office state with your Office tools.`,
+        officeToolsAdvice,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    );
   }
 
   /**

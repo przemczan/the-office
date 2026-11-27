@@ -1,7 +1,7 @@
 import type { Settings } from "@anthropic-ai/claude-agent-sdk";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import type { AgentShell } from "../../../../platform/os/shell.js";
-import type { SessionOptions } from "../../ports/session-options.js";
+import { hasOfficeTools, type SessionOptions } from "../../ports/session-options.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import type { McpConfig } from "../claude-code/mcp-config-file.js";
 import { mcpServerConfigs } from "../claude-code/session-mcp-servers.js";
@@ -126,15 +126,13 @@ function withHook(session: ClaudeCodePSession): Settings {
  * requests. The session's token is in the binary's environment, which a local server would inherit,
  * so it is blanked there. None for a session with neither.
  */
-export function claudeCodePMcpConfig({
-  officeTools,
-  mcpServers,
-}: SessionOptions): McpConfig | undefined {
-  if (officeTools.length === 0 && mcpServers.length === 0) return undefined;
+export function claudeCodePMcpConfig(options: SessionOptions): McpConfig | undefined {
+  const { mcpServers } = options;
+  if (!hasOfficeTools(options) && mcpServers.length === 0) return undefined;
   return {
     mcpServers: {
       ...mcpServerConfigs(mcpServers, [TOKEN_VARIABLE]),
-      ...(officeTools.length > 0 && {
+      ...(hasOfficeTools(options) && {
         [OFFICE_TOOL_SERVER]: { type: "sdk", name: OFFICE_TOOL_SERVER },
       }),
     },

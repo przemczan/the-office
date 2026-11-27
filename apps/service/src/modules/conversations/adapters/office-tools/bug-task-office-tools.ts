@@ -1,7 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { PROPOSE_BUG_TASK_TOOL } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import { BugTaskDecisions } from "../../application/bug-task-decisions.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
 
@@ -24,6 +24,7 @@ export class BugTaskOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: PROPOSE_BUG_TASK_TOOL,
+      area: CORE_AREA,
       description:
         "Proposes a Bug Task for an issue you found that is too big for this Task or outside its scope, instead of fixing it here. It opens a Decision on this Task: the user may edit the Bug Task, then creates it in Backlog, found while working on this Task, doesn't, or answers Fix now, which creates none and has you fix it within this Task. It returns at once; then end the Stage with needs_decision and your Handover note. The answer, naming the new Task, saying no, or saying to fix it now, with the user's comment, comes as your next message: go on with your own work then, first fixing it within this Task when the answer is Fix now.",
       input: z.object({

@@ -6,7 +6,7 @@ import {
   OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { Consultations } from "../../application/consultations.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { WorkRecords } from "../../application/work-records.js";
@@ -54,6 +54,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerOpenDecision(): void {
     this.registry.register({
       name: OPEN_DECISION_TOOL,
+      area: CORE_AREA,
       description:
         "Opens a Decision in this Thread when something is the user's to decide: ask everything you need in one Decision, as a form of one or more questions, each with its options and the one you recommend (set several when they may pick more than one, and recommend each you would pick), or with none for a question they answer in their own words. The user answers each question, with an optional comment on each and a general comment, then Submits, or asks you again instead; they may ask you a follow-up first. It returns at once; then end your turn without asking the questions again. Their answer comes as your next message. In your chat it shows inline, and the user answers it there. In an Initiative's shaping Thread leave taskId out: the Decision is on the Initiative, one at a time. In its planning Thread name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile; or leave taskId out for the Initiative as a whole, one at a time.",
       input: z.object({
@@ -86,6 +87,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
+      area: CORE_AREA,
       description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask questions, everything you need in one form, each with its options and the one you recommend (set several when they may pick more than one, and recommend each you would pick), or with none for one they answer in words: they answer each, with an optional comment on each and a general comment, or ask you again; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat or from an Initiative's Thread on no Task. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, the user answers it inline in your chat. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
@@ -144,6 +146,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerAnswerConsultation(): void {
     this.registry.register({
       name: ANSWER_CONSULTATION_TOOL,
+      area: CORE_AREA,
       description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. Answer each of its questions, in order: choose one of its options by its number (for a choice of several, every option that applies, in options), or answer in your own words, with a comment if you like; add a general comment if you like. Or ask them again instead, answering none of the questions, saying why in the general comment. A request you answer in your own words: what you did, such as a Proposal you drafted, or why you can't. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}, with no comment, or pass it on when the call isn't yours to decide: to the person your authority names, or to the user. At most ${CALL_STEPS} people are asked down one chain of calls and passes-on, then it is the user's; nobody already in it can be asked again. A question The Office put to you first, you answer in your own words, or pass on to the user.`,
       input: z.object({
         ...ANSWER_INPUT,
@@ -180,6 +183,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerAnswerDecision(): void {
     this.registry.register({
       name: ANSWER_DECISION_TOOL,
+      area: CORE_AREA,
       description:
         "Answers a Decision waiting on the user, for the user, when they asked you to in this Thread: use it only then, with the answers they gave or agreed to. Answer each of its questions, in order: choose one of its options by its number (for a choice of several, every option they picked, in options), or answer in the user's own words, with their comment if they gave one; add their general comment if they gave one. Or ask again for them, answering none of the questions, with their general comment. The card shows it as answered by you at the user's request, and the answer reaches the person who asked as their next message. read_task lists a Task's Decisions waiting on the user, with their ids, their questions and numbered options. An approval of a call stays the user's own click, a Decision put to a Consultant is theirs, and one in this Thread the user answers on its card.",
       input: z.object({

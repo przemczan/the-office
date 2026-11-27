@@ -164,6 +164,7 @@ afterEach(async () => {
 
 function options(): SessionOptions {
   return {
+    deferredOfficeTools: [],
     folder,
     environment: {},
     engine: FIRST_CLAUDE_CODE_ENGINE,
@@ -411,6 +412,7 @@ describe("ScriptedEngine", () => {
         officeTools: [
           {
             name: "read_task",
+            area: "core",
             description: "Reads the Task.",
             input: z.object({}),
             run: () => {
@@ -477,6 +479,7 @@ describe("ScriptedEngine", () => {
           officeTools: [
             {
               name: "write_initiative_outcome",
+              area: "core",
               description: "Writes the outcome.",
               input: z.object({ initiativeId: z.uuid(), outcome: z.string() }),
               run: (input) => {

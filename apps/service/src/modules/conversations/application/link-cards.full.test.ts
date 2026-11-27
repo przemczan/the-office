@@ -223,6 +223,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     if (name === POST_LINK_CARD_TOOL) continue;
     app.get(OfficeToolRegistry).register({
       name,
+      area: "core",
       description: `Reads ${name}.`,
       input: z.object({}),
       run: () => Promise.resolve({ text: "Nothing.", isError: false }),

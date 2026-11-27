@@ -60,6 +60,7 @@ class EchoingMcpClient extends McpClient {
 
 const noteTool: OfficeTool = {
   name: "handover_note",
+  area: "core",
   description: "Writes the Handover note.",
   input: z.object({ note: z.string() }),
   run: ({ note }, call) =>
@@ -68,6 +69,7 @@ const noteTool: OfficeTool = {
 
 const pictureTool: OfficeTool = {
   name: "read_attachment",
+  area: "core",
   description: "Reads an Attachment.",
   input: z.object({}),
   run: () =>

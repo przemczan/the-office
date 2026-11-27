@@ -12,21 +12,26 @@ export function textResult(text: string): ToolResult {
   return { content: [{ type: "text", text }] };
 }
 
+/** What the SDK sets on a tool made with `alwaysLoad`, so it waits behind no tool search. */
+const ALWAYS_LOAD = { "anthropic/alwaysLoad": true };
+
 /**
- * Session options that add the Office tools. They are always loaded, so no ToolSearch round comes
- * before a first call, and allowed by a rule unless `allowed` is false, as a Role's profile grants them.
+ * Session options that add the Office tools. `tools` are always loaded, so no ToolSearch round comes
+ * before a first call; `deferred` ones carry no mark, so the engine's tool search loads them on
+ * demand, as the service serves the areas a session isn't started with. They are allowed by a rule
+ * unless `allowed` is false, as a Role's profile grants them.
  */
 export function withOfficeTools(
   tools: OfficeTools,
   allowed = true,
+  deferred: OfficeTools = [],
 ): Pick<SessionSpec, "options" | "settings"> {
   return {
     options: {
       mcpServers: {
         [OFFICE_TOOL_SERVER]: createSdkMcpServer({
           name: OFFICE_TOOL_SERVER,
-          tools,
-          alwaysLoad: true,
+          tools: [...tools.map((loaded) => ({ ...loaded, _meta: ALWAYS_LOAD })), ...deferred],
         }),
       },
     },

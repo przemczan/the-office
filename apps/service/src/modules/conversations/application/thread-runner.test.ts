@@ -450,6 +450,7 @@ async function startOn(
   )) {
     app.get(OfficeToolRegistry).register({
       name,
+      area: "core",
       description: `Reads ${name}.`,
       input: z.object({}),
       run: () => Promise.resolve({ text: "Nothing.", isError: false }),
@@ -739,6 +740,41 @@ describe("a new Thread's first message", () => {
         full: false,
       },
     });
+  });
+});
+
+describe("the Office tools a new session loads by area", () => {
+  it("are named in the Brief with the other areas' tools, reached through the pair", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    engine.officeToolLoading = "pair";
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    const [session] = engine.sessions;
+    const start = session?.received[0];
+    const brief = start?.step === "start" ? start.brief.text : "";
+    expect(brief).toContain(
+      "\n\n## Your Office tools\n\nLoaded from the start: the tools of core.",
+    );
+    expect(brief).toContain("List an area's tools with `list_office_tools`");
+    // A chat loads Core only: an Office action of another area is listed, by its name alone.
+    expect(brief).toMatch(/^- operations: check_github_permissions$/m);
+    expect(namesOf(session?.options.officeTools)).toEqual(
+      expect.arrayContaining(["list_office_tools", "call_office_tool"]),
+    );
+  });
+
+  it("are left out of the Brief on an engine that loads every tool", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    const start = engine.sessions[0]?.received[0];
+    expect(start?.step === "start" && start.brief.text).not.toContain("## Your Office tools");
   });
 });
 
@@ -3106,6 +3142,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     });
     app.get(OfficeToolRegistry).register({
       name: HOLD_TURN,
+      area: "core",
       description: "Holds the turn.",
       input: z.object({}),
       run: async () => {
@@ -3214,6 +3251,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     });
     app.get(OfficeToolRegistry).register({
       name: HOLD_TURN,
+      area: "core",
       description: "Holds the turn.",
       input: z.object({}),
       run: async () => {
@@ -3281,6 +3319,7 @@ describe("a Decision on an Initiative as a whole", () => {
     });
     app.get(OfficeToolRegistry).register({
       name: HOLD_TURN,
+      area: "core",
       description: "Holds the turn.",
       input: z.object({}),
       run: async () => {
@@ -4931,6 +4970,7 @@ function standInsFor(names: readonly string[]): void {
     } catch {
       registry.register({
         name,
+        area: "core",
         description: `Stands in for ${name}.`,
         input: z.object({}),
         run: () => Promise.resolve({ text: "Nothing.", isError: false }),
@@ -4943,6 +4983,7 @@ function standInsFor(names: readonly string[]): void {
 function actionStandIn(name: string, group: AuthorityGroup = "taskRecords"): void {
   app.get(OfficeToolRegistry).register({
     name,
+    area: "work",
     description: `Stands in for ${name}.`,
     input: z.object({}),
     authority: { group, title: "Stand-in", subject: () => ({ kind: "task", id: "x" }) },

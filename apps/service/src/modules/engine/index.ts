@@ -27,7 +27,9 @@ export type {
   OfficeToolResult,
   OfficeToolSubject,
   OfficeToolUser,
+  ToolArea,
 } from "./ports/office-tool.js";
+export { CORE_AREA } from "./ports/office-tool.js";
 export {
   UsageWindowState,
   type UsageWindowReading,
@@ -134,3 +136,5 @@ export type { NewSession } from "./ports/agent-engine.js";
 export { NoEngineListed, SessionNotCarried } from "./ports/agent-engine.js";
 export type { EngineSession } from "./ports/engine-session.js";
 export type { ApprovalCall, ApprovalHold } from "./ports/session-options.js";
+export type { HomeAreas } from "./application/office-tool-split.js";
+export type { OfficeToolLoading } from "./ports/agent-engine.js";

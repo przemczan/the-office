@@ -34,10 +34,18 @@ export class OfficeToolRegistry {
     if (!TOOL_NAME.test(tool.name)) {
       throw new Error(`"${tool.name}" is not an Office tool's name: write it in snake_case.`);
     }
+    if (!tool.area) {
+      throw new Error(`The Office tool ${tool.name} has no area: give it its area, or Core.`);
+    }
     if (this.tools.has(tool.name)) {
       throw new Error(`An Office tool named ${tool.name} is registered already.`);
     }
     this.tools.set(tool.name, tool);
+  }
+
+  /** Every registered tool's name with its area, in the order registered. */
+  areas(): { readonly name: string; readonly area: string }[] {
+    return [...this.tools.values()].map(({ name, area }) => ({ name, area }));
   }
 
   /** Every Office action's tool, in the order registered, with the group of the Authority that rules it. */

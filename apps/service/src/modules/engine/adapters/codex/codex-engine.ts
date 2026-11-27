@@ -23,6 +23,7 @@ import {
   type EngineCapabilities,
   type NewSession,
   type UsageWindowStart,
+  type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -115,6 +116,7 @@ const CLIENT_INFO = { name: "the_office", title: "The Office", version: "1" } as
 @Injectable()
 export class CodexAppServerEngine extends AgentEngine {
   readonly capabilities = CODEX_CAPABILITIES;
+  readonly officeToolLoading: OfficeToolLoading = "pair";
 
   private readonly operatingSystem: OperatingSystem = currentOperatingSystem();
 

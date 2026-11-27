@@ -10,6 +10,7 @@ import {
   EVENTS_PATH,
   OFFICE_ACTIONS,
   WRITE_ROUTE_REGISTER,
+  authorityAreaKeySchema,
   type WriteRouteMethod,
 } from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
@@ -355,6 +356,82 @@ describe("the whole app, signed out", () => {
       expect(ruled, `${name} has no Office tool`).toBeDefined();
       expect(ruled?.group).toBe(group);
     }
+  });
+
+  it("lists every registered Office tool with its area: an action's own, Core or one of the area's hand-written tools", () => {
+    const tools = served.get(OfficeToolRegistry, { strict: false });
+    const declared = new Map<string, string>(OFFICE_ACTIONS.map(({ name, area }) => [name, area]));
+    const registered = tools.areas();
+    const byArea: Record<string, string[]> = {};
+    for (const handWritten of registered.filter((tool) => !declared.has(tool.name))) {
+      (byArea[handWritten.area] ??= []).push(handWritten.name);
+    }
+
+    expect(
+      registered.filter(({ name, area }) => declared.has(name) && declared.get(name) !== area),
+      "actions whose tool has another area than their declaration",
+    ).toEqual([]);
+    expect(
+      registered.filter(
+        ({ area }) => area !== "core" && !authorityAreaKeySchema.safeParse(area).success,
+      ),
+      "tools of an area the Authority catalog doesn't have",
+    ).toEqual([]);
+    expect(
+      Object.fromEntries(Object.entries(byArea).map(([area, names]) => [area, names.toSorted()])),
+    ).toEqual({
+      core: [
+        "answer_consultation",
+        "answer_decision",
+        "attach_file",
+        "capture_idea",
+        "choose_route",
+        "consult",
+        "list_ideas",
+        "list_people",
+        "list_pipelines",
+        "list_projects",
+        "list_prompt_templates",
+        "list_source_skills",
+        "list_stage_templates",
+        "list_tasks",
+        "mark_planned",
+        "open_decision",
+        "propose_bug_task",
+        "propose_pipeline",
+        "read_attachment",
+        "read_idea",
+        "read_initiative",
+        "read_office_instructions",
+        "read_prompt_template",
+        "read_repository",
+        "read_role",
+        "read_skill_update",
+        "read_stage_history",
+        "read_task",
+        "read_threads",
+        "remember",
+        "run_project_command",
+        "start_planning",
+        "update_branch",
+        "write_bug_details",
+        "write_definition_of_done",
+        "write_kind",
+        "write_plan",
+        "write_run_environment_definition",
+        "write_tags",
+      ],
+      initiatives: ["create_initiative"],
+      officeSettings: [
+        "post_link_card",
+        "propose_office_setting",
+        "propose_office_setup",
+        "show_office_status",
+      ],
+      operations: ["run_environment_check"],
+      projectsAndSettings: ["change_project_settings", "propose_project"],
+      work: ["create_task"],
+    });
   });
 
   it("refuses the event stream's WebSocket on localhost", async () => {

@@ -286,6 +286,7 @@ function chatToolStandIns(): FactoryProvider {
         }
         registry.register({
           name,
+          area: "core",
           description: `Reads ${name}.`,
           input: z.object({}),
           run: () => Promise.resolve({ text: "Nothing.", isError: false }),

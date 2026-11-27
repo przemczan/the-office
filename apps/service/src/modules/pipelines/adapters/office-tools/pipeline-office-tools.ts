@@ -6,6 +6,7 @@ import {
   READ_STAGE_HISTORY_TOOL,
 } from "../../../conversations/index.js";
 import {
+  CORE_AREA,
   OfficeToolRegistry,
   RUN_PROJECT_COMMAND_TOOL,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
@@ -64,6 +65,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerWriteRunEnvironmentDefinition(): void {
     this.registry.register({
       name: WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+      area: CORE_AREA,
       description:
         "Writes the Project's run environment definition into .devcontainer/ of the Task's worktree, where Write and Edit can't reach. Give devcontainer.json and the compose file or files it names, each whole, with its path from the repository's root. The Office checks the definition as it would read it, with any file it names but you don't give read from the worktree: when it is valid, it writes the files, leaving the folder's other files, and answers the service the checks run in; otherwise it writes nothing and answers every problem found. It builds and starts nothing. In a Consultation on a Task, it also commits .devcontainer/ alone on the Task's branch.",
       input: z.object({
@@ -89,6 +91,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerReadStageHistory(): void {
     this.registry.register({
       name: READ_STAGE_HISTORY_TOOL,
+      area: CORE_AREA,
       description: `Reads a Task's Stage history, as the user sees it on the Task: every Stage run in the order they ran, with its Stage, start and end, outcome, a Publish Stage's result (such as "Published: pull request #212 opened"), Handover note, Decisions and their answers, engine, model and tokens, every Project command it ran with its outcome, exit code, duration and filtered output, and for an Agent Stage's run how many messages its Stage Thread logged. Give a run's number as well to read that run with each command's whole output and, for an Agent Stage, its Stage Thread's messages from the run's start to its end: what the Agent said and tried, with its speakers, tool activity as one line each, and Decisions. One answer holds at most ${STAGE_HISTORY_READ_LIMIT} characters. It reads only The Office's records, never a file or an engine's transcript.`,
       input: z.object({
         taskId: z.string().describe("The Task's id, as list_tasks gives it."),
@@ -114,6 +117,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerRunProjectCommand(): void {
     this.registry.register({
       name: RUN_PROJECT_COMMAND_TOOL,
+      area: CORE_AREA,
       description:
         "Runs one of the Project's commands by its key, or a command line you write, such as one test file, in the worktree's root, where the Project's commands run: in the Task's run environment when the Project has one, waiting for a free one. Give exactly one of command and commandLine. A command line runs only if your shell may run it. It waits until the command ends and answers with its exit code and the path of a file with its whole output, which you read with Read.",
       input: z.object({
@@ -142,6 +146,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerUpdateBranch(): void {
     this.registry.register({
       name: UPDATE_BRANCH_TOOL,
+      area: CORE_AREA,
       description:
         "Asks The Office to bring the Task's branch up to date with the base branch: it commits your work so far and merges the base in. A conflict stays in the worktree for you to resolve by editing the files; The Office commits the merge when your Stage ends. It waits until the update and any install are done.",
       input: z.object({}),
@@ -152,6 +157,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerChooseRoute(): void {
     this.registry.register({
       name: CHOOSE_ROUTE_TOOL,
+      area: CORE_AREA,
       description:
         "Chooses the route your Agent Stage's work goes on by, one of the choices its Routes out section lists, with your reason. The walk follows it only once the Stage ends done; a failed Stage follows its When it fails route. You may choose again before you end, and the last choice counts. A route that isn't one of the Stage's choices is refused, naming those you may choose.",
       input: z.object({
@@ -168,6 +174,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerListPipelines(): void {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
+      area: CORE_AREA,
       description:
         "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions (an Agent Stage's choices among them, each a choice test with its words) and its position on the editor's canvas, and where End stands (`endPosition`) when it was moved, in the shape add_library_pipeline and change_library_pipeline take them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which change_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
       input: z.object({
@@ -220,6 +227,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerListStageTemplates(): void {
     this.registry.register({
       name: LIST_STAGE_TEMPLATES_TOOL,
+      area: CORE_AREA,
       description:
         "Lists the Stage templates as JSON: each template's id and Stage, in the shape add_stage_template and change_stage_template take it; then, for each duty a Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts.",
       input: z.object({}),

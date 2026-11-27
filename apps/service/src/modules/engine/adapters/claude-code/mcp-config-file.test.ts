@@ -62,6 +62,7 @@ describe("McpConfigFile", () => {
     const file = await McpConfigFile.write(sessionsFolder(), SESSION_ID, CONFIG);
     const skillsFolder = join(sessionsFolder(), SESSION_ID, "skills");
     const options: SessionOptions = {
+      deferredOfficeTools: [],
       folder: join(officeData, "worktrees", "task-1"),
       environment: {},
       engine: FIRST_CLAUDE_CODE_ENGINE,

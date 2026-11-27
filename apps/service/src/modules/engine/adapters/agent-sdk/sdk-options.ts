@@ -7,7 +7,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
-import type { SessionOptions } from "../../ports/session-options.js";
+import { hasOfficeTools, type SessionOptions } from "../../ports/session-options.js";
 import type { McpConfig } from "../claude-code/mcp-config-file.js";
 import { officeToolAnswer } from "../claude-code/office-tools.js";
 import { mcpServerConfigs } from "../claude-code/session-mcp-servers.js";
@@ -80,8 +80,14 @@ export function sdkOptions({
     env: sessionEnvironment(options.environment, configFolder),
     hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
     // The in-process server reaches the binary on its input, never on the command line.
-    ...(options.officeTools.length > 0 && {
-      mcpServers: { [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, officeToolCall) },
+    ...(hasOfficeTools(options) && {
+      mcpServers: {
+        [OFFICE_TOOL_SERVER]: officeToolServer(
+          options.officeTools,
+          options.deferredOfficeTools,
+          officeToolCall,
+        ),
+      },
     }),
     // The SDK writes `mcpServers` inline on the binary's command line, so the session's servers,
     // holding their values, go in a file instead (`McpConfigFile`).
@@ -101,18 +107,28 @@ export function sdkMcpConfig({ mcpServers }: SessionOptions): McpConfig | undefi
   return mcpServers.length === 0 ? undefined : { mcpServers: mcpServerConfigs(mcpServers) };
 }
 
-/** Always loaded, so the Agent calls an Office tool without looking it up first. */
+/**
+ * One server, so every name stays `mcp__office__<name>` under one allow rule: each loaded tool is
+ * marked always loaded, so the Agent calls it without looking it up; a deferred one carries no mark
+ * and is loaded by the engine's tool search.
+ */
 function officeToolServer(
-  officeTools: readonly OfficeTool[],
+  loaded: readonly OfficeTool[],
+  deferred: readonly OfficeTool[],
   call: OfficeToolCall,
 ): McpSdkServerConfigWithInstance {
+  const definitions = (tools: readonly OfficeTool[], alwaysLoad: boolean) =>
+    tools.map((officeTool) =>
+      tool(
+        officeTool.name,
+        officeTool.description,
+        officeTool.input.shape,
+        (input) => officeToolAnswer(officeTool, input, call),
+        { alwaysLoad },
+      ),
+    );
   return createSdkMcpServer({
     name: OFFICE_TOOL_SERVER,
-    alwaysLoad: true,
-    tools: officeTools.map((officeTool) =>
-      tool(officeTool.name, officeTool.description, officeTool.input.shape, (input) =>
-        officeToolAnswer(officeTool, input, call),
-      ),
-    ),
+    tools: [...definitions(loaded, true), ...definitions(deferred, false)],
   });
 }

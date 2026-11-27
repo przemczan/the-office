@@ -13,6 +13,7 @@ import {
   ModelNotOffered,
   type EngineCapabilities,
   type NewSession,
+  type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { OfficeTool, OfficeToolCall, OfficeToolPicture } from "../../ports/office-tool.js";
@@ -113,6 +114,7 @@ const JUDGED_BUILT_IN_TOOLS = [
 @Injectable()
 export class CopilotSdkEngine extends AgentEngine {
   readonly capabilities = COPILOT_CLI_CAPABILITIES;
+  readonly officeToolLoading: OfficeToolLoading = "pair";
 
   private readonly operatingSystem: OperatingSystem = currentOperatingSystem();
   private readonly openSession: OpenCopilotSession;

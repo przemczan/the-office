@@ -123,6 +123,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
         const session = await sessions.start({
           id: sessionId,
           settings: {
+            homeAreas: "all",
             engineId: "claude-code",
             officeToolRuling: RUN_EVERY_CALL,
             turnLabel: "Jim in a chat",

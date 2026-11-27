@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { SkillRefused, SkillSources, SkillUpdates } from "../../../skills/index.js";
 import {
   LIST_SOURCE_SKILLS_TOOL,
@@ -34,6 +34,7 @@ export class SkillOfficeTools implements OnModuleInit {
   private registerReadSkillUpdate(): void {
     this.registry.register({
       name: READ_SKILL_UPDATE_TOOL,
+      area: CORE_AREA,
       description:
         "Reads an installed skill's update: its pinned version, its source's newer one, and the unified diff of its files between them, as JSON. Read it before update_skill, to write its notes.",
       input: z.object({ skill: SKILL }),
@@ -54,6 +55,7 @@ export class SkillOfficeTools implements OnModuleInit {
   private registerListSourceSkills(): void {
     this.registry.register({
       name: LIST_SOURCE_SKILLS_TOOL,
+      area: CORE_AREA,
       description:
         "Lists the skills a source holds at the version it would be pinned at now (its newest tag, or its newest commit when it has no tags), as JSON: each skill's folder, name, description and files, or why it can't be installed. Install one with install_skill.",
       input: z.object({ source: SOURCE }),

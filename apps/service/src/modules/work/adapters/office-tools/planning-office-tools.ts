@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import {
   PlanningService,
   type MarkedPlanned,
@@ -85,6 +85,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerStartPlanning(): void {
     this.registry.register({
       name: START_PLANNING,
+      area: CORE_AREA,
       description:
         "Moves one of this Initiative's Tasks from Backlog to Planning as its turn comes, so you can write its parts here by its Task id. Refused for a Task outside the Initiative or not in Backlog, and while a Task it waits for inside the Initiative is neither planned, Ready or beyond, nor Dropped. Works in any of the Initiative's planning Threads; the Task then belongs to this Thread until it is marked planned, and is planned in this Thread's auto mode.",
       input: z.object({
@@ -111,6 +112,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWritePlan(): void {
     this.registry.register({
       name: WRITE_PLAN,
+      area: CORE_AREA,
       description: `Writes the Plan onto the Task: how it will be done, in plain words whoever implements it can follow, with the files it expects to change. It replaces the Plan the Task has; read the Task with read_task first, since the user may have edited it. Start warns the user when a Task in progress in the same Project expects to change some of the same files. ${PROPOSED} ${ON_A_READY_TASK}`,
       input: z.object({
         taskId: TASK_ID,
@@ -147,6 +149,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWriteDefinitionOfDone(): void {
     this.registry.register({
       name: WRITE_DEFINITION_OF_DONE,
+      area: CORE_AREA,
       description: `Writes the Definition of Done onto the Task: what must be true when it is done, one plain-language statement each that can be checked. It replaces the Definition of Done the Task has; read the Task with read_task first, since the user may have edited it. ${PROPOSED} ${ON_A_READY_TASK}`,
       input: z.object({
         taskId: TASK_ID,
@@ -171,6 +174,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerProposePipeline(): void {
     this.registry.register({
       name: PROPOSE_PIPELINE,
+      area: CORE_AREA,
       description: `Proposes the Pipeline the Task's work follows, one of those your Brief lists, chosen from the Definition of Done: its Project's own or an office-wide one. A Broken one, or another Project's Project Pipeline, is refused. The Task keeps its Pipeline until the user confirms yours or chooses another. ${ON_A_READY_TASK}`,
       input: z.object({
         taskId: TASK_ID,
@@ -194,6 +198,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWriteTags(): void {
     this.registry.register({
       name: WRITE_TAGS,
+      area: CORE_AREA,
       description:
         "Sets the Task's Tags: a few short words the user finds Tasks by, such as its area or kind. It replaces the Tags the Task has; each is kept lower-case, spaces made hyphens. They apply at once, and the user can change them.",
       input: z.object({
@@ -217,6 +222,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWriteKind(): void {
     this.registry.register({
       name: WRITE_KIND,
+      area: CORE_AREA,
       description:
         "Changes the Task's Kind when it isn't what the Task is: feature (something new or changed on purpose), bug (something that works wrong) or chore (upkeep that changes nothing for the user). It applies at once and never moves the Task, Ready ones included. Refused once the Task is Done or Dropped.",
       input: z.object({
@@ -235,6 +241,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWriteBugDetails(): void {
     this.registry.register({
       name: WRITE_BUG_DETAILS,
+      area: CORE_AREA,
       description:
         "Sets a Bug's details: the Task whose work caused it, and the version it was found in. A field left out stays as it is; null clears it. They apply at once and never move the Task. Refused once the Task is Done or Dropped.",
       input: z.object({
@@ -272,6 +279,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerMarkPlanned(): void {
     this.registry.register({
       name: MARK_PLANNED,
+      area: CORE_AREA,
       description:
         "Says the Task is planned: call it once the Plan, the Definition of Done and the Pipeline are written and nothing is left to ask the user. In auto mode, The Office then confirms them and marks the Task Ready; otherwise the user does. Refused outside Planning, or before the Plan and the Definition of Done are written; while a Decision on the Task is open it isn't marked planned.",
       input: z.object({ taskId: TASK_ID }),

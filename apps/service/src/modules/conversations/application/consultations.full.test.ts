@@ -239,6 +239,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   ).filter((tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL)) {
     app.get(OfficeToolRegistry).register({
       name,
+      area: "core",
       description: `Reads ${name}.`,
       input: z.object({}),
       run: () => Promise.resolve({ text: "Nothing.", isError: false }),

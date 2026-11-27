@@ -542,6 +542,7 @@ async function firstTurnTokens(
   const session = await on.get(EngineSessions).start({
     id: randomUUID(),
     settings: {
+      homeAreas: "all",
       engineId: "claude-code",
       officeToolRuling: RUN_EVERY_CALL,
       turnLabel: "Jim in a chat",

@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
 import { LocalRepositories, type LocalRepository } from "../../application/local-repositories.js";
 import { ProjectRecords } from "../../application/project-records.js";
 import { RepositoriesByUrl, type RepositoryByUrl } from "../../application/repositories-by-url.js";
@@ -54,6 +54,7 @@ export class ProjectOfficeTools implements OnModuleInit {
   listProjects(): OfficeTool {
     return {
       name: LIST_PROJECTS,
+      area: CORE_AREA,
       description:
         "Lists the Projects The Office works on, each with the settings its page shows: its path and base branch and where a chat reads it, its commands, how it publishes, its default Pipeline, Project limit and Run environment, its environment (Secret variables by name and whether a value is set, never their values) and its last environment check, its engines, its skills and its Server values.",
       input: z.object({}),
@@ -64,6 +65,7 @@ export class ProjectOfficeTools implements OnModuleInit {
   readRepository(): OfficeTool<typeof REPOSITORY_INPUT> {
     return {
       name: READ_REPOSITORY,
+      area: CORE_AREA,
       description:
         "Reads a git repository that is not a Project yet, to onboard it: one on the workstation by its `path`, or one on a host by its Repository URL as `url`, fetched one commit deep with nothing cloned. It gives the branches (the local ones with the checked-out one marked, or the remote's with its default one marked, whose last commit is read), and the names in the top-level folder, or in `folder` inside it, with the manifest files there (package.json, README and the like), each up to about 2k tokens. Read a folder below with `folder` when the top level points to packages there. It is the only way to read the repository from here: Read, Glob, Grep and git are refused outside your folders.",
       input: REPOSITORY_INPUT,

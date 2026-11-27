@@ -69,6 +69,7 @@ export class EnvironmentCheckOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: RUN_ENVIRONMENT_CHECK_TOOL,
+      area: "operations",
       description: DESCRIPTION,
       input,
       run: (given, { sessionId }) => this.run(sessionId, given),

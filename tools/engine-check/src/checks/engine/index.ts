@@ -2,6 +2,7 @@ import type { Check } from "../../check.ts";
 import { apiKeySignInCheck } from "./api-key-sign-in.ts";
 import { autoMemoryCheck } from "./auto-memory.ts";
 import { backgroundTasksCheck } from "./background-tasks.ts";
+import { deferredOfficeToolsCheck } from "./deferred-office-tools.ts";
 import { decisionWaitCheck } from "./decision-wait.ts";
 import { foregroundSubAgentsCheck } from "./foreground-sub-agents.ts";
 import { interruptCheck } from "./interrupt.ts";
@@ -27,6 +28,7 @@ export const engineChecks: readonly Check[] = [
   interruptCheck,
   officeToolCheck,
   longOfficeToolCheck,
+  deferredOfficeToolsCheck,
   decisionWaitCheck,
   resumeCacheCheck,
   sessionCarryOverCheck,

@@ -7,6 +7,7 @@ import { RUN_EVERY_CALL } from "../ports/office-tool-ruling.fixtures.js";
 function officeTool(name: string): OfficeTool {
   return {
     name,
+    area: "core",
     description: `The ${name} tool.`,
     input: z.object({}),
     run: () => Promise.resolve({ text: "Done.", isError: false }),
@@ -43,6 +44,15 @@ describe("OfficeToolRegistry", () => {
     );
     expect(() => registry.register(officeTool("Open Decision"))).toThrow(
       '"Open Decision" is not an Office tool\'s name: write it in snake_case.',
+    );
+  });
+
+  it("refuses a tool with no area, naming it", () => {
+    const registry = new OfficeToolRegistry();
+    const { area: _area, ...withoutArea } = officeTool("attach");
+
+    expect(() => registry.register(withoutArea as unknown as OfficeTool)).toThrow(
+      "The Office tool attach has no area: give it its area, or Core.",
     );
   });
 });

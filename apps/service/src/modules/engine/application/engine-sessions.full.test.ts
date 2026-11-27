@@ -70,6 +70,7 @@ import { RUN_EVERY_CALL } from "../ports/office-tool-ruling.fixtures.js";
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
@@ -101,6 +102,7 @@ const LAB: ApiEngine = {
 };
 
 const SETTINGS: SessionSettings = {
+  homeAreas: "all",
   engineId: FIRST_CLAUDE_CODE_ENGINE.id,
   officeToolRuling: RUN_EVERY_CALL,
   folder: "/work/task-1",

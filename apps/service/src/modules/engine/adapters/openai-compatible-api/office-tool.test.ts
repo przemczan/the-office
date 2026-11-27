@@ -18,6 +18,7 @@ const CONTEXT: ToolContext = {
 
 const SHOW_PICTURE: OfficeTool = {
   name: "show",
+  area: "core",
   description: "Shows a picture.",
   input: z.object({}),
   run: () =>

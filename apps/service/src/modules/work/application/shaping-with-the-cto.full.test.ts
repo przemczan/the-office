@@ -210,6 +210,7 @@ class ListProjectsStandIn {
   constructor(registry: OfficeToolRegistry) {
     registry.register({
       name: "list_projects",
+      area: "core",
       description: "Lists the Projects.",
       input: z.object({}),
       run: () => Promise.resolve({ text: PROJECT, isError: false }),
@@ -217,6 +218,7 @@ class ListProjectsStandIn {
     for (const name of [LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL, READ_STAGE_HISTORY_TOOL]) {
       registry.register({
         name,
+        area: "core",
         description: `Stands in for ${name}.`,
         input: z.object({}),
         run: () => Promise.resolve({ text: "Nothing.", isError: false }),

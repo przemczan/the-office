@@ -1,7 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { promptTemplateDomainSchema } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import {
   PromptTemplateNotFound,
   PromptTemplates,
@@ -38,6 +38,7 @@ export class PromptTemplateOfficeTools implements OnModuleInit {
   private registerList(): void {
     this.registry.register({
       name: LIST_PROMPT_TEMPLATES_TOOL,
+      area: CORE_AREA,
       description:
         "Lists the prompt templates, the texts The Office gives Agents and sessions, each with its key, name, domain, what it is for and whether it is customised or its default.",
       input: z.object({
@@ -58,6 +59,7 @@ export class PromptTemplateOfficeTools implements OnModuleInit {
   private registerRead(): void {
     this.registry.register({
       name: READ_PROMPT_TEMPLATE_TOOL,
+      area: CORE_AREA,
       description: `Reads a prompt template as it is now: what it is for, its text whole, its default when customised, the variables it may use and what is wrong with its saved text. Read it before save_prompt_template, and start from the text it answers: a save replaces the text whole, using only the variables listed here as {{variable}} (or {{#list}}…{{/list}} for a flag or a list; partials and changed delimiters are refused).`,
       input: z.object({ key: keyInput }),
       run: ({ key }) => this.readOr(key, (state) => ({ text: readText(state), isError: false })),

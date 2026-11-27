@@ -45,6 +45,8 @@ export function sessionOfficeRules(
     homeFolder: homedir(),
     environment: engine.environment,
     paths: operatingSystem.paths,
+    officeReach: options.officeReach,
+    officeToolsAdvice: options.officeToolsAdvice,
     refusalAdvice: options.refusalAdvice,
   });
 }

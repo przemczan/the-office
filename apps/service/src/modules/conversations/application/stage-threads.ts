@@ -963,6 +963,8 @@ export class StageThreads {
         ],
         { card },
       ),
+      // A Stage loads every tool its list holds (spec 2.5 › The Brief).
+      homeAreas: "all",
       mcpServers,
       outputSchema: request.session.outputSchema,
       // The end of the turn is the Stage's result, so no Sub-agent may outlive it (spec §2.9).

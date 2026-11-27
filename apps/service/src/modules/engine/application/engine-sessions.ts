@@ -26,7 +26,10 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
   type EngineCapability,
+  type OfficeToolLoading,
 } from "../ports/agent-engine.js";
+import { splitByArea, type HomeAreas } from "./office-tool-split.js";
+import { officeToolPair } from "./office-tool-pair.js";
 import type {
   ContextUsage,
   EngineSession,
@@ -52,6 +55,7 @@ import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-c
 import type { OfficeToolRuling } from "../ports/office-tool-ruling.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
+import { OfficeReachConfig } from "../../../platform/office-reach/office-reach-config.js";
 import { UsageWindowReadings } from "./usage-window-readings.js";
 import {
   UsageWindowState,
@@ -63,9 +67,17 @@ import {
  * What a caller runs a session with: the engine by its id and the model by its id there, which a
  * resume names again, as a session lives in one engine; the Office tools by name, from the registry.
  */
-export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine" | "languageServers"> &
+export type SessionSettings = Omit<
+  SessionOptions,
+  "officeTools" | "deferredOfficeTools" | "engine" | "languageServers"
+> &
   EngineModel & {
     readonly officeTools: readonly string[];
+    /**
+     * The areas, beside Core, whose tools the session loads from the start; the others are
+     * reached on demand (spec 5.4.1 › Loading by area). `all` for a Stage, which loads every tool.
+     */
+    readonly homeAreas: HomeAreas;
     /** Rules every call of those tools, whichever engine makes it (spec 5.4.1 › One ruling step). */
     readonly officeToolRuling: OfficeToolRuling;
     /** What the caller tags the session's engine calls with, beside the engine's own attributes. */
@@ -76,6 +88,13 @@ export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine" | "l
      */
     readonly turnLabel: string;
   };
+
+/** How a session loads the Office tools it isn't started with, as a refusal tells it. */
+const LOADING_ADVICE: Record<OfficeToolLoading, string | undefined> = {
+  all: undefined,
+  deferred: "Load the tools of other areas with ToolSearch, select:mcp__office__<name>.",
+  pair: "List the tools of other areas with list_office_tools, then call one with call_office_tool.",
+};
 
 const NO_LANGUAGE_SERVERS: PreparedLanguageServers = { servers: [], leftOut: [] };
 
@@ -114,11 +133,21 @@ export class EngineSessions {
     private readonly prices: ModelPrices,
     @Optional() private readonly testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
     @Optional() private readonly modelLists?: EngineModelLists,
+    @Optional() private readonly officeReach?: OfficeReachConfig,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
   async capabilitiesOf(engineId: EngineId): Promise<EngineCapabilities> {
     return this.engines.of(await this.listed(engineId)).capabilities;
+  }
+
+  /**
+   * How `engineId`'s sessions reach the Office tools they aren't started with; `all` while Claude
+   * Code's deferral is off, and once no engine is listed as it.
+   */
+  async officeToolLoadingOf(engineId: EngineId): Promise<OfficeToolLoading> {
+    const engine = await this.find(engineId);
+    return engine === undefined ? "all" : this.engines.of(engine).officeToolLoading;
   }
 
   /** Whether `engineId`'s sessions report how full their context is; false once none lists it. */
@@ -314,14 +343,29 @@ export class EngineSessions {
       engineId: _engineId,
       turnLabel: _turnLabel,
       officeToolRuling,
+      homeAreas,
       ...settings
     }: SessionSettings,
     languageServers: SessionOptions["languageServers"],
   ): SessionOptions {
+    const allowed = this.officeTools.named(settings.officeTools, officeToolRuling);
+    const loading = this.engines.of(engine).officeToolLoading;
+    const { loaded, reachable } = splitByArea(allowed, loading === "all" ? "all" : homeAreas);
     return {
       ...settings,
       engine,
-      officeTools: this.officeTools.named(settings.officeTools, officeToolRuling),
+      officeTools:
+        loading === "pair" && reachable.length > 0
+          ? [...loaded, ...officeToolPair(reachable)]
+          : loaded,
+      deferredOfficeTools: loading === "deferred" ? reachable : [],
+      ...(this.officeReach && {
+        officeReach: {
+          apiPort: this.officeReach.apiPort,
+          databaseUrl: this.officeReach.databaseUrl,
+        },
+      }),
+      ...(LOADING_ADVICE[loading] && { officeToolsAdvice: LOADING_ADVICE[loading] }),
       languageServers,
     };
   }

@@ -139,12 +139,23 @@ export interface OfficeToolApplication {
 }
 
 /**
+ * The tool area a session loads a tool with (spec 6 › Tool areas): the key of one of the Authority
+ * catalog's areas, or Core. `app.module.test.ts` checks every registered tool names one.
+ */
+export type ToolArea = string;
+
+/** The area of the tools every session loads: reading, Decisions, Memory, the Stage's own. */
+export const CORE_AREA = "core";
+
+/**
  * A tool The Office gives Agents, run in-process by the service (spec §5.4), such as opening a
  * Decision or writing a Handover note.
  */
 export interface OfficeTool<Input extends z.ZodObject = z.ZodObject> {
   /** Unique among Office tools; what the Agent calls it by. */
   readonly name: string;
+  /** What a session loads it with: its area, or Core. An Office action takes it from its declaration. */
+  readonly area: ToolArea;
   /** What the Agent reads to decide when to call it. */
   readonly description: string;
   readonly input: Input;

@@ -63,6 +63,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
   function options(changes: Partial<SessionOptions> = {}): SessionOptions {
     return {
+      deferredOfficeTools: [],
       folder,
       environment: {},
       engine: endpoint(),
@@ -552,6 +553,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       fake.script(toolCall("mcp__office__hold", {}));
       const hold: OfficeTool = {
         name: "hold",
+        area: "core",
         description: "Holds.",
         input: z.object({}),
         run: () => new Promise(() => undefined),
@@ -1031,6 +1033,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     const calls: unknown[] = [];
     const note: OfficeTool = {
       name: "note",
+      area: "core",
       description: "Notes down one word.",
       input: z.object({ word: z.string() }),
       run: (input) => {

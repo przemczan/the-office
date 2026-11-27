@@ -24,6 +24,7 @@ export class OfficeStatusOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registry.register({
       name: SHOW_OFFICE_STATUS_TOOL,
+      area: "officeSettings",
       description:
         "Shows the user the Office status in this Thread, Office-wide: who is on what and what waits on them. It changes nothing, and gives you the same status in words.",
       input: z.object({}),

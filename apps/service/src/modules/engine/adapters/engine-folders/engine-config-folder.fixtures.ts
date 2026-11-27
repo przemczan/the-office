@@ -21,6 +21,7 @@ export const configFolder = () => engineConfigFolder(officeData, FIRST_CLAUDE_CO
 export function decide(tool: string, input: unknown) {
   const worktree = join(officeData.path, "worktrees", "task-1");
   const options: SessionOptions = {
+    deferredOfficeTools: [],
     folder: worktree,
     // A folder the session may read, so only the engine's folder replacing it refuses the read.
     environment: { CLAUDE_CONFIG_DIR: worktree },

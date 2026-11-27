@@ -63,6 +63,7 @@ const WORD_SCHEMA = {
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
@@ -124,6 +125,7 @@ describe("CopilotSdkEngine on a stand-in runtime", () => {
 
   function options(overrides: Partial<SessionOptions> = {}): SessionOptions {
     return {
+      deferredOfficeTools: [],
       folder,
       environment: {
         PATH: process.env["PATH"] ?? "",
@@ -667,6 +669,7 @@ function scenarioOptions(
   overrides: Partial<SessionOptions> = {},
 ): SessionOptions {
   return {
+    deferredOfficeTools: [],
     folder,
     environment: { PATH: process.env["PATH"] ?? "", HOME: process.env["HOME"] ?? "" },
     engine,
@@ -729,6 +732,7 @@ const ENGINE_SCENARIOS: readonly EngineScenario[] = [
     run: async (engine, folder, copilot, timeout) => {
       const ledger: OfficeTool = {
         name: "ledger",
+        area: "core",
         description: "Notes a word in The Office's ledger.",
         input: z.object({ word: z.string() }),
         run: () => Promise.resolve({ text: LEDGER_CLOSED, isError: true }),

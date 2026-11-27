@@ -67,10 +67,15 @@ class CollectingMetricReader extends MetricReader {
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
 };
+
+const WORK_TOOL: OfficeTool = { ...NOTE_TOOL, name: "work_note", area: "work" };
+
+const INITIATIVE_TOOL: OfficeTool = { ...NOTE_TOOL, name: "initiative_note", area: "initiatives" };
 
 /** A second Claude Code engine, on the `-p` fallback. */
 const FALLBACK: ClaudeCodeEngine = {
@@ -92,6 +97,7 @@ const LAB: ApiEngine = {
 };
 
 const SETTINGS: SessionSettings = {
+  homeAreas: "all",
   engineId: FIRST_CLAUDE_CODE_ENGINE.id,
   officeToolRuling: RUN_EVERY_CALL,
   folder: "/work/task-1",
@@ -179,6 +185,8 @@ function setUpOn(
   const usageWindows = new UsageWindowState(events, schedule);
   const officeTools = new OfficeToolRegistry();
   officeTools.register(NOTE_TOOL);
+  officeTools.register(WORK_TOOL);
+  officeTools.register(INITIATIVE_TOOL);
   const dayUsage = new DayUsage(new DayUsageForTests(), schedule);
   const windowSamples = new UsageWindowSamples(new UsageWindowSamplesForTests());
   const running = new RunningEngineSessions();
@@ -466,6 +474,60 @@ describe("EngineSessions on each engine's adapter", () => {
 
     expect(claudeCodeP.sessions.map((session) => session.id)).toEqual(["s-1"]);
     expect(agentSdk.sessions.map((session) => session.id)).toEqual(["s-2"]);
+  });
+});
+
+const names = (tools: readonly { name: string }[]) => tools.map(({ name }) => name);
+
+describe("EngineSessions loading the Office tools by area", () => {
+  const ALL_THREE = ["note", "work_note", "initiative_note"];
+
+  /** The tools a session on the Agent SDK's stand-in is given, in a Thread whose home loads `homeAreas`. */
+  async function optionsWith(
+    loading: "all" | "deferred" | "pair",
+    homeAreas: SessionSettings["homeAreas"],
+  ) {
+    const agentSdk = new ScriptedEngine([ONE_TURN]);
+    agentSdk.officeToolLoading = loading;
+    const { sessions } = setUpOn({
+      "agent-sdk": agentSdk,
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
+    });
+    await oneTurn(sessions, { ...SETTINGS, officeTools: ALL_THREE, homeAreas });
+    const { options } = agentSdk.sessions[0] as (typeof agentSdk.sessions)[number];
+    return {
+      loaded: names(options.officeTools),
+      deferred: names(options.deferredOfficeTools),
+      advice: options.officeToolsAdvice,
+    };
+  }
+
+  it("loads every tool when the engine loads them all, whatever the home", async () => {
+    expect(await optionsWith("all", [])).toMatchObject({ loaded: ALL_THREE, deferred: [] });
+  });
+
+  it("loads Core and the home's areas and defers the rest when the engine defers", async () => {
+    expect(await optionsWith("deferred", [])).toMatchObject({
+      loaded: ["note"],
+      deferred: ["work_note", "initiative_note"],
+    });
+    expect(await optionsWith("deferred", ["work"])).toMatchObject({
+      loaded: ["note", "work_note"],
+      deferred: ["initiative_note"],
+    });
+    expect(await optionsWith("deferred", "all")).toMatchObject({ loaded: ALL_THREE, deferred: [] });
+  });
+
+  it("adds the pair over the other areas' tools when the engine has no tool search", async () => {
+    expect(await optionsWith("pair", ["work"])).toMatchObject({
+      loaded: ["note", "work_note", "list_office_tools", "call_office_tool"],
+      deferred: [],
+    });
+    expect(await optionsWith("pair", "all")).toMatchObject({ loaded: ALL_THREE, deferred: [] });
   });
 });
 

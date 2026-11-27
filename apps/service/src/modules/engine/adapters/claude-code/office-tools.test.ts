@@ -7,6 +7,7 @@ import { CLAUDE_CODE_PICTURE_LIMIT, officeToolAnswer } from "./office-tools.js";
 function pictureTool(pictures: readonly OfficeToolPicture[]): OfficeTool {
   return {
     name: "show",
+    area: "core",
     description: "Shows pictures.",
     input: z.object({}),
     run: () => Promise.resolve({ text: "screen.png (image).", isError: false, pictures }),

@@ -772,6 +772,7 @@ export class StageThreadsForTests extends StageThreads {
     const session = await this.sessions.start({
       id: randomUUID(),
       settings: {
+        homeAreas: "all",
         engineId: engine,
         officeToolRuling: RUN_EVERY_CALL,
         turnLabel: `Someone in the Stage ${request.stageName}`,

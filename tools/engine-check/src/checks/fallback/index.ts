@@ -1,5 +1,6 @@
 import type { Check } from "../../check.ts";
 import { fallbackBackgroundTasksCheck } from "../engine/background-tasks.ts";
+import { deferredOfficeToolsPCheck } from "../engine/deferred-office-tools.ts";
 import { fallbackForegroundSubAgentsCheck } from "../engine/foreground-sub-agents.ts";
 import { fallbackLongOfficeToolCheck } from "../engine/long-office-tool.ts";
 import { fallbackSessionCarryOverCheck } from "../engine/session-carry-over.ts";
@@ -26,6 +27,7 @@ export const fallbackChecks: readonly Check[] = [
   fallbackPriorityNextCheck,
   fallbackOfficeToolBargeInCheck,
   fallbackLongOfficeToolCheck,
+  deferredOfficeToolsPCheck,
   fallbackPriorityLaterCheck,
   fallbackBackgroundTasksCheck,
   fallbackForegroundSubAgentsCheck,

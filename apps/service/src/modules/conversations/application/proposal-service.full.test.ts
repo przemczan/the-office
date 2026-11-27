@@ -368,6 +368,7 @@ function chatToolStandIns(): FactoryProvider {
         }
         registry.register({
           name,
+          area: "core",
           description: `Reads ${name}.`,
           input: z.object({}),
           run: () => Promise.resolve({ text: "Nothing.", isError: false }),
@@ -1063,6 +1064,7 @@ class TaskTitleStandIn {
   tool(): OfficeTool {
     return {
       name: "change_task_title",
+      area: "work",
       description: "Changes a Task's title.",
       input: z.object({ taskId: z.string(), title: z.string() }),
       authority: {

@@ -5,6 +5,7 @@ import { claudeCodePArguments, type ClaudeCodePSession } from "./claude-code-p-a
 // What claude-code-p-arguments.test.ts and claude-code-p-arguments.full.test.ts share.
 
 export const OPTIONS: SessionOptions = {
+  deferredOfficeTools: [],
   folder: "/office/worktrees/task-1",
   environment: { PATH: "/usr/bin" },
   engine: FIRST_CLAUDE_CODE_ENGINE,

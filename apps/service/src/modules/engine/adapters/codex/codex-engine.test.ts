@@ -81,6 +81,7 @@ const WORD_SCHEMA = {
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
+  area: "core",
   description: "Notes a word.",
   input: z.object({ word: z.string() }),
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
@@ -146,6 +147,7 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
 
   function options(overrides: Partial<SessionOptions> = {}): SessionOptions {
     return {
+      deferredOfficeTools: [],
       folder,
       environment: {
         PATH: process.env["PATH"] ?? "",
@@ -869,6 +871,7 @@ describe("CodexAppServerEngine on a stand-in replaying the recordings", () => {
       const session = await engine.start({
         id: randomUUID(),
         options: {
+          deferredOfficeTools: [],
           folder,
           environment: { PATH: process.env["PATH"] ?? "" },
           engine: LIVE_ENGINE,

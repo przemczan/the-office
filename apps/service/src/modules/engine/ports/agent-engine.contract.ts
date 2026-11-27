@@ -738,6 +738,7 @@ function defaultOptions(
   { engine, model }: Pick<EngineUnderContract, "engine" | "model">,
 ): SessionOptions {
   return {
+    deferredOfficeTools: [],
     folder,
     environment: inheritedEnvironment(),
     engine,
@@ -818,6 +819,7 @@ function noteTool() {
   const judges: OfficeToolCall["judgeCommand"][] = [];
   const tool: OfficeTool = {
     name: "note",
+    area: "core",
     description: "Notes down one word for The Office.",
     input: z.object({ word: z.string() }),
     run: (input, { sessionId, judgeCommand }) => {
@@ -858,6 +860,7 @@ function holdTool() {
   const called = signal();
   const tool: OfficeTool = {
     name: "hold",
+    area: "core",
     description: "Waits until The Office lets the work go on.",
     input: z.object({}),
     run: async () => {

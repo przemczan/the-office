@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { isOfficeOwnVariable } from "../../../../platform/config/office-config.js";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import { withoutContainerRuntimeVariables } from "../../domain/container-runtime-commands.js";
-import type { SessionOptions } from "../../ports/session-options.js";
+import { hasOfficeTools, type SessionOptions } from "../../ports/session-options.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 
 /**
@@ -92,9 +92,10 @@ function instructionFilesAbove(folder: string): string[] {
  * (`apiKeyHelperOf`) on an engine an API key signs in, which the binary takes over any login.
  */
 export function sessionSettings(
-  { folder, skills, officeTools, mcpServers }: SessionOptions,
+  options: SessionOptions,
   apiKeyHelper: string | undefined,
 ): Settings {
+  const { folder, skills, mcpServers } = options;
   return {
     ...(apiKeyHelper !== undefined && { apiKeyHelper }),
     claudeMdExcludes: instructionFilesAbove(folder),
@@ -120,7 +121,7 @@ export function sessionSettings(
       // permissionPrompts "none" refuses whatever would prompt, so the MCP servers' tools are allowed
       // by rule; the hook, which runs first, judges each call (engine check, engine.office-tool).
       allow: [
-        ...(officeTools.length > 0 ? [OFFICE_TOOL_SERVER] : []),
+        ...(hasOfficeTools(options) ? [OFFICE_TOOL_SERVER] : []),
         ...mcpServers.map(({ name }) => name),
       ].map((server) => `mcp__${server}`),
     },

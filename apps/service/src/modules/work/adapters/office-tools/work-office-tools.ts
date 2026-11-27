@@ -1,7 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { CAPTURE_IDEA_TOOL } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { CORE_AREA, OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaRecords } from "../../application/idea-records.js";
 import { IdeaService } from "../../application/idea-service.js";
@@ -111,6 +111,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerListTasks(): void {
     this.registry.register({
       name: LIST_TASKS,
+      area: CORE_AREA,
       description:
         "Lists The Office's Tasks on the board, in its order (priority, then the user's manual order): each one's id, title, Project, state and priority. Archived Tasks are left out; read_task still reads one by its id. Give a Project's id to list only its Tasks.",
       input: z.object({
@@ -128,6 +129,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerReadTask(): void {
     this.registry.register({
       name: READ_TASK,
+      area: CORE_AREA,
       description:
         "Reads any Task's record, archived ones too: its state, priority and Pipeline, its Description, Plan and Definition of Done, its linked records (the Tasks it waits for and that wait for it, the Idea it came from and its Initiative, each with its id), its Attachments by id, its Connected devices with kind, name, state and endpoint, its Stage results with every Handover note, and its state changes with who or what made each.",
       input: z.object({ taskId: z.string().describe("The Task's id, as list_tasks gives it.") }),
@@ -138,6 +140,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerListIdeas(): void {
     this.registry.register({
       name: LIST_IDEAS,
+      area: CORE_AREA,
       description:
         "Lists The Office's Ideas, the newest captured first: each one's id, title, Project (or Office-wide) and state (new, shaped into a Task, or dropped).",
       input: z.object({}),
@@ -153,6 +156,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerReadIdea(): void {
     this.registry.register({
       name: READ_IDEA,
+      area: CORE_AREA,
       description:
         "Reads any Idea's record: its notes, who captured it and when, its Attachments by id, and the Task or Initiative it was shaped into, with its id.",
       input: z.object({
@@ -165,6 +169,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerReadAttachment(): void {
     this.registry.register({
       name: READ_ATTACHMENT,
+      area: CORE_AREA,
       description:
         "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, names what it belongs to, and answers by what it holds. A text file (a document, a CSS or JSON file, a log: any file whose bytes are text) is read by its lines, each with its number, like a file with Read and Grep: give fromLine and lineCount for a slice of it, or a search phrase for the lines that hold it with a few lines around each. A PDF's text is read the same way, with a marker line before each page. One answer holds only so much, so a long file is read in slices: every answer ends by saying where the file goes on and which fromLine reads on, and a line too long for one answer is cut, its note giving the fromLine and fromCharacter to read on with. A search's line numbers are a slice's, so a match's line given as fromLine reads on from it. An image comes as the picture itself on an engine that shows pictures, else with words saying why it isn't shown. A zip is unzipped as it is read: it lists the files it holds, by path and size, read like a text file's lines; give entry, a path from that list, to read that one file as any of these. Any other file answers its name, kind and size, as it can't be read; a link its address.",
       input: z.object({
@@ -351,6 +356,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerCaptureIdea(): void {
     this.registry.register({
       name: CAPTURE_IDEA_TOOL,
+      area: CORE_AREA,
       description:
         "Captures an Idea in your name, in a Project or Office-wide, when the user asks for one or agrees to it. The user shapes it into a Task later.",
       input: z.object({
@@ -379,6 +385,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerCreateTask(): void {
     this.registry.register({
       name: CREATE_TASK,
+      area: "work",
       description:
         "Creates a Task in Backlog in your name, in one Project, when the user asks for one or agrees to it. It has no Pipeline until the Planner proposes one or the user chooses one. Give it a title and, when the user said what it is for, a Description the Planner plans from. When it is already known how the Task will be done and what must be true when it is, give it both a Plan and a Definition of Done, or neither: they land Not confirmed, and the user confirms each and chooses a Pipeline on the Task page and marks the Task Ready without Planning, or plans it from them.",
       input: z.object({
@@ -451,6 +458,7 @@ export class WorkOfficeTools implements OnModuleInit {
   private registerCreateInitiative(): void {
     this.registry.register({
       name: CREATE_INITIATIVE,
+      area: "initiatives",
       description:
         "Creates an Initiative in your name, only when the user asks for one or agrees to it: one outcome reached by Tasks across Projects. It lands being shaped and waits for Confirm, on its page or with confirm_initiative where your Authority allows it, as one shaped from an Idea does. Name in its outcome the Projects it is meant to touch; its Tasks are added in its shaping Thread, with whoever holds Shapes Initiatives.",
       input: z.object({

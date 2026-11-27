@@ -6,7 +6,7 @@ import { officeToolAnswer, textAnswer } from "../claude-code/office-tools.js";
 import type { ToolDecider } from "../office-rules/office-tool-call.js";
 import { OFFICE_TOOL_PREFIX, OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 
-/** What the SDK's `alwaysLoad` sets on each tool, so the Agent calls one without looking it up. */
+/** What the SDK's `alwaysLoad` sets on a loaded tool, so the Agent calls it without looking it up. */
 const ALWAYS_LOAD = { "anthropic/alwaysLoad": true };
 
 /** What a notification is answered with, as the SDK answers it (it needs no answer). */
@@ -25,14 +25,27 @@ export class OfficeToolServer {
   private readonly transport = new ControlRequestTransport();
   private readonly connected: Promise<void>;
 
-  constructor(officeTools: readonly OfficeTool[], call: OfficeToolCall, decide: ToolDecider) {
-    for (const officeTool of officeTools) {
+  /**
+   * `loaded` tools are marked always loaded; `deferred` ones carry no mark, so the engine's tool
+   * search loads them on demand. One server, so every name stays `mcp__office__<name>`.
+   */
+  constructor(
+    loaded: readonly OfficeTool[],
+    deferred: readonly OfficeTool[],
+    call: OfficeToolCall,
+    decide: ToolDecider,
+  ) {
+    const tools = [
+      ...loaded.map((officeTool) => ({ officeTool, meta: ALWAYS_LOAD })),
+      ...deferred.map((officeTool) => ({ officeTool, meta: undefined })),
+    ];
+    for (const { officeTool, meta } of tools) {
       this.server.registerTool(
         officeTool.name,
         {
           description: officeTool.description,
           inputSchema: officeTool.input.shape,
-          _meta: ALWAYS_LOAD,
+          ...(meta && { _meta: meta }),
         },
         async (input: Record<string, unknown>) => {
           const decision = await decide(`${OFFICE_TOOL_PREFIX}${officeTool.name}`, input);

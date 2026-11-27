@@ -20,6 +20,7 @@ import {
   type EngineCapabilities,
   type NewSession,
   type UsageWindowStart,
+  type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
 import { WINDOW_START_MODEL } from "../claude-code/usage-window-start.js";
 import type {
@@ -102,6 +103,11 @@ interface RunningEngineProcess {
  */
 export class ScriptedEngine extends AgentEngine {
   readonly capabilities: EngineCapabilities;
+  /**
+   * How its sessions reach the Office tools they aren't started with; a test sets it. `all` by
+   * default, so a script calls any tool its session is offered.
+   */
+  officeToolLoading: OfficeToolLoading = "all";
   /** Every session started or resumed, in order. */
   readonly sessions: ScriptedSession[] = [];
   /** The engines whose usage windows were read with no session, by id, in order. */
@@ -325,6 +331,8 @@ function scriptedSessionRules(options: SessionOptions): OfficeRules {
     homeFolder: homedir(),
     environment: options.environment,
     paths: currentOperatingSystem().paths,
+    officeReach: options.officeReach,
+    officeToolsAdvice: options.officeToolsAdvice,
   });
 }
 

@@ -17,6 +17,7 @@ import {
   type EngineCapabilities,
   type NewSession,
   type UsageWindowStart,
+  type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
 import type {
   ContextUsage,
@@ -31,6 +32,7 @@ import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
+import { CLAUDE_CODE_OFFICE_TOOL_LOADING } from "../claude-code/office-tool-deferral.js";
 import { officeRulesHook, type HookRewrites } from "../claude-code/office-rules-hook.js";
 import { toolDecision, type SessionHolds } from "../office-rules/tool-decision.js";
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
@@ -58,6 +60,7 @@ import {
  */
 @Injectable()
 export class AgentSdkEngine extends AgentEngine {
+  readonly officeToolLoading: OfficeToolLoading = CLAUDE_CODE_OFFICE_TOOL_LOADING;
   readonly capabilities: EngineCapabilities = {
     bargeIn: true,
     interrupt: true,

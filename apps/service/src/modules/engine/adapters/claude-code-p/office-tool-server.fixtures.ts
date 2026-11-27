@@ -12,6 +12,7 @@ export function noteTool(name: string): { tool: OfficeTool; calls: unknown[] } {
   const calls: unknown[] = [];
   const tool: OfficeTool = {
     name,
+    area: "core",
     description: "Takes a note.",
     input: z.object({ word: z.string() }),
     run: (input, call: OfficeToolCall) => {
