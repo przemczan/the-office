@@ -39,8 +39,8 @@ test("the user sets up an authenticator, signs in with a password and its code, 
   ownUser,
 }) => {
   // Three more browsers sign in, and four screens are shot at three widths each: about 28s with
-  // every step passing, past the default timeout under the Tests Stage's load.
-  test.setTimeout(90_000);
+  // every step passing alone, past the default 60 s under the Tests Stage's load.
+  test.setTimeout(180_000);
   await page.goto("/account/authenticator");
   await expect(page.getByText("Off: your password alone signs you in.")).toBeVisible();
   await page.getByRole("button", { name: "Set up the authenticator" }).click();

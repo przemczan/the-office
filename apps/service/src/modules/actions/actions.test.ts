@@ -1,5 +1,5 @@
 import { readFile, rm } from "node:fs/promises";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { OfficeTestInstance } from "../../platform/test-instance/office-test-instance.js";
 import {
   runEnvironmentsTestbed,
@@ -189,11 +189,12 @@ describe("a Project command run on the workstation", () => {
     holdWorkstationRuns();
     const started = await testbed.runs.start("shop", "build-web", FROM_MAIN, ANN);
     await testbed.schedule.advanceBy(0);
-    await new Promise((resolve) => setTimeout(resolve, 10));
     // A scheduled Office update waits for it while it runs (spec §5.1.2).
-    expect(testbed.busyWork.list()).toEqual([
-      { kind: "action-run", label: "The Action Build web on Shop" },
-    ]);
+    await vi.waitFor(() =>
+      expect(testbed.busyWork.list()).toEqual([
+        { kind: "action-run", label: "The Action Build web on Shop" },
+      ]),
+    );
     // Activity lists it while it runs (spec §2.14).
     expect(await testbed.runs.runningCommandRuns()).toEqual([
       {
@@ -273,9 +274,7 @@ describe("a Project command run in the run environment", () => {
     runtime.keepExecsRunning();
     await onRunEnvironment(runtime);
     const started = await testbed.runs.start("shop", "build-web", FROM_MAIN, ANN);
-    for (let tries = 0; tries < 100 && runtime.executions.length === 0; tries++) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+    await untilExecuting(runtime);
 
     await testbed.runs.stop(started.id, { kind: "by-user", user: ANN });
 
@@ -289,9 +288,7 @@ describe("a Project command run in the run environment", () => {
 
 /** Waits until the run's commands run, held running. */
 async function untilExecuting(runtime: ScriptedContainerRuntime): Promise<void> {
-  for (let tries = 0; tries < 100 && runtime.executions.length === 0; tries++) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
+  await vi.waitFor(() => expect(runtime.executions.length).toBeGreaterThan(0), { timeout: 20_000 });
 }
 
 describe("a Project command run holding a Project device", () => {

@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   runEnvironmentsTestbed,
   ScriptedContainerRuntime,
@@ -112,10 +111,10 @@ function adbInstalls(): ScriptedAttachedProcess[] {
 }
 
 async function until(condition: () => boolean | Promise<boolean>): Promise<void> {
-  for (let tries = 0; !(await condition()); tries++) {
-    if (tries > 400) throw new Error("It never happened.");
-    await sleep(5);
-  }
+  await vi.waitFor(async () => expect(await condition()).toBe(true), {
+    timeout: 20_000,
+    interval: 5,
+  });
 }
 
 /** A promise that resolves once `open` is called. */

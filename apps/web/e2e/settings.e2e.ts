@@ -344,8 +344,8 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   page,
 }) => {
   // It draws a whole Pipeline, screenshots it in each look and reloads three times: under the full
-  // run's load that alone reaches the default 30s.
-  test.setTimeout(60_000);
+  // run's load that alone reaches the default 60 s.
+  test.setTimeout(120_000);
   const name = `Nightly ${Date.now()}`;
   await page.goto("/settings");
   await expect(page).toHaveURL(/\/settings\/pipelines$/);
@@ -1896,7 +1896,7 @@ asOwnUser.describe("Account › Appearance", { tag: "@full" }, () => {
 test("the flow canvas moves with the right mouse button, zooms, fits the whole Pipeline and goes full screen, on a Project Pipeline too", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const repository = await createTemporaryRepository();
   try {
     const project = await addedProject(page, repository.path, `Canvas ${Date.now()}`, "full");

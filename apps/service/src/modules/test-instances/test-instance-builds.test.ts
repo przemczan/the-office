@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
   runEnvironmentsTestbed,
@@ -112,10 +111,7 @@ function buildsRunUntilStopped(): void {
 }
 
 async function until(condition: () => boolean): Promise<void> {
-  for (let tries = 0; !condition(); tries++) {
-    if (tries > 200) throw new Error("It never happened.");
-    await sleep(5);
-  }
+  await vi.waitFor(() => expect(condition()).toBe(true), { timeout: 20_000, interval: 5 });
 }
 
 function withTarget(change: Partial<typeof BUILD_TARGET>): void {

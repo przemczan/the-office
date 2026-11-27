@@ -14,7 +14,7 @@ test.describe("the Stats", () => {
     page,
   }) => {
     // Twenty-four screenshots of a page that other files' workers slow down.
-    test.setTimeout(90_000);
+    test.setTimeout(180_000);
     await page.goto("/now");
     await page
       .getByRole("navigation", { name: "Surfaces" })
@@ -307,7 +307,7 @@ test.describe("the full stats from the bundled Grafana", () => {
     page,
   }) => {
     // Eighteen screenshots of a page that other files' workers slow down.
-    test.setTimeout(120_000);
+    test.setTimeout(240_000);
     await scriptGrafana(page, grafanaHolding(task));
     await chooseTelemetry(page, "bundled-grafana");
     await fullStatsAre(page, "full");
@@ -448,7 +448,7 @@ test.describe("the full stats from the bundled Grafana", () => {
   test("says when Grafana can't be reached, with Try again, the basic stats staying", async ({
     page,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(180_000);
     await scriptGrafana(page, {
       failure: { kind: "unreachable", problem: "No answer within 10 seconds." },
     });
@@ -496,7 +496,7 @@ test.describe("the full stats from your own Grafana", () => {
     page,
   }) => {
     // Six screenshots of a page that other files' workers slow down.
-    test.setTimeout(120_000);
+    test.setTimeout(240_000);
     await chooseTelemetry(page, "off");
     await scriptGrafana(page, grafanaHolding(task));
     await page.goto("/settings/telemetry");

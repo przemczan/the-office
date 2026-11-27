@@ -118,7 +118,7 @@ describeAgentEngineContract("OpenAiCompatibleApiEngine on a fake server", {
     return endpoint();
   },
   model: "coder:q4",
-  timeoutMs: 10_000,
+  timeoutMs: 30_000,
   mcpServer: CONTRACT_MCP_SERVER,
   backgroundCommands: true,
   async engineFor(scenario) {

@@ -877,7 +877,7 @@ test("a Secret variable is set, kept and removed, and its value never comes back
   page,
 }) => {
   // Three checks run in turn.
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const passes = `node -e "process.exit(0)"`;
   const token = "npm_e2e_s3cret";
   const project = await addedProject(page, "Secret variables", {
@@ -2471,7 +2471,7 @@ test("a Project command Action runs from the Overview's Actions tile, Running th
   await expect(page.getByText("Build web started on main.")).toBeVisible();
   await expect(row).toContainText("Running");
   await expect(row.getByRole("button", { name: "Run Build web" })).toBeDisabled();
-  await expect(row).toContainText("Succeeded", { timeout: 20_000 });
+  await expect(row).toContainText("Succeeded", { timeout: 30_000 });
 
   await row.getByRole("link", { name: "Build web" }).click();
   await expect(page).toHaveURL(`/projects/${project.id}/actions/build-web`);
@@ -2557,7 +2557,7 @@ test("an Action that leaves the workstation runs from the base branch after its 
     await confirm.click();
     await expect(runWindow).toBeHidden();
     await expect(page.getByText("Deploy started on main.")).toBeVisible();
-    await expect(row).toContainText("Succeeded", { timeout: 20_000 });
+    await expect(row).toContainText("Succeeded", { timeout: 30_000 });
   } finally {
     await remoteRepository.remove();
   }
@@ -2567,7 +2567,7 @@ test("the Files tab shows a branch's files, a folder read as it unfolds, and ope
   page,
 }) => {
   // Five screenshot scenarios, six screenshots each.
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const files = await createTemporaryRepository();
   try {

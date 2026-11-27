@@ -3,5 +3,10 @@ import { designSystem } from "./src/vite.ts";
 
 export default defineConfig({
   plugins: [designSystem()],
-  test: { environment: "jsdom", setupFiles: ["./vitest.setup.ts"] },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
+  },
 });

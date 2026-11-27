@@ -4,12 +4,12 @@ import { availableParallelism, cpus, type CpuInfo } from "node:os";
 const SAMPLE_MILLISECONDS = 500;
 
 /**
- * Playwright's workers for this run: half the CPUs it may use, as Playwright's default, but never
- * more than half of this computer's idle CPUs. Another Task's run beside this one (each run
- * environment may use nearly every core, spec §5.5 "The CPU limit") takes its share, so both
- * together don't oversubscribe the cores into the tests' timeouts.
+ * Workers for a test run: half the CPUs it may use, but never more than half of this computer's
+ * idle CPUs. Another Task's run beside this one (each run environment may use nearly every core,
+ * spec §5.5 "The CPU limit") takes its share, so both together don't oversubscribe the cores into
+ * the tests' timeouts. Shared by the vitest and Playwright configs.
  */
-export function e2eWorkers(): number {
+export function workersByIdleCpus(): number {
   // availableParallelism, not os.cpus(): it follows a run environment's CPU limit.
   const usable = Math.min(availableParallelism(), idleCpus() ?? Infinity);
   return Math.max(1, Math.floor(usable / 2));
@@ -43,7 +43,7 @@ function busyAndIdle(core: CpuInfo | undefined): number {
   return user + nice + sys + idle + irq;
 }
 
-// Playwright reads its config synchronously, so the sample waits in place.
+// The configs are read synchronously, so the sample waits in place.
 function sleep(milliseconds: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }

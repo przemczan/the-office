@@ -18,9 +18,9 @@ test.describe("the Live view", () => {
   test("opens from the rail with everyone on the floor, their states in words and their work a click away", async ({
     page,
   }) => {
-    // Twelve screenshots twice over take most of the default 30 s when the other files' workers
-    // load the machine.
-    test.setTimeout(60_000);
+    // Twelve screenshots twice over reach the default 60 s when the other files' workers load the
+    // machine.
+    test.setTimeout(120_000);
     await page.goto("/now");
     await page
       .getByRole("navigation", { name: "Surfaces" })
@@ -129,7 +129,7 @@ test.describe("the Live view at night", { tag: "@full" }, () => {
     page,
   }) => {
     // Three reloads and twelve screenshots for each of night, dusk and dawn.
-    test.setTimeout(90_000);
+    test.setTimeout(180_000);
     const floor = page.getByRole("img", { name: /\d+ (person|people): / });
     const chipOf = (phase: string) => page.getByRole("img", { name: new RegExp(`^${phase}, `) });
 

@@ -5,8 +5,8 @@
   "scripts": {
     "typecheck": "tsc -p .",
     "build": "vite build",
-    "test:e2e": "playwright test",
-    "test:e2e:full": "playwright test -c playwright.full.config.ts",
+    "test:e2e": "playwright test --retries=1",
+    "test:e2e:full": "playwright test -c playwright.full.config.ts --retries=1",
     "readme-screenshots": "playwright test -c playwright.readme.config.ts"
   },
   "dependencies": {

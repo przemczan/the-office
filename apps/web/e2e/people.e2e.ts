@@ -93,7 +93,7 @@ const SKILL = "people-handover";
  * checkout, and their git processes took over 4s when measured, with most of the machine in use.
  * This file's Stages and chats all wait on such sessions, so its waits and its tests get longer.
  */
-const expect = playwrightExpect.configure({ timeout: 15_000 });
+const expect = playwrightExpect.configure({ timeout: 30_000 });
 
 // One person fills each Role and the database lives for the whole run, so the tests build on each
 // other's hires; this is the only file that hires.
@@ -7941,7 +7941,7 @@ test(
   "a Stage refused for a used-up usage window pauses its Task until the reset, then goes on by itself",
   { tag: "@full" },
   async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(480_000);
     const repository = await createTemporaryRepository();
     try {
       const project = await addedProject(page, repository, "Export", "EX", PASSING_COMMANDS);
@@ -8365,7 +8365,7 @@ test.describe("the Live view's comings and goings", { tag: "@full" }, () => {
 
     // A hire comes in through the door and walks to their new desk.
     const walker = await hire("Wanda", "Courier");
-    await expect(nameplate("Wanda")).toBeVisible({ timeout: 15_000 });
+    await expect(nameplate("Wanda")).toBeVisible({ timeout: 30_000 });
     const cameIn = await placeOf("Wanda");
     await expect.poll(() => placeOf("Wanda")).not.toBe(cameIn);
     await settles("Wanda");
@@ -8379,7 +8379,7 @@ test.describe("the Live view's comings and goings", { tag: "@full" }, () => {
     // Under reduced motion every move is a jump: a hire is at their desk the moment they show.
     await page.emulateMedia({ reducedMotion: "reduce" });
     await hire("Rory", "Stillwater");
-    await expect(nameplate("Rory")).toBeVisible({ timeout: 15_000 });
+    await expect(nameplate("Rory")).toBeVisible({ timeout: 30_000 });
     const placed = await placeOf("Rory");
     // Watched over time on purpose: a walk would have moved it a tile in under half a second.
     for (let sample = 0; sample < 4; sample++) {
@@ -8401,7 +8401,7 @@ test.describe("a Stage on a Stand-in Engine", { tag: "@full" }, () => {
   test("a Stage refused for a used-up usage window goes on on a Stand-in Engine in the same run, and its Stage history says so", async ({
     page,
   }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(360_000);
     const standInName = "Stand-in account";
     const repository = await createTemporaryRepository();
     try {
@@ -8516,7 +8516,7 @@ test.describe("a Stage on a Stand-in Engine", { tag: "@full" }, () => {
   test("Stages over the size asked first above wait in one Decision in Needs you, and Switch now moves one to a Stand-in Engine", async ({
     page,
   }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(480_000);
     const standInName = "Stand-in for choices";
     const repository = await createTemporaryRepository();
     const taskLimit = await setDevelopersTaskLimit(page, 3);

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { E2E_STORAGE_STATE } from "./e2e/e2e-user.ts";
-import { e2eWorkers } from "./e2e/workers.ts";
+import { workersByIdleCpus } from "../../idle-cpus.ts";
 
 // Off OFFICE_PORT, so the tests run beside npm run dev.
 const PORT = 4390;
@@ -8,7 +8,7 @@ const PORT = 4390;
 // Not Playwright's default, half of os.cpus(): that counts every core of the computer, even in a
 // run environment capped below it or beside another Task's run, where that many Chromiums beside
 // the service exhaust the CPUs and the tests time out.
-const WORKERS = e2eWorkers();
+const WORKERS = workersByIdleCpus();
 
 /** The built web app and service, with the environment `serve-office.ts` reads besides its port. */
 export function officeServer(env: Readonly<Record<string, string>> = {}) {
@@ -29,6 +29,10 @@ export const fullRun = defineConfig({
   testMatch: "**/*.e2e.ts",
   outputDir: "e2e-results/artifacts",
   workers: WORKERS,
+  // A busy workstation makes a test slow, not wrong. The scripts' `--retries=1` adds one retry,
+  // whose test the list reporter marks "flaky" in its summary, so none stays hidden.
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   forbidOnly: !!process.env["CI"],
   reporter: [["list"]],
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },

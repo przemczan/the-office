@@ -564,7 +564,7 @@ test.describe.serial("Sign in with GitHub", () => {
     page,
   }) => {
     // The watch lists a Project's runs every minute; Refresh may be skipped within 10 s of a listing.
-    test.setTimeout(120_000);
+    test.setTimeout(240_000);
     const repository = await createTemporaryRepositoryWithRemote();
     const repositoryName = `ci-notes-${Date.now()}`;
     const fullName = `office-user/${repositoryName}`;
@@ -642,7 +642,7 @@ test.describe.serial("Sign in with GitHub", () => {
       await page.getByRole("menu").getByRole("button", { name: "Re-run failed jobs" }).click();
 
       // The re-run lists the Project at once, and the fake's run starts again, queued.
-      await expect(row).toContainText("Queued", { timeout: 15_000 });
+      await expect(row).toContainText("Queued", { timeout: 30_000 });
       await expect(row).toContainText("attempt 2");
       await expect(row.getByRole("button", { name: /^More for/ })).toHaveCount(0);
     } finally {
@@ -695,15 +695,15 @@ test.describe.serial("Sign in with GitHub", () => {
       await start.click();
       // The window closes once the start answers, and the service answers only after reading the
       // workflows, the dispatch, the CI listing round under way and one listing the Project again:
-      // under the full run's load, that outlasts the default 5 s, as the row's wait below does.
-      await expect(dialog).toBeHidden({ timeout: 15_000 });
+      // under the full run's load, that outlasts the default 15 s, as the row's wait below does.
+      await expect(dialog).toBeHidden({ timeout: 30_000 });
       await expect(page.getByText("Release started on v1.2.0.")).toBeVisible();
       // The start lists the Project at once, and the fake queues a run on the tag.
       const row = page
         .getByRole("row")
         .filter({ hasText: project.name })
         .filter({ hasText: "v1.2.0" });
-      await expect(row).toContainText("Queued", { timeout: 15_000 });
+      await expect(row).toContainText("Queued", { timeout: 30_000 });
       await expect(row).toContainText("Release #");
       expect((await dispatches()).filter((each) => each.repository === fullName)).toEqual([
         {
@@ -750,7 +750,7 @@ test.describe.serial("Sign in with GitHub", () => {
       await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "workflow-action-editor.png") });
       await editor.getByRole("button", { name: "Add the Action" }).click();
       // The window closes once the save answers, which under the full run's load outlasts 5 s.
-      await expect(editor).toBeHidden({ timeout: 15_000 });
+      await expect(editor).toBeHidden({ timeout: 30_000 });
       const row = page
         .getByRole("navigation", { name: `${project.name}'s Actions` })
         .getByRole("listitem")
@@ -776,9 +776,9 @@ test.describe.serial("Sign in with GitHub", () => {
   test("Import issues from the Work board picks two open issues, and they show in Backlog with their GitHub issue records", async ({
     page,
   }) => {
-    // Two Projects added and twenty-four screenshots take most of the default 30 s, and past it
-    // when other files' workers slow the page down.
-    test.setTimeout(90_000);
+    // Two Projects added and twenty-four screenshots take most of 30 s alone, and past the default
+    // 60 s when other files' workers slow the page down.
+    test.setTimeout(180_000);
     const repository = await createTemporaryRepositoryWithRemote();
     const fullName = `office-user/issue-notes-${Date.now()}`;
     try {

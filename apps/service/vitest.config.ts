@@ -21,6 +21,10 @@ export default defineProject({
   test: {
     name: "service",
     environment: "node",
+    // A busy workstation slows a test that takes seconds alone (a Nest app booting, git, Postgres)
+    // past vitest's 5 s and 10 s defaults.
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
     // A worker keeps the modules it loaded from one test file to the next: reloading Nest, the
     // engine SDKs and the app for every file was over half of the run. A test file must therefore
     // undo what it changes in a module's state (mocks, stubs, fake timers) before it ends.

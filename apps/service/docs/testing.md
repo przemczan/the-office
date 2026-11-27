@@ -52,3 +52,11 @@ A serial board over USB ([spec 2.13](../../../docs/spec/2.13-connected-devices.m
 - **Everything else goes to the full run:** edge cases, wording and label helpers, cosmetic UI tests, cases of a rule beyond its main one. Such a test lives in `<name>.full.test.ts(x)` beside its default-run sibling `<name>.test.ts(x)`; setup both need goes in the `*.fixtures.ts` beside them. A fixtures file in a layer's folder may not import the module's wiring or another module's `index.fixtures.ts` (only a test may), so setup that boots the module's app goes in a fixtures file at the module root, named after the test (`pipelines/stage-interpreter-alarm.fixtures.ts`), and setup that needs another module's fixtures stays in each half. A file named above as the only one doing something on the shared database is never split, since its two halves would run at once: it goes whole to one run.
 - The same rule holds for `apps/web` and `packages/*`, and for e2e tests, which carry Playwright's `{ tag: "@full" }` instead ([apps/web/e2e/MAP.md](../../web/e2e/MAP.md)).
 - To run one full-run file: `npx vitest run <path>`; the exclude applies to `npm run test` only. The e2e full run is `npm run test:e2e:full` (after `npm run build`).
+
+## A busy workstation
+
+Runs share the computer with other Tasks' runs, so a test that takes seconds alone can take a minute.
+
+- **Timeouts and workers:** vitest's projects set `testTimeout` 30 s and `hookTimeout` 60 s; Playwright's `timeout` is 60 s and `expect.timeout` 15 s. Both runners take half of the computer's idle CPUs as workers (`idle-cpus.ts` at the repository's root).
+- **One retry, never hidden:** `npm run test`, `test:full`, `test:e2e` and `test:e2e:full`, which `verify` and the Tests Stage run, retry a failing test once (`--retry=1`, Playwright `--retries=1`); `npx vitest run <path>` and `npx playwright test` don't, so a flaky test fails while it is worked on. The root vitest config's `retried-tests-reporter.ts` and Playwright's list reporter name each test that passed only on its retry. Treat each as a flaky test to fix.
+- **Wait for the thing, not the time:** use `vi.waitFor`, `expect.poll` or `ManualSchedule`, never a `setTimeout` or a loop of a few tries. A real-time wait is right only to show that nothing happens.

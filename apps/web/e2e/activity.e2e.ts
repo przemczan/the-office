@@ -65,7 +65,7 @@ test("an environment check is followed from the strip's Activity figure to the A
 
   // Seen after a second in view: the card stays for this visit, without its mark.
   await expect
-    .poll(async () => (await activityIds(page)).includes(ended?.id ?? ""), { timeout: 10_000 })
+    .poll(async () => (await activityIds(page)).includes(ended?.id ?? ""), { timeout: 30_000 })
     .toBe(false);
   await expect(card.getByText("New", { exact: true })).toHaveCount(0);
   await expect(card).toHaveCount(1);

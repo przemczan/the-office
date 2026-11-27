@@ -220,7 +220,7 @@ test("the Initiative page launches a Hosted test instance, opens it, shows its l
   context,
 }) => {
   // A real launch, which may take 30 seconds alone, then opening, the log and a stop.
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const repository = await createTemporaryRepository();
   let initiativeId: string | undefined;
   try {
@@ -387,7 +387,7 @@ test("the Initiative page builds a Build to install test instance, downloads its
   page,
 }) => {
   // A real build, which may take 60 seconds alone, then its download and QR code.
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const repository = await createTemporaryRepository();
   let initiativeId: string | undefined;
   try {
@@ -493,7 +493,7 @@ test("an Install on a device Action run from the Project's Overview installs the
   page,
 }) => {
   // A real build, a pairing and an install, one after the other.
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const repository = await createTemporaryRepository();
   try {
     await commitFiles(repository, INSTALL_BRANCH_FILES);
