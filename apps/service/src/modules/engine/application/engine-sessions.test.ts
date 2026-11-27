@@ -25,8 +25,15 @@ import {
   TracerProvider,
 } from "@opentelemetry/sdk-trace";
 import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { HttpAdapterHost } from "@nestjs/core";
 import { z } from "zod";
+import { AgentSdkEngine } from "../adapters/agent-sdk/agent-sdk-engine.js";
+import { ClaudeCodePEngine } from "../adapters/claude-code-p/claude-code-p-engine.js";
+import { SessionEndpoints } from "../adapters/claude-code-p/session-endpoints.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
@@ -520,6 +527,24 @@ describe("EngineSessions loading the Office tools by area", () => {
       deferred: ["initiative_note"],
     });
     expect(await optionsWith("deferred", "all")).toMatchObject({ loaded: ALL_THREE, deferred: [] });
+  });
+
+  it("defers on both Claude Code routes, the Agent SDK's and -p's", async () => {
+    const officeData = new OfficeDataDirectory(join(tmpdir(), "office-engine-data"));
+    const { sessions } = setUpOn({
+      "agent-sdk": new AgentSdkEngine(officeData),
+      "claude-code-p": new ClaudeCodePEngine(
+        officeData,
+        new SessionEndpoints(new HttpAdapterHost()),
+      ),
+      "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
+    });
+
+    expect(await sessions.officeToolLoadingOf(FIRST_CLAUDE_CODE_ENGINE.id)).toBe("deferred");
+    expect(await sessions.officeToolLoadingOf(FALLBACK.id)).toBe("deferred");
   });
 
   it("adds the pair over the other areas' tools when the engine has no tool search", async () => {

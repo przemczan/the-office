@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Check, Observation } from "../../check.ts";
 import type { OfficeTool } from "../../claude-code-p/office-tool-server.ts";
 import { officeToolName } from "../../office-options.ts";
+import { deferredAtStart, readTranscript } from "../../transcripts.ts";
 import { toolCalls } from "../tool-calls.ts";
 import { readsEarlierPromptFromCache, requestUsages, turns } from "./requests.ts";
 import { textResult, withOfficeTools } from "./office-tools.ts";
@@ -19,6 +20,8 @@ const SECOND_TURN =
 
 /** The session's two turns, as both routes run them. */
 interface DeferredSession {
+  readonly sessionId: string;
+  readonly repository: string;
   readonly messages: SDKMessage[];
   send(text: string): void;
   nextResult(): Promise<unknown>;
@@ -30,7 +33,8 @@ interface DeferredSession {
  * loaded tool; the second loads the deferred one with `ToolSearch` and calls it. The facts: the
  * deferred tool is out of the session's tool list at the start, its call reaches its handler with
  * the input the model gave, and the second turn reads the first turn's prompt from the cache, so
- * loading it left the cached prefix as it was.
+ * loading it left the cached prefix as it was. A tool is listed at the start when `init` names it
+ * and the engine didn't announce it as deferred: `init.tools` names deferred tools too.
  */
 async function observe(
   session: DeferredSession,
@@ -47,7 +51,8 @@ async function observe(
   const [first, second] = turns(session.messages);
   const lastOfFirst = requestUsages(first ?? []).at(-1);
   const firstOfSecond = requestUsages(second ?? [])[0];
-  const startTools = initTools(session.messages);
+  const deferred = deferredAtStart(await readTranscript(session.repository, session.sessionId));
+  const startTools = initTools(session.messages).filter((name) => !deferred.includes(name));
   return {
     loadedToolListedAtStart: startTools.includes(officeToolName(LOADED_TOOL)),
     deferredToolListedAtStart: startTools.includes(officeToolName(DEFERRED_TOOL)),

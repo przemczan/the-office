@@ -141,10 +141,7 @@ export class EngineSessions {
     return this.engines.of(await this.listed(engineId)).capabilities;
   }
 
-  /**
-   * How `engineId`'s sessions reach the Office tools they aren't started with; `all` while Claude
-   * Code's deferral is off, and once no engine is listed as it.
-   */
+  /** How `engineId`'s sessions reach the Office tools they aren't started with; `all` once no engine is listed as it. */
   async officeToolLoadingOf(engineId: EngineId): Promise<OfficeToolLoading> {
     const engine = await this.find(engineId);
     return engine === undefined ? "all" : this.engines.of(engine).officeToolLoading;

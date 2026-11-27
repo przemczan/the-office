@@ -5,7 +5,11 @@ import { join } from "node:path";
 /** One line of an engine transcript; only the fields the checks read are typed. */
 export interface TranscriptEntry {
   readonly type: string;
-  readonly attachment?: { readonly type: string; readonly content?: unknown };
+  readonly attachment?: {
+    readonly type: string;
+    readonly content?: unknown;
+    readonly addedNames?: unknown;
+  };
 }
 
 /** Where the engine keeps the transcripts of sessions run in a working directory. */
@@ -37,6 +41,19 @@ export function skillListings(entries: readonly TranscriptEntry[]): string[][] {
       ? [listedNames(attachment.content)]
       : [],
   );
+}
+
+/**
+ * The tools the engine first announced to the model as deferred, to be loaded with `ToolSearch`:
+ * its first `deferred_tools_delta` attachment, empty when it deferred none. The `init` message's
+ * `tools` names deferred tools too, so only this tells them from the ones loaded from the start.
+ */
+export function deferredAtStart(entries: readonly TranscriptEntry[]): string[] {
+  const added = entries.find(({ attachment }) => attachment?.type === "deferred_tools_delta")
+    ?.attachment?.addedNames;
+  return Array.isArray(added)
+    ? added.filter((name): name is string => typeof name === "string")
+    : [];
 }
 
 function listedNames(listing: string): string[] {

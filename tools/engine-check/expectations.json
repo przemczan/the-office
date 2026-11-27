@@ -1164,6 +1164,26 @@
       "officeToolJudgedBeforeItRan": true
     }
   },
+  "office-tools.deferred": {
+    "linux": {
+      "loadedToolListedAtStart": true,
+      "deferredToolListedAtStart": false,
+      "loadedCallReachedHandler": true,
+      "toolSearchBeforeDeferredCall": true,
+      "deferredCallReachedHandler": true,
+      "secondTurnReadsFirstTurnsPromptFromCache": true
+    }
+  },
+  "office-tools.deferred-p": {
+    "linux": {
+      "loadedToolListedAtStart": true,
+      "deferredToolListedAtStart": false,
+      "loadedCallReachedHandler": true,
+      "toolSearchBeforeDeferredCall": true,
+      "deferredCallReachedHandler": true,
+      "secondTurnReadsFirstTurnsPromptFromCache": true
+    }
+  },
   "permissions.hook-after-resume": {
     "win32": {
       "beforeResume": {
