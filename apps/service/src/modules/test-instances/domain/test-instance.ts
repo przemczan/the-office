@@ -34,10 +34,32 @@ export interface BuiltFor {
   readonly targetName: string;
 }
 
-/** Who launched it, as records keep a user: their id and their name as it was then. */
-export interface LaunchedBy {
-  readonly kind: "user";
-  readonly user: { readonly userId: string; readonly name: string };
+/** A user as records keep them: their id and their name as it was then. */
+export interface LaunchingUser {
+  readonly userId: string;
+  readonly name: string;
+}
+
+/**
+ * Who launched it: a user, or a person by their Role's key with the user who asked them and, for a
+ * call held for approval, the user whose Allow once let it run.
+ */
+export type LaunchedBy =
+  | { readonly kind: "user"; readonly user: LaunchingUser }
+  | {
+      readonly kind: "person";
+      readonly roleKey: string;
+      readonly askedBy?: LaunchingUser;
+      readonly allowedBy?: LaunchingUser;
+    };
+
+/**
+ * The user a launch is done for, who holds the device an install uses: the user who launched it,
+ * or the one who asked or allowed the person; the person's own Role key when no user is known.
+ */
+export function launchingUserOf(by: LaunchedBy): LaunchingUser {
+  if (by.kind === "user") return by.user;
+  return by.askedBy ?? by.allowedBy ?? { userId: "", name: by.roleKey };
 }
 
 /** One launch of one test target on one branch of one Project (spec §2.12). */

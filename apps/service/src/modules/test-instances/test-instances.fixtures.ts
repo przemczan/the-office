@@ -1,4 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { Provider } from "@nestjs/common";
+import { OfficeAddresses } from "../../platform/http/office-addresses.js";
+import { OfficeToolRegistry } from "../engine/index.js";
+import { TestInstanceOfficeActions } from "./adapters/office-actions/test-instance-office-actions.js";
+import { TestInstanceHandOffs } from "./application/test-instance-hand-offs.js";
+import { OfficeHost } from "./application/test-instance-proxy.js";
+import { SessionPeople } from "./ports/session-people.js";
+import { WorkstationAddresses, type InterfaceAddress } from "./ports/workstation-addresses.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../platform/office-data/office-data-directory.js";
 import { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
@@ -24,7 +32,10 @@ import { TestInstanceSettingsForTests } from "./ports/test-instance-settings-sto
 /** The Office's own port in the testbed, outside the default Proxy ports. */
 export const TESTBED_OFFICE_PORT = 4392;
 
-export const ANN: LaunchedBy = { kind: "user", user: { userId: "user-ann", name: "Ann Lee" } };
+export const ANN: Extract<LaunchedBy, { kind: "user" }> = {
+  kind: "user",
+  user: { userId: "user-ann", name: "Ann Lee" },
+};
 
 /** A Hosted target's Secret variable's value, which the log shows only masked. */
 export const TARGET_SECRET = "target-s3cret-value";
@@ -201,4 +212,51 @@ export function testInstancesTestbed(
       return instances.read(launched.id);
     },
   };
+}
+
+/** No session has a person: tests of the routes never call an Agent tool. */
+class NobodyInSessions extends SessionPeople {
+  personInSession(): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  askedByInSession(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+}
+
+/**
+ * The providers `TestInstanceOfficeActionsController` needs over a testbed (with the controller in
+ * `controllers`): the handler, an Office tool registry of its own and the addresses. `handOffs`
+ * defaults to ones over the testbed; `workstation` and `officeHost` to a workstation with no address.
+ */
+export function officeActionProviders(
+  testbed: TestInstancesTestbed,
+  options: {
+    readonly handOffs?: TestInstanceHandOffs;
+    readonly publicAddress?: string;
+    readonly workstation?: WorkstationAddresses;
+    readonly officeHost?: OfficeHost;
+  } = {},
+): Provider[] {
+  const handOffs =
+    options.handOffs ??
+    new TestInstanceHandOffs(testbed.running, testbed.instances, testbed.schedule, testbed.events);
+  class NoAddresses extends WorkstationAddresses {
+    list(): readonly InterfaceAddress[] {
+      return [];
+    }
+  }
+  return [
+    { provide: TestInstances, useValue: testbed.instances },
+    { provide: TestBuildLinks, useValue: testbed.links },
+    { provide: TestInstanceHandOffs, useValue: handOffs },
+    { provide: OfficeToolRegistry, useValue: new OfficeToolRegistry() },
+    { provide: SessionPeople, useClass: NobodyInSessions },
+    { provide: OfficeAddresses, useValue: new OfficeAddresses(options.publicAddress) },
+    { provide: OfficeHost, useValue: options.officeHost ?? new OfficeHost("0.0.0.0") },
+    { provide: OfficePort, useValue: new OfficePort(TESTBED_OFFICE_PORT) },
+    { provide: WorkstationAddresses, useValue: options.workstation ?? new NoAddresses() },
+    TestInstanceOfficeActions,
+  ];
 }

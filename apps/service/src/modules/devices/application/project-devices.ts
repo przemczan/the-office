@@ -17,6 +17,7 @@ import {
   KIND_WORDS,
   type ConnectedDevice,
   type ConnectedDeviceKind,
+  type DeviceConnector,
   type DeviceUser,
 } from "../domain/connected-device.js";
 import { ConnectedDeviceChanged } from "../domain/connected-device-events.js";
@@ -301,9 +302,16 @@ export class ProjectDevices implements OnModuleInit {
    * Lends the device to the Task (spec §2.13, "Lent to a Task"): refused as a connect is, while
    * it pairs, and naming the holder while another environment holds it.
    */
-  async lend(taskId: string, projectDeviceId: string, by: DeviceUser): Promise<ConnectedDevice> {
+  async lend(
+    taskId: string,
+    projectDeviceId: string,
+    by: DeviceConnector,
+  ): Promise<ConnectedDevice> {
     const device = await this.find(projectDeviceId);
     if (device.pairingStep !== null) throw new ProjectDeviceRefused([beingPaired(device)]);
+    if (by.person !== undefined && device.kind !== "android-wireless") {
+      throw new ProjectDeviceRefused([overUsb(device.name)]);
+    }
     return this.devices.lend(
       taskId,
       {
@@ -691,6 +699,11 @@ function wirelessEndpointOf(device: ProjectDevice): string | null {
   }
   const reading = wirelessAddressOf(device.address);
   return "problem" in reading ? null : adbSerialAt(reading.address, device.port);
+}
+
+/** Why a person's lend of a device over USB is refused: the user's browser relays USB. */
+function overUsb(deviceName: string): string {
+  return `"${deviceName}" is over USB: the browser relays it, so the user lends it from the Task page.`;
 }
 
 function phoneAt(address: string): string {

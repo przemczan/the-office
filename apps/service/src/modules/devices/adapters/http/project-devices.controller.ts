@@ -13,12 +13,9 @@ import {
 import {
   addProjectDeviceSchema,
   changeProjectDeviceSchema,
-  lendProjectDeviceSchema,
   pairProjectDeviceSchema,
   type AddProjectDevice,
   type ChangeProjectDevice,
-  type ConnectedDevice as ConnectedDeviceResponse,
-  type LendProjectDevice,
   type PairProjectDevice,
   type ProjectDevice as ProjectDeviceResponse,
   type ProjectDeviceList,
@@ -27,11 +24,11 @@ import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProjectDevices, type SeenProjectDevice } from "../../application/project-devices.js";
 import { DeviceRefusalsFilter } from "./device-refusals.filter.js";
-import { deviceResponse } from "./devices.controller.js";
 
 /**
  * A Project's devices (spec §2.13, "A Project's device"): list, add, rename or give a new Port,
- * remove, pair again, and lend one to a Task, by any signed-in user. A pairing's code is in no
+ * remove, and pair again, by any signed-in user; lending one to a Task is an Office
+ * action (`DeviceOfficeActionsController`). A pairing's code is in no
  * response and no log line; a device's address and Port are only in these responses.
  */
 @Controller()
@@ -78,15 +75,6 @@ export class ProjectDevicesController {
     @Body(new ContractPipe(pairProjectDeviceSchema)) given: PairProjectDevice,
   ): Promise<ProjectDeviceResponse> {
     return projectDeviceResponse(await this.devices.pair(id, given));
-  }
-
-  @Post("tasks/:taskId/devices/lend")
-  async lend(
-    @Param("taskId", ParseUUIDPipe) taskId: string,
-    @Body(new ContractPipe(lendProjectDeviceSchema)) given: LendProjectDevice,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<ConnectedDeviceResponse> {
-    return deviceResponse(await this.devices.lend(taskId, given.projectDeviceId, userOf(signedIn)));
   }
 }
 

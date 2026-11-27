@@ -19,6 +19,11 @@ export function buildTargetGone(buildTargetKey: string): string {
   return `The Build to install target ${buildTargetKey} this target installs is gone; pick another in the Project's Test targets.`;
 }
 
+/** Why a person's Install on a device launch is refused for a device over USB, which a browser relays. */
+export function overUsb(deviceName: string): string {
+  return `"${deviceName}" is over USB: the browser relays it, so the user lends it from the Task page.`;
+}
+
 /** Why an install whose build failed failed, in the build's own words. */
 export function buildFailed(reason: string | undefined): string {
   if (reason === undefined || reason === "") return "The build failed.";

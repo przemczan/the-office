@@ -15,12 +15,15 @@ import {
   ScriptedContainerRuntime,
   type RunEnvironmentsTestbed,
 } from "../run-environments/index.fixtures.js";
+import { TestInstanceOfficeActionsController } from "./adapters/http/test-instance-office-actions.controller.js";
 import { TestBuildFilesController } from "./adapters/http/test-build-files.controller.js";
-import { TestBuildLinks } from "./application/test-build-links.js";
-import { TestInstances } from "./application/test-instances.js";
 import { TEST_BUILD_LINK_MS } from "./domain/test-build.js";
 import { filesRemoved, type TestInstance } from "./domain/test-instance.js";
-import { testInstancesTestbed, type TestInstancesTestbed } from "./test-instances.fixtures.js";
+import {
+  officeActionProviders,
+  testInstancesTestbed,
+  type TestInstancesTestbed,
+} from "./test-instances.fixtures.js";
 
 const PUBLIC_ADDRESS = "https://office.example.com";
 const PUBLIC_HOST = "office.example.com";
@@ -80,11 +83,8 @@ beforeEach(async () => {
         signedInRequests: SignedInByHeader,
       }),
     ],
-    controllers: [TestBuildFilesController],
-    providers: [
-      { provide: TestInstances, useValue: testbed.instances },
-      { provide: TestBuildLinks, useValue: testbed.links },
-    ],
+    controllers: [TestBuildFilesController, TestInstanceOfficeActionsController],
+    providers: officeActionProviders(testbed, { publicAddress: PUBLIC_ADDRESS }),
     requestAccess: "guarded",
   }));
 });

@@ -268,14 +268,18 @@ export class AppModule {
       officeOffBoardTasks: OffBoardTaskReader,
     });
     // Work's Tasks and the run environments their devices are relayed into.
-    const devices = DevicesModule.register({ imports: [work, projects, runEnvironments] });
+    const devices = DevicesModule.register({
+      imports: [work, projects, runEnvironments, conversations],
+      sessionPeople: ThreadService,
+    });
     // Initiatives' branches from Work, test targets and checkouts from Projects, Hosted instances
     // and install environments from Run environments, which take no run environment slot, and the
     // Project devices an Install on a device holds from Devices.
     const testInstances = TestInstancesModule.register({
-      imports: [work, projects, runEnvironments, devices],
+      imports: [work, projects, runEnvironments, devices, conversations],
       officePort: config.port,
       officeHost: config.host,
+      sessionPeople: ThreadService,
     });
     // Action runs: Projects' Actions, checkouts and code host, Run environments' command runs,
     // Test instances' launches, Devices' Project devices held by a run and Work's Tasks,

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { API_PATH } from "./api.js";
 import { helperNoticeCodeSchema } from "./device-control.js";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 import { userRefSchema } from "./users.js";
 
 /** A Connected device's kinds (spec 2.13, "Connected device"). */
@@ -96,7 +97,8 @@ export const connectedDeviceSchema = z.object({
   roundTripMs: z.number().int().nonnegative().nullable(),
   /** What the Devices section says about it, in this order. */
   notices: z.array(deviceNoticeSchema),
-  connectedBy: userRefSchema,
+  /** Who connected it; for a lend by a person, `person` is their Role's key and the user the one who asked. */
+  connectedBy: userRefSchema.extend({ person: z.string().optional() }),
   connectedAt: z.iso.datetime(),
   /** Null until Disconnected. */
   disconnectedAt: z.iso.datetime().nullable(),
@@ -387,3 +389,24 @@ export const projectDeviceWebEventSchema = z.discriminatedUnion("type", [
   }),
 ]);
 export type ProjectDeviceWebEvent = z.infer<typeof projectDeviceWebEventSchema>;
+
+/** Office action: lend a Project device to a Task. */
+export const LEND_PROJECT_DEVICE_ACTION = officeAction({
+  name: "lend_project_device",
+  title: "Lend a Project device to a Task",
+  description:
+    "Lends one of the Project's devices to a Task, so its run environment reaches it (Use a Project device on the Task page), and answers the Connected device. Refused while the device is pairing or held by another environment, which it names, and unless the Project's Run environment is On and Connected devices are switched on. A device over USB is relayed by the user's browser: the user lends it from the Task page.",
+  input: z.object({
+    taskId: z.uuid().describe("The id of the Task the device is lent to."),
+    ...lendProjectDeviceSchema.shape,
+  }),
+  answer: connectedDeviceSchema,
+  route: { method: "POST", path: "/tasks/:taskId/devices/lend" },
+  status: 201,
+  area: "testInstancesAndDevices",
+  group: "projectDevices",
+  subject: ({ taskId }) => ({ kind: "task", id: taskId }),
+});
+
+/** Project devices' Office actions, each declared above. */
+export const DEVICE_OFFICE_ACTIONS = [LEND_PROJECT_DEVICE_ACTION] as const;

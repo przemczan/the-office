@@ -385,11 +385,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "POST /github/permissions/check", agent: "gap" },
 
   // Test instances, Connected devices.
-  { route: "POST /initiatives/:id/test-instances", agent: "gap" },
-  { route: "POST /projects/:id/test-instances", agent: "gap" },
-  { route: "POST /test-instances/:id/stop", agent: "gap" },
-  { route: "POST /test-instances/:id/open", agent: "gap" },
-  { route: "POST /test-instances/:id/files/:name/link", agent: "gap" },
   {
     route: "POST /tasks/:taskId/devices",
     agent: "undecided",
@@ -405,7 +400,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "PATCH /project-devices/:id", agent: "gap" },
   { route: "DELETE /project-devices/:id", agent: "gap" },
   { route: "POST /project-devices/:id/pair", agent: "gap" },
-  { route: "POST /tasks/:taskId/devices/lend", agent: "gap" },
 
   // Notifications, users, the user's own account.
   { route: "PUT /account/notifications/timing", agent: "undecided", note: "each user's own" },

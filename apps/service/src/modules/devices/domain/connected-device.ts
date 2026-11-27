@@ -46,6 +46,14 @@ export interface DeviceUser {
 }
 
 /**
+ * Who connected a device: the user, and for a device a person lent, the person by their Role's key,
+ * the user being the one who asked them (or allowed the call), so a record keeps a user as before.
+ */
+export interface DeviceConnector extends DeviceUser {
+  readonly person?: string;
+}
+
+/**
  * What holds a Project device other than a Task (spec §2.13, "One environment at a time"): an
  * Action run or a test instance, with its name as "<device> is in use by <name>." says it. The run
  * gives the name, so Devices never reads Actions or Test instances.
@@ -101,7 +109,7 @@ export interface ConnectedDevice {
   readonly roundTripMs: number | null;
   /** What the helper noticed last, since its READY; null when nothing. */
   readonly notice: HelperNoticeCode | null;
-  readonly connectedBy: DeviceUser;
+  readonly connectedBy: DeviceConnector;
   readonly connectedAt: Date;
   readonly disconnectedAt: Date | null;
 }
@@ -167,7 +175,7 @@ export interface NewConnectedDevice {
   readonly kind: ConnectedDeviceKind;
   readonly name: string;
   readonly deviceKey: string;
-  readonly connectedBy: DeviceUser;
+  readonly connectedBy: DeviceConnector;
   readonly connectedAt: Date;
 }
 
@@ -229,7 +237,7 @@ export interface NewHeldDevice {
   readonly deviceKey: string;
   /** The tab relaying a device over USB; null for a phone over wireless debugging. */
   readonly relayTab: string | null;
-  readonly connectedBy: DeviceUser;
+  readonly connectedBy: DeviceConnector;
   readonly connectedAt: Date;
 }
 

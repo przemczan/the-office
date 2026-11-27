@@ -34,7 +34,8 @@ export function addressedToProxy(
  * own first: then `localhost` when the proxy listens on loopback or every address, each of the
  * workstation's network addresses when it listens on every address (IPv6 ones only on `::`, and
  * never a link-local one, which a browser can't open), or `OFFICE_HOST` itself when it is one
- * address. Each is one `addressedToProxy` lets through.
+ * address. Each is one `addressedToProxy` lets through. With no page (an Agent's call), the
+ * workstation's network addresses come before `localhost`, which only this computer reaches.
  */
 export function reachableHostnames({
   officeHost,
@@ -43,18 +44,19 @@ export function reachableHostnames({
 }: {
   officeHost: string;
   /** The hostname the page asking was opened at, which The Office's own Host check let through. */
-  pageHostname: string;
+  pageHostname: string | undefined;
   interfaces: readonly InterfaceAddress[];
 }): string[] {
   const listening = officeHost.toLowerCase();
-  const hostnames = [pageHostname.toLowerCase()];
+  const hostnames = pageHostname === undefined ? [] : [pageHostname.toLowerCase()];
   if (ANY_ADDRESS.has(listening)) {
-    hostnames.push(LOCALHOST);
+    if (pageHostname !== undefined) hostnames.push(LOCALHOST);
     for (const { address, family, internal } of interfaces) {
       if (internal) continue;
       if (family === "IPv4") hostnames.push(address);
       else if (listening === "::" && !isLinkLocal(address)) hostnames.push(bracketed(address));
     }
+    if (pageHostname === undefined) hostnames.push(LOCALHOST);
   } else if (LOOPBACK_HOSTS.has(listening)) {
     hostnames.push(LOCALHOST);
   } else {

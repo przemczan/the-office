@@ -53,6 +53,7 @@ import {
   type ConnectedDevice,
   type ConnectedDeviceChange,
   type ConnectedDeviceKind,
+  type DeviceConnector,
   type DeviceUser,
   type DisconnectedBecause,
 } from "../domain/connected-device.js";
@@ -357,7 +358,7 @@ export class ConnectedDevices implements OnModuleInit, BeforeApplicationShutdown
    * check and the record's insert run holding the Project device's row. Never starts the run
    * environment.
    */
-  async lend(taskId: string, lent: DeviceToLend, by: DeviceUser): Promise<ConnectedDevice> {
+  async lend(taskId: string, lent: DeviceToLend, by: DeviceConnector): Promise<ConnectedDevice> {
     const task = await this.tasks.find(taskId);
     if (task === undefined) throw ConnectedDeviceNotFound.task(taskId);
     if (task.projectId !== lent.projectId) {

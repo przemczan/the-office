@@ -3,11 +3,13 @@ import {
   createParamDecorator,
   HttpCode,
   HttpStatus,
+  Req,
   RequestMapping,
   RequestMethod,
   type ExecutionContext,
 } from "@nestjs/common";
 import type { OfficeAction, OfficeActionMethod } from "@the-office/contracts";
+import type { Request } from "express";
 import { ContractPipe } from "./contract-pipe.js";
 import { SignedIn } from "./signed-in-requests.js";
 
@@ -37,23 +39,36 @@ const OfficeActionInput = createParamDecorator(
 
 /** The routes of a module's Office actions, its controller filling in `answer`. */
 export abstract class OfficeActionRoutes {
-  /** Carries the action out for the signed-in user, answering what its route answers. */
-  abstract answer(action: OfficeAction, input: unknown, signedIn: SignedIn): Promise<unknown>;
+  /**
+   * Carries the action out for the signed-in user, answering what its route answers. `request` is
+   * the request itself, for an action whose answer depends on the address the page was opened at.
+   */
+  abstract answer(
+    action: OfficeAction,
+    input: unknown,
+    signedIn: SignedIn,
+    request: Request,
+  ): Promise<unknown>;
 }
 
 /**
  * The base of a module's controller of Office actions (the Office action convention): one route
  * per declared action, its method and path from the declaration, answering its status (200 unless
- * it declares 201) with what `answer` gives for its input and the signed-in user. The module's
- * controller extends it under its own `@Controller()` and refusal filters.
+ * it declares 201) with what `answer` gives for its input, the signed-in user and the request. The
+ * module's controller extends it under its own `@Controller()` and refusal filters.
  */
 export function officeActionRoutes(
   actions: readonly OfficeAction[],
 ): abstract new () => OfficeActionRoutes {
   abstract class Routes extends OfficeActionRoutes {}
   for (const action of actions) {
-    const route = function (this: Routes, input: unknown, signedIn: SignedIn): Promise<unknown> {
-      return this.answer(action, input, signedIn);
+    const route = function (
+      this: Routes,
+      input: unknown,
+      signedIn: SignedIn,
+      request: Request,
+    ): Promise<unknown> {
+      return this.answer(action, input, signedIn, request);
     };
     Object.defineProperty(Routes.prototype, action.name, {
       value: route,
@@ -70,6 +85,7 @@ export function officeActionRoutes(
     HttpCode(action.status ?? HttpStatus.OK)(Routes.prototype, action.name, descriptor);
     OfficeActionInput(action)(Routes.prototype, action.name, 0);
     SignedIn()(Routes.prototype, action.name, 1);
+    Req()(Routes.prototype, action.name, 2);
   }
   return Routes;
 }

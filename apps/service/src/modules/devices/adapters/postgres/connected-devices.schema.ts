@@ -14,6 +14,7 @@ import {
 import type {
   ConnectedDeviceKind,
   ConnectedDeviceState,
+  DeviceConnector,
   DeviceUser,
   DisconnectedBecause,
   HelperNoticeCode,
@@ -57,7 +58,7 @@ export const connectedDevices = pgTable(
     roundTripMs: integer("round_trip_ms"),
     /** The helper's latest notice since its READY. */
     notice: text("notice").$type<HelperNoticeCode>(),
-    connectedBy: jsonb("connected_by").$type<DeviceUser>().notNull(),
+    connectedBy: jsonb("connected_by").$type<DeviceConnector>().notNull(),
     connectedAt: timestamp("connected_at", { withTimezone: true }).notNull(),
     disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
   },

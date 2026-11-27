@@ -59,6 +59,7 @@ import {
   INSTALL_TIMEOUT_MS,
   installFailureOf,
   NO_APK,
+  overUsb,
   reusingWords,
 } from "../domain/device-install.js";
 import {
@@ -68,6 +69,7 @@ import {
   installed,
   isActive,
   launchedInstance,
+  launchingUserOf,
   startedInstalling,
   startedRunning,
   stopped,
@@ -527,6 +529,9 @@ export class TestInstances implements OnModuleInit {
     ];
     if (build === undefined || problems.length > 0) throw new TestInstanceRefused(problems);
     const device = await this.devices.checkFree(launch.projectId, target.projectDeviceId);
+    if (by.kind === "person" && device.kind !== "android-wireless") {
+      throw new TestInstanceRefused([overUsb(device.name)]);
+    }
 
     const instance = await this.oneAtATime(async () => {
       await this.withinTheLimit();
@@ -911,7 +916,7 @@ export class TestInstances implements OnModuleInit {
         projectDeviceId: device.projectDeviceId,
         instanceId: id,
         holderName: holderNameOf(await this.nameOf(instance)),
-        startedBy: instance.launchedBy.user,
+        startedBy: launchingUserOf(instance.launchedBy),
         environment: {
           label: `the Test instance ${id}`,
           checksUser: started.checksUser,

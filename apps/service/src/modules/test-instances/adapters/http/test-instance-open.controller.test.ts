@@ -12,10 +12,14 @@ import {
   type RunEnvironmentsTestbed,
 } from "../../../run-environments/index.fixtures.js";
 import { TestInstanceHandOffs } from "../../application/test-instance-hand-offs.js";
-import { OfficeHost } from "../../application/test-instance-proxy.js";
 import { WorkstationAddresses, type InterfaceAddress } from "../../ports/workstation-addresses.js";
-import { testInstancesTestbed, type TestInstancesTestbed } from "../../test-instances.fixtures.js";
+import {
+  officeActionProviders,
+  testInstancesTestbed,
+  type TestInstancesTestbed,
+} from "../../test-instances.fixtures.js";
 import { TestInstanceOpenController } from "./test-instance-open.controller.js";
+import { TestInstanceOfficeActionsController } from "./test-instance-office-actions.controller.js";
 
 let app: INestApplication;
 let url: string;
@@ -56,12 +60,8 @@ beforeEach(async () => {
   );
   handOffs.onModuleInit();
   ({ app, url, port } = await startTestApplication({
-    controllers: [TestInstanceOpenController],
-    providers: [
-      { provide: TestInstanceHandOffs, useValue: handOffs },
-      { provide: OfficeHost, useValue: new OfficeHost("0.0.0.0") },
-      { provide: WorkstationAddresses, useClass: HomeNetwork },
-    ],
+    controllers: [TestInstanceOpenController, TestInstanceOfficeActionsController],
+    providers: officeActionProviders(testbed, { handOffs, workstation: new HomeNetwork() }),
   }));
 });
 
@@ -142,7 +142,7 @@ describe("POST /test-instances/:id/open", () => {
     );
   });
 
-  it("answers a link at the address chosen among those offered, and refuses one not offered with 400", async () => {
+  it("answers a link at the address chosen among those offered, and refuses one not offered with 409", async () => {
     const instance = await testbed.launchAndSettle();
 
     const atLan = await open(instance.id, `localhost:${port}`, "192.168.1.20");
@@ -152,7 +152,7 @@ describe("POST /test-instances/:id/open", () => {
     expect(testInstanceOpeningSchema.parse(atLan.body).url).toMatch(
       new RegExp(`^http://192\\.168\\.1\\.20:${instance.port}/__office/hand-off\\?t=`),
     );
-    expect(elsewhere.status).toBe(400);
+    expect(elsewhere.status).toBe(409);
   });
 
   it("is refused with 409 unless the instance is Running, and 404 for none", async () => {

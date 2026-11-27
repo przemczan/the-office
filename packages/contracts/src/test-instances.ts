@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { connectedDeviceKindSchema, relayTabSchema } from "./devices.js";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 import { entryPointSchema, testTargetKeySchema } from "./test-targets.js";
 import { authorSchema } from "./work.js";
 
@@ -318,3 +319,100 @@ export const testInstanceWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("test-instance-settings.changed") }),
 ]);
 export type TestInstanceWebEvent = z.infer<typeof testInstanceWebEventSchema>;
+
+const instanceIdField = z
+  .uuid()
+  .describe("The id of the Test instance, as the Project page lists it.");
+
+/** Office action: launch a test target on an Initiative's branch. */
+export const LAUNCH_INITIATIVE_TEST_INSTANCE_ACTION = officeAction({
+  name: "launch_initiative_test_instance",
+  title: "Launch a test instance on an Initiative",
+  description:
+    "Launches a test target of a Project on the branch of an active Initiative, linked to it, and answers the instance Building. Refused unless the Initiative is active with a branch in the Project, the target has its Secret variables typed, the limit has room and, for Hosted, the Project's Run environment is On; an Install on a device target is refused while its device is in use or over USB, which the user relays from the Task page.",
+  input: z.object({
+    initiativeId: z.uuid().describe("The id of the Initiative whose branch the instance runs."),
+    ...testInstanceLaunchSchema.shape,
+  }),
+  answer: testInstanceSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/test-instances" },
+  status: 201,
+  area: "testInstancesAndDevices",
+  group: "testInstances",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: launch a test target on any branch of a Project. */
+export const LAUNCH_PROJECT_TEST_INSTANCE_ACTION = officeAction({
+  name: "launch_project_test_instance",
+  title: "Launch a test instance on a branch",
+  description:
+    "Launches a test target of a Project on one of its branches, linked to the active Initiative whose branch it is, if any, and answers the instance Building. Refused as launching on an Initiative is, an Install on a device target included.",
+  input: z.object({
+    projectId: z.string().describe("The id of the Project."),
+    ...projectTestInstanceLaunchSchema.shape,
+  }),
+  answer: testInstanceSchema,
+  route: { method: "POST", path: "/projects/:projectId/test-instances" },
+  status: 201,
+  area: "testInstancesAndDevices",
+  group: "testInstances",
+  subject: ({ projectId }) => ({ kind: "project", id: projectId }),
+});
+
+/** Office action: stop a Running Hosted test instance. */
+export const STOP_TEST_INSTANCE_ACTION = officeAction({
+  name: "stop_test_instance",
+  title: "Stop a test instance",
+  description:
+    "Stops a Building or Running test instance, or an Installing one, and frees its Proxy port. An instance that has ended stays as it is.",
+  input: z.object({ instanceId: instanceIdField }),
+  answer: testInstanceSchema,
+  route: { method: "POST", path: "/test-instances/:instanceId/stop" },
+  area: "testInstancesAndDevices",
+  group: "testInstances",
+  subject: ({ instanceId }) => ({ kind: "test-instance", id: instanceId }),
+});
+
+/** Office action: open a Running Hosted test instance at an address. */
+export const OPEN_TEST_INSTANCE_ACTION = officeAction({
+  name: "open_test_instance",
+  title: "Open a test instance",
+  description:
+    "Makes a single-use link, good for about 60 seconds, that signs the person who opens it in to a Running Hosted test instance. Give a hostname to open it at one of the addresses The Office is reached at; left out, the first one. Refused unless the instance is Running. Never write the link into a log or a file: pass it on once, to the user.",
+  input: z.object({
+    instanceId: instanceIdField,
+    ...testInstanceOpenSchema.shape,
+  }),
+  answer: testInstanceOpeningSchema,
+  route: { method: "POST", path: "/test-instances/:instanceId/open" },
+  area: "testInstancesAndDevices",
+  group: "testInstances",
+  subject: ({ instanceId }) => ({ kind: "test-instance", id: instanceId }),
+});
+
+/** Office action: a link a phone opens to download one built file. */
+export const LINK_BUILT_FILE_ACTION = officeAction({
+  name: "link_built_file",
+  title: "Get a built file's link",
+  description:
+    "Makes a link, good for an hour, that downloads one file of a Built test instance without signing in, such as for a phone's QR code. Answers The Office's public address, or else its first address on the local network; when it has neither, the user must open The Office by its LAN address first.",
+  input: z.object({
+    instanceId: instanceIdField,
+    name: z.string().min(1).describe("The file's name, as the instance lists its files."),
+  }),
+  answer: testBuildFileLinkSchema,
+  route: { method: "POST", path: "/test-instances/:instanceId/files/:name/link" },
+  area: "testInstancesAndDevices",
+  group: "testInstances",
+  subject: ({ instanceId }) => ({ kind: "test-instance", id: instanceId }),
+});
+
+/** Test instances' Office actions, each declared above. */
+export const TEST_INSTANCE_OFFICE_ACTIONS = [
+  LAUNCH_INITIATIVE_TEST_INSTANCE_ACTION,
+  LAUNCH_PROJECT_TEST_INSTANCE_ACTION,
+  STOP_TEST_INSTANCE_ACTION,
+  OPEN_TEST_INSTANCE_ACTION,
+  LINK_BUILT_FILE_ACTION,
+] as const;

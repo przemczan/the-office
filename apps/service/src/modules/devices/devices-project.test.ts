@@ -26,9 +26,13 @@ import {
   ScriptedContainerRuntime,
   type RunEnvironmentsTestbed,
 } from "../run-environments/index.fixtures.js";
+import { DeviceOfficeActionsController } from "./adapters/http/device-office-actions.controller.js";
 import { ProjectDevicesController } from "./adapters/http/project-devices.controller.js";
+import { DeviceOfficeActions } from "./adapters/office-actions/device-office-actions.js";
 import { ProjectDeviceWebEvents } from "./adapters/websocket/project-device-web-events.js";
 import { ProjectDevices } from "./application/project-devices.js";
+import { SessionPeople } from "./ports/session-people.js";
+import { OfficeToolRegistry } from "../engine/index.js";
 import { devicesTestbed, PROJECT_ID, type DevicesTestbed } from "./devices.fixtures.js";
 import { ProjectDeviceChanged } from "./domain/project-device-events.js";
 
@@ -43,6 +47,17 @@ const PHONE = {
 } as const;
 const BOARD = { kind: "serial-usb", name: "Arduino Uno", deviceKey: "usb:2341:0043:1" } as const;
 const LOG_LEVELS = ["log", "warn", "error", "debug", "verbose", "fatal"] as const;
+
+/** No session has a person: these tests call the routes only. */
+class NobodyInSessions extends SessionPeople {
+  personInSession(): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  askedByInSession(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+}
 
 let app: INestApplication;
 let url: string;
@@ -67,9 +82,12 @@ beforeEach(async () => {
   ({ app, url } = await startTestApplication({
     imports: [EventsModule, EventStreamModule, devicesForTests()],
     requestAccess: "guarded",
-    controllers: [ProjectDevicesController],
+    controllers: [ProjectDevicesController, DeviceOfficeActionsController],
     providers: [
       { provide: ProjectDevices, useValue: testbed.projectDevices },
+      { provide: OfficeToolRegistry, useValue: new OfficeToolRegistry() },
+      { provide: SessionPeople, useClass: NobodyInSessions },
+      DeviceOfficeActions,
       ProjectDeviceWebEvents,
     ],
   }));

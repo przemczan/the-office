@@ -332,7 +332,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - Over USB, the browser's own device picker asks the user which device to connect, so a page can't reach a device the user didn't pick.
 - A device is reachable only from the run environment it is connected to: the Office device helper listens inside the container, and no port is published.
 - A Project device is held by one environment at a time and is reached only by the environment holding it ([2.13](2.13-connected-devices.md#one-environment-at-a-time)).
-- A Project device's address (its IP address and Port) is never shown to Agents ([2.13](2.13-connected-devices.md#a-projects-device)).
+- A Project device's own address, its Address and Port settings, is never shown to Agents ([2.13](2.13-connected-devices.md#a-projects-device)); a lent phone's adb serial, `<address>:<port>`, is still shown, as it is how the Task's commands reach it ([2.13](2.13-connected-devices.md#what-agents-see)).
+- An Agent lends no device over USB and launches no Install on a device onto one: the browser relays USB, so the refusal tells it the user lends the device from the Task page.
 - The helper is mounted read-only, so a command in the run environment can't change it.
 - It runs as the checks' user; only its serial mode runs as the container's root, to make the serial path, and it hands the pseudo-terminal to the checks' user (mode 0660), so the Project's commands never need root to reach the board.
 - The Project's adb key is kept as Secret variables are, and never sent to the web, logged or put in a Handover note.

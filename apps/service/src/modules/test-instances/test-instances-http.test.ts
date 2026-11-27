@@ -23,14 +23,15 @@ import {
   type RunEnvironmentsTestbed,
 } from "../run-environments/index.fixtures.js";
 import { TestInstanceSettingsController } from "./adapters/http/test-instance-settings.controller.js";
+import { TestInstanceOfficeActionsController } from "./adapters/http/test-instance-office-actions.controller.js";
 import { TestInstancesController } from "./adapters/http/test-instances.controller.js";
 import { PostgresTestInstanceSettings } from "./adapters/postgres/postgres-test-instance-settings.js";
 import { TestInstanceWebEvents } from "./adapters/websocket/test-instance-web-events.js";
-import { OfficePort, TestInstanceLimits } from "./application/test-instance-limits.js";
-import { TestInstances } from "./application/test-instances.js";
+import { TestInstanceLimits } from "./application/test-instance-limits.js";
 import { TestInstanceSettingsChanged } from "./domain/test-instance-events.js";
 import { TestInstanceSettingsStore } from "./ports/test-instance-settings-store.js";
 import {
+  officeActionProviders,
   TESTBED_OFFICE_PORT,
   testInstancesTestbed,
   type TestInstancesTestbed,
@@ -58,10 +59,13 @@ beforeEach(async () => {
   ({ app, url } = await startTestApplication({
     database: true,
     imports: [EventsModule, EventStreamModule],
-    controllers: [TestInstancesController, TestInstanceSettingsController],
+    controllers: [
+      TestInstancesController,
+      TestInstanceOfficeActionsController,
+      TestInstanceSettingsController,
+    ],
     providers: [
-      { provide: TestInstances, useValue: testbed.instances },
-      { provide: OfficePort, useValue: new OfficePort(TESTBED_OFFICE_PORT) },
+      ...officeActionProviders(testbed),
       { provide: TestInstanceSettingsStore, useClass: PostgresTestInstanceSettings },
       TestInstanceLimits,
       TestInstanceWebEvents,
