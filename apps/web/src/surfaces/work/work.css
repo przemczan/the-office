@@ -5048,3 +5048,120 @@ button.initiative-track-body:hover .stage-mark {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* ---- Days (days-page.tsx) */
+.days-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.days-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.days-heading {
+  margin: 0;
+  font: var(--type-card-title);
+  color: var(--fg-1);
+}
+
+.days-date,
+.days-counts,
+.days-also-line {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.days-count {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--fg-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.days-also-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.days-also-label {
+  color: var(--fg-3);
+}
+
+.days-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.days-group-heading {
+  margin: 0;
+  font: var(--type-caption);
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.days-group-count {
+  color: var(--fg-3);
+  font-weight: 400;
+}
+
+.days-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.days-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--pad-row);
+  border-top: 1px solid var(--border);
+}
+
+.days-row:first-child {
+  border-top: 0;
+}
+
+.days-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+.days-row-title {
+  color: var(--fg-1);
+  font-weight: 500;
+}
+
+.days-row-what {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.days-row-time {
+  flex: none;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}

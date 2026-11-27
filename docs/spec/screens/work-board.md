@@ -6,8 +6,8 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 
 - Route: `/work` (the Tasks tab, the board).
 - Open it from the Work item in the rail ([shell.md](shell.md)).
-- The page title is "Work"; its crumb is the open tab's: "Tasks by state", "Ideas", "Initiatives", "Pull requests", "CI runs", "Archived".
-- Its tabs are the routes `/work`, `/work/ideas`, `/work/initiatives`, `/work/pull-requests`, `/work/ci` and `/work/archived`.
+- The page title is "Work"; its crumb is the open tab's: "Tasks by state", "Ideas", "Initiatives", "Pull requests", "CI runs", "Days", "Archived".
+- Its tabs are the routes `/work`, `/work/ideas`, `/work/initiatives`, `/work/pull-requests`, `/work/ci`, `/work/days` and `/work/archived`.
 - The Project filter in the top bar narrows every Work tab ([shell.md](shell.md)).
 - Work has no "+ Task" button: a Task is made from the top bar's Create ([shell.md](shell.md)), or from GitHub issues with the filter bar's **Import issues…**.
 
@@ -19,8 +19,8 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 
 ## Tabs
 
-- In order: **Tasks**, **Ideas**, **Initiatives**, **Pull requests**, **CI**, **Archived**.
-- A tab shows a count while it is above 0; **CI** and **Archived** have none.
+- In order: **Tasks**, **Ideas**, **Initiatives**, **Pull requests**, **CI**, **Days**, **Archived**.
+- A tab shows a count while it is above 0; **CI**, **Days** and **Archived** have none.
 - Tasks: the Tasks on the board that are neither Done nor Dropped, so never an Off-board Task ([Board columns](#board-columns)).
 - Ideas: the new Ideas ([ideas.md](ideas.md)).
 - Initiatives: the Initiatives in Shaping that aren't archived ([initiatives-tab.md](initiatives-tab.md)).
@@ -200,5 +200,5 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 ## Related
 
 - [2.1 Work](../2.1-work.md): [Task states](../2.1.3-tasks.md#task-states), [Defaults](../2.1-work.md#defaults).
-- [Ideas](ideas.md), [Archived](archived.md), [Pull requests](pull-requests.md), [CI runs](ci-runs.md), [the Initiatives tab](initiatives-tab.md), [the Initiative page](initiative-page.md), [the Task page](task-page.md).
+- [Ideas](ideas.md), [Archived](archived.md), [Pull requests](pull-requests.md), [CI runs](ci-runs.md), [Days](days.md), [the Initiatives tab](initiatives-tab.md), [the Initiative page](initiative-page.md), [the Task page](task-page.md).
 - [Shell](shell.md): the Project filter and Create.

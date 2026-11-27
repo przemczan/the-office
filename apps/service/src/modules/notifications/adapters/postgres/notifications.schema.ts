@@ -25,6 +25,8 @@ export const taskOutcomes = pgTable(
     taskId: uuid("task_id").notNull(),
     outcome: text("outcome").$type<TaskOutcomeKind>().notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    /** The Stage a failure is of; null for any other outcome, and for one kept before it was. */
+    stageName: text("stage_name"),
   },
   (table) => [index("task_outcomes_occurred_at").on(table.occurredAt)],
 );

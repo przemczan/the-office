@@ -18,6 +18,7 @@ import {
   AccountWindowsForTests,
   AccountWindowRatiosForTests,
   DayUsageForTests,
+  DayOutcomesForTests,
   TaskTokensForTests,
   ModelPricesForTests,
   NewProjectsForTests,
@@ -117,6 +118,7 @@ export function workModuleForTests(): DynamicModule {
     accountWindows: AccountWindowsForTests,
     accountWindowRatios: AccountWindowRatiosForTests,
     dayUsage: DayUsageForTests,
+    dayOutcomes: DayOutcomesForTests,
     taskTokens: TaskTokensForTests,
   });
 }

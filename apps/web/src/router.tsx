@@ -95,6 +95,7 @@ import {
 } from "./surfaces/work/initiative-columns.ts";
 import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
 import { CiRunsPage } from "./surfaces/work/ci-runs-page.tsx";
+import { DaysPage } from "./surfaces/work/days-page.tsx";
 import { PullRequestsPage } from "./surfaces/work/pull-requests-page.tsx";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
@@ -326,6 +327,20 @@ const ciRunsRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "ci",
   component: CiRunsPage,
+  staticData: { title: "Work" },
+});
+
+/** Days, at the day `?day=YYYY-MM-DD` names; today when it is left out. */
+export interface DaysSearch {
+  readonly day?: string;
+}
+
+const daysRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "days",
+  component: DaysPage,
+  validateSearch: (search: Record<string, unknown>): DaysSearch =>
+    typeof search["day"] === "string" ? { day: search["day"] } : {},
   staticData: { title: "Work" },
 });
 
@@ -911,6 +926,7 @@ export const router = createRouter({
       initiativesRoute,
       pullRequestsRoute,
       ciRunsRoute,
+      daysRoute,
       archivedRoute,
     ]),
     initiativeRoute,

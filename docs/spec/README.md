@@ -37,6 +37,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **All clear**: [2.8 All clear](2.8-fire-alarm.md#all-clear); screen: [Now › The all clear's review](screens/now.md#the-all-clears-review)
 - **Allow changes**: [2.4.1 Allow changes](2.4.1-threads.md#allow-changes); screen: [Thread › Allow changes bar](screens/thread.md#allow-changes-bar)
 - **API endpoint, Search endpoint, Sees images, OpenAI-compatible API**: [5.4.2 The OpenAI-compatible API engine](5.4.2-openai-compatible-api-engine.md#the-openai-compatible-api-engine-is-the-offices-own-agent-loop); [5.4.5 An OpenAI-compatible API engine](5.4.5-engines-and-cascade.md#an-openai-compatible-api-engine)
+- **Days, the office day**: [2.1.3 Days](2.1.3-tasks.md#days); [2.7 Today's figures](2.7-notifications.md#todays-figures); screen: [Days tab](screens/days.md)
 - **Archive, Archived, Archive period, Restore**: [2.1.3 Archive](2.1.3-tasks.md#archive); screen: [Archived tab](screens/archived.md#archived-tab)
 - **Ask me again, Asked again**: [2.4.2 Sending a Decision](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Ask me again](screens/decision-card.md#ask-me-again)
 - **Attachment**: [2.1.2 Attachment](2.1.2-ideas-and-attachments.md#attachment); screen: [Task page › Attachments tab](screens/task-page.md#attachments-tab)
@@ -408,7 +409,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 - [Shell](screens/shell.md): rail, top bar, status strip, chat drawer, Needs you panel.
 - [Now](screens/now.md)
 - [Work board](screens/work-board.md): the Work page and its Tasks tab.
-- [Ideas](screens/ideas.md), [Initiatives tab](screens/initiatives-tab.md), [Pull requests](screens/pull-requests.md), [CI runs](screens/ci-runs.md), [Archived](screens/archived.md): the other Work tabs.
+- [Ideas](screens/ideas.md), [Initiatives tab](screens/initiatives-tab.md), [Pull requests](screens/pull-requests.md), [CI runs](screens/ci-runs.md), [Days](screens/days.md), [Archived](screens/archived.md): the other Work tabs.
 - [Task page](screens/task-page.md)
 - [Initiative page](screens/initiative-page.md)
 - [Thread](screens/thread.md) and [Decision card](screens/decision-card.md): shared by the chat drawer, the Task page and the Initiative page.

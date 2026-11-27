@@ -133,7 +133,7 @@ export function pullRequestEndWords(
   return `#${end.number} ${end.outcome}${method} ${endedByWords(end.by, roles, signedInUserId)}, ${dayAndClockOf(end.at)}`;
 }
 
-function endedByWords(
+export function endedByWords(
   by: PullRequestEnd["by"],
   roles: readonly Role[] | undefined,
   signedInUserId: string | undefined,

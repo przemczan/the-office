@@ -83,7 +83,8 @@ import {
   type TaskResume,
 } from "../domain/now.js";
 import { NowChanged } from "../domain/now-events.js";
-import { addTokenKinds, officeDayOf } from "../domain/office-day.js";
+import { officeDayOf } from "../../../platform/office-day.js";
+import { addTokenKinds } from "../domain/office-day.js";
 import type { TaskOutcomeKind } from "../domain/task-outcome.js";
 import { recordActivity, type UserActivity } from "../domain/user-activity.js";
 import { AccountUsage } from "../ports/account-usage.js";
@@ -382,11 +383,11 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       this.keepOutcome(taskId, "paused", occurredAt),
     );
     // A failure put to a Consultant first isn't the user's outcome unless they pass it on.
-    this.events.subscribe(NoRetriesLeft, ({ taskId, occurredAt, putTo }) =>
-      putTo === undefined ? this.keepOutcome(taskId, "failed", occurredAt) : undefined,
+    this.events.subscribe(NoRetriesLeft, ({ taskId, stageKey, occurredAt, putTo }) =>
+      putTo === undefined ? this.keepFailure(taskId, stageKey, occurredAt) : undefined,
     );
-    this.events.subscribe(RouteLimitReached, ({ taskId, occurredAt, putTo }) =>
-      putTo === undefined ? this.keepOutcome(taskId, "failed", occurredAt) : undefined,
+    this.events.subscribe(RouteLimitReached, ({ taskId, stageKey, occurredAt, putTo }) =>
+      putTo === undefined ? this.keepFailure(taskId, stageKey, occurredAt) : undefined,
     );
     this.events.subscribe(DefinitionOfDoneNotMet, ({ taskId, occurredAt }) =>
       this.keepOutcome(taskId, "failed", occurredAt),
@@ -428,9 +429,17 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     taskId: string,
     outcome: TaskOutcomeKind,
     occurredAt: Date,
+    stageName?: string,
   ): Promise<void> {
-    await this.outcomes.add({ taskId, outcome, occurredAt });
+    await this.outcomes.add({ taskId, outcome, occurredAt, ...(stageName && { stageName }) });
     this.announceInBackground(true);
+  }
+
+  /** A failed Stage's outcome, which names the Stage for Days (the Stage's key when it is gone). */
+  private async keepFailure(taskId: string, stageKey: string, occurredAt: Date): Promise<void> {
+    const stages = (await this.stages.progress(taskId))?.stages ?? [];
+    const stage = stages.find(({ stage: { key } }) => key === stageKey)?.stage;
+    await this.keepOutcome(taskId, "failed", occurredAt, stage?.name ?? stageKey);
   }
 
   private async startedTasks(): Promise<StartedTask[]> {

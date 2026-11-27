@@ -398,7 +398,11 @@ export const taskStateChanges = pgTable(
     changedAt: timestamp("changed_at", { withTimezone: true }).notNull(),
     changedBy: jsonb("changed_by").$type<StateChangeCauseRow>().notNull(),
   },
-  (table) => [index("task_state_changes_task").on(table.taskId)],
+  (table) => [
+    index("task_state_changes_task").on(table.taskId),
+    // Days reads the Tasks that moved to a state in a day.
+    index("task_state_changes_to_state_at").on(table.toState, table.changedAt),
+  ],
 );
 
 /**

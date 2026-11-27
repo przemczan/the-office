@@ -55,7 +55,7 @@ export function countedTokens({ input, output, cacheCreation }: StatsTokens): nu
 /**
  * The start of this week on the service's clock: local midnight of the Monday of `now`'s calendar
  * day, Sunday belonging to the week begun six days before. It is made from the local calendar date,
- * as `officeDayOf` (Notifications) reads one, so the office day of the moment it answers is that
+ * as `officeDayOf` (platform) reads one, so the office day of the moment it answers is that
  * Monday's, across a change of clock.
  */
 export function weekStartOf(now: Date): Date {

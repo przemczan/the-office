@@ -100,7 +100,7 @@ Covers: Now (the home), Needs you (the Off-board Task failed card among it) and 
 
 ## Since you left
 
-- Heading: moon icon, **Since you left**, and "since 22:00" (today) or "since 25 Oct, 22:00"; nothing until the user is first seen.
+- Heading: moon icon, **Since you left**, and "since 22:00" (today) or "since 25 Oct, 22:00"; nothing until the user is first seen. Its action **See today** opens [Days](days.md) on today (`/work/days`).
 - One card per Task finished since the user left: an outcome badge (**Done**, **Failed** or **Paused**), its title (link), its Project chip, and the time of the outcome at the card's end.
 - Left edge by outcome.
 - Empty: "Nothing finished since you left." or, in a narrowed view, "Nothing finished in these Projects since you left."

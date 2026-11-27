@@ -45,6 +45,7 @@ import {
   UsageWindowSamples,
   UsageWindowState,
 } from "../../engine/index.js";
+import { DayFigures, DayFiguresModule } from "../../notifications/index.js";
 import { EngineCascade, EngineCascadeModule, PeopleModule, RoleCards } from "../../people/index.js";
 import {
   PipelineLibrary,
@@ -146,6 +147,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                   PeopleModule,
                   PipelineLibraryModule,
                   UsageHistoryModule,
+                  DayFiguresModule,
                 ],
                 knownProjects: ProjectService,
                 newProjects: ProjectsFromRepositories,
@@ -172,6 +174,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 accountWindows: UsageWindowState,
                 accountWindowRatios: UsageWindowSamples,
                 dayUsage: DayUsage,
+                dayOutcomes: DayFigures,
                 taskTokens: TaskTokens,
               }),
             ],

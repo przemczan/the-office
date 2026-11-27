@@ -4,6 +4,7 @@ export * from "./authority.js";
 export * from "./ci-runs.js";
 export * from "./commands.js";
 export * from "./conversations.js";
+export * from "./days.js";
 export * from "./device-control.js";
 export * from "./device-frames.js";
 export * from "./devices.js";

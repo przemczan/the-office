@@ -26,7 +26,12 @@ import {
   UsageWindowState,
 } from "./modules/engine/index.js";
 import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
-import { DayTokenHistory, NotificationsModule } from "./modules/notifications/index.js";
+import {
+  DayFigures,
+  DayFiguresModule,
+  DayTokenHistory,
+  NotificationsModule,
+} from "./modules/notifications/index.js";
 import {
   EngineCascade,
   EngineCascadeModule,
@@ -167,6 +172,7 @@ export class AppModule {
         PeopleModule,
         PipelineLibraryModule,
         UsageHistoryModule,
+        DayFiguresModule,
       ],
       knownProjects: ProjectService,
       newProjects: ProjectsFromRepositories,
@@ -193,6 +199,7 @@ export class AppModule {
       accountWindows: UsageWindowState,
       accountWindowRatios: UsageWindowSamples,
       dayUsage: DayUsage,
+      dayOutcomes: DayFigures,
       taskTokens: TaskTokens,
     });
     // Work's Tasks tell the startup sweep which run environments to keep; a Project's Run

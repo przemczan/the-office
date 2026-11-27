@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { NO_TOKENS, officeDayOf, type TokenKinds } from "../domain/office-day.js";
+import { officeDayOf } from "../../../platform/office-day.js";
+import { NO_TOKENS, type TokenKinds } from "../domain/office-day.js";
 import { OfficeDayFigures } from "../ports/office-day-figures.js";
 
 /** One office day's tokens, Office-wide, each kind apart. */

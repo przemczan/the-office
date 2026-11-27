@@ -25,6 +25,7 @@ export const WORK_TABS = [
     crumb: "Pull requests",
   },
   { value: "ci", label: "CI", to: "/work/ci", crumb: "CI runs" },
+  { value: "days", label: "Days", to: "/work/days", crumb: "Days" },
   { value: "archived", label: "Archived", to: "/work/archived", crumb: "Archived" },
 ] as const;
 

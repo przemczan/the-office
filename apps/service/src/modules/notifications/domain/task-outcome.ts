@@ -9,6 +9,8 @@ export interface TaskOutcome {
   readonly taskId: string;
   readonly outcome: TaskOutcomeKind;
   readonly occurredAt: Date;
+  /** The Stage a failure is of, when one is named; undefined for any other outcome. */
+  readonly stageName?: string;
 }
 
 /** Each Task's latest outcome, latest first: a Task shows once in Since you left. */

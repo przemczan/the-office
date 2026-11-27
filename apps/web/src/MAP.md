@@ -62,7 +62,7 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TestInstanceSearch, ActionRunSearch, TaskSearch, HireSearch, StatsSearch, SystemHealthSearch, OfficeIdentitySearch, PromptTemplatesSearch, FirstRunSetupSearch, router, OfficeRouter
+- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, DaysSearch, InitiativeSearch, TestInstanceSearch, ActionRunSearch, TaskSearch, HireSearch, StatsSearch, SystemHealthSearch, OfficeIdentitySearch, PromptTemplatesSearch, FirstRunSetupSearch, router, OfficeRouter
 - `signed-out.ts`: officeQueryClient, sendToSignIn
 - Tests: app.test.tsx, first-run-setup.test.tsx
 
@@ -76,6 +76,7 @@
 - `branch-deletions.ts`: BranchOwnerRef, branchQueries, deleteBranch
 - `ci-runs.ts`: ciRunQueries, refreshCiRuns, rerunCiRun, startWorkflow, ciRunEventInvalidations
 - `conversations.ts`: threadQueries, readSubAgentMessages, readProcessOutput, sizeThresholdQuery, changeSizeThreshold, stageContextLimitsQuery, changeStageContextLimits, officeInstructionsQuery, changeOfficeInstructions, decisionQueries, proposalQueries, applyProposal, declineProposal, fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack, startChatThread, openPersonsThread, sendMessage, uploadMessageImage, renameThread, chooseContextOverride, allowChanges, markThreadSeen, switchChangesOff, answerDecision, stopThread, deleteChatThreads, threadEventInvalidations, threadEventCacheUpdates, dropDeletedThreads, homeThreadsKey
+- `days.ts`: dayQueries, isTodaysQuery, invalidateToday, useDayLiveUpdates
 - `deleted-threads.ts`: rememberDeletedThreads, useThreadDeleted
 - `device-relay.ts`: DeviceRelaySink, DeviceTransport, RequestedDevice, UsbDeviceKind, DeviceTransportProvider, registerDeviceTransport, deviceTransportProviders, subscribeToDeviceTransports, DeviceRelayState, DeviceRelay, DeviceRelayOptions, openDeviceRelay
 - `devices.ts`: deviceQueries, addProjectDevice, changeProjectDevice, pairProjectDevice, removeProjectDevice, lendProjectDevice, connectDevice, pairWirelessDevice, usePairWirelessDevice, disconnectDevice, connectRefusalOf, connectRefusalWords, deviceEventInvalidations, projectDeviceEventInvalidations
@@ -107,7 +108,7 @@
 - `users.ts`: ACCOUNT, USERS, FIRST_RUN_SETUP, userQueries, userEventInvalidations, addUser, newOneTimePassword, removeUser, setFirstPassword, changeProfile, changePassword, saveAppearance, createFirstUser, closeFirstRunSetup, signInWithPassword, signInWithCode, setUpAuthenticator, confirmAuthenticator, turnOffAuthenticator, makeNewRecoveryCodes, signOut, signOutDevice, SIGN_IN_PATH, SIGN_IN_CODE_PATH, returnPathOf
 - `work.ts`: TASKS, PERSON_TASKS, FIRE_ALARM, ideaQueries, ArchivedInitiativesAsked, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, archivePeriodQuery, changeArchivePeriod, autoModeQuery, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, EveryTask, useEveryTask, onboardingsQuery, attachmentQueries, SHOWN_TEXT_LIMIT, ShownText, captureIdea, editIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, planInitiative, planInitiativeWith, startReadyTasks, confirmInitiative, initiativeBackToShaping, pauseInitiative, resumeInitiative, dropInitiative, archiveInitiative, restoreInitiative, writeInitiativeOutcome, setInitiativePipelines, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeKind, changeCausedBy, changeFoundInVersion, changeTags, placeTask, changeTitle, changeDescription, changeCommitMessage, changeTaskEngine, changeInitiativeEngine, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, addToInitiative, takeOutOfInitiative, markReady, startTask, resolveConflicts, takeOutOfQueue, moveUpInQueue, moveToTopOfQueue, pauseTask, stopTask, resumeTask, restartTask, startTaskOver, reopenTask, moveTask, dropTask, archiveTask, restoreTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations, workEventCacheUpdates
 - `workstation.ts`: WORKSTATION_REFRESH_MS, workstationQueries
-- Tests: api-client.test.ts, appearance-ids.test.ts, conversations-deleted.test.ts, conversations.full.test.ts, device-relay.test.ts, engine.full.test.ts, event-stream.full.test.ts, skills.full.test.ts, users.full.test.ts
+- Tests: api-client.test.ts, appearance-ids.test.ts, conversations-deleted.test.ts, conversations.full.test.ts, days.test.ts, device-relay.test.ts, engine.full.test.ts, event-stream.full.test.ts, skills.full.test.ts, users.full.test.ts
 
 ### api/device-transports/
 

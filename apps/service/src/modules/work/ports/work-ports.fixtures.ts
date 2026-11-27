@@ -51,6 +51,7 @@ import {
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../domain/usage-settings.js";
 import { AccountWindowRatios } from "./account-window-ratios.js";
 import { AccountWindows } from "./account-windows.js";
+import { DayOutcomes, type DayTokens, type FailedTask } from "./day-outcomes.js";
 import { DayUsage, type ModelDayUsage } from "./day-usage.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
@@ -909,6 +910,21 @@ export class DayUsageForTests extends DayUsage {
   }
 }
 
+/** What Notifications counted of a day as the test gives it: none unless it gives some. */
+@Injectable()
+export class DayOutcomesForTests extends DayOutcomes {
+  readonly tokensByDay = new Map<string, DayTokens>();
+  readonly failedByDay = new Map<string, readonly FailedTask[]>();
+
+  async tokens(day: string): Promise<DayTokens> {
+    return this.tokensByDay.get(day) ?? { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  }
+
+  async failedTasks(day: string): Promise<readonly FailedTask[]> {
+    return this.failedByDay.get(day) ?? [];
+  }
+}
+
 /** Each Task's Stage Threads' tokens as the test gives them: none unless it gives some. */
 @Injectable()
 export class TaskTokensForTests extends TaskTokens {
@@ -983,6 +999,7 @@ const PORTS = [
   AccountWindowsForTests,
   AccountWindowRatiosForTests,
   DayUsageForTests,
+  DayOutcomesForTests,
   TaskTokensForTests,
   KnownProjectsForTests,
   NewProjectsForTests,

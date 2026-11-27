@@ -201,6 +201,14 @@ _Avoid_: Bulk planning, plan all, batch planning
 A free-form word on a Task, set by the user or the Planner, to find Tasks by.
 _Avoid_: Label, category; "tag" for a Mention
 
+**Days**:
+The Work tab that shows what The Office did on one office day: the Initiatives and Tasks done, pull requests merged, Tasks failed or Dropped, Ideas captured, Tasks started and tokens used.
+_Avoid_: Daily summary, end-of-day report, journal
+
+**Office day**:
+A calendar day on the service's clock, from local midnight to the next, which Tokens today, Stats and Days all count by.
+_Avoid_: Today (alone), 24 hours
+
 **Archive** (a Task or Initiative):
 Taking a Done or Dropped Task or Initiative off its board (the Work board, or the Initiatives tab), by the user or automatically once it has been finished for the Archive period.
 _Avoid_: Hide, delete, clean up

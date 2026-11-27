@@ -9,6 +9,7 @@ import type {
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
   PullRequestEnd as PullRequestEndResponse,
+  PullRequestEndedBy as PullRequestEndedByResponse,
   QueuedTask as QueuedTaskResponse,
   SavedView as SavedViewResponse,
   SearchResults as SearchResultsResponse,
@@ -42,7 +43,7 @@ import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task, TaskSummary } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { commitMessageOf } from "../../domain/task-commit-message.js";
-import type { PullRequestEnd } from "../../domain/task-pull-request.js";
+import type { PullRequestEnd, PullRequestEndedBy } from "../../domain/task-pull-request.js";
 import type { EngineUsage, UsageEstimate, UsageMeasure } from "../../domain/usage-estimate.js";
 import type { UsageSettings } from "../../domain/usage-settings.js";
 
@@ -204,11 +205,12 @@ function toPullRequestEndResponse(end: PullRequestEnd): PullRequestEndResponse {
     url: end.url,
     at: end.at.toISOString(),
     method: end.method ?? null,
-    by:
-      end.by.kind === "code-host"
-        ? { kind: "code-host", name: end.by.name }
-        : toAuthorResponse(end.by),
+    by: toPullRequestEndedByResponse(end.by),
   };
+}
+
+export function toPullRequestEndedByResponse(by: PullRequestEndedBy): PullRequestEndedByResponse {
+  return by.kind === "code-host" ? { kind: "code-host", name: by.name } : toAuthorResponse(by);
 }
 
 export function toAttachmentResponse(attachment: Attachment): AttachmentResponse {

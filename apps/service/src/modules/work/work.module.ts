@@ -37,6 +37,7 @@ import { OffBoardTasksController } from "./adapters/http/off-board-tasks.control
 import { OnboardingsController } from "./adapters/http/onboardings.controller.js";
 import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
 import { PersonTasksController } from "./adapters/http/person-tasks.controller.js";
+import { DaysController } from "./adapters/http/days.controller.js";
 import { UsageEstimatesController } from "./adapters/http/usage-estimates.controller.js";
 import { UsageSettingsController } from "./adapters/http/usage-settings.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
@@ -68,6 +69,7 @@ import { TaskResponses } from "./adapters/http/task-responses.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./adapters/postgres/postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
+import { PostgresDayRecords } from "./adapters/postgres/postgres-day-records.js";
 import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initiative-repository.js";
 import { PostgresSavedViewRepository } from "./adapters/postgres/postgres-saved-view-repository.js";
 import { PostgresQueueRepository } from "./adapters/postgres/postgres-queue-repository.js";
@@ -124,6 +126,7 @@ import { PlanningAfterRestart } from "./application/planning-after-restart.js";
 import { PullRequestOutcomes } from "./application/pull-request-outcomes.js";
 import { TaskService } from "./application/task-service.js";
 import { PersonTasks } from "./application/person-tasks.js";
+import { DaySummaries } from "./application/day-summary.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
 import { PdfPages } from "./ports/pdf-pages.js";
@@ -132,6 +135,8 @@ import { AttachmentRepository } from "./ports/attachment-repository.js";
 import { FireAlarmRepository } from "./ports/fire-alarm-repository.js";
 import { IdeaCards } from "./ports/idea-cards.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
+import { DayOutcomes } from "./ports/day-outcomes.js";
+import { DayRecords } from "./ports/day-records.js";
 import { InitiativeRepository } from "./ports/initiative-repository.js";
 import { InitiativeThreads } from "./ports/initiative-threads.js";
 import { ThreadTurns } from "./ports/thread-turns.js";
@@ -206,6 +211,7 @@ export interface WorkModuleOptions {
   readonly accountWindows: Type<AccountWindows>;
   readonly accountWindowRatios: Type<AccountWindowRatios>;
   readonly dayUsage: Type<DayUsage>;
+  readonly dayOutcomes: Type<DayOutcomes>;
   readonly taskTokens: Type<TaskTokens>;
 }
 
@@ -242,6 +248,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     accountWindows,
     accountWindowRatios,
     dayUsage,
+    dayOutcomes,
     taskTokens,
   }: WorkModuleOptions): DynamicModule {
     return {
@@ -271,6 +278,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         SearchController,
         SavedViewsController,
         PersonTasksController,
+        DaysController,
         UsageEstimatesController,
         UsageSettingsController,
         FireAlarmController,
@@ -317,6 +325,8 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: AccountWindows, useExisting: accountWindows },
         { provide: AccountWindowRatios, useExisting: accountWindowRatios },
         { provide: DayUsage, useExisting: dayUsage },
+        { provide: DayOutcomes, useExisting: dayOutcomes },
+        { provide: DayRecords, useClass: PostgresDayRecords },
         { provide: TaskTokens, useExisting: taskTokens },
         IdeaService,
         InitiativeService,
@@ -324,6 +334,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskService,
         TaskWaysBack,
         PersonTasks,
+        DaySummaries,
         TaskArchiving,
         InitiativeArchiving,
         BranchCleanup,

@@ -110,6 +110,7 @@ export function NowPage(): ReactNode {
             icon="moon"
             title="Since you left"
             count={sinceYouLeft && sinceWords(sinceYouLeft.leftAt, clock)}
+            action={{ label: "See today", to: "/work/days" }}
           />
           <Feed>
             {sinceYouLeft && (

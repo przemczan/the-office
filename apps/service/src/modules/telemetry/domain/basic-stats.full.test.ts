@@ -8,7 +8,7 @@ afterEach(() => {
   else process.env.TZ = zoneAtStart;
 });
 
-/** The local calendar day, as Notifications' `officeDayOf` reads it. */
+/** The local calendar day, as the platform's `officeDayOf` reads it. */
 function localDay(at: Date): string {
   const month = String(at.getMonth() + 1).padStart(2, "0");
   const day = String(at.getDate()).padStart(2, "0");

@@ -6,8 +6,6 @@ import { NowController } from "./adapters/http/now.controller.js";
 import { PostgresNotificationRepository } from "./adapters/postgres/postgres-notification-repository.js";
 import { PostgresNotificationRoutingRepository } from "./adapters/postgres/postgres-notification-routing-repository.js";
 import { PostgresNotificationTimingRepository } from "./adapters/postgres/postgres-notification-timing-repository.js";
-import { PostgresOfficeDayFigures } from "./adapters/postgres/postgres-office-day-figures.js";
-import { PostgresTaskOutcomeRepository } from "./adapters/postgres/postgres-task-outcome-repository.js";
 import { PostgresUserActivityRepository } from "./adapters/postgres/postgres-user-activity-repository.js";
 import { OfficeStatusOfficeTools } from "./adapters/office-tools/office-status-office-tools.js";
 import { RecordingPhonePush } from "./adapters/phone/recording-phone-push.js";
@@ -24,7 +22,6 @@ import { KnownPeople } from "./ports/known-people.js";
 import { NotificationRepository } from "./ports/notification-repository.js";
 import { NotificationRoutingRepository } from "./ports/notification-routing-repository.js";
 import { NotificationTimingRepository } from "./ports/notification-timing-repository.js";
-import { OfficeDayFigures } from "./ports/office-day-figures.js";
 import { OfficeStatusCards } from "./ports/office-status-cards.js";
 import { OfficeFireAlarm } from "./ports/office-fire-alarm.js";
 import { OfficeInitiatives } from "./ports/office-initiatives.js";
@@ -40,7 +37,7 @@ import { ResumePlans } from "./ports/resume-plans.js";
 import { ShapingReplies } from "./ports/shaping-replies.js";
 import { SkillUpdatesFound } from "./ports/skill-updates-found.js";
 import { StandInChoicesWaiting } from "./ports/stand-in-choices-waiting.js";
-import { TaskOutcomeRepository } from "./ports/task-outcome-repository.js";
+import { DayFiguresModule } from "./day-figures.module.js";
 import { TaskStageProgress } from "./ports/task-stage-progress.js";
 import { UserActivityRepository } from "./ports/user-activity-repository.js";
 
@@ -103,12 +100,10 @@ export class NotificationsModule {
   }: NotificationsModuleOptions): DynamicModule {
     return {
       module: NotificationsModule,
-      imports: [ScheduleModule, ...imports],
+      imports: [ScheduleModule, DayFiguresModule, ...imports],
       controllers: [NowController, NotificationsController, AccountNotificationsController],
       providers: [
-        { provide: TaskOutcomeRepository, useClass: PostgresTaskOutcomeRepository },
         { provide: UserActivityRepository, useClass: PostgresUserActivityRepository },
-        { provide: OfficeDayFigures, useClass: PostgresOfficeDayFigures },
         { provide: NotificationRepository, useClass: PostgresNotificationRepository },
         { provide: NotificationRoutingRepository, useClass: PostgresNotificationRoutingRepository },
         { provide: NotificationTimingRepository, useClass: PostgresNotificationTimingRepository },
