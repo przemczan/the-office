@@ -37,6 +37,8 @@ import {
 import { FAKE_STDIO_MCP_SERVER } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
 import { MemoryService } from "../../application/memory-service.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
+import { McpServerOfficeActionsModule } from "../../../mcp-servers/index.js";
 import { MemoryTaskTitles } from "../../application/memory-task-titles.js";
 import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
@@ -64,6 +66,10 @@ beforeEach(async () => {
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       PeopleModule,
+      McpServerOfficeActionsModule,
+    ],
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
     ],
   }));
   await app.get<Database>(DATABASE).delete(roles).where(inArray(roles.key, PRESET_KEYS));

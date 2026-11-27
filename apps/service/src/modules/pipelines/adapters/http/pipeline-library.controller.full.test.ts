@@ -64,12 +64,18 @@ async function added(body: unknown = anEdit()): Promise<Pipeline> {
   return pipelineSchema.parse(await response.json());
 }
 
+async function copied(copyOf: string): Promise<Pipeline> {
+  const response = await send("POST", "/pipelines/copies", { copyOf });
+  expect(response.status).toBe(201);
+  return pipelineSchema.parse(await response.json());
+}
+
 describe("POST /api/pipelines", () => {
   it("adds a copy of a Pipeline, with (copy) and then a number after its name", async () => {
     const original = await added();
 
-    const first = await added({ copyOf: original.id });
-    const second = await added({ copyOf: original.id });
+    const first = await copied(original.id);
+    const second = await copied(original.id);
 
     expect(first).toEqual({ ...original, id: first.id, name: `${original.name} (copy)` });
     expect(second.name).toBe(`${original.name} (copy 2)`);
@@ -77,7 +83,7 @@ describe("POST /api/pipelines", () => {
   });
 
   it("refuses a copy of a Pipeline the library doesn't have", async () => {
-    const response = await send("POST", "/pipelines", { copyOf: "nowhere" });
+    const response = await send("POST", "/pipelines/copies", { copyOf: "nowhere" });
 
     expect(response.status).toBe(404);
     expect(await response.json()).toMatchObject({ message: 'There is no Pipeline "nowhere".' });
@@ -187,7 +193,7 @@ describe("a Stage naming a Role whose engine can't work an Agent Stage", () => {
     const named = await added(anEdit({ stages: [agentStage({ role: roleKey })] }));
     pipelines.roleEngines.incapableRoles.add(roleKey);
 
-    expect((await added({ copyOf: named.id })).stages).toEqual(named.stages);
+    expect((await copied(named.id)).stages).toEqual(named.stages);
     expect((await added(anEdit({ stages: withGivenLimits(named.stages) }))).stages).toEqual(
       named.stages,
     );

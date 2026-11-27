@@ -244,7 +244,7 @@ export function addPipeline(edit: PipelineEdit): Promise<Pipeline> {
 
 /** A copy of a library Pipeline, named "… (copy)". */
 export function duplicatePipeline(pipelineId: string): Promise<Pipeline> {
-  return sendToApi("POST", "/pipelines", { copyOf: pipelineId }, pipelineSchema);
+  return sendToApi("POST", "/pipelines/copies", { copyOf: pipelineId }, pipelineSchema);
 }
 
 /** The library Pipeline saved: Tasks that haven't started follow it; running ones keep their copy. */

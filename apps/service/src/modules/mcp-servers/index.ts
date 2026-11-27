@@ -23,3 +23,4 @@ export { McpServerRefused } from "./domain/mcp-server-refused.js";
 export type { ProjectServerValueEdit } from "./domain/project-server-values.js";
 export type { LeftOutMcpServer } from "./domain/session-mcp-servers.js";
 export { McpServersModule } from "./mcp-servers.module.js";
+export { McpServerOfficeActionsModule } from "./mcp-server-office-actions.module.js";

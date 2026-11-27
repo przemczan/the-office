@@ -1,13 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import {
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
-  PROPOSE_SKILL_INSTALL_TOOL,
-  PROPOSE_SKILL_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL,
-  PROPOSE_STAGE_TEMPLATE_TOOL,
   proposalSchema,
   threadRefusalSchema,
   type Proposal,
@@ -254,14 +248,9 @@ async function expectStatus(response: Response, status: number): Promise<void> {
   );
 }
 
+/** The kind of Proposal each tool still drafts: the retired tools' kinds come from `ninaDrafts`. */
 const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
-  [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
-  [PROPOSE_STAGE_TEMPLATE_TOOL]: "stage-template",
-  [PROPOSE_PROJECT_PIPELINE_TOOL]: "project-pipeline",
   [PROPOSE_PROJECT_TOOL]: "project",
-  [PROPOSE_SKILL_INSTALL_TOOL]: "skill-install",
-  [PROPOSE_SKILL_UPDATE_TOOL]: "skill-update",
-  [PROPOSE_SKILL_TOOL]: "skill",
 };
 
 function toolCall(callId: string, tool: string, input: Record<string, unknown>): Step[] {

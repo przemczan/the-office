@@ -4,7 +4,6 @@ import {
   PROMPT_TEMPLATE_MAX_CHARACTERS,
   promptTemplateCheckSchema,
   promptTemplateListSchema,
-  promptTemplateRefusalSchema,
   promptTemplateSchema,
   promptTemplateWebEventSchema,
 } from "@the-office/contracts";
@@ -17,6 +16,7 @@ import { SIGNED_IN_FOR_TESTS } from "../../../../platform/http/signed-in-request
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { PromptTemplateCatalog } from "../../application/prompt-template-catalog.js";
+import { PromptTemplates } from "../../application/prompt-templates.js";
 import { promptTemplate } from "../../domain/prompt-template.js";
 import { PROMPT_TEXT_MAX_CHARACTERS } from "../../domain/prompt-text-problems.js";
 import { PromptTemplateRepository } from "../../ports/prompt-template-repository.js";
@@ -91,7 +91,13 @@ function aTemplateOfItsOwn(text: string): string {
   return key;
 }
 
-function send(method: "PUT" | "POST" | "DELETE", path: string, body?: unknown): Promise<Response> {
+const SIGNED_IN_USER = { userId: SIGNED_IN_FOR_TESTS.userId, name: SIGNED_IN_FOR_TESTS.name };
+
+function save(key: string, text: string) {
+  return app.get(PromptTemplates).save(key, text, SIGNED_IN_USER);
+}
+
+function send(method: "POST", path: string, body?: unknown): Promise<Response> {
   return fetch(`${url}/api/settings/prompt-templates${path}`, {
     method,
     headers: { "Content-Type": "application/json" },
@@ -100,7 +106,7 @@ function send(method: "PUT" | "POST" | "DELETE", path: string, body?: unknown): 
 }
 
 describe("/api/settings/prompt-templates", () => {
-  it("lists, reads, checks, saves, refuses and resets a template", async () => {
+  it("lists, reads and checks a template", async () => {
     const list = promptTemplateListSchema.parse(
       await (await fetch(`${url}/api/settings/prompt-templates?domain=engine`)).json(),
     );
@@ -136,43 +142,19 @@ describe("/api/settings/prompt-templates", () => {
     expect(promptTemplateCheckSchema.parse(await check.json()).problems).toEqual([
       { message: "{{#stages}} is never closed with {{/stages}}.", line: 1, column: 1 },
     ]);
-
-    const saved = await send("PUT", `/${TEMPLATE.key}`, { text: "Do {{title}}." });
-    expect(saved.status).toBe(200);
-    expect(promptTemplateSchema.parse(await saved.json())).toMatchObject({
-      text: "Do {{title}}.",
-      customised: true,
-      version: 1,
-      savedBy: { userId: SIGNED_IN_FOR_TESTS.userId, name: SIGNED_IN_FOR_TESTS.name },
-    });
-
-    const refused = await send("PUT", `/${TEMPLATE.key}`, { text: "Do {{task}}." });
-    expect(refused.status).toBe(422);
-    expect(promptTemplateRefusalSchema.parse(await refused.json())).toMatchObject({
-      reasons: [expect.stringMatching(/^Line 1, column 4: /)],
-      problems: [{ line: 1, column: 4 }],
-    });
-
-    const reset = await send("DELETE", `/${TEMPLATE.key}`);
-    expect(reset.status).toBe(200);
-    expect(promptTemplateSchema.parse(await reset.json())).toMatchObject({
-      text: TEMPLATE.text,
-      customised: false,
-      version: 2,
-    });
   });
 
   it("announces prompt-template.changed once for each save or reset that changed the text", async () => {
     const key = aTemplateOfItsOwn("Work on {{title}}.");
     published.length = 0;
 
-    await send("PUT", `/${key}`, { text: "Do {{title}}." });
-    await send("PUT", `/${key}`, { text: "Do {{title}}." });
+    await save(key, "Do {{title}}.");
+    await save(key, "Do {{title}}.");
     expect(webEvents()).toEqual([{ type: "prompt-template.changed", key }]);
 
     published.length = 0;
-    await send("DELETE", `/${key}`);
-    await send("DELETE", `/${key}`);
+    await app.get(PromptTemplates).resetToDefault(key, SIGNED_IN_USER);
+    await app.get(PromptTemplates).resetToDefault(key, SIGNED_IN_USER);
     expect(webEvents()).toEqual([{ type: "prompt-template.changed", key }]);
   });
 
@@ -180,7 +162,7 @@ describe("/api/settings/prompt-templates", () => {
     const key = aTemplateOfItsOwn("Work on {{title}}.");
     published.length = 0;
 
-    expect((await send("PUT", `/${key}`, { text: "Do {{task}}." })).status).toBe(422);
+    await expect(save(key, "Do {{task}}.")).rejects.toThrow("isn't a variable");
 
     expect(published).toEqual([]);
   });
@@ -212,7 +194,6 @@ describe("/api/settings/prompt-templates", () => {
 
   it("answers 404 for a key no module registered", async () => {
     expect((await fetch(`${url}/api/settings/prompt-templates/engine.unknown`)).status).toBe(404);
-    expect((await send("PUT", "/engine.unknown", { text: "" })).status).toBe(404);
   });
 
   it("limits a text's length as the contract does", () => {

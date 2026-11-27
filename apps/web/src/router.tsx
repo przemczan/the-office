@@ -79,6 +79,7 @@ import { SignInPage } from "./surfaces/sign-in/sign-in-page.tsx";
 import { ProjectActionsSection } from "./surfaces/projects/actions/project-actions-section.tsx";
 import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
+import { proposalSearchOf } from "./shell/conversation/proposal-search.ts";
 import { pipelineSearchOf } from "./shell/pipelines/pipeline-search.ts";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { ArchivedPage } from "./surfaces/work/archived-page.tsx";
@@ -700,6 +701,7 @@ const settingsPipelinesRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines",
   component: PipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Settings" },
 });
 
@@ -717,6 +719,7 @@ const settingsStageTemplatesRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/stage-templates",
   component: PipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Settings" },
 });
 
@@ -724,6 +727,7 @@ const settingsStageTemplateRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/stage-templates/$stageTemplateId",
   component: PipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Settings" },
 });
 

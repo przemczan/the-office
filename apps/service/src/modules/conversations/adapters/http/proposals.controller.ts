@@ -70,7 +70,8 @@ export class ProposalsController {
  * takes them, its Authority as given or made from its Hard switches, or a name for a preset's Role;
  * undefined when they edited nothing.
  */
-function editedHire({ card, name }: ProposalApplication): EditedHire | undefined {
+function editedHire({ card, name, actionInput }: ProposalApplication): EditedHire | undefined {
+  if (actionInput) return { kind: "action-input", input: actionInput };
   if (card) {
     const { skills, ...given } = card;
     const roleKey = hiredKeyOf({ kind: "hire", card: { ...given, authority: {} }, skills });

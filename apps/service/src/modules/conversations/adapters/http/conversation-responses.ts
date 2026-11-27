@@ -58,6 +58,7 @@ import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js"
 import { stageLimitsWithin } from "../../domain/stage-context-limits.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
 import {
+  isEditableInLibraryEditor,
   type PipelineRoutes,
   type PipelineStage,
   type ProjectPipelineFields,
@@ -463,6 +464,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         fingerprint,
         outOfDate,
         editableCard: editableCardOf(change),
+        editableInput: isEditableInLibraryEditor(action) ? { ...change.input } : null,
       };
     }
     // A kind a later release kept, which a rollback reads: the web shows it as one it can't read.

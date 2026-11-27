@@ -93,7 +93,7 @@ export const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows 
  * prefix stays.
  */
 export const OFFICE_PROPOSALS_RULE =
-  "Changing how The Office works, when the user asks: read the Office instructions with read_office_instructions, a Prompt template with list_prompt_templates and read_prompt_template, a Role card with read_role, and the Pipelines and Stage templates, each Stage's brief included, with list_pipelines and list_stage_templates; never read a Stage's brief from a session's transcript. Read the current text right before you draft a change, then propose it with propose_office_setting, change_role_card or hire_role, propose_prompt_template or propose_prompt_template_reset, propose_library_pipeline, propose_project_pipeline or propose_stage_template, whether changes are allowed or not. Each is a Proposal the user applies with a click, refused if the text changed since your draft; never paste a new text for the user to copy in by hand.";
+  "Changing how The Office works, when the user asks: read the Office instructions with read_office_instructions, a Prompt template with list_prompt_templates and read_prompt_template, a Role card with read_role, and the Pipelines and Stage templates, each Stage's brief included, with list_pipelines and list_stage_templates; never read a Stage's brief from a session's transcript. Read the current text right before you change it, then change it with propose_office_setting, change_role_card or hire_role, save_prompt_template or reset_prompt_template, add_library_pipeline or change_library_pipeline, add_stage_template or change_stage_template, or create_project_pipeline or change_project_pipeline, whether changes are allowed or not. Each is a Proposal the user applies with a click, refused if the text changed since your draft; never paste a new text for the user to copy in by hand.";
 
 /**
  * Where the Caretaker finds a session's transcript, to diagnose a Thread (spec §6, the user's answer
@@ -117,12 +117,6 @@ export const OFFICE_INSTRUCTIONS_LEAD_IN =
  */
 export const WRITING_FOR_THE_USER_RULE =
   "When you mention a Task, Initiative, Idea or Project to the user, write it as a Markdown link to its page with its full ID, never a shortened one: `[title](/tasks/<id>)`, `[name](/work/initiatives/<id>)`, `[title](/work/ideas?idea=<id>)`, `[name](/projects/<id>)`. Put text the user is meant to copy, such as a message, a command or a passage you propose, in a fenced code block: it has a Copy button.";
-
-/**
- * The Office tool anyone drafts a written skill with in their chat (spec §2.6); the contracts name
- * it too, for the web to hide its activity line, and a test keeps the two the same.
- */
-export const PROPOSE_SKILL_TOOL = "propose_skill";
 
 /**
  * The Office tool that reads a Role's whole card, which People registers: whoever drafts a change
@@ -214,45 +208,20 @@ export const LIST_PROMPT_TEMPLATES_TOOL = "list_prompt_templates";
  */
 export const READ_PROMPT_TEMPLATE_TOOL = "read_prompt_template";
 
-/**
- * The Office tools a person drafts a Proposal of a prompt template's new text, or of its reset to
- * the default, with; named as above.
- */
-export const PROPOSE_PROMPT_TEMPLATE_TOOL = "propose_prompt_template";
-export const PROPOSE_PROMPT_TEMPLATE_RESET_TOOL = "propose_prompt_template_reset";
-
 /** The Office tool a person points the user to someone with, a Link card; named as above. */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
 /** The Office tool a person shows the Office status with, which Notifications registers. */
 export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 
-/**
- * The Office tool a person drafts a Proposal of a library Pipeline's Stages with, which Pipelines
- * registers.
- */
-export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
-
-/** The Office tool a person drafts a Proposal of a Project Pipeline with; named as above. */
-export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
-
 /** The Office tool a person drafts a Project to onboard with, which Work registers; named as above. */
 export const PROPOSE_PROJECT_TOOL = "propose_project";
-
-/** The Office tool a person drafts a Proposal of a Stage template's Stage with; named as above. */
-export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
 
 /** The Office tool that reads the skills a Source holds. */
 export const LIST_SOURCE_SKILLS_TOOL = "list_source_skills";
 
-/** The Office tool a person drafts installing a skill from a Source with; named as above. */
-export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
-
 /** The Office tool that reads an installed skill's update: its versions and its diff. */
 export const READ_SKILL_UPDATE_TOOL = "read_skill_update";
-
-/** The Office tool a person drafts an installed skill's update with; named as above. */
-export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
 /**
  * The Office tool that checks a Project's setup: the environment check of the Task's branch on a
@@ -299,17 +268,9 @@ const CORE_READING_OFFICE_TOOLS = [
 const AUTHORITY_FOLLOWING_OFFICE_TOOLS = [
   "capture_idea",
   "create_task",
-  PROPOSE_SKILL_TOOL,
   CREATE_INITIATIVE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_PIPELINE_TOOL,
-  PROPOSE_STAGE_TEMPLATE_TOOL,
   PROPOSE_PROJECT_TOOL,
-  PROPOSE_SKILL_INSTALL_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL,
   RUN_ENVIRONMENT_CHECK_TOOL,
   POST_LINK_CARD_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
@@ -335,18 +296,13 @@ export const CHAT_OFFICE_TOOLS = [...PERSON_OFFICE_TOOLS, OPEN_DECISION_TOOL] as
 /**
  * The Office tools an Agent Stage's session may add to its Stage's list, each only as its person's
  * Authority leaves it offered: a Stage never adds a tool the Authority doesn't give (spec 2.3.1, 6).
- * These are the Project setup tools (the Proposals of Pipelines and Stage templates, a Project to
- * onboard, skills from a Source, the environment check).
+ * These are the Project setup tools (a Project to onboard, skills from a Source, the environment
+ * check).
  */
 export const STAGE_AUTHORITY_OFFICE_TOOLS = [
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_PIPELINE_TOOL,
-  PROPOSE_STAGE_TEMPLATE_TOOL,
   PROPOSE_PROJECT_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
-  PROPOSE_SKILL_INSTALL_TOOL,
   READ_SKILL_UPDATE_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL,
   RUN_ENVIRONMENT_CHECK_TOOL,
 ] as const;
 

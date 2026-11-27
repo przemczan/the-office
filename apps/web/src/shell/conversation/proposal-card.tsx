@@ -79,6 +79,7 @@ import {
   ProposedActionChanges,
   ProposedTestTargetChanges,
 } from "./devops-proposal-changes.tsx";
+import { useEditInLibrary } from "./edit-in-library.ts";
 import { OfficeActionBody } from "./office-action-proposal.tsx";
 import { officeSetupApplyLabel, ProposedOfficeSetup } from "./office-setup-changes.tsx";
 import { ShowOnFlowButton, showsOnFlow } from "./proposal-on-flow.tsx";
@@ -136,6 +137,7 @@ const OFFICE_LIMITS: Record<
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
   const navigate = useNavigate();
+  const editInLibrary = useEditInLibrary();
   const roles = useQuery(roleQueries.list()).data;
   const duties = useQuery(dutyQueries.list()).data;
   const options = useQuery(roleCardQueries.options()).data;
@@ -465,6 +467,9 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             outOfDate={change.outOfDate}
             {...(change.editableCard && {
               onEdit: () => void navigate({ to: "/hire", search: { proposal: proposal.id } }),
+            })}
+            {...(change.editableInput && {
+              onEdit: () => editInLibrary(change.action, change.editableInput ?? {}, proposal.id),
             })}
           />
         </ProposalFrame>

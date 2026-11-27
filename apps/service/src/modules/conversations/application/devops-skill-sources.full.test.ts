@@ -5,13 +5,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { INestApplication } from "@nestjs/common";
-import {
-  PROPOSE_SKILL_INSTALL_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL,
-  proposalListSchema,
-  skillSchema,
-  skillUpdateDiffSchema,
-} from "@the-office/contracts";
+import { proposalListSchema, skillSchema, skillUpdateDiffSchema } from "@the-office/contracts";
+import type { Proposal } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
@@ -23,7 +18,12 @@ import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../engine
 import { EngineCascade, RoleCards } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { ownProjectsStartedTasks } from "../../pipelines/index.fixtures.js";
-import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
+import {
+  SKILL_UPDATE_CHECK,
+  SkillLibrary,
+  SkillSources,
+  SkillUpdates,
+} from "../../skills/index.js";
 import { ownSources } from "../../skills/index.fixtures.js";
 import { ownProjectsQueue } from "../../work/index.fixtures.js";
 import {
@@ -37,7 +37,9 @@ import { ProjectBases } from "../ports/project-bases.js";
 import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 
-// Devops' other Proposals, and skills drafted in a chat, are devops-proposals.test.ts.
+// Devops' other Proposals, and skills drafted in a chat, are devops-proposals.test.ts. Installing and
+// updating a skill are the Office actions install_skill and update_skill now; a Proposal drafted by
+// the retired propose_skill_install and propose_skill_update still applies, which these test.
 
 const run = promisify(execFile);
 
@@ -94,12 +96,48 @@ afterEach(async () => {
   await rm(folder, { recursive: true, force: true });
 });
 
+/** A Proposal of installing `folder` of `source`, as the retired propose_skill_install drafted it. */
+async function draftsInstall(
+  source: { readonly url: string },
+  skillFolder: string,
+): Promise<Proposal> {
+  const read = await app.get(SkillSources, { strict: false }).skills(source.url, skillFolder);
+  const [skill] = read.skills;
+  if (!skill || "problems" in skill) throw new Error(`${skillFolder} holds no skill.`);
+  return chat.ninaDrafts({
+    kind: "skill-install",
+    repository: read.repository,
+    folder: skill.folder,
+    pinnedVersion: read.pinnedVersion,
+    name: skill.name,
+    description: skill.description,
+    files: skill.files,
+    filesHash: skill.filesHash,
+  });
+}
+
+/** A Proposal of updating `skill`, as the retired propose_skill_update drafted it. */
+async function draftsUpdate(skill: string, notes: string): Promise<Proposal> {
+  const draft = await app.get(SkillUpdates, { strict: false }).draft(skill);
+  return chat.ninaDrafts({
+    kind: "skill-update",
+    name: draft.name,
+    repository: draft.repository,
+    folder: draft.folder,
+    from: draft.from,
+    to: draft.to,
+    notes,
+    files: draft.files,
+    filesHash: draft.filesHash,
+  });
+}
+
 /** Each reads a Source with several git calls, through list, propose and apply: slow under a full run. */
 const INSTALL_TEST_TIMEOUT_MS = 90_000;
 
 describe("Devops installing a skill from a source, through the scripted engine", () => {
   it(
-    "lists a source's skills and drafts installing one; applied, it is in the library at its pinned tag, off until reviewed",
+    "lists a source's skills, and a Proposal of installing one applies: it is in the library at its pinned tag, off until reviewed",
     async () => {
       const name = aSkillName();
       const source = await aSource([name, aSkillName()]);
@@ -121,12 +159,9 @@ describe("Devops installing a skill from a source, through the scripted engine",
         ]),
       });
 
-      const [proposal] = await chat.ninaProposes([
-        PROPOSE_SKILL_INSTALL_TOOL,
-        { source: source.url, folder: `skills/${name}` },
-      ]);
+      const proposal = await draftsInstall(source, `skills/${name}`);
 
-      expect(proposal?.change).toEqual({
+      expect(proposal.change).toEqual({
         kind: "skill-install",
         repository: source.url,
         folder: `skills/${name}`,
@@ -136,7 +171,7 @@ describe("Devops installing a skill from a source, through the scripted engine",
         files: ["SKILL.md", "scripts/run.sh"],
         filesHash: expect.any(String),
       });
-      const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+      const response = await chat.api("POST", `/proposals/${proposal.id}/apply`, {});
       expect(response.status).toBe(200);
       expect(skillSchema.parse(await chat.read(`/skills/${name}`))).toMatchObject({
         name,
@@ -159,14 +194,11 @@ describe("Devops installing a skill from a source, through the scripted engine",
       const name = aSkillName();
       const source = await aSource([name], { tagged: false });
 
-      const [proposal] = await chat.ninaProposes([
-        PROPOSE_SKILL_INSTALL_TOOL,
-        { source: source.url, folder: `skills/${name}` },
-      ]);
+      const proposal = await draftsInstall(source, `skills/${name}`);
 
-      expect(proposal?.change).toMatchObject({ pinnedVersion: { commit: source.commit } });
-      expect(proposal?.change).not.toHaveProperty("pinnedVersion.tag");
-      const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+      expect(proposal.change).toMatchObject({ pinnedVersion: { commit: source.commit } });
+      expect(proposal.change).not.toHaveProperty("pinnedVersion.tag");
+      const response = await chat.api("POST", `/proposals/${proposal.id}/apply`, {});
       expect(response.status).toBe(200);
       expect(skillSchema.parse(await chat.read(`/skills/${name}`)).installedFrom).toEqual({
         repository: source.url,
@@ -178,72 +210,27 @@ describe("Devops installing a skill from a source, through the scripted engine",
   );
 
   it(
-    "refuses drafting a skill the library has, one the source doesn't hold, and files the library refuses",
-    async () => {
-      const name = aSkillName();
-      const source = await aSource([name], { undescribed: "skills/undescribed" });
-      const written = await chat.api("POST", "/skills", {
-        name,
-        description: "Mine.",
-        instructions: "Do it.",
-      });
-      expect(written.status).toBe(201);
-
-      const taken = await chat.ninaCalls(PROPOSE_SKILL_INSTALL_TOOL, {
-        source: source.url,
-        folder: `skills/${name}`,
-      });
-      const missing = await chat.ninaCalls(PROPOSE_SKILL_INSTALL_TOOL, {
-        source: source.url,
-        folder: "skills/other",
-      });
-
-      expect(taken).toEqual({ text: `The library already has ${name}.`, isError: true });
-      expect(missing).toEqual({
-        text: `${source.url} has no skill in "skills/other"; list_source_skills shows its folders.`,
-        isError: true,
-      });
-      expect(
-        await chat.ninaCalls(PROPOSE_SKILL_INSTALL_TOOL, {
-          source: source.url,
-          folder: "skills/undescribed",
-        }),
-      ).toEqual({
-        text: "SKILL.md's frontmatter gives no description: when to use it, in one sentence.",
-        isError: true,
-      });
-    },
-    INSTALL_TEST_TIMEOUT_MS,
-  );
-
-  it(
     "refuses installing once the name is taken or the source can't be read; the Proposal stays open",
     async () => {
       const taken = aSkillName();
       const gone = aSkillName();
       const source = await aSource([taken, gone]);
-      const [first] = await chat.ninaProposes([
-        PROPOSE_SKILL_INSTALL_TOOL,
-        { source: source.url, folder: `skills/${taken}` },
-      ]);
-      const [second] = await chat.ninaProposes([
-        PROPOSE_SKILL_INSTALL_TOOL,
-        { source: source.url, folder: `skills/${gone}` },
-      ]);
+      const first = await draftsInstall(source, `skills/${taken}`);
+      const second = await draftsInstall(source, `skills/${gone}`);
       await chat.api("POST", "/skills", {
         name: taken,
         description: "Mine.",
         instructions: "Do it.",
       });
-      const refusedTaken = await chat.api("POST", `/proposals/${first?.id}/apply`, {});
+      const refusedTaken = await chat.api("POST", `/proposals/${first.id}/apply`, {});
       await rm(source.folder, { recursive: true, force: true, maxRetries: 5 });
-      const refusedGone = await chat.api("POST", `/proposals/${second?.id}/apply`, {});
+      const refusedGone = await chat.api("POST", `/proposals/${second.id}/apply`, {});
 
       expect(await chat.reasonsOf(refusedTaken)).toEqual([`The library already has ${taken}.`]);
       const [goneReason] = await chat.reasonsOf(refusedGone);
       expect(goneReason?.startsWith(`Could not read ${source.url}: `)).toBe(true);
-      expect((await chat.readProposal(first?.id ?? "")).status.kind).toBe("open");
-      expect((await chat.readProposal(second?.id ?? "")).status.kind).toBe("open");
+      expect((await chat.readProposal(first.id)).status.kind).toBe("open");
+      expect((await chat.readProposal(second.id)).status.kind).toBe("open");
       expect((await fetch(`${url}/api/skills/${gone}`)).status).toBe(404);
     },
     INSTALL_TEST_TIMEOUT_MS,
@@ -252,7 +239,7 @@ describe("Devops installing a skill from a source, through the scripted engine",
 
 describe("Devops updating an installed skill, through the scripted engine", () => {
   it(
-    "finds the update daily, reads its diff and drafts it with notes; applied, the skill is pinned there and stays on, and a stale one is refused",
+    "finds the update daily, reads its diff, and a Proposal of it with notes applies: the skill is pinned there and stays on, and a stale one is refused",
     async () => {
       const name = aSkillName();
       const source = await aSource([name]);
@@ -281,15 +268,9 @@ describe("Devops updating an installed skill, through the scripted engine", () =
         diffCut: false,
       });
 
-      const [proposal] = await chat.ninaProposes([
-        PROPOSE_SKILL_UPDATE_TOOL,
-        { skill: name, notes: "Does it twice." },
-      ]);
-      const [stale] = await chat.ninaProposes([
-        PROPOSE_SKILL_UPDATE_TOOL,
-        { skill: name, notes: "The same, again." },
-      ]);
-      expect(proposal?.change).toEqual({
+      const proposal = await draftsUpdate(name, "Does it twice.");
+      const stale = await draftsUpdate(name, "The same, again.");
+      expect(proposal.change).toEqual({
         kind: "skill-update",
         name,
         repository: source.url,
@@ -309,31 +290,25 @@ describe("Devops updating an installed skill, through the scripted engine", () =
       expect(diff.diff).toContain("--- a/SKILL.md");
       expect(diff.diff).toContain("-Do it.\n+Do it twice.");
 
-      expect((await chat.api("POST", `/proposals/${proposal?.id}/apply`, {})).status).toBe(200);
+      expect((await chat.api("POST", `/proposals/${proposal.id}/apply`, {})).status).toBe(200);
       const updated = skillSchema.parse(await chat.read(`/skills/${name}`));
       expect(updated).toMatchObject({ version: 2, state: "on" });
       expect(updated.installedFrom?.pinnedVersion).toEqual(to);
       expect(updated.update).toBeUndefined();
       // Kept as applied: the card shows it without the Source.
-      expect((await chat.readProposal(proposal?.id ?? "")).change).toMatchObject({
+      expect((await chat.readProposal(proposal.id ?? "")).change).toMatchObject({
         appliedDiff: { diff: diff.diff, diffCut: false },
       });
 
       expect(
-        await chat.reasonsOf(await chat.api("POST", `/proposals/${stale?.id}/apply`, {})),
+        await chat.reasonsOf(await chat.api("POST", `/proposals/${stale.id}/apply`, {})),
       ).toEqual([
         `${name} is pinned at v1.1.0 now, not at v1.0.0 as this update was proposed from.`,
       ]);
-      expect((await chat.readProposal(stale?.id ?? "")).status.kind).toBe("open");
+      expect((await chat.readProposal(stale.id)).status.kind).toBe("open");
       const open = proposalListSchema.parse(await chat.read("/proposals/open")).map(({ id }) => id);
-      expect(open).toContain(stale?.id);
-      expect(open).not.toContain(proposal?.id);
-      expect(
-        await chat.ninaCalls(PROPOSE_SKILL_UPDATE_TOOL, { skill: name, notes: "More." }),
-      ).toEqual({
-        text: `${name} is pinned at v1.1.0, the newest version of ${source.url}.`,
-        isError: true,
-      });
+      expect(open).toContain(stale.id);
+      expect(open).not.toContain(proposal.id);
     },
     INSTALL_TEST_TIMEOUT_MS * 2,
   );

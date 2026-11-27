@@ -8,18 +8,15 @@ import {
   type McpServerReview,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { startTestApplication } from "../../../../../test/test-application.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
-import { EventsModule } from "../../../../platform/events/events.module.js";
 import {
   FAKE_HTTP_MCP_TOOLS,
   FAKE_STDIO_MCP_TOOLS,
   startFakeHttpMcpServer,
 } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
-import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
-import { McpServersModule } from "../../mcp-servers.module.js";
+import { startMcpServersApplication } from "../../mcp-servers.fixtures.js";
 import {
   SECRET,
   aName,
@@ -35,10 +32,7 @@ let url: string;
 let published: DomainEvent[];
 
 beforeEach(async () => {
-  ({ app, url } = await startTestApplication({
-    database: true,
-    imports: [EventsModule, EventStreamModule, McpServersModule],
-  }));
+  ({ app, url } = await startMcpServersApplication());
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
 });
@@ -278,11 +272,14 @@ describe("PUT /api/mcp-servers/:name/state", () => {
     expect(webEvents()).toEqual([{ type: "mcp-server.turned-off", serverName: name }]);
   });
 
-  it("answers 400 for turning on without a review", async () => {
+  it("reviews the server itself when no digest comes with it", PROCESS_TIMEOUT, async () => {
     const name = aName();
-    await add(name);
+    await serverOf(await send("POST", "/mcp-servers", aFakeServer(name)), 201);
 
-    expect((await send("PUT", `/mcp-servers/${name}/state`, { state: "on" })).status).toBe(400);
+    const on = await serverOf(await send("PUT", `/mcp-servers/${name}/state`, { state: "on" }));
+
+    expect(on.state).toBe("on");
+    expect(on.tools.map(({ name: tool }) => tool)).toEqual(FAKE_STDIO_MCP_TOOLS);
   });
 });
 

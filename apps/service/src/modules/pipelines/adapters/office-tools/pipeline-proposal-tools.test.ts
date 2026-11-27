@@ -14,9 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   LIST_PIPELINES_TOOL,
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_PIPELINE_TOOL,
-  PROPOSE_STAGE_TEMPLATE_TOOL,
+  LIST_STAGE_TEMPLATES_TOOL,
   ProposalAppliers,
   ProposalRefused,
 } from "../../../conversations/index.js";
@@ -36,8 +34,6 @@ import {
   type PipelinesApplication,
 } from "../../pipelines-application.fixtures.js";
 import { StageTemplateLibraryEditor } from "../../application/stage-template-library-editor.js";
-import { ProposalDraftsForTests } from "../../ports/pipelines-ports.fixtures.js";
-import type { ProposedLibraryChange } from "../../ports/proposal-drafts.js";
 import { StageTemplateRepository } from "../../ports/stage-template-repository.js";
 import { projectPipelinesForTests } from "../../project-pipelines.fixtures.js";
 import {
@@ -75,17 +71,10 @@ const { anOfficeWidePipeline, aProject, added } = projectPipelineRequests(
   () => pipelines.projects,
 );
 
-function propose(tool: string, input: Record<string, unknown>) {
+function callTool(tool: string, input: Record<string, unknown>) {
   const [officeTool] = pipelines.app.get(OfficeToolRegistry).named([tool], RUN_EVERY_CALL);
   if (!officeTool) throw new Error(`No Office tool ${tool}.`);
   return officeTool.run(input, anOfficeToolCall("devops-chat"));
-}
-
-/** What the propose tools drafted from here on. */
-function draftedFrom(): () => ProposedLibraryChange[] {
-  const drafts = pipelines.app.get(ProposalDraftsForTests);
-  const before = drafts.drafted.length;
-  return () => drafts.drafted.slice(before).map(({ change }) => change);
 }
 
 /** A Proposal as Conversations keeps it, which a Proposal from before routes lacks. */
@@ -156,223 +145,7 @@ function reviewOnlyWhenNeeded(base: Pipeline): Stage[] {
   ];
 }
 
-describe("propose_library_pipeline", () => {
-  it('drafts "run Review only when Tests changed files or ended Failed, otherwise Publish" as the whole flow; applied, it saves it', async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, {
-      pipeline: base.id,
-      stages: reviewOnlyWhenNeeded(base),
-    });
-
-    expect(answer.isError).toBe(false);
-    expect(answer.text).toContain("Its route changes:");
-    expect(answer.text).toContain(
-      "- Tests: was to End always; now to Review when the previous Stage changed files or the previous Stage ended Failed, otherwise to Publish always.",
-    );
-    expect(answer.text).toContain("- Review (new): to Publish always.");
-    const [change] = drafted();
-    if (change?.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
-    // In the order given, each standing right of the one before, each route naming the Stage it
-    // leads to.
-    expect(change.to.map(({ key, position, place }) => [key, position, place])).toEqual([
-      ["implement", { x: 0, y: 0 }, undefined],
-      ["tests", { x: 308, y: 0 }, undefined],
-      ["review", { x: 616, y: 0 }, undefined],
-      ["publish", { x: 924, y: 0 }, undefined],
-    ]);
-    expect(change.to[1]?.routes).toEqual([
-      { ...REVIEW_WHEN_TESTS_CHANGED_OR_FAILED[0], toName: "Review" },
-      { to: "publish", toName: "Publish", condition: null, limit: null },
-    ]);
-    expect(change.routes.stages).toEqual([
-      { stageKey: "tests", stageName: "Tests", from: [always(null)], to: change.to[1]?.routes },
-      {
-        stageKey: "review",
-        stageName: "Review",
-        from: [],
-        to: [{ to: "publish", toName: "Publish", condition: null, limit: null }],
-      },
-      { stageKey: "publish", stageName: "Publish", from: [], to: [always(null)] },
-    ]);
-    expect(change.routes.check.every(({ level }) => level === "warning")).toBe(true);
-
-    await apply(change);
-
-    const saved = await readPipeline(base.id);
-    expect(saved.stages.map(({ key }) => key)).toEqual(["implement", "tests", "review", "publish"]);
-    expect(saved.stages[1]?.routes).toEqual(change.to[1]?.routes);
-  });
-
-  it("drafts an Agent Stage's choices; applied, list_pipelines gives them with their words", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const toReview: Route = {
-      to: "review",
-      condition: {
-        combine: "all",
-        tests: [{ kind: "choice", words: "the change touches what the user sees" }],
-      },
-      limit: 1,
-    };
-    const stages = reviewOnlyWhenNeeded(base).map((stage) =>
-      stage.key === "implement" ? { ...stage, routes: [toReview, always("tests")] } : stage,
-    );
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
-
-    expect(answer.isError).toBe(false);
-    expect(answer.text).toContain(
-      '- Implement: was to Tests always; now to Review if the Agent chooses: "the change touches what the user sees", at most once, otherwise to Tests always.',
-    );
-    const [change] = drafted();
-    if (change?.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
-    await apply(change);
-    const listed = await propose(LIST_PIPELINES_TOOL, { pipeline: base.id });
-    const [pipeline] = (JSON.parse(listed.text) as { officeWidePipelines: Pipeline[] })
-      .officeWidePipelines;
-    expect(pipeline?.stages[0]?.routes?.[0]).toEqual({ ...toReview, toName: "Review" });
-  });
-
-  it("refuses a choice on a Stage that isn't an Agent Stage, and drafts nothing", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const stages = reviewOnlyWhenNeeded(base).map((stage) =>
-      stage.key === "tests"
-        ? {
-            ...stage,
-            routes: [
-              {
-                to: "review",
-                condition: { combine: "all", tests: [{ kind: "choice", words: "needs a look" }] },
-              },
-              always("publish"),
-            ],
-          }
-        : stage,
-    );
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
-
-    expect(answer).toEqual({
-      text: expect.stringContaining(
-        "Tests: a condition of its route to Review is the Agent's choice, which only an Agent Stage has.",
-      ),
-      isError: true,
-    });
-    expect(drafted()).toEqual([]);
-  });
-
-  it("refuses a flow that breaks a rule, naming the Stage and the rule, and drafts nothing", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const stages = reviewOnlyWhenNeeded(base).map((stage) =>
-      stage.key === "review" ? { ...stage, routes: [] } : stage,
-    );
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
-
-    expect(answer).toEqual({
-      text: expect.stringContaining(
-        "- Stage 3 · Review: give it a route out; a final Stage's leads to End.",
-      ),
-      isError: true,
-    });
-    expect(drafted()).toEqual([]);
-  });
-
-  it("drafts a flow with only warnings, telling the agent them; applied, it saves it", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const whileNotMet: Route = {
-      to: "publish",
-      condition: { combine: "all", tests: [{ kind: "definitionOfDone", is: "some-not-met" }] },
-      limit: null,
-    };
-    const stages = reviewOnlyWhenNeeded(base).map((stage) =>
-      stage.key === "review" ? { ...stage, routes: [whileNotMet] } : stage,
-    );
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
-
-    const warning =
-      "Stage 3 · Review: every route out of it carries a condition, so when none holds the walk stops and asks.";
-    expect(answer.isError).toBe(false);
-    expect(answer.text).toContain(`- ${warning}`);
-    const [change] = drafted();
-    if (change?.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
-    expect(change.routes.check).toContainEqual({
-      stageKey: "review",
-      at: { kind: "stage" },
-      level: "warning",
-      text: warning,
-    });
-    await apply(change);
-    expect((await readPipeline(base.id)).stages[2]?.routes).toEqual([
-      { ...whileNotMet, toName: "Publish" },
-    ]);
-  });
-
-  it("drafts routes back, a limit left out taking at most 3 times; applied, it saves them", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const [implement, tests] = base.stages.map(asPlainStage);
-    if (!implement || !tests) throw new Error("The base Pipeline has Implement and Tests.");
-    const againWhenUnchanged: Route = {
-      to: "implement",
-      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "unchanged" }] },
-    };
-    const stages: Stage[] = [
-      { ...implement, routes: [againWhenUnchanged, always("tests")] },
-      {
-        ...tests,
-        routes: [{ to: "implement", condition: ENDED_FAILED, limit: 2 }, always(null)],
-      },
-    ];
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
-
-    expect(answer.isError).toBe(false);
-    expect(answer.text).toContain(
-      "- Tests: was to End always; now to Implement when the previous Stage ended Failed, at most 2 times, otherwise to End always.",
-    );
-    const [change] = drafted();
-    if (change?.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
-    expect(change.to.map(({ routes }) => routes?.map(({ limit }) => limit))).toEqual([
-      [3, null],
-      [2, null],
-    ]);
-    await apply(change);
-    expect((await readPipeline(base.id)).stages.map(({ routes }) => routes)).toEqual(
-      change.to.map(({ routes }) => routes),
-    );
-  });
-
-  it("refuses a loop with no route with a limit, naming its Stages, and drafts nothing", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const [implement, tests] = base.stages.map(asPlainStage);
-    if (!implement || !tests) throw new Error("The base Pipeline has Implement and Tests.");
-    const stages: Stage[] = [
-      { ...implement, routes: [always("tests")] },
-      {
-        ...tests,
-        routes: [{ to: "implement", condition: ENDED_FAILED, limit: null }, always(null)],
-      },
-    ];
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
-
-    expect(answer).toEqual({
-      text: expect.stringContaining(
-        "- Stage 2 · Tests: the loop Tests → Implement → Tests has no route with a limit, so it could run for ever.",
-      ),
-      isError: true,
-    });
-    expect(drafted()).toEqual([]);
-  });
-
+describe("an open Proposal of a library Pipeline's flow", () => {
   it("shows and applies a Proposal kept with an on-failure setting as its failure route back placed first, every route with its limit", async () => {
     const base = await anOfficeWidePipeline();
     // As a previous release kept it: routes without limits, and Tests going back on failure.
@@ -492,261 +265,92 @@ describe("propose_library_pipeline", () => {
     ]);
   });
 
-  it("drafts the Stages and End where it puts them; applied, it saves them there, a Stage the user moved since and it didn't move staying where the user put it", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const [implement, tests, review, publish] = reviewOnlyWhenNeeded(base);
-    if (!implement || !tests || !review || !publish) throw new Error("Four Stages.");
-    const endPosition = { x: 940, y: 40 };
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, {
-      pipeline: base.id,
-      stages: [
-        { ...implement, position: { x: 0, y: 0 } },
-        { ...tests, position: { x: 308, y: 0 } },
-        { ...review, position: { x: 308, y: 200 } },
-        { ...publish, position: { x: 616, y: 0 } },
-      ],
-      endPosition,
-    });
-
-    expect(answer.isError).toBe(false);
-    const [change] = drafted();
-    if (change?.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
-    expect(change.to.map(({ key, position }) => [key, position])).toEqual([
-      ["implement", { x: 0, y: 0 }],
-      ["tests", { x: 308, y: 0 }],
-      ["review", { x: 308, y: 200 }],
-      ["publish", { x: 616, y: 0 }],
-    ]);
-    expect(change.endPosition).toEqual(endPosition);
-
-    // The user moves Implement by hand: layout alone, so the Proposal isn't stale.
-    const moved = await send("PUT", `/pipelines/${base.id}`, {
-      name: base.name,
-      description: base.description,
-      stages: base.stages.map((stage) =>
-        stage.key === "implement" ? { ...stage, position: { x: -120, y: 48 } } : stage,
-      ),
-    });
-    expect(moved.status).toBe(200);
-    await apply(change);
-
-    const saved = await readPipeline(base.id);
-    expect(saved.stages.map(({ key, position }) => [key, position])).toEqual([
-      ["implement", { x: -120, y: 48 }],
-      ["tests", { x: 308, y: 0 }],
-      ["review", { x: 308, y: 200 }],
-      ["publish", { x: 616, y: 0 }],
-    ]);
-    expect(saved.endPosition).toEqual(endPosition);
-
-    // list_pipelines gives the same positions and End, and no place.
-    const listed = await propose(LIST_PIPELINES_TOOL, { pipeline: base.id });
-    const [pipeline] = (JSON.parse(listed.text) as { officeWidePipelines: Pipeline[] })
-      .officeWidePipelines;
-    expect(pipeline?.stages.map(({ key, position }) => [key, position])).toEqual(
-      saved.stages.map(({ key, position }) => [key, position]),
-    );
-    expect(pipeline?.stages.some((stage) => "place" in stage)).toBe(false);
-    expect(pipeline?.endPosition).toEqual(endPosition);
-  });
-
-  it("refuses a Stage given with a place from before free placement, and drafts nothing", async () => {
-    const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    const stages = reviewOnlyWhenNeeded(base).map((stage, index) =>
-      stage.key === "review" ? { ...stage, place: { column: index, row: 0 } } : stage,
-    );
-
-    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
-
-    expect(answer).toEqual({
-      text: "`place` (column, row) is from before free placement: give each Stage a `position` (x, y) in the Pipeline's order, or leave it out.",
-      isError: true,
-    });
-    expect(drafted()).toEqual([]);
-  });
-
   it("is refused at apply once the Pipeline changed since, changing nothing", async () => {
     const base = await anOfficeWidePipeline();
-    const drafted = draftedFrom();
-    await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, {
-      pipeline: base.id,
-      stages: reviewOnlyWhenNeeded(base),
-    });
+    const change: KeptChange = {
+      kind: "pipeline",
+      pipelineId: base.id,
+      from: base.stages,
+      to: reviewOnlyWhenNeeded(base),
+    };
     const edited = await send("PUT", `/pipelines/${base.id}`, {
       name: base.name,
       description: "Edited by hand.",
       stages: base.stages.slice(0, 1).map((stage) => ({ ...stage, routes: [always(null)] })),
     });
     expect(edited.status).toBe(200);
-    const [change] = drafted();
-    if (!change) throw new Error("A Proposal.");
 
     await expect(apply(change)).rejects.toThrow(ProposalRefused);
     expect((await readPipeline(base.id)).stages.map(({ key }) => key)).toEqual(["implement"]);
   });
 });
 
-describe("propose_project_pipeline", () => {
-  const linuxWhenChanged: Route[] = [
-    {
-      to: "linux",
-      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
-      limit: null,
-    },
-    always(null),
-  ];
-
-  /** The Project Pipeline's flow with Verify on Linux after Tests, run only when Tests changed files. */
-  function linuxWhenTestsChanged(projectPipeline: ProjectPipeline): Stage[] {
-    return [
+describe("an open Proposal of a Project Pipeline", () => {
+  it("applies a change to its whole flow, and a later one is refused once it changed since", async () => {
+    const base = await anOfficeWidePipeline();
+    const projectId = aProject();
+    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
+    const linuxWhenChanged: Route[] = [
+      {
+        to: "linux",
+        condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
+        limit: null,
+      },
+      always(null),
+    ];
+    const stages: Stage[] = [
       ...projectPipeline.stages.map((stage) =>
         stage.key === "tests" ? { ...stage, routes: linuxWhenChanged } : stage,
       ),
       { ...LINUX_CHECK, routes: [always(null)] },
     ];
-  }
+    const { name, description } = projectPipeline;
+    const from = { name, description, stages: projectPipeline.stages };
 
-  it("drafts a change to a Project Pipeline's whole flow with each changed Stage's routes; applied, it saves it, and a later one is refused once it changed since", async () => {
-    const base = await anOfficeWidePipeline();
-    const projectId = aProject();
-    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
-    const drafted = draftedFrom();
-
-    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-      project: projectId,
-      pipeline: projectPipeline.id,
-      stages: linuxWhenTestsChanged(projectPipeline),
+    await apply({
+      kind: "project-pipeline",
+      projectId,
+      pipelineId: projectPipeline.id,
+      from,
+      to: { ...from, stages },
     });
 
-    expect(answer.isError).toBe(false);
-    expect(answer.text).toContain("- Verify on Linux (new): to End always.");
-    const [change] = drafted();
-    if (change?.kind !== "project-pipeline") throw new Error("A Proposal of the Project Pipeline.");
-    expect(change.pipelineId).toBe(projectPipeline.id);
-    expect(change.from?.stages).toEqual(projectPipeline.stages);
-    expect(change.to.copyOf).toBeUndefined();
-    // In the order given, the new one right of the one before, each route naming the Stage it
-    // leads to.
-    expect(change.to.stages.map(({ key, position, place }) => [key, position, place])).toEqual([
-      ["implement", { x: 0, y: 0 }, undefined],
-      ["tests", { x: 308, y: 0 }, undefined],
-      ["linux", { x: 616, y: 0 }, undefined],
-    ]);
-    const namedRoutes = [{ ...linuxWhenChanged[0], toName: "Verify on Linux" }, always(null)];
-    expect(change.to.stages[1]?.routes).toEqual(namedRoutes);
-    expect(change.routes.stages.map(({ stageKey }) => stageKey)).toEqual(["tests", "linux"]);
-
-    await apply(change);
     const saved = await readProjectPipeline(projectPipeline.id);
     expect(saved.stages.map(({ key }) => key)).toEqual(["implement", "tests", "linux"]);
-    expect(saved.stages[1]?.routes).toEqual(namedRoutes);
+    expect(saved.stages[1]?.routes).toEqual(linuxWhenChanged);
 
-    // Drafted from the Project Pipeline as it is now, then edited by hand first.
-    await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-      project: projectId,
-      pipeline: projectPipeline.id,
-      description: "Proposed.",
-    });
+    // Drafted from the Project Pipeline as it was, then edited by hand first.
+    const later: KeptChange = {
+      kind: "project-pipeline",
+      projectId,
+      pipelineId: projectPipeline.id,
+      from: { name, description, stages: saved.stages },
+      to: { name, description: "Proposed.", stages: saved.stages },
+    };
     const edited = await send("PUT", `/project-pipelines/${projectPipeline.id}`, {
       name: saved.name,
       description: "Edited by hand.",
       stages: saved.stages,
     });
     expect(edited.status).toBe(200);
-    const [, later] = drafted();
-    if (!later) throw new Error("A second Proposal.");
 
     await expect(apply(later)).rejects.toThrow(`${saved.name} changed since this was proposed.`);
     expect((await readProjectPipeline(projectPipeline.id)).description).toBe("Edited by hand.");
   });
 
-  it("drafts a Project Pipeline's Stages and End where it puts them; applied, it saves them there", async () => {
+  it("applies one that adds a Project Pipeline as a copy", async () => {
     const base = await anOfficeWidePipeline();
     const projectId = aProject();
-    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
-    const drafted = draftedFrom();
-    const endPosition = { x: 700, y: 140 };
-    const stages = linuxWhenTestsChanged(projectPipeline).map((stage) =>
-      stage.key === "linux" ? { ...stage, position: { x: 308, y: 160 } } : stage,
-    );
-
-    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-      project: projectId,
-      pipeline: projectPipeline.id,
-      stages,
-      endPosition,
-    });
-
-    expect(answer.isError).toBe(false);
-    const [change] = drafted();
-    if (change?.kind !== "project-pipeline") throw new Error("A Proposal of the Project Pipeline.");
-    expect(change.to).toMatchObject({ endPosition });
-    expect(change.to.stages.map(({ key, position }) => [key, position])).toEqual([
-      ["implement", { x: 0, y: 0 }],
-      ["tests", { x: 308, y: 0 }],
-      ["linux", { x: 308, y: 160 }],
-    ]);
-
-    await apply(change);
-    const saved = await readProjectPipeline(projectPipeline.id);
-    expect(saved.stages.map(({ key, position }) => [key, position])).toEqual(
-      change.to.stages.map(({ key, position }) => [key, position]),
-    );
-    expect(saved.endPosition).toEqual(endPosition);
-    const listed = JSON.parse(
-      (await propose(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id })).text,
-    ) as { projectPipelines: ProjectPipeline[] };
-    expect(listed.projectPipelines[0]?.stages).toEqual(saved.stages);
-    expect(listed.projectPipelines[0]?.stages.some((stage) => "place" in stage)).toBe(false);
-    expect(listed.projectPipelines[0]?.endPosition).toEqual(endPosition);
-  });
-
-  it("refuses a Stage given with a place from before free placement, and drafts nothing", async () => {
-    const base = await anOfficeWidePipeline();
-    const projectId = aProject();
-    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
-    const drafted = draftedFrom();
-
-    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-      project: projectId,
-      pipeline: projectPipeline.id,
-      stages: projectPipeline.stages.map((stage, index) => ({
-        ...stage,
-        place: { column: index, row: 0 },
-      })),
-    });
-
-    expect(answer).toEqual({
-      text: "`place` (column, row) is from before free placement: give each Stage a `position` (x, y) in the Pipeline's order, or leave it out.",
-      isError: true,
-    });
-    expect(drafted()).toEqual([]);
-  });
-
-  it("drafts a new Project Pipeline as a copy carrying the copied Pipeline's whole flow when it gives no Stages; applied, it adds it", async () => {
-    const base = await anOfficeWidePipeline();
-    const projectId = aProject();
-    const drafted = draftedFrom();
     const name = `Copied ${randomUUID()}`;
 
-    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-      project: projectId,
-      copyOf: base.id,
-      name,
+    const applied = await apply({
+      kind: "project-pipeline",
+      projectId,
+      pipelineId: null,
+      from: null,
+      to: { name, description: "", stages: base.stages, copyOf: base.id },
     });
 
-    expect(answer.isError).toBe(false);
-    const [change] = drafted();
-    if (change?.kind !== "project-pipeline") throw new Error("A Proposal of the Project Pipeline.");
-    expect(change).toMatchObject({ projectId, pipelineId: null, from: null });
-    expect(change.to).toMatchObject({ name, description: "", copyOf: base.id });
-    expect(change.to.stages.map(({ key }) => key)).toEqual(base.stages.map(({ key }) => key));
-    expect(change.routes.stages).toEqual([]);
-
-    const applied = await apply(change);
     if (applied.kind !== "project-pipeline" || applied.pipelineId === null) {
       throw new Error("The Project Pipeline it added.");
     }
@@ -754,80 +358,6 @@ describe("propose_project_pipeline", () => {
     expect(saved).toMatchObject({ projectId, name, brokenBeforeUpdate: null });
     expect(saved.copiedFrom.name).toBe(base.name);
     expect(saved.stages.map(({ key }) => key)).toEqual(base.stages.map(({ key }) => key));
-  });
-
-  it("drafts a new Project Pipeline copied from one of the Project's own, with the Stages it gives", async () => {
-    const base = await anOfficeWidePipeline();
-    const projectId = aProject();
-    const source = await added(aNewProjectPipeline(projectId, base.id));
-    const drafted = draftedFrom();
-
-    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-      project: projectId,
-      copyOf: source.id,
-      name: `Copied ${randomUUID()}`,
-      stages: linuxWhenTestsChanged(source),
-    });
-
-    expect(answer.isError).toBe(false);
-    expect(answer.text).toContain("- Verify on Linux (new): to End always.");
-    const [change] = drafted();
-    if (change?.kind !== "project-pipeline") throw new Error("A Proposal of the Project Pipeline.");
-    expect(change.to.copyOf).toBe(source.id);
-    expect(change.to.stages.map(({ key }) => key)).toEqual(["implement", "tests", "linux"]);
-  });
-
-  it("refuses a new one without the Pipeline it copies, or copying Onboard or another Project's, and drafts nothing", async () => {
-    const base = await anOfficeWidePipeline();
-    const projectId = aProject();
-    const othersOwn = await added(aNewProjectPipeline(aProject(), base.id));
-    const drafted = draftedFrom();
-    const name = `Copied ${randomUUID()}`;
-
-    expect(await propose(PROPOSE_PROJECT_PIPELINE_TOOL, { project: projectId, name })).toEqual({
-      text: "A new Project Pipeline needs its name and the Pipeline it is copied from (copyOf).",
-      isError: true,
-    });
-    expect(
-      await propose(PROPOSE_PROJECT_PIPELINE_TOOL, { project: projectId, copyOf: "onboard", name }),
-    ).toEqual({
-      text: expect.stringContaining("- The Onboard Pipeline can't be copied into a Project."),
-      isError: true,
-    });
-    expect(
-      await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-        project: projectId,
-        copyOf: othersOwn.id,
-        name,
-      }),
-    ).toEqual({
-      text: expect.stringContaining(`There is no Pipeline "${othersOwn.id}"`),
-      isError: true,
-    });
-    expect(drafted()).toEqual([]);
-  });
-
-  it("refuses a flow that breaks a rule, naming the Stage and the rule, and drafts nothing", async () => {
-    const base = await anOfficeWidePipeline();
-    const projectId = aProject();
-    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
-    const drafted = draftedFrom();
-
-    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
-      project: projectId,
-      pipeline: projectPipeline.id,
-      stages: projectPipeline.stages.map((stage) =>
-        stage.key === "tests" ? { ...stage, routes: [] } : stage,
-      ),
-    });
-
-    expect(answer).toEqual({
-      text: expect.stringContaining(
-        "- Stage 2 · Tests: give it a route out; a final Stage's leads to End.",
-      ),
-      isError: true,
-    });
-    expect(drafted()).toEqual([]);
   });
 });
 
@@ -900,8 +430,8 @@ describe("list_pipelines", () => {
     const base = await anOfficeWidePipeline();
     const projectPipeline = await added(aNewProjectPipeline(aProject(), base.id));
 
-    const officeWide = await propose(LIST_PIPELINES_TOOL, { pipeline: base.id });
-    const ofProject = await propose(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id });
+    const officeWide = await callTool(LIST_PIPELINES_TOOL, { pipeline: base.id });
+    const ofProject = await callTool(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id });
 
     expect(officeWide.isError).toBe(false);
     const listedOfficeWide = JSON.parse(officeWide.text) as Listed;
@@ -920,11 +450,11 @@ describe("list_pipelines", () => {
     const reason = "Inserts Verify on Linux after Tests, which its base Pipeline no longer has.";
 
     const listedNow = JSON.parse(
-      (await propose(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id })).text,
+      (await callTool(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id })).text,
     ) as Listed;
     await projectPipelinesForTests(pipelines.app).breakProjectPipeline(projectPipeline, reason);
     const listedBroken = JSON.parse(
-      (await propose(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id })).text,
+      (await callTool(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id })).text,
     ) as Listed;
 
     expect(listedNow.projectPipelines).toEqual([
@@ -944,7 +474,7 @@ describe("list_pipelines", () => {
   });
 
   it("refuses a Pipeline there is none of", async () => {
-    expect(await propose(LIST_PIPELINES_TOOL, { pipeline: "no-such-pipeline" })).toEqual({
+    expect(await callTool(LIST_PIPELINES_TOOL, { pipeline: "no-such-pipeline" })).toEqual({
       text: 'There is no Pipeline "no-such-pipeline".',
       isError: true,
     });
@@ -952,26 +482,29 @@ describe("list_pipelines", () => {
 });
 
 describe("the Pipeline Office tools' inputs", () => {
-  const tools = [
-    LIST_PIPELINES_TOOL,
-    PROPOSE_LIBRARY_PIPELINE_TOOL,
-    PROPOSE_PROJECT_PIPELINE_TOOL,
-    PROPOSE_STAGE_TEMPLATE_TOOL,
-  ];
+  const tools = [LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL];
 
-  it("convert to a JSON Schema, the recursive condition group by reference, as the API engines take it", () => {
+  it("no longer offer the propose tools: the Office actions of the library change a Pipeline", () => {
+    const registry = pipelines.app.get(OfficeToolRegistry);
+
+    for (const name of [
+      "propose_library_pipeline",
+      "propose_project_pipeline",
+      "propose_stage_template",
+    ]) {
+      expect(() => registry.named([name], RUN_EVERY_CALL)).toThrow(
+        `No Office tool is registered as ${name}.`,
+      );
+    }
+  });
+
+  it("convert to a JSON Schema, as the API engines take it", () => {
     const schemas = pipelines.app
       .get(OfficeToolRegistry)
       .named(tools, RUN_EVERY_CALL)
-      .map((officeTool) => ({
-        name: officeTool.name,
-        schema: JSON.stringify(z.toJSONSchema(officeTool.input, { io: "input" })),
-      }));
+      .map((officeTool) => z.toJSONSchema(officeTool.input, { io: "input" }));
 
-    expect(schemas.every(({ schema }) => schema.includes('"type":"object"'))).toBe(true);
-    expect(
-      schemas.filter(({ schema }) => schema.includes('"$ref"')).map(({ name }) => name),
-    ).toEqual(tools.filter((name) => name !== LIST_PIPELINES_TOOL));
+    expect(schemas.every((schema) => schema.type === "object")).toBe(true);
   });
 
   it("are listed by an MCP server, as the Claude Code engines and Codex's endpoint list them", async () => {
@@ -991,8 +524,6 @@ describe("the Pipeline Office tools' inputs", () => {
     const { tools: listed } = await client.listTools();
 
     expect(listed.map(({ name }) => name)).toEqual(tools);
-    const proposeLibrary = listed.find(({ name }) => name === PROPOSE_LIBRARY_PIPELINE_TOOL);
-    expect(JSON.stringify(proposeLibrary?.inputSchema)).toContain('"combine"');
     await client.close();
     await server.close();
   });

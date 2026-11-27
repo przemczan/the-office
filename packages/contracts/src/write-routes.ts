@@ -69,7 +69,7 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
 ];
 
 const NO_ACTION: readonly NoActionRoute[] = [
-  // Checks: they change nothing, and the propose_* tools check first.
+  // Checks: they change nothing, and the actions' tools check first.
   { route: "POST /tasks/:id/stages/check", reason: "Checks edited Stages; changes nothing." },
   { route: "POST /pipelines/check", reason: "Checks a Pipeline; changes nothing." },
   { route: "POST /project-pipelines/check", reason: "Checks a Project Pipeline; changes nothing." },
@@ -98,7 +98,11 @@ const NO_ACTION: readonly NoActionRoute[] = [
   },
   {
     route: "POST /skills/uploads",
-    reason: "A skill's uploaded bytes; propose_skill_install installs from a source.",
+    reason: "A skill's uploaded bytes; install_skill installs from a source.",
+  },
+  {
+    route: "POST /skills/:name/versions",
+    reason: "An uploaded skill's next version, as bytes; edit_skill saves a written skill's.",
   },
   { route: "POST /roles/:key/avatar", reason: "An uploaded Avatar's bytes." },
   {
@@ -252,39 +256,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     note: "remember (hand-written), one's own Memory only",
   },
   { route: "DELETE /roles/:key/memory", agent: "gap" },
-
-  // Pipelines, Stage templates, the library.
-  { route: "POST /pipelines", agent: "proposal", note: "propose_library_pipeline" },
-  { route: "PUT /pipelines/:id", agent: "proposal", note: "propose_library_pipeline" },
-  { route: "DELETE /pipelines/:id", agent: "gap" },
-  { route: "POST /stage-templates", agent: "proposal", note: "propose_stage_template" },
-  { route: "PUT /stage-templates/:id", agent: "proposal", note: "propose_stage_template" },
-  { route: "POST /stage-templates/:id/apply", agent: "gap" },
-  { route: "DELETE /stage-templates/:id", agent: "gap" },
-
-  // Skills, Prompt templates, MCP servers.
-  { route: "POST /skills", agent: "proposal", note: "propose_skill, propose_skill_install" },
-  { route: "PUT /skills/:name", agent: "proposal", note: "propose_skill_update" },
-  { route: "POST /skills/:name/versions", agent: "proposal", note: "propose_skill_update" },
-  { route: "PUT /skills/:name/state", agent: "gap" },
-  { route: "PUT /skills/:name/everyone", agent: "gap" },
-  { route: "PUT /skills/:name/roles", agent: "gap" },
-  { route: "DELETE /skills/:name", agent: "gap" },
-  {
-    route: "PUT /settings/prompt-templates/:key",
-    agent: "proposal",
-    note: "propose_prompt_template",
-  },
-  {
-    route: "DELETE /settings/prompt-templates/:key",
-    agent: "proposal",
-    note: "propose_prompt_template_reset",
-  },
-  { route: "POST /mcp-servers", agent: "gap", note: "a config can hold credentials" },
-  { route: "PUT /mcp-servers/:name", agent: "gap", note: "a config can hold credentials" },
-  { route: "PUT /mcp-servers/:name/state", agent: "gap" },
-  { route: "PUT /mcp-servers/:name/roles", agent: "gap" },
-  { route: "DELETE /mcp-servers/:name", agent: "gap" },
 
   // Engines, Office settings, updates, telemetry, identity.
   { route: "PUT /settings/office-wide-limit", agent: "proposal", note: "propose_office_setting" },

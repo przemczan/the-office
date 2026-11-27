@@ -10,6 +10,7 @@ import type {
 } from "@the-office/contracts";
 import { Button, Card, Dialog, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { applyProposal, proposalQueries } from "../../../api/conversations.ts";
 import {
   addStageTemplate,
   refreshStageTemplateList,
@@ -33,6 +34,7 @@ import { fieldsChanged, stageCount } from "../../../shell/pipelines/template-lin
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { LinkedStagesCard } from "./linked-stages-card.tsx";
+import type { ProposedLibraryEdit } from "./proposed-library-edit.ts";
 
 /** Where a new Stage template starts: the kind the user picked, or the template opened. */
 export type StageTemplateOpened =
@@ -52,19 +54,22 @@ export function StageTemplateForm({
   roles,
   duties,
   options,
+  proposed,
   onDone,
 }: {
   readonly opened: StageTemplateOpened;
   readonly roles: readonly Role[];
   readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
+  /** The Proposal "Edit before applying" opened: its Stage starts the draft, and saving applies it. */
+  readonly proposed?: Extract<ProposedLibraryEdit, { kind: "stage-template" }>;
   /** Told once a new template is added, or its making is given up. */
   readonly onDone: () => void;
 }): ReactNode {
   const { template } = opened;
   const saved = template ? template.stage : standaloneStage(opened.kind);
   const savedText = JSON.stringify(saved);
-  const [draft, setDraft] = useState<Stage>(saved);
+  const [draft, setDraft] = useState<Stage>(proposed?.edit ?? saved);
   const [followed, setFollowed] = useState(savedText);
   // Counts the times the draft followed the saved template, to start the fields' own typing over.
   const [follows, setFollows] = useState(0);
@@ -77,7 +82,7 @@ export function StageTemplateForm({
   }
   const [removing, setRemoving] = useState(false);
   const [applyingTo, setApplyingTo] = useState<readonly LinkedStage[] | undefined>();
-  const dirty = JSON.stringify(draft) !== savedText;
+  const dirty = proposed !== undefined || JSON.stringify(draft) !== savedText;
   const check = useQuery({
     ...stageTemplateQueries.check({ stage: draft, stageTemplateId: template?.id }),
     placeholderData: keepPreviousData,
@@ -113,10 +118,32 @@ export function StageTemplateForm({
       else saving.mutate();
     },
   });
+  const applying = useMutation({
+    mutationFn: async () => {
+      if (!proposed) return;
+      await applyProposal(proposed.proposal.id, { actionInput: { stage: draft } });
+      await queryClient.invalidateQueries(proposalQueries.one(proposed.proposal.id));
+      await refreshStageTemplateList(queryClient);
+    },
+    onSuccess: async () => {
+      showToast(`${draft.name} ${proposed?.recordId ? "saved" : "added to the Stage templates"}.`);
+      onDone();
+      await navigate(
+        proposed?.recordId
+          ? {
+              to: "/settings/pipelines/stage-templates/$stageTemplateId",
+              params: { stageTemplateId: proposed.recordId },
+            }
+          : { to: "/settings/pipelines/stage-templates" },
+      );
+    },
+  });
   const save = (): void => {
-    if (template && fieldsChanged(template.stage, draft).length > 0) asking.mutate(template);
+    if (proposed) applying.mutate();
+    else if (template && fieldsChanged(template.stage, draft).length > 0) asking.mutate(template);
     else saving.mutate();
   };
+  const submitError = (proposed ? applying : saving).error;
   const name = draft.name.trim() || "New Stage template";
   return (
     <>
@@ -163,12 +190,16 @@ export function StageTemplateForm({
       {asking.error && (
         <RefusalAlert title="The linked Stages can't be read" error={asking.error} />
       )}
-      {saving.error && (
-        <RefusalAlert title="The Stage template wasn't saved" error={saving.error} />
-      )}
+      {submitError && <RefusalAlert title="The Stage template wasn't saved" error={submitError} />}
       <div className="settings-actions">
         <span className="settings-actions-state">
-          {template ? (dirty ? "Unsaved changes" : "Saved") : "Not in the Stage templates yet"}
+          {proposed
+            ? "Proposed; applies as you edit it here"
+            : template
+              ? dirty
+                ? "Unsaved changes"
+                : "Saved"
+              : "Not in the Stage templates yet"}
         </span>
         {template && (
           <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
@@ -178,19 +209,21 @@ export function StageTemplateForm({
         <Button
           variant="secondary"
           disabled={template !== undefined && !dirty}
-          onClick={() => (template ? setDraft(saved) : onDone())}
+          onClick={() =>
+            proposed ? setDraft(proposed.edit) : template ? setDraft(saved) : onDone()
+          }
         >
           Discard
         </Button>
         <Button
-          loading={saving.isPending || asking.isPending}
+          loading={saving.isPending || asking.isPending || applying.isPending}
           // A new one may be added as it starts: a Gate needs nothing more.
           disabled={
             (template !== undefined && !dirty) || problems.length > 0 || checkAwaited(check)
           }
           onClick={save}
         >
-          {template ? "Save the template" : "Add the template"}
+          {proposed ? "Apply the Proposal" : template ? "Save the template" : "Add the template"}
         </Button>
       </div>
       {applyingTo && template && (

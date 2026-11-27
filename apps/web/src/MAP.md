@@ -302,6 +302,7 @@
 - `details-store.ts`: DETAILS_STORAGE_KEY, DetailsStore, createDetailsStore, Details, useDetails
 - `details-switch.tsx`: DetailsSwitch
 - `devops-proposal-changes.tsx`: ProposedCommandChanges, commandWords, ProposedTestTargetChanges, ProposedActionChanges, ProposedStageChanges, ProposedStageFieldChanges, ProposedProjectPipelineFields, ProposedSkillInstallFields, ProposedSkillUpdateFields
+- `edit-in-library.ts`: useEditInLibrary
 - `handover-notes.tsx`: HandoverNote, HandoverNotes, HandoverNotesProvider, useHandoverNotes
 - `idea-card.tsx`: IdeaCard
 - `link-card-words.ts`: personStatus

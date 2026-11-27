@@ -25,6 +25,7 @@ import {
   type StageKind,
 } from "../../../shell/pipelines/stage-edits.ts";
 import { pipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
+import { useProposedLibraryEdit } from "./proposed-library-edit.ts";
 import { StageTemplateForm, type StageTemplateOpened } from "./stage-template-form.tsx";
 
 type Tab = "pipelines" | "stage-templates";
@@ -48,10 +49,11 @@ export function PipelinesSection(): ReactNode {
   const roles = useQuery(roleQueries.list());
   const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
-  const [making, setMaking] = useState<Making | undefined>();
+  const [startedMaking, setMaking] = useState<Making | undefined>();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const onFlow = useProposalShown(pipelineId);
+  const proposedEdit = useProposedLibraryEdit();
   if (library.error)
     return <RefusalAlert title="The library can't be read" error={library.error} />;
   if (templates.error)
@@ -66,6 +68,16 @@ export function PipelinesSection(): ReactNode {
   ) {
     return null;
   }
+  // A Proposal that adds one, opened by Edit before applying, is making it.
+  const proposedMaking: Making | undefined =
+    proposedEdit && proposedEdit.recordId === undefined
+      ? proposedEdit.kind === "pipeline"
+        ? { what: "pipeline" }
+        : { what: "stage-template", kind: proposedEdit.edit.kind }
+      : undefined;
+  const making = startedMaking ?? proposedMaking;
+  const proposedPipeline = proposedEdit?.kind === "pipeline" ? proposedEdit : undefined;
+  const proposedTemplate = proposedEdit?.kind === "stage-template" ? proposedEdit : undefined;
   // The tab follows the address; making a template opens its tab too.
   const onTemplatesAddress = /\/settings\/pipelines\/stage-templates(\/|$)/.test(pathname);
   const tab: Tab = making
@@ -146,6 +158,8 @@ export function PipelinesSection(): ReactNode {
                 openedTemplate.template ? openedTemplate.template.id : `new-${openedTemplate.kind}`
               }
               opened={openedTemplate}
+              {...(proposedTemplate &&
+                proposedTemplate.recordId === openTemplate?.id && { proposed: proposedTemplate })}
               roles={roles.data}
               duties={duties.data}
               options={options.data}
@@ -171,6 +185,8 @@ export function PipelinesSection(): ReactNode {
                   roles={roles.data}
                   duties={duties.data}
                   options={options.data}
+                  {...(proposedPipeline &&
+                    proposedPipeline.recordId === open?.id && { proposed: proposedPipeline })}
                   onDone={stopMaking}
                 />
               )}

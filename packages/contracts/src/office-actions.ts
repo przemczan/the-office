@@ -20,6 +20,7 @@ export type OfficeActionSubjectKind =
   | "mcp-server"
   | "pipeline"
   | "stage-template"
+  | "prompt-template"
   | "office-setting"
   | "test-instance"
   | "saved-view"

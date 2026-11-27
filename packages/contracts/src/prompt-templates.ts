@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 import { userRefSchema } from "./users.js";
 
 /** The longest text a Prompt template may hold; the service refuses a longer one on save. */
@@ -80,6 +81,44 @@ export type PromptTemplate = z.infer<typeof promptTemplateSchema>;
 /** PUT /settings/prompt-templates/:key and POST …/check: the text to save or check. */
 export const promptTemplateTextSchema = z.object({ text: z.string() });
 export type PromptTemplateText = z.infer<typeof promptTemplateTextSchema>;
+
+const promptTemplateKeyInput = z
+  .string()
+  .min(1)
+  .describe("The Prompt template's key, as list_prompt_templates gives it.");
+
+/** Office action: a Prompt template's text saved. */
+export const SAVE_PROMPT_TEMPLATE_ACTION = officeAction({
+  name: "save_prompt_template",
+  title: "Save a Prompt template",
+  description:
+    "Saves a Prompt template's text whole, as the newest version; read it first with read_prompt_template, which lists its variables. Refused with every problem of the text, such as an unknown variable or an unclosed section, and when it is over the longest text a template may hold.",
+  input: promptTemplateTextSchema.extend({ key: promptTemplateKeyInput }),
+  answer: promptTemplateSchema,
+  route: { method: "PUT", path: "/settings/prompt-templates/:key" },
+  area: "library",
+  group: "promptTemplates",
+  subject: ({ key }) => ({ kind: "prompt-template", id: key }),
+});
+
+/** Office action: a Prompt template reset to its default text. */
+export const RESET_PROMPT_TEMPLATE_ACTION = officeAction({
+  name: "reset_prompt_template",
+  title: "Reset a Prompt template",
+  description: "Resets a Prompt template to its default text; the saved versions stay as history.",
+  input: z.object({ key: promptTemplateKeyInput }),
+  answer: promptTemplateSchema,
+  route: { method: "DELETE", path: "/settings/prompt-templates/:key" },
+  area: "library",
+  group: "promptTemplates",
+  subject: ({ key }) => ({ kind: "prompt-template", id: key }),
+});
+
+/** The Office actions Prompt templates carry out. */
+export const PROMPT_TEMPLATES_OFFICE_ACTIONS = [
+  SAVE_PROMPT_TEMPLATE_ACTION,
+  RESET_PROMPT_TEMPLATE_ACTION,
+] as const;
 
 /** POST /settings/prompt-templates/:key/check: what is wrong with the text, empty when nothing. */
 export const promptTemplateCheckSchema = z.object({

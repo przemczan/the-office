@@ -11,6 +11,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
+import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { OfficeIdentity } from "../../../platform/git-identity/office-identity.js";
 import {
@@ -55,7 +56,13 @@ beforeEach(async () => {
   ownSourceUrls = [];
   ({ app } = await startTestApplication({
     database: true,
-    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
+    imports: [
+      EventsModule,
+      EventStreamModule,
+      TelemetryModule,
+      OfficeDataModule.forRoot(officeData),
+      SkillsModule,
+    ],
     overrides: [
       { provide: Schedule, useValue: schedule },
       {

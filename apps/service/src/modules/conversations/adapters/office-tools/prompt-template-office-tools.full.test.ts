@@ -4,11 +4,7 @@ import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { refusalOf, type PromptTemplates } from "../../../prompt-templates/index.js";
 import { promptTemplatesFor } from "../../../prompt-templates/index.fixtures.js";
 import type { ProposedPromptTemplateChange } from "../../domain/proposal.js";
-import {
-  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_TOOL,
-  READ_PROMPT_TEMPLATE_TOOL,
-} from "../../domain/session-instructions.js";
+import { READ_PROMPT_TEMPLATE_TOOL } from "../../domain/session-instructions.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
 import {
   A_BRIEF,
@@ -59,17 +55,13 @@ describe("reading a prompt template", () => {
   it("answers an unknown key with the words the Agent acts on", async () => {
     const { tool } = await anOffice();
 
-    for (const [name, input] of [
-      [READ_PROMPT_TEMPLATE_TOOL, { key: "conversations.unknown" }],
-      [PROPOSE_PROMPT_TEMPLATE_TOOL, { key: "conversations.unknown", text: "Hi." }],
-      [PROPOSE_PROMPT_TEMPLATE_RESET_TOOL, { key: "conversations.unknown" }],
-    ] as const) {
-      expect(await tool(name).run(input, session)).toEqual({ text: NO_TEMPLATE, isError: true });
-    }
+    expect(
+      await tool(READ_PROMPT_TEMPLATE_TOOL).run({ key: "conversations.unknown" }, session),
+    ).toEqual({ text: NO_TEMPLATE, isError: true });
   });
 });
 
-describe("drafting a prompt template's change", () => {
+describe("drafting an open prompt template Proposal", () => {
   it.each([
     ["a partial", "Hi {{> other}}."],
     ["a delimiter change", "{{=<% %>=}} Hi <%userName%>."],
@@ -77,44 +69,23 @@ describe("drafting a prompt template's change", () => {
     ["broken syntax", "Hi {{#projects}}."],
     ["too long a text", "x".repeat(PROMPT_TEMPLATE_MAX_CHARACTERS + 1)],
   ])("refuses %s with the words a save in Settings gives", async (_kind, text) => {
-    const { tool, drafted, templates } = await anOffice();
+    const { appliers, templates } = await anOffice();
 
-    const result = await tool(PROPOSE_PROMPT_TEMPLATE_TOOL).run(
-      { key: A_GREETING.key, text },
-      session,
-    );
+    const problems = await appliers.problemsWith(aChange({ to: text }));
 
-    expect(result).toEqual({ text: settingsRefusal(templates, text), isError: true });
-    expect(result.text).not.toBe("");
-    expect(drafted).toEqual([]);
+    expect(problems).toEqual(refusalOf(templates.check(A_GREETING.key, text)).reasons);
+    expect(problems).not.toEqual([]);
   });
 
   it("refuses the text the template has already, and a reset of a template at its default", async () => {
-    const { tool, drafted } = await anOffice();
+    const { appliers } = await anOffice();
 
-    const same = await tool(PROPOSE_PROMPT_TEMPLATE_TOOL).run(
-      { key: A_GREETING.key, text: A_GREETING.text },
-      session,
-    );
-    const reset = await tool(PROPOSE_PROMPT_TEMPLATE_RESET_TOOL).run(
-      { key: A_GREETING.key },
-      session,
-    );
-
-    expect(same).toEqual({ text: "The template is this text already.", isError: true });
-    expect(reset).toEqual({ text: "The template is its default already.", isError: true });
-    expect(drafted).toEqual([]);
-  });
-
-  it("keeps the text as given, spaces and all", async () => {
-    const { tool, drafted } = await anOffice();
-
-    await tool(PROPOSE_PROMPT_TEMPLATE_TOOL).run(
-      { key: A_GREETING.key, text: "  Hi {{userName}}.\n" },
-      session,
-    );
-
-    expect(drafted).toEqual([aChange({ to: "  Hi {{userName}}.\n" })]);
+    expect(await appliers.problemsWith(aChange({ to: A_GREETING.text }))).toEqual([
+      "The template is this text already.",
+    ]);
+    expect(await appliers.problemsWith(aChange({ to: null }))).toEqual([
+      "The template is its default already.",
+    ]);
   });
 });
 

@@ -100,6 +100,7 @@
 - `library-pipeline-form.tsx`: LibraryPipelineForm
 - `linked-stages-card.tsx`: LinkedStagesCard
 - `pipelines-section.tsx`: PipelinesSection
+- `proposed-library-edit.ts`: ProposedLibraryEdit, useProposedLibraryEdit
 - `stage-template-form.tsx`: StageTemplateOpened, StageTemplateForm
 - Tests: library-pipeline-form.full.test.tsx, pipelines-section.test.tsx
 

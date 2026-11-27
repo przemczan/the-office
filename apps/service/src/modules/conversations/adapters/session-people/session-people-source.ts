@@ -5,23 +5,31 @@ import {
   type ActingUser,
   type SessionPeopleSource,
 } from "../../../projects/index.js";
+import {
+  SessionPeople as SkillsSessionPeople,
+  type SessionPeopleSource as SkillsSessionPeopleSource,
+} from "../../../skills/index.js";
 import { ThreadService } from "../../application/thread-service.js";
 
 /**
- * Gives People and Projects whose engine session an Office action's call comes from, and the user
+ * Gives People, Projects and Skills whose engine session an Office action's call comes from, and the user
  * who asked them. Both are read by Conversations, so they can't ask it directly.
  */
 @Injectable()
-export class SessionPeopleForModules implements SessionPeopleSource, OnModuleInit {
+export class SessionPeopleForModules
+  implements SessionPeopleSource, SkillsSessionPeopleSource, OnModuleInit
+{
   constructor(
     private readonly people: PeopleSessionPeople,
     private readonly projects: ProjectsSessionPeople,
+    private readonly skills: SkillsSessionPeople,
     private readonly threads: ThreadService,
   ) {}
 
   onModuleInit(): void {
     this.people.provide(this);
     this.projects.provide(this);
+    this.skills.provide(this);
   }
 
   personInSession(sessionId: string): Promise<string | undefined> {

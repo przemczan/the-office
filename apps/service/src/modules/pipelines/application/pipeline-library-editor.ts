@@ -293,20 +293,6 @@ export class PipelineLibraryEditor {
   }
 
   /**
-   * What applying a Proposal of a Project Pipeline would be refused for and what it would only
-   * flag; it saves nothing.
-   */
-  async checkProposedProjectPipeline(
-    proposal: ProposedProjectPipeline,
-    copyOf?: string,
-  ): Promise<PipelineCheck> {
-    return {
-      problems: (await this.proposalOutcome(proposal, copyOf)).problems,
-      flags: await this.flagsOf(proposal.to.stages),
-    };
-  }
-
-  /**
    * Applies a Proposal of a Project Pipeline, refused, changing nothing, while it has problems. A
    * new one (`pipelineId` null) is a copy of `copyOf` with the Proposal's whole flow, checked as a
    * save is. A change carries the whole flow and applies while the one it changes still has the

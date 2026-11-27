@@ -53,7 +53,13 @@ let forEveryone: Set<string>;
 async function start(): Promise<void> {
   ({ app } = await startTestApplication({
     database: true,
-    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
+    imports: [
+      EventsModule,
+      EventStreamModule,
+      TelemetryModule,
+      OfficeDataModule.forRoot(officeData),
+      SkillsModule,
+    ],
     overrides: [
       everyoneHere(() => forEveryone),
       {

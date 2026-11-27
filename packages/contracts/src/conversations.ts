@@ -596,31 +596,41 @@ export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
  */
 export const PROPOSE_ACTIONS_TOOL = "propose_actions";
 
-/** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */
+/**
+ * The retired Office tool that drafted a Proposal of a library Pipeline's Stages, which
+ * `add_library_pipeline` and `change_library_pipeline` replace; a Thread that holds its call keeps it
+ * hidden behind the card.
+ */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
-/** The Office tool Devops drafts a Proposal of a Project Pipeline with, hidden alike. */
+/**
+ * The retired Office tool that drafted a Proposal of a Project Pipeline, which
+ * `create_project_pipeline` and `change_project_pipeline` replace; hidden alike.
+ */
 export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
 
-/** The Office tool Devops drafts a Proposal of a Stage template's Stage with, hidden alike. */
+/**
+ * The retired Office tool that drafted a Proposal of a Stage template's Stage, which
+ * `add_stage_template` and `change_stage_template` replace; hidden alike.
+ */
 export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
 
 /** The Office tool Devops drafts a Project to onboard with, hidden alike behind its card. */
 export const PROPOSE_PROJECT_TOOL = "propose_project";
 
-/** The Office tool Devops drafts installing a skill from a Source with, hidden alike. */
+/** The retired Office tool that drafted installing a skill from a Source, which `install_skill` replaces; hidden alike. */
 export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
 
-/** The Office tool Devops drafts an installed skill's update with, hidden alike. */
+/** The retired Office tool that drafted an installed skill's update, which `update_skill` replaces; hidden alike. */
 export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
-/** The Office tool anyone drafts a written skill with in their chat, hidden alike. */
+/** The retired Office tool that drafted a written skill, which `write_skill` replaces; hidden alike. */
 export const PROPOSE_SKILL_TOOL = "propose_skill";
 
-/** The Office tool the Office Manager drafts a change to a prompt template with, hidden alike. */
+/** The retired Office tool that drafted a prompt template's new text, which `save_prompt_template` replaces; hidden alike. */
 export const PROPOSE_PROMPT_TEMPLATE_TOOL = "propose_prompt_template";
 
-/** The Office tool the Office Manager drafts a prompt template's reset with, hidden alike. */
+/** The retired Office tool that drafted a prompt template's reset, which `reset_prompt_template` replaces; hidden alike. */
 export const PROPOSE_PROMPT_TEMPLATE_RESET_TOOL = "propose_prompt_template_reset";
 
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
@@ -927,6 +937,13 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
      * the edited card (`proposalApplicationSchema`'s `card`).
      */
     editableCard: savedRoleCardSchema.nullable().optional(),
+    /**
+     * For `add_library_pipeline`, `change_library_pipeline`, `add_stage_template` and
+     * `change_stage_template` only: the call's input, which "Edit before applying" opens in the
+     * Pipeline or Stage template editor; applying then takes the edited input
+     * (`proposalApplicationSchema`'s `actionInput`).
+     */
+    editableInput: z.record(z.string(), z.unknown()).nullable().optional(),
   }),
   /** A kind of change a later release kept, which this release can't read; its card only says so. */
   z.object({ kind: z.literal("unknown") }),
@@ -984,13 +1001,20 @@ export const proposalListSchema = z.array(proposalSchema);
 /**
  * POST /proposals/:id/apply: a new Role as the user edited it before hiring, from scratch its card
  * (with its skills), from a preset the person's name; neither to apply the Proposal as drafted.
- * For a Proposal of `hire_role` or `change_role_card`, `card` is the card as edited before applying.
+ * For a Proposal of `hire_role` or `change_role_card`, `card` is the card as edited before applying;
+ * for one of a library Pipeline or Stage template action, `actionInput` is its input as edited.
  */
 export const proposalApplicationSchema = z
-  .object({ card: roleCardSchema.optional(), name: z.string().optional() })
-  .refine(({ card, name }) => card === undefined || name === undefined, {
-    message: "Give the edited card or the name, not both.",
-  });
+  .object({
+    card: roleCardSchema.optional(),
+    name: z.string().optional(),
+    actionInput: z.record(z.string(), z.unknown()).optional(),
+  })
+  .refine(
+    ({ card, name, actionInput }) =>
+      [card, name, actionInput].filter((given) => given !== undefined).length <= 1,
+    { message: "Give the edited card, the name or the edited input, only one of them." },
+  );
 export type ProposalApplication = z.infer<typeof proposalApplicationSchema>;
 
 const messageFields = { id: z.uuid(), at: z.iso.datetime() };

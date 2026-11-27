@@ -28,7 +28,6 @@ import {
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { PipelineInitiatives, type PipelineInitiative } from "./pipeline-initiatives.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
-import { ProposalDrafts, type ProposedLibraryChange } from "./proposal-drafts.js";
 import {
   StageDecisions,
   type OpenedStageDecision,
@@ -1469,17 +1468,6 @@ export class TaskPublishingForTests extends TaskPublishing {
   }
 }
 
-/** Conversations' Proposals: what was drafted, by session. */
-@Injectable()
-export class ProposalDraftsForTests extends ProposalDrafts {
-  readonly drafted: { readonly sessionId: string; readonly change: ProposedLibraryChange }[] = [];
-
-  draft(sessionId: string, change: ProposedLibraryChange): Promise<{ readonly id: string }> {
-    this.drafted.push({ sessionId, change });
-    return Promise.resolve({ id: randomUUID() });
-  }
-}
-
 /**
  * The ports' stand-ins, the Stage Threads' sessions on the engine `imports` give, and the registry
  * of Conversations' Proposal appliers and People's of the Roles Stages name, which Pipelines fills.
@@ -1504,7 +1492,6 @@ export class PipelinesPortsForTestsModule {
       StageContextLimitDefaultsForTests,
       TaskThreadSessionsForTests,
       SessionPeopleForTests,
-      ProposalDraftsForTests,
       StageRoleEnginesForTests,
       RoleEngineCascadeForTests,
       RunEnvironmentDefinitionsForTests,

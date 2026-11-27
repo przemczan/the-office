@@ -65,7 +65,7 @@ import {
   PullRequestWatch,
   TaskWorktrees,
 } from "./modules/projects/index.js";
-import { McpServersModule } from "./modules/mcp-servers/index.js";
+import { McpServerOfficeActionsModule, McpServersModule } from "./modules/mcp-servers/index.js";
 import { ConnectedDevices, DevicesModule } from "./modules/devices/index.js";
 import {
   RunEnvironmentDefinitions,
@@ -221,7 +221,6 @@ export class AppModule {
       stageContextLimitDefaults: ContextPolicySettingsService,
       taskThreadSessions: ThreadRunner,
       sessionPeople: ThreadService,
-      proposalDrafts: ProposalService,
       stageRoleEngines: PipelineRoleCapabilityChecks,
       roleEngineCascade: EngineCascade,
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
@@ -320,6 +319,7 @@ export class AppModule {
         GitHubUserTokenModule.register({ imports: [github], gitHubUserToken: GitHubAccess }),
         HealthModule,
         McpServersModule,
+        McpServerOfficeActionsModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
         OfficeTestInstanceModule.forRoot(config.testInstance ?? false),
         OfficeIdentityHttpModule,

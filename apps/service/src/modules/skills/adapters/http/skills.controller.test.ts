@@ -17,6 +17,7 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
@@ -47,7 +48,13 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-skills-"));
   ({ app, url } = await startTestApplication({
     database: true,
-    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
+    imports: [
+      EventsModule,
+      EventStreamModule,
+      TelemetryModule,
+      OfficeDataModule.forRoot(officeData),
+      SkillsModule,
+    ],
   }));
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));

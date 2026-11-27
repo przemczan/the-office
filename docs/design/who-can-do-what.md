@@ -373,15 +373,15 @@ It grants nothing new: each row is narrowed to what it drafts today.
 | People and Roles › Change Roles | Proposal, `propose_role` only: a new Role, a hire from a preset or a card change; never letting a Role go or hiring one back |
 | `propose_office_setup`, its own tool | Proposal |
 | Office settings | Proposal (`propose_office_setting`) |
-| Library › Skills | Proposal, a new skill only (`propose_skill`) |
-| Library › Pipelines and Stage templates | Proposal, the drafts only: `propose_library_pipeline` and `propose_stage_template` |
-| Projects and settings › Project settings | Proposal, a Project Pipeline's draft only (`propose_project_pipeline`) |
-| Library › Prompt templates | Proposal (`propose_prompt_template` and `propose_prompt_template_reset`) |
+| Library › Skills | Proposal, a new skill only (`write_skill`) |
+| Library › Pipelines and Stage templates | Proposal, the drafts only: `add_library_pipeline`, `change_library_pipeline`, `add_stage_template` and `change_stage_template`; never a copy, delete or apply |
+| Projects and settings › Project settings | Proposal, a Project Pipeline's draft only: `create_project_pipeline` and `change_project_pipeline`; never a delete or any other setting |
+| Library › Prompt templates | Proposal (`save_prompt_template` and `reset_prompt_template`) |
 | Run installs | Allowed |
 | Publish outside the Pipeline | Allowed |
 | Every other group and tool | Never |
 
-- **The three Pipeline drafts** are the two Library rows' and the Project settings row's: `propose_library_pipeline`, `propose_stage_template` and `propose_project_pipeline`, and nothing else of those groups.
+- **Its Authority rows stay as they are; the offering narrows them.** The groups Skills, Pipelines and Stage templates, Project settings and Prompt templates are Proposal on its card, but its session is offered only the replacements of its old tools in them (`CARETAKER_ONLY_TOOLS`, applied beside `CARETAKER_NEVER_TOOLS`): `write_skill`; `add_library_pipeline`, `change_library_pipeline`, `add_stage_template` and `change_stage_template`; `create_project_pipeline` and `change_project_pipeline`; `save_prompt_template` and `reset_prompt_template`. Every other tool of those groups is Never for it; MCP servers stay Never.
 - **The drafting tools it shares with the Default person to talk to** come from its own fixed Authority, in every Thread, whoever holds that duty, as they do today. `post_link_card`, `show_office_status` and `create_initiative` never come with them.
 - **Allow changes on its Thread** stays the user's alone ([4](#4-the-trust-anchor-and-the-users-alone)): the user turns it on in the Thread, as today.
 - **Fixed like its profile:** the card shows its Authority as "Built in: fixed for the Caretaker". A change is refused.

@@ -34,8 +34,8 @@ import {
   officeActionDraft,
   officeActionTool,
   OfficeToolRegistry,
+  withSecretValues,
   type OfficeTool,
-  type OfficeToolRedactedInput,
   type OfficeToolResult,
   type OfficeToolUser,
 } from "../../../engine/index.js";
@@ -64,9 +64,6 @@ import { ProjectRepository } from "../../ports/project-repository.js";
 import { PullRequestRepository } from "../../ports/pull-request-repository.js";
 import { toProjectResponse } from "../http/project-responses.js";
 import { toProjectMcpServerValuesResponse } from "../http/project-server-values-responses.js";
-
-/** The Authority group that rules a call giving a secret's value. */
-const SECRET_VALUES_GROUP = "secretValues";
 
 /**
  * Who asks an action of Projects: the signed-in user's own request, or an Agent's call (a Proposal
@@ -404,53 +401,16 @@ export class ProjectOfficeActions implements OnModuleInit {
    * secret's value, and showing that value by name only everywhere a card shows the call.
    */
   private withSecrets(tool: OfficeTool): OfficeTool {
-    return {
-      ...tool,
-      ...(tool.authority && {
-        authority: {
-          ...tool.authority,
-          groupsOf: async (input) =>
-            (await this.secretsGiven(CHANGE_SERVER_VALUES_ACTION.input.parse(input))).length > 0
-              ? [SECRET_VALUES_GROUP]
-              : [],
-        },
-      }),
-      redact: (input) => this.withoutSecretValues(CHANGE_SERVER_VALUES_ACTION.input.parse(input)),
-      // Drafted from the call as shown: the secret named by its field only, never its value.
-      draft: async (input) => {
-        const call = CHANGE_SERVER_VALUES_ACTION.input.parse(input);
-        const { shown } = await this.withoutSecretValues(call);
-        const drafted = await this.draftOf(CHANGE_SERVER_VALUES_ACTION, shown);
-        const secrets = await this.secretsGiven(call);
-        return {
-          ...drafted,
-          fields: [
-            ...drafted.fields,
-            ...secrets.map((name) => ({
-              label: `${name} (Secret value)`,
-              before: null,
-              after: null,
-              form: "secret" as const,
-            })),
-          ],
-        };
-      },
-    };
-  }
-
-  private async withoutSecretValues(
-    call: z.output<typeof CHANGE_SERVER_VALUES_ACTION.input>,
-  ): Promise<OfficeToolRedactedInput> {
-    const secrets = new Set(await this.secretsGiven(call));
-    return {
-      hasSecret: secrets.size > 0,
-      shown: {
+    return withSecretValues(tool, CHANGE_SERVER_VALUES_ACTION.input, {
+      given: (call) => this.secretsGiven(call),
+      without: (call, secrets) => ({
         ...call,
         serverValues: call.serverValues.map((each) =>
           secrets.has(each.name) ? { name: each.name } : each,
         ),
-      },
-    };
+      }),
+      draft: (shown) => this.draftOf(CHANGE_SERVER_VALUES_ACTION, shown),
+    });
   }
 
   /** The names of the Server values this call gives a value for that are secrets. */

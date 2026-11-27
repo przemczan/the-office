@@ -2,15 +2,7 @@ import { handWrittenGroupOf } from "./hand-written-tool-groups.js";
 import {
   CAPTURE_IDEA_TOOL,
   OPEN_DECISION_TOOL,
-  PROPOSE_LIBRARY_PIPELINE_TOOL as CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_PIPELINE_TOOL as CONTRACT_PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL as CONTRACT_PROPOSE_PROJECT_TOOL,
-  PROPOSE_SKILL_INSTALL_TOOL as CONTRACT_PROPOSE_SKILL_INSTALL_TOOL,
-  PROPOSE_SKILL_TOOL as CONTRACT_PROPOSE_SKILL_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL as CONTRACT_PROPOSE_SKILL_UPDATE_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL as CONTRACT_PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_TOOL as CONTRACT_PROPOSE_PROMPT_TEMPLATE_TOOL,
-  PROPOSE_STAGE_TEMPLATE_TOOL as CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL,
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -26,15 +18,7 @@ import {
   LIST_STAGE_TEMPLATES_TOOL,
   POST_LINK_CARD_TOOL,
   READ_ROLE_TOOL,
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
-  PROPOSE_SKILL_INSTALL_TOOL,
-  PROPOSE_SKILL_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_TOOL,
-  PROPOSE_STAGE_TEMPLATE_TOOL,
   READ_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
   READING_OFFICE_TOOLS,
@@ -208,21 +192,12 @@ describe("chatOfficeTools", () => {
     expect(STAGE_AUTHORITY_OFFICE_TOOLS).not.toContain(READ_REPOSITORY_TOOL);
   });
 
-  it("gives everyone drafting a written skill as a Proposal", () => {
-    expect(chatOfficeTools()).toContain(PROPOSE_SKILL_TOOL);
-  });
-
-  it("offers drafting Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates, as the Authority leaves each", () => {
+  it("offers drafting a Project and reading a Source's skills and an update, as the Authority leaves each", () => {
     expect(chatOfficeTools()).toEqual(
       expect.arrayContaining([
-        PROPOSE_LIBRARY_PIPELINE_TOOL,
-        PROPOSE_PROJECT_PIPELINE_TOOL,
-        PROPOSE_STAGE_TEMPLATE_TOOL,
         PROPOSE_PROJECT_TOOL,
         LIST_SOURCE_SKILLS_TOOL,
-        PROPOSE_SKILL_INSTALL_TOOL,
         READ_SKILL_UPDATE_TOOL,
-        PROPOSE_SKILL_UPDATE_TOOL,
         RUN_ENVIRONMENT_CHECK_TOOL,
         READ_REPOSITORY_TOOL,
       ]),
@@ -230,24 +205,28 @@ describe("chatOfficeTools", () => {
     expect(new Set(chatOfficeTools()).size).toBe(chatOfficeTools().length);
   });
 
-  it("offers none of the retired tools of the commands, test targets and Actions Proposals, which change_project_settings ruled Proposal replaces", () => {
-    for (const retired of ["propose_project_commands", "propose_test_targets", "propose_actions"]) {
+  it("offers none of the retired propose tools, which Office actions ruled Proposal replace: the commands, test targets and Actions (change_project_settings), skills, Pipelines, Stage templates and Prompt templates", () => {
+    for (const retired of [
+      "propose_project_commands",
+      "propose_test_targets",
+      "propose_actions",
+      "propose_skill",
+      "propose_skill_install",
+      "propose_skill_update",
+      "propose_library_pipeline",
+      "propose_project_pipeline",
+      "propose_stage_template",
+      "propose_prompt_template",
+      "propose_prompt_template_reset",
+    ]) {
       expect(chatOfficeTools()).not.toContain(retired);
       expect(STAGE_AUTHORITY_OFFICE_TOOLS).not.toContain(retired);
       expect(handWrittenGroupOf(retired)).toBeUndefined();
     }
   });
 
-  it("names the Proposal tools as the web does", () => {
-    expect(PROPOSE_LIBRARY_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL);
-    expect(PROPOSE_PROJECT_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_PIPELINE_TOOL);
-    expect(PROPOSE_STAGE_TEMPLATE_TOOL).toBe(CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL);
+  it("names the Proposal tool as the web does", () => {
     expect(PROPOSE_PROJECT_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_TOOL);
-    expect(PROPOSE_SKILL_INSTALL_TOOL).toBe(CONTRACT_PROPOSE_SKILL_INSTALL_TOOL);
-    expect(PROPOSE_SKILL_UPDATE_TOOL).toBe(CONTRACT_PROPOSE_SKILL_UPDATE_TOOL);
-    expect(PROPOSE_SKILL_TOOL).toBe(CONTRACT_PROPOSE_SKILL_TOOL);
-    expect(PROPOSE_PROMPT_TEMPLATE_TOOL).toBe(CONTRACT_PROPOSE_PROMPT_TEMPLATE_TOOL);
-    expect(PROPOSE_PROMPT_TEMPLATE_RESET_TOOL).toBe(CONTRACT_PROPOSE_PROMPT_TEMPLATE_RESET_TOOL);
   });
 
   it("offers posting Link cards and showing the Office status as tools of their own, which the Authority decides", () => {

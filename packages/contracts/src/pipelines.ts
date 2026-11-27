@@ -718,6 +718,22 @@ export const newProjectPipelineSchema = z.strictObject({
 });
 export type NewProjectPipeline = z.infer<typeof newProjectPipelineSchema>;
 
+/**
+ * How a Pipeline's Stages, routes and positions are given, which the Pipeline actions' tool
+ * descriptions share (an Agent reads `list_pipelines` for the shape, and here for the rules).
+ */
+const PIPELINE_STAGES_WORDS =
+  "Give all of the Stages, in the Pipeline's order, in the shape list_pipelines gives them, and read it first: the first Stage is where every walk starts. A Stage's `kind` is \"agent\", \"script\", \"gate\" or \"publish\". An Agent Stage with `mergeBaseFirst` true has The Office merge the base into the Task's branch as it starts, leaving conflicts for its Agent. A Script Stage's command is a Project command by its key, never install or publish. A Publish Stage publishes by the Project's publishing mode, or with `publishTarget` \"branch-only\" pushes the branch only. A Stage's `position` (`x`, `y`) is where its card's top-left corner stands on the editor's canvas (a card is 232 wide and 72 to about 170 high; leave 76 between Stages side by side); it is layout alone. Leave every position out to have the Stages stand in a row; `endPosition` places End, right of the last Stage when left out. `place` (column, row) is from before free placement and is refused. Stages that all leave their routes out are taken as a straight line, each to the next. Every Project with the Pipeline as default, or with a Task on it that hasn't started, must have each key it names, a command test's among them.";
+
+const PIPELINE_ROUTES_WORDS =
+  'Each Stage\'s routes are weighed in order and the walk follows the first whose condition holds: a route leads to any Stage by its key (`to`), its own and earlier ones included, or to End with `to` null; a condition null always holds, so the last route usually carries none. A condition is a group, `combine` "all" or "any", of tests and nested groups: a Stage test `{ "kind": "stage", "stage": <key, or null for the route\'s own>, "is": … }` of that Stage\'s latest run, `is` being "done", "failed", "skipped", "changed" (changed files), "unchanged", or "ran" with `times`, and for a Publish Stage alone "published", "nothing-to-publish", "conflict" or "after-publishing-failed"; a Definition of Done test `{ "kind": "definitionOfDone", "is": "all-met" | "some-not-met" }`; or a Project command test `{ "kind": "command", "key": <the Project\'s command key> }`, which holds when that command exits 0. A route\'s `limit` is the most times the walk follows it in one walk, 1 to 9, or null for No limit; left out it is 3 for a route back (to its own Stage or an earlier one) and No limit for a route on; a route at its limit stops the walk and asks, and every loop must pass through a route with a limit. A Stage\'s failure goes on only by a failure route, `{ "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }` placed first among its routes, usually back to the Stage that fixes the work; with none, a failed Stage asks. An Agent Stage\'s route may be one of its Agent\'s choices, the only test of its route, in plain words: `{ "combine": "all", "tests": [{ "kind": "choice", "words": "the review found something to fix" }] }`, each different; the walk follows it when the Agent chose it with choose_route and the Stage ended done, so put an Otherwise (condition null) last. A Publish Stage\'s routes each take one or more of its results, each result leading to one place at most; its Conflict route leads to a conflict chain before it: Resolve (an Agent Stage with `mergeBaseFirst`), then a Script Stage running test that goes back to Resolve when it fails, then the Publish again. For example, "run Review only when Tests changed files or failed, otherwise Publish" gives Tests the routes `[{ "to": "review", "condition": { "combine": "any", "tests": [{ "kind": "stage", "stage": null, "is": "changed" }, { "kind": "stage", "stage": null, "is": "failed" }] } }, { "to": "publish", "condition": null }]`, Review `[{ "to": "publish", "condition": null }]` and Publish `[{ "to": null, "condition": null }]`.';
+
+const PIPELINE_CHECKED_WORDS =
+  "The editor's check runs on it: a flow that breaks a rule is refused with every problem, each naming its Stage and the rule, for you to fix and try again.";
+
+const STAGE_TEMPLATE_WORDS =
+  'A template\'s Stage is given whole, in the shape list_stage_templates gives it, with `kind` "agent", "script", "gate" or "publish" and the kind\'s own fields; a template keeps no routes or position, which only a Pipeline gives meaning.';
+
 const projectPipelineIdInput = z.string().min(1).describe("The id of the Project Pipeline.");
 
 /** Office action: a Project Pipeline made as a copy. */
@@ -725,7 +741,7 @@ export const CREATE_PROJECT_PIPELINE_ACTION = officeAction({
   name: "create_project_pipeline",
   title: "Create a Project Pipeline",
   description:
-    "Makes a Project Pipeline of the Project as a copy of the Stages of an office-wide Pipeline (never Onboard) or of one of the Project's own, which you can change after.",
+    "Makes a Project Pipeline of the Project as a copy of the Stages of an office-wide Pipeline (never Onboard) or of one of the Project's own, under a name unique among the office-wide Pipelines and the Project's own; change its flow after with change_project_pipeline. It never sets the Project's Default Pipeline.",
   input: z.strictObject({
     projectId: z.string().min(1).describe("The id of the Project."),
     copyOf: newProjectPipelineSchema.shape.copyOf.describe("The id of the Pipeline to copy."),
@@ -744,8 +760,7 @@ export const CREATE_PROJECT_PIPELINE_ACTION = officeAction({
 export const CHANGE_PROJECT_PIPELINE_ACTION = officeAction({
   name: "change_project_pipeline",
   title: "Change a Project Pipeline",
-  description:
-    "Saves a Project Pipeline as given: its name, description, Stages and routes whole, replacing what it has. Refused with every problem its Stages have; its id and Project stay.",
+  description: `Saves a Project Pipeline as given: its name, description, Stages and routes whole, replacing what it has; read it first with list_pipelines. Refused with every problem its Stages have; its id and Project stay. It never sets the Project's Default Pipeline. ${PIPELINE_STAGES_WORDS} ${PIPELINE_ROUTES_WORDS} ${PIPELINE_CHECKED_WORDS}`,
   input: projectPipelineEditSchema.extend({ pipelineId: projectPipelineIdInput }),
   answer: projectPipelineSchema,
   route: { method: "PUT", path: "/project-pipelines/:pipelineId" },
@@ -768,19 +783,6 @@ export const DELETE_PROJECT_PIPELINE_ACTION = officeAction({
   group: "projectSettings",
   subject: ({ pipelineId }) => ({ kind: "pipeline", id: pipelineId }),
 });
-
-/** The Office actions Pipelines carries out. */
-export const PIPELINES_OFFICE_ACTIONS = [
-  CONTINUE_AT_GATE_ACTION,
-  SEND_BACK_AT_GATE_ACTION,
-  DROP_AT_GATE_ACTION,
-  RESTART_TASK_FROM_ACTION,
-  EDIT_TASK_STAGES_ACTION,
-  SWITCH_TO_STAND_IN_ACTION,
-  CREATE_PROJECT_PIPELINE_ACTION,
-  CHANGE_PROJECT_PIPELINE_ACTION,
-  DELETE_PROJECT_PIPELINE_ACTION,
-] as const;
 
 /** POST /project-pipelines/check: a Project Pipeline as the editor holds it, by its id. */
 export const projectPipelineCheckRequestSchema = projectPipelineEditSchema.extend({
@@ -867,6 +869,146 @@ export const stageTemplateApplyResultSchema = z.object({
   refused: z.array(refusedPipelineSchema),
 });
 export type StageTemplateApplyResult = z.infer<typeof stageTemplateApplyResultSchema>;
+
+const libraryPipelineIdInput = z.string().min(1).describe("The id of the office-wide Pipeline.");
+const stageTemplateIdInput = z.string().min(1).describe("The id of the Stage template.");
+
+/** Office action: an office-wide Pipeline made from scratch. */
+export const ADD_LIBRARY_PIPELINE_ACTION = officeAction({
+  name: "add_library_pipeline",
+  title: "Add a Pipeline",
+  description: `Adds an office-wide Pipeline to the library: its name, description, Stages and routes. Refused with every problem its Stages have, and when its name is taken. ${PIPELINE_STAGES_WORDS} ${PIPELINE_ROUTES_WORDS} ${PIPELINE_CHECKED_WORDS}`,
+  input: pipelineEditSchema,
+  answer: pipelineSchema,
+  route: { method: "POST", path: "/pipelines" },
+  status: 201,
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ name }) => ({ kind: "pipeline", id: name.trim() }),
+});
+
+/** Office action: an office-wide Pipeline made as a copy of another. */
+export const COPY_LIBRARY_PIPELINE_ACTION = officeAction({
+  name: "copy_library_pipeline",
+  title: "Copy a Pipeline",
+  description:
+    "Makes an office-wide Pipeline as a copy of one of the library's, under a name of its own.",
+  input: z.strictObject({
+    copyOf: z.string().min(1).describe("The id of the library Pipeline to copy."),
+  }),
+  answer: pipelineSchema,
+  route: { method: "POST", path: "/pipelines/copies" },
+  status: 201,
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ copyOf }) => ({ kind: "pipeline", id: copyOf }),
+});
+
+/** Office action: an office-wide Pipeline saved as edited. */
+export const CHANGE_LIBRARY_PIPELINE_ACTION = officeAction({
+  name: "change_library_pipeline",
+  title: "Change a Pipeline",
+  description: `Saves an office-wide Pipeline as given: its name, description, Stages and routes whole, replacing what it has; read it first with list_pipelines. Tasks that haven't started follow it. Refused with every problem its Stages have; its id stays. ${PIPELINE_STAGES_WORDS} ${PIPELINE_ROUTES_WORDS} ${PIPELINE_CHECKED_WORDS}`,
+  input: pipelineEditSchema.extend({ pipelineId: libraryPipelineIdInput }),
+  answer: pipelineSchema,
+  route: { method: "PUT", path: "/pipelines/:pipelineId" },
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ pipelineId }) => ({ kind: "pipeline", id: pipelineId }),
+});
+
+/** Office action: an office-wide Pipeline deleted. */
+export const DELETE_LIBRARY_PIPELINE_ACTION = officeAction({
+  name: "delete_library_pipeline",
+  title: "Delete a Pipeline",
+  description:
+    "Deletes an office-wide Pipeline. Refused while a Project's Default Pipeline, a Task that hasn't ended or an Initiative uses it.",
+  input: z.object({ pipelineId: libraryPipelineIdInput }),
+  answer: z.void(),
+  route: { method: "DELETE", path: "/pipelines/:pipelineId" },
+  status: 204,
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ pipelineId }) => ({ kind: "pipeline", id: pipelineId }),
+});
+
+/** Office action: a Stage template made. */
+export const ADD_STAGE_TEMPLATE_ACTION = officeAction({
+  name: "add_stage_template",
+  title: "Add a Stage template",
+  description: `Adds a Stage template to the library: a Stage to add to Pipelines, whose Stage stays linked to it. Its routes and place are dropped. Refused with every problem the Stage has, and when its name is taken. ${STAGE_TEMPLATE_WORDS}`,
+  input: stageTemplateEditSchema,
+  answer: stageTemplateSchema,
+  route: { method: "POST", path: "/stage-templates" },
+  status: 201,
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ stage }) => ({ kind: "stage-template", id: stage.name.trim() }),
+});
+
+/** Office action: a Stage template saved as edited. */
+export const CHANGE_STAGE_TEMPLATE_ACTION = officeAction({
+  name: "change_stage_template",
+  title: "Change a Stage template",
+  description: `Saves a Stage template's Stage whole, replacing what it has; read it first with list_stage_templates. Its linked Stages keep their own values until the template is applied to them. Refused with every problem the Stage has. ${STAGE_TEMPLATE_WORDS}`,
+  input: stageTemplateEditSchema.extend({ templateId: stageTemplateIdInput }),
+  answer: stageTemplateSchema,
+  route: { method: "PUT", path: "/stage-templates/:templateId" },
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ templateId }) => ({ kind: "stage-template", id: templateId }),
+});
+
+/** Office action: a Stage template's fields applied to the Stages linked to it. */
+export const APPLY_STAGE_TEMPLATE_ACTION = officeAction({
+  name: "apply_stage_template",
+  title: "Apply a Stage template to its linked Stages",
+  description:
+    "Sets the named fields of the Stages chosen, each a Stage of a Pipeline linked to the template, to the template's, each Pipeline saved as its editor saves it. A Pipeline refused keeps its Stages and is named with why; the others still apply.",
+  input: stageTemplateApplyRequestSchema.extend({ templateId: stageTemplateIdInput }),
+  answer: stageTemplateApplyResultSchema,
+  route: { method: "POST", path: "/stage-templates/:templateId/apply" },
+  status: 200,
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ templateId }) => ({ kind: "stage-template", id: templateId }),
+});
+
+/** Office action: a Stage template deleted. */
+export const DELETE_STAGE_TEMPLATE_ACTION = officeAction({
+  name: "delete_stage_template",
+  title: "Delete a Stage template",
+  description:
+    "Deletes a Stage template from the library; the Stages linked to it stay as they are, unlinked.",
+  input: z.object({ templateId: stageTemplateIdInput }),
+  answer: z.void(),
+  route: { method: "DELETE", path: "/stage-templates/:templateId" },
+  status: 204,
+  area: "library",
+  group: "pipelinesAndStageTemplates",
+  subject: ({ templateId }) => ({ kind: "stage-template", id: templateId }),
+});
+
+/** The Office actions Pipelines carries out. */
+export const PIPELINES_OFFICE_ACTIONS = [
+  CONTINUE_AT_GATE_ACTION,
+  SEND_BACK_AT_GATE_ACTION,
+  DROP_AT_GATE_ACTION,
+  RESTART_TASK_FROM_ACTION,
+  EDIT_TASK_STAGES_ACTION,
+  SWITCH_TO_STAND_IN_ACTION,
+  CREATE_PROJECT_PIPELINE_ACTION,
+  CHANGE_PROJECT_PIPELINE_ACTION,
+  DELETE_PROJECT_PIPELINE_ACTION,
+  ADD_LIBRARY_PIPELINE_ACTION,
+  COPY_LIBRARY_PIPELINE_ACTION,
+  CHANGE_LIBRARY_PIPELINE_ACTION,
+  DELETE_LIBRARY_PIPELINE_ACTION,
+  ADD_STAGE_TEMPLATE_ACTION,
+  CHANGE_STAGE_TEMPLATE_ACTION,
+  APPLY_STAGE_TEMPLATE_ACTION,
+  DELETE_STAGE_TEMPLATE_ACTION,
+] as const;
 
 /**
  * 422 from PUT /tasks/:id/stages: every reason the edit can't be saved, as words like every refusal's

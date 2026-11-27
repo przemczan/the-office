@@ -1,10 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import {
-  PROMPT_TEMPLATE_MAX_CHARACTERS,
-  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_TOOL,
-  promptTemplateDomainSchema,
-} from "@the-office/contracts";
+import { promptTemplateDomainSchema } from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import {
@@ -13,18 +8,10 @@ import {
   type PromptTemplateState,
   type PromptVariable,
 } from "../../../prompt-templates/index.js";
-import { ProposalService } from "../../application/proposal-service.js";
-import type { ProposedPromptTemplateChange } from "../../domain/proposal.js";
 import {
   LIST_PROMPT_TEMPLATES_TOOL,
   READ_PROMPT_TEMPLATE_TOOL,
 } from "../../domain/session-instructions.js";
-import { refusedToTheAgent } from "./refused-to-the-agent.js";
-
-const PROMPT_TEMPLATE_DRAFTED =
-  "The Proposal is in this Thread as a card; the template changes only when the user applies it, for prompts rendered after that. Don't wait for it: tell the user what you propose and why, in a line or two.";
-
-const ONLY_WHEN_ASKED = "Draft one only when the user asks you to change a prompt template.";
 
 const keyInput = z
   .string()
@@ -33,23 +20,19 @@ const keyInput = z
   );
 
 /**
- * The Office tools the Default person to talk to reads the prompt templates with and drafts a new
- * text for one, or its reset to the default, as a Proposal the user applies with a click (spec
- * §2.2). Drafting changes nothing, so sits behind no Hard switch: the user's click is the approval.
+ * The Office tools the prompt templates are read with (spec §2.2); a new text or a reset is the
+ * Office actions `save_prompt_template` and `reset_prompt_template`, ruled by the person's Authority.
  */
 @Injectable()
 export class PromptTemplateOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly templates: PromptTemplates,
-    private readonly proposals: ProposalService,
   ) {}
 
   onModuleInit(): void {
     this.registerList();
     this.registerRead();
-    this.registerPropose();
-    this.registerProposeReset();
   }
 
   private registerList(): void {
@@ -75,46 +58,9 @@ export class PromptTemplateOfficeTools implements OnModuleInit {
   private registerRead(): void {
     this.registry.register({
       name: READ_PROMPT_TEMPLATE_TOOL,
-      description: `Reads a prompt template as it is now: what it is for, its text whole, its default when customised, the variables it may use and what is wrong with its saved text. Read it before drafting a change with ${PROPOSE_PROMPT_TEMPLATE_TOOL}, and start from the text it answers.`,
+      description: `Reads a prompt template as it is now: what it is for, its text whole, its default when customised, the variables it may use and what is wrong with its saved text. Read it before save_prompt_template, and start from the text it answers: a save replaces the text whole, using only the variables listed here as {{variable}} (or {{#list}}…{{/list}} for a flag or a list; partials and changed delimiters are refused).`,
       input: z.object({ key: keyInput }),
       run: ({ key }) => this.readOr(key, (state) => ({ text: readText(state), isError: false })),
-    });
-  }
-
-  private registerPropose(): void {
-    this.registry.register({
-      name: PROPOSE_PROMPT_TEMPLATE_TOOL,
-      description: `Drafts a new text for a prompt template as a Proposal the user applies with a click. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once. ${ONLY_WHEN_ASKED}`,
-      input: z.object({
-        key: keyInput,
-        text: z
-          .string()
-          .describe(
-            `The template's new text, given whole: it replaces all of it, not only the lines that change. Start from what ${READ_PROMPT_TEMPLATE_TOOL} answers. Use only the variables it lists, as {{variable}}, or {{#list}}…{{/list}} for a flag or a list; partials and changed delimiters are refused, and so is a text over ${PROMPT_TEMPLATE_MAX_CHARACTERS} characters.`,
-          ),
-      }),
-      run: ({ key, text }, { sessionId }) =>
-        this.readOr(key, (state) =>
-          refusedToTheAgent(async () => {
-            await this.proposals.draft(sessionId, proposedChange(state, text));
-            return PROMPT_TEMPLATE_DRAFTED;
-          }),
-        ),
-    });
-  }
-
-  private registerProposeReset(): void {
-    this.registry.register({
-      name: PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-      description: `Drafts a prompt template's reset to the default that ships with The Office, as a Proposal the user applies with a click. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once. ${ONLY_WHEN_ASKED}`,
-      input: z.object({ key: keyInput }),
-      run: ({ key }, { sessionId }) =>
-        this.readOr(key, (state) =>
-          refusedToTheAgent(async () => {
-            await this.proposals.draft(sessionId, proposedChange(state, null));
-            return PROMPT_TEMPLATE_DRAFTED;
-          }),
-        ),
     });
   }
 
@@ -130,15 +76,6 @@ export class PromptTemplateOfficeTools implements OnModuleInit {
       throw error;
     }
   }
-}
-
-/** A Proposal of `to` as the template's text, or of its default when null, from its text now. */
-function proposedChange(
-  state: PromptTemplateState,
-  to: string | null,
-): ProposedPromptTemplateChange {
-  const { key, name } = state.template;
-  return { kind: "prompt-template", key, name, from: state.text, to };
 }
 
 function listLine(state: PromptTemplateState): string {

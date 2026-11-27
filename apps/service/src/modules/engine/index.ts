@@ -5,6 +5,11 @@ export { OfficeToolRegistry, type DraftedOfficeCall } from "./application/office
 export { canonicalJson, fingerprintOf } from "./domain/canonical-json.js";
 export { officeActionTool } from "./adapters/office-tools/office-action-tool.js";
 export {
+  SECRET_VALUES_GROUP,
+  withSecretValues,
+  type SecretValuesOfCall,
+} from "./adapters/office-tools/secret-values-tool.js";
+export {
   officeActionDraft,
   type OfficeActionSubjectSnapshot,
 } from "./adapters/office-tools/office-action-draft.js";

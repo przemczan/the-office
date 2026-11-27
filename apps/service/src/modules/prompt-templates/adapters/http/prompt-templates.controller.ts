@@ -1,13 +1,11 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
-  Put,
   Query,
   UseFilters,
 } from "@nestjs/common";
@@ -21,12 +19,14 @@ import {
   type PromptTemplatesQuery,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { PromptTemplates } from "../../application/prompt-templates.js";
 import type { PromptTemplateState } from "../../domain/prompt-template-state.js";
 import { PromptTemplateRefusalsFilter } from "./prompt-template-refusals.filter.js";
 
-/** Settings › Prompt templates: each template's text, saved, checked or reset to its default. */
+/**
+ * Settings › Prompt templates: each template read and its text checked; saving a text and
+ * resetting to the default are Office actions (`PromptTemplateOfficeActions`, Pipelines').
+ */
 @Controller("settings/prompt-templates")
 @UseFilters(PromptTemplateRefusalsFilter)
 export class PromptTemplatesController {
@@ -42,23 +42,6 @@ export class PromptTemplatesController {
   @Get(":key")
   async read(@Param("key") key: string): Promise<PromptTemplateBody> {
     return bodyOf(await this.templates.read(key));
-  }
-
-  @Put(":key")
-  async save(
-    @Param("key") key: string,
-    @Body(new ContractPipe(promptTemplateTextSchema)) { text }: PromptTemplateText,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<PromptTemplateBody> {
-    return bodyOf(await this.templates.save(key, text, userOf(signedIn)));
-  }
-
-  @Delete(":key")
-  async resetToDefault(
-    @Param("key") key: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<PromptTemplateBody> {
-    return bodyOf(await this.templates.resetToDefault(key, userOf(signedIn)));
   }
 
   @Post(":key/check")

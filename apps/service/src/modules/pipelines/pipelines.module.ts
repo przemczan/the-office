@@ -9,7 +9,10 @@ import { PipelineLibraryController } from "./adapters/http/pipeline-library.cont
 import { ProjectPipelineLibraryController } from "./adapters/http/project-pipeline-library.controller.js";
 import { StageTemplateLibraryController } from "./adapters/http/stage-template-library.controller.js";
 import { PipelinesOfficeActionsController } from "./adapters/http/pipelines-office-actions.controller.js";
+import { PromptTemplateOfficeActionsController } from "./adapters/http/prompt-template-office-actions.controller.js";
+import { LibraryOfficeActions } from "./adapters/office-actions/library-office-actions.js";
 import { PipelinesOfficeActions } from "./adapters/office-actions/pipelines-office-actions.js";
+import { PromptTemplateOfficeActions } from "./adapters/office-actions/prompt-template-office-actions.js";
 import { SessionPeople } from "./ports/session-people.js";
 import { TaskEngineCascadeController } from "./adapters/http/task-engine-cascade.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
@@ -56,7 +59,6 @@ import { PipelineLibraryModule } from "./pipeline-library.module.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { PipelineInitiatives } from "./ports/pipeline-initiatives.js";
 import { ProjectDefaults } from "./ports/project-defaults.js";
-import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { RoleEngineCascade } from "./ports/role-engine-cascade.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
 import { StageRoleEngines } from "./ports/stage-role-engines.js";
@@ -100,7 +102,6 @@ export interface PipelinesModuleOptions {
   readonly stageContextLimitDefaults: Type<StageContextLimitDefaults>;
   readonly taskThreadSessions: Type<TaskThreadSessions>;
   readonly sessionPeople: Type<SessionPeople>;
-  readonly proposalDrafts: Type<ProposalDrafts>;
   readonly stageRoleEngines: Type<StageRoleEngines>;
   /** People's engine cascade, for the engines a Task's Roles run on. */
   readonly roleEngineCascade: Type<RoleEngineCascade>;
@@ -133,7 +134,6 @@ export class PipelinesModule {
     stageContextLimitDefaults,
     taskThreadSessions,
     sessionPeople,
-    proposalDrafts,
     stageRoleEngines,
     roleEngineCascade,
     runEnvironmentDefinitions,
@@ -156,6 +156,7 @@ export class PipelinesModule {
         TaskStagesController,
         TaskEngineCascadeController,
         PipelinesOfficeActionsController,
+        PromptTemplateOfficeActionsController,
         PipelineLibraryController,
         ProjectPipelineLibraryController,
         StageTemplateLibraryController,
@@ -177,7 +178,6 @@ export class PipelinesModule {
         { provide: StageContextLimitDefaults, useExisting: stageContextLimitDefaults },
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
         { provide: SessionPeople, useExisting: sessionPeople },
-        { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: StageRoleEngines, useExisting: stageRoleEngines },
         { provide: RoleEngineCascade, useExisting: roleEngineCascade },
         { provide: RunEnvironmentDefinitions, useExisting: runEnvironmentDefinitions },
@@ -221,6 +221,8 @@ export class PipelinesModule {
         StandInSwitches,
         PipelineOfficeTools,
         PipelinesOfficeActions,
+        LibraryOfficeActions,
+        PromptTemplateOfficeActions,
         PipelinesPromptTemplates,
         PipelinesWebEvents,
       ],

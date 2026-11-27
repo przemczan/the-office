@@ -1,22 +1,15 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { stagePositionSchema, stageSchema } from "@the-office/contracts";
 import { z } from "zod";
 import {
   LIST_PIPELINES_TOOL,
   LIST_STAGE_TEMPLATES_TOOL,
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_PIPELINE_TOOL,
-  PROPOSE_STAGE_TEMPLATE_TOOL,
-  ProposalRefused,
   READ_STAGE_HISTORY_TOOL,
 } from "../../../conversations/index.js";
 import {
   OfficeToolRegistry,
   RUN_PROJECT_COMMAND_TOOL,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
-  type OfficeToolResult,
 } from "../../../engine/index.js";
-import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { RoleFillings } from "../../application/role-fillings.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
@@ -26,89 +19,30 @@ import { StageProjectCommands } from "../../application/stage-project-commands.j
 import { StageRunEnvironmentDefinitions } from "../../application/stage-run-environment-definitions.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf } from "../../domain/agent-command.js";
-import { namedFlow, withGivenLimits } from "../../domain/flow.js";
-import { proposedEdit } from "../../domain/library-pipeline.js";
-import type { StageProblem } from "../../domain/pipeline.js";
 import type { ProjectPipeline } from "../../domain/project-pipeline.js";
-import {
-  proposedRoutes,
-  routeChangeWords,
-  type ProposedRoutes,
-} from "../../domain/proposed-routes.js";
 import { agentStageWorkers, type Stage } from "../../domain/stage.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
 import { dutyLabel, fillingKey } from "../../domain/stage-staffing.js";
 import { STAGE_HISTORY_READ_LIMIT } from "../../domain/stage-history-words.js";
 import { ProjectDefaults, type ProjectDefault } from "../../ports/project-defaults.js";
-import { ProposalDrafts, type ProjectPipelineFields } from "../../ports/proposal-drafts.js";
-import { givenStage } from "../http/given-stages.js";
 import {
   toPipelineResponse,
   toProjectPipelineResponse,
   toStageTemplateResponse,
 } from "../http/pipeline-responses.js";
 
-const PIPELINE_DRAFTED =
-  "The Proposal is in this Thread as a card, with the Pipeline's Stages and routes now and as proposed; nothing changes until the user applies it, and it is refused if the Stages change first. Don't wait for it: tell the user what you propose and why, in a line or two.";
-
-const PROJECT_PIPELINE_DRAFTED =
-  "The Proposal is in this Thread as a card, with the Project Pipeline's fields, Stages and routes now and as proposed; nothing changes until the user applies it, and it is refused if the Project Pipeline changes first. It never sets the Project's default Pipeline: the user does that on the Project's page. Don't wait for it: tell the user what you propose and why, in a line or two.";
-
-/** How a Stage's routes, their conditions and their limits are given, which both propose tools take. */
-const ROUTES_WORDS = [
-  "Each Stage's routes are weighed in order, and the walk follows the first whose condition holds: a route leads to any Stage by its key (`to`), the route's own Stage and earlier ones included, or to End with `to` null, and a condition null holds always, so the last route usually carries none.",
-  'A condition is a group, `combine` "all" (every test in it holds) or "any" (one does), of tests and nested groups: a Stage test `{ "kind": "stage", "stage": <key>, "is": … }`, where the key is any Stage of the Pipeline, or null for the route\'s own, testing its latest run, and `is` is "done" (it ended Done), "failed" (it ended Failed), "skipped", "changed" (it changed files), "unchanged" (it changed no files), or "ran" with `times`, holding once it ran that many times or more, and for a Publish Stage alone one of its results, "published", "nothing-to-publish", "conflict" or "after-publishing-failed"; a Definition of Done test `{ "kind": "definitionOfDone", "is": "all-met" | "some-not-met" }`; or a Project command test `{ "kind": "command", "key": <the Project\'s command key> }`, which holds when that command exits 0.',
-  "Each route has its `limit`, the most times the walk follows it in one walk, 1 to 9, or null for No limit; left out, it is 3 for a route back (to its own Stage or one before it in the Pipeline's order) and No limit for a route on (to a later Stage or End). A route at its limit stops the walk and asks. Every loop of routes must pass through a route with a limit, so the walk always ends.",
-  "A Publish Stage's routes each take one or more of its results, each result leading to one place at most: Published and Nothing to publish end it Done, so its Otherwise takes them, and \"failed\" holds only for Failed; Conflict and After publishing failed are results of their own, and one no route takes asks (Conflict the user directly). Its Conflict route leads to the conflict chain, before it in the Pipeline's order: Resolve, an Agent Stage with `mergeBaseFirst` on, then Test after Resolve, a Script Stage running test that goes back to Resolve when it fails, then the Publish again; with no route taking Conflict, the check warns.",
-  'Only a failure route carries a Stage\'s failure on (an Agent Stage\'s "When it fails"): a route whose condition is `{ "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }`, placed first among the Stage\'s routes, usually back to the Stage that fixes the work; it may lead where another of its routes leads. A Stage that fails with none is asked about.',
-  'An Agent Stage\'s route may be one of its Agent\'s choices, a condition in plain words for the Agent: `{ "combine": "all", "tests": [{ "kind": "choice", "words": "the review found something to fix" }] }`. A choice test is only on an Agent Stage and the only test of its route; its words are not empty and differ from every other choice of the Stage, trimmed and whatever the case. The walk follows it when the Agent chose it with `choose_route` and the Stage ended done; with no choice made, no choice route holds, so put an Otherwise (condition null) last.',
-].join(" ");
-
-/** The Stage kinds' own fields, which both propose tools' Stages take. */
-const STAGE_KINDS_WORDS =
-  'A Stage\'s `kind` is "agent", "script", "gate" or "publish". An Agent Stage with `mergeBaseFirst` true has The Office merge the base into the Task\'s branch as it starts, leaving any conflicts for its Agent. A Script Stage\'s command is a Project command by its key, never install or publish. A Publish Stage publishes the Task\'s work by the Project\'s publishing mode, or with `publishTarget` "branch-only" pushes the branch only, with no pull request and no merge.';
-
-/** The worked example both propose tools give. */
-const ROUTES_EXAMPLE =
-  'For example, "run Review only when Tests changed files or ended Failed, otherwise Publish" gives the Tests Stage the routes `[{ "to": "review", "condition": { "combine": "any", "tests": [{ "kind": "stage", "stage": null, "is": "changed" }, { "kind": "stage", "stage": null, "is": "failed" }] } }, { "to": "publish", "condition": null }]`, Review the routes `[{ "to": "publish", "condition": null }]`, and Publish `[{ "to": null, "condition": null }]`; and "when Tests fail, go back to Implement at most 2 times" puts `{ "to": "implement", "condition": { "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }, "limit": 2 }` first among Tests\' routes.';
-
-/** Where the Stages and End stand on the canvas, which both propose tools take. */
-const POSITION_WORDS =
-  "The order of `stages` is the Pipeline's order: the first is where every walk starts, and a route to its own Stage or an earlier one leads back. A Stage's `position` (`x`, `y`) is where its card's top-left corner stands on the editor's canvas, in canvas units (a card is 232 wide and 72 to about 170 high; leave 76 between Stages side by side); it is layout alone and never changes how the Pipeline runs. Leave every position out to have the Stages stand in a row in the order given; leave one out and it stands right of the Stage before it. `endPosition` places End, right of the last Stage when left out. Stages that all leave their routes out are taken as a straight line, each to the next.";
-
-/** Why a Stage given with the place it had on the old grid is refused. */
-const PLACE_REFUSED =
-  "`place` (column, row) is from before free placement: give each Stage a `position` (x, y) in the Pipeline's order, or leave it out.";
-
-const END_POSITION_INPUT = stagePositionSchema
-  .optional()
-  .describe(
-    "Where End's top-left corner stands on the editor's canvas, in canvas units; right of the last Stage when left out.",
-  );
-
-/** What both propose tools do before drafting. */
-const CHECKED_WORDS =
-  "The Office runs the editor's check on it first: a draft that breaks a rule is refused with every problem, each naming its Stage and the rule, for you to fix and propose again; one with only warnings is drafted, and you are told the warnings.";
-
-const STAGE_TEMPLATE_DRAFTED =
-  "The Proposal is in this Thread as a card, with the template's Stage now and as proposed; nothing changes until the user applies it, and it is refused if the template changes first. Don't wait for it: tell the user what you propose and why, in a line or two.";
-
 /**
- * The Office tools Devops reads the Pipelines, Project Pipelines among them, and the Stage templates
- * with, and proposes a library Pipeline's new Stages, a Project Pipeline, new or changed, or a
- * template's new Stage with (spec §2.3). Proposing changes
- * nothing itself, so it sits behind no Hard switch: the user's click on the Proposal is the
- * approval. They all return at once.
+ * The Office tools the Pipelines, Project Pipelines among them, and the Stage templates are read
+ * with (spec §2.3), and the Stage tools of a Task's Agent. Changing a Pipeline or a template is the
+ * Office actions of the library, ruled by the person's Authority.
  */
 @Injectable()
 export class PipelineOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly library: PipelineLibrary,
-    private readonly editor: PipelineLibraryEditor,
     private readonly projects: ProjectDefaults,
     private readonly stageTemplates: StageTemplateLibrary,
-    private readonly proposals: ProposalDrafts,
     private readonly branchUpdate: StageBranchUpdate,
     private readonly projectCommands: StageProjectCommands,
     private readonly stageHistory: StageHistory,
@@ -119,10 +53,7 @@ export class PipelineOfficeTools implements OnModuleInit {
 
   onModuleInit(): void {
     this.registerListPipelines();
-    this.registerProposePipeline();
-    this.registerProposeProjectPipeline();
     this.registerListStageTemplates();
-    this.registerProposeStageTemplate();
     this.registerUpdateBranch();
     this.registerChooseRoute();
     this.registerRunProjectCommand();
@@ -238,7 +169,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
       description:
-        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions (an Agent Stage's choices among them, each a choice test with its words) and its position on the editor's canvas, and where End stands (`endPosition`) when it was moved, in the shape propose_library_pipeline takes them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which propose_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
+        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions (an Agent Stage's choices among them, each a choice test with its words) and its position on the editor's canvas, and where End stands (`endPosition`) when it was moved, in the shape add_library_pipeline and change_library_pipeline take them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which change_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
       input: z.object({
         project: z
           .string()
@@ -286,176 +217,11 @@ export class PipelineOfficeTools implements OnModuleInit {
     });
   }
 
-  private registerProposePipeline(): void {
-    this.registry.register({
-      name: PROPOSE_LIBRARY_PIPELINE_TOOL,
-      description: [
-        "Drafts an office-wide Pipeline's whole new flow as a Proposal the user applies with a click: its Stages, where each stands, and their routes with their conditions and limits; its name and description stay.",
-        ROUTES_WORDS,
-        POSITION_WORDS,
-        ROUTES_EXAMPLE,
-        CHECKED_WORDS,
-        "It shows in this Thread as a card, with each Stage whose routes change, its routes as they were and as proposed, and changes nothing until the user applies it. It returns at once.",
-      ].join(" "),
-      input: z.object({
-        pipeline: z.string().describe("The Pipeline's id, as list_pipelines gives it."),
-        stages: z
-          .array(stageSchema)
-          .describe(
-            `The Pipeline's Stages as they should be, all of them, in the Pipeline's order, each with its routes and position, in the shape list_pipelines gives them. ${STAGE_KINDS_WORDS} Every Project with the Pipeline as default, or with a Task on it that hasn't started, must have each key it names, a command test's among them.`,
-          ),
-        endPosition: END_POSITION_INPUT,
-      }),
-      run: async ({ pipeline: pipelineId, stages, endPosition }, { sessionId }) => {
-        const pipeline = await this.library.find(pipelineId.trim());
-        if (!pipeline) {
-          return { text: `The library has no Pipeline "${pipelineId}".`, isError: true };
-        }
-        if (stages.some(({ place }) => place !== undefined)) {
-          return { text: PLACE_REFUSED, isError: true };
-        }
-        const to = namedFlow(withGivenLimits(stages));
-        const check = await this.editor.check(
-          proposedEdit(pipeline, to, endPosition ?? pipeline.endPosition),
-          pipeline.id,
-        );
-        if (check.problems.length > 0) return refusedWords(check.problems);
-        const routes = proposedRoutes(namedFlow(pipeline.stages), to, check.flags);
-        const answer = await drafted(PIPELINE_DRAFTED, () =>
-          this.proposals.draft(sessionId, {
-            kind: "pipeline",
-            pipelineId: pipeline.id,
-            from: pipeline.stages,
-            to,
-            ...(endPosition && { endPosition }),
-            routes,
-          }),
-        );
-        if (answer.isError) return answer;
-        return draftedWords(answer.text, routes);
-      },
-    });
-  }
-
-  private registerProposeProjectPipeline(): void {
-    this.registry.register({
-      name: PROPOSE_PROJECT_PIPELINE_TOOL,
-      description: [
-        "Drafts a new Project Pipeline of a Project, copied from a Pipeline, or a change to one, as a Proposal the user applies with a click: its name, description and whole flow, its Stages, where each stands, and their routes with their conditions and limits.",
-        "A new one is a copy of `copyOf`: an office-wide Pipeline other than Onboard, or one of the Project's own; it takes that Pipeline's Stages when `stages` is left out.",
-        ROUTES_WORDS,
-        POSITION_WORDS,
-        ROUTES_EXAMPLE,
-        CHECKED_WORDS,
-        "It shows in this Thread as a card, each value now and as proposed, with each Stage whose routes change, its routes as they were and as proposed, and changes nothing until the user applies it. It never removes a Project Pipeline or sets a Project's default. It returns at once.",
-      ].join(" "),
-      input: z.object({
-        project: z.string().describe("The Project's id."),
-        pipeline: z
-          .string()
-          .optional()
-          .describe(
-            "The Project Pipeline's id, as list_pipelines gives it, to change it; left out for a new one.",
-          ),
-        copyOf: z
-          .string()
-          .optional()
-          .describe(
-            "For a new one, which needs it: the Pipeline it is copied from, by its id as list_pipelines gives it, an office-wide Pipeline other than Onboard or one of the Project's own. Left out for a change.",
-          ),
-        name: z
-          .string()
-          .optional()
-          .describe(
-            "Its name, unique among the office-wide Pipelines and the Project's own. A new one needs it; a change keeps the name when it is left out.",
-          ),
-        description: z
-          .string()
-          .optional()
-          .describe("Its description; empty for a new one, kept for a change, when left out."),
-        stages: z
-          .array(stageSchema)
-          .optional()
-          .describe(
-            `Its Stages as they should be, all of them, in the Pipeline's order, each with its routes and position, in the shape list_pipelines gives them; a new one takes the copied Pipeline's, and a change keeps its own, when left out. ${STAGE_KINDS_WORDS} The Project must have each key it names, a command test's among them.`,
-          ),
-        endPosition: END_POSITION_INPUT,
-      }),
-      run: async (input, { sessionId }) => {
-        const projectId = input.project.trim();
-        const pipelineId = input.pipeline?.trim() || undefined;
-        const copyOf = pipelineId === undefined ? input.copyOf?.trim() || undefined : undefined;
-        if (input.stages?.some(({ place }) => place !== undefined)) {
-          return { text: PLACE_REFUSED, isError: true };
-        }
-        let from: ProjectPipelineFields | null = null;
-        let before: Pick<ProjectPipelineFields, "stages" | "endPosition">;
-        if (pipelineId !== undefined) {
-          const saved = await this.library.projectPipeline(pipelineId);
-          if (!saved || saved.projectId !== projectId) {
-            return {
-              text: `Project "${projectId}" has no Project Pipeline "${pipelineId}".`,
-              isError: true,
-            };
-          }
-          from = fieldsOf(saved);
-          before = saved;
-        } else {
-          if (copyOf === undefined || input.name === undefined) {
-            return {
-              text: "A new Project Pipeline needs its name and the Pipeline it is copied from (copyOf).",
-              isError: true,
-            };
-          }
-          const source = await this.editor.copySource(projectId, copyOf);
-          if (!source) {
-            return {
-              text: `There is no Pipeline "${copyOf}" to copy: name an office-wide Pipeline or one of Project "${projectId}"'s own.`,
-              isError: true,
-            };
-          }
-          // A new one's routes change from those of the Pipeline it copies.
-          before = source;
-        }
-        // A new one carries its whole flow too, so it gets the whole check.
-        const stages = namedFlow(
-          input.stages === undefined ? before.stages : withGivenLimits(input.stages),
-        );
-        const endPosition = input.endPosition ?? before.endPosition;
-        const to: ProjectPipelineFields = {
-          name: input.name ?? from?.name ?? "",
-          description: input.description ?? from?.description ?? "",
-          stages,
-          ...(endPosition && { endPosition }),
-          ...(copyOf === undefined ? {} : { copyOf }),
-        };
-        const check = await this.editor.checkProposedProjectPipeline(
-          { projectId, pipelineId: pipelineId ?? null, from, to },
-          copyOf,
-        );
-        if (check.problems.length > 0) return refusedWords(check.problems);
-        const routes = proposedRoutes(namedFlow(before.stages), stages, check.flags);
-        const answer = await drafted(PROJECT_PIPELINE_DRAFTED, () =>
-          this.proposals.draft(sessionId, {
-            kind: "project-pipeline",
-            projectId,
-            pipelineId: pipelineId ?? null,
-            from,
-            to,
-            routes,
-          }),
-        );
-        if (answer.isError) return answer;
-        return draftedWords(answer.text, routes);
-      },
-    });
-  }
-
   private registerListStageTemplates(): void {
     this.registry.register({
       name: LIST_STAGE_TEMPLATES_TOOL,
       description:
-        "Lists the Stage templates as JSON: each template's id and Stage, in the shape propose_stage_template takes it; then, for each duty a Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts.",
+        "Lists the Stage templates as JSON: each template's id and Stage, in the shape add_stage_template and change_stage_template take it; then, for each duty a Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts.",
       input: z.object({}),
       run: async () => {
         const templates = await this.stageTemplates.list();
@@ -484,34 +250,6 @@ export class PipelineOfficeTools implements OnModuleInit {
       }),
     );
   }
-
-  private registerProposeStageTemplate(): void {
-    this.registry.register({
-      name: PROPOSE_STAGE_TEMPLATE_TOOL,
-      description:
-        "Drafts a new Stage for a Stage template as a Proposal the user applies with a click. It shows in this Thread as a card, with the Stage now and the one proposed, and changes nothing until the user applies it. A template keeps no routes or position, which only a Pipeline gives meaning. It returns at once.",
-      input: z.object({
-        template: z.string().describe("The template's id, as list_stage_templates gives it."),
-        stage: stageSchema.describe(
-          "The template's Stage as it should be, whole, in the shape list_stage_templates gives it.",
-        ),
-      }),
-      run: async ({ template: templateId, stage }, { sessionId }) => {
-        const template = await this.stageTemplates.find(templateId.trim());
-        if (!template) {
-          return { text: `There is no Stage template "${templateId}".`, isError: true };
-        }
-        return drafted(STAGE_TEMPLATE_DRAFTED, () =>
-          this.proposals.draft(sessionId, {
-            kind: "stage-template",
-            templateId: template.id,
-            from: template.stage,
-            to: givenStage(stage),
-          }),
-        );
-      },
-    });
-  }
 }
 
 /**
@@ -539,52 +277,4 @@ function listedProjectPipeline(
           },
         }),
   };
-}
-
-/** The Project Pipeline's fields as a Proposal of it starts from. */
-function fieldsOf({
-  name,
-  description,
-  stages,
-  endPosition,
-}: ProjectPipeline): ProjectPipelineFields {
-  return { name, description, stages, ...(endPosition && { endPosition }) };
-}
-
-/** What the Agent is told of a draft the check refused: every problem, on its Stage. */
-function refusedWords(problems: readonly StageProblem[]): OfficeToolResult {
-  return {
-    text: [
-      "Nothing was drafted: the check refuses it. Fix each of these and propose it again:",
-      ...problems.map(({ text }) => `- ${text}`),
-    ].join("\n"),
-    isError: true,
-  };
-}
-
-/** What the Agent is told of a draft: its route changes and the check's warnings. */
-function draftedWords(draftedText: string, { stages, check }: ProposedRoutes): OfficeToolResult {
-  const lines = [draftedText];
-  if (stages.length > 0) lines.push("Its route changes:", ...routeChangeWords(stages));
-  if (check.length > 0) {
-    lines.push(
-      "The check warns of these, which don't refuse it; tell the user of them:",
-      ...check.map(({ text }) => `- ${text}`),
-    );
-  }
-  return { text: lines.join("\n"), isError: false };
-}
-
-/** Drafts with `draft`, answering the Agent `draftedText`, or with why it was refused. */
-async function drafted(
-  draftedText: string,
-  draft: () => Promise<unknown>,
-): Promise<OfficeToolResult> {
-  try {
-    await draft();
-    return { text: draftedText, isError: false };
-  } catch (error) {
-    if (error instanceof ProposalRefused) return { text: error.message, isError: true };
-    throw error;
-  }
 }

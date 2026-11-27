@@ -158,9 +158,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   | No area | Approve held calls and apply Proposals ([trust anchor](#the-trust-anchor)) |
 
 - **Where each hand-written tool belongs:** a tool no Office action declares is offered unless its group is Never; one that drafts its own Proposal is ruled no further, so its group decides only whether it is offered:
-  - Office settings: `propose_office_setting`; Prompt templates: `propose_prompt_template`, `propose_prompt_template_reset`;
-  - Pipelines and Stage templates: `propose_library_pipeline`, `propose_stage_template`; Project settings: `propose_project_pipeline`, `propose_project`;
-  - Skills: `propose_skill`, `propose_skill_install`, `propose_skill_update`; Initiative records: `create_initiative`; Task records: `create_task`;
+  - Office settings: `propose_office_setting`; Project settings: `propose_project`;
+  - Initiative records: `create_initiative`; Task records: `create_task`;
   - Run installs: `run_environment_check`; Ideas › `capture_idea`; `post_link_card` and `show_office_status` in their own rows.
 - **Core** is loaded in every session from the start; it isn't an area and isn't one settable group:
   - the reading tools (`read_*`, `list_*`, `read_attachment`, `read_stage_history`, `read_threads`), `read_office_instructions`, `list_prompt_templates`, `read_prompt_template`, `read_repository`, `list_source_skills` and `read_skill_update` among them;
@@ -202,6 +201,20 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   - The "Set up the run environment" Task's Done turning Run environment On ([2.1.3](2.1.3-tasks.md#setting-up-the-run-environment)) records nothing.
   - It is kept with the Project and removed with it.
   - `GET /api/projects/:id/setting-changes` answers the newest ([Defaults](#project-setting-changes-listed)), which the Project page's Recent activity lists ([project-page.md](screens/project-page.md#recent-activity-tile)).
+
+## The library by Agents
+
+- The library's Office actions share their routes' handlers and are ruled by the Authority group of their area:
+  - Skills: `write_skill`, `edit_skill`, `install_skill`, `update_skill`, `change_skill_state`, `change_skill_everyone`, `change_skill_roles`, `delete_skill`;
+  - MCP servers: add, change, turn on or off, assign to Roles and remove;
+  - Pipelines and Stage templates: `add_library_pipeline`, `copy_library_pipeline`, `change_library_pipeline`, `delete_library_pipeline`, `add_stage_template`, `change_stage_template`, `apply_stage_template`, `delete_stage_template`;
+  - Prompt templates: `save_prompt_template`, `reset_prompt_template`.
+- A Pipeline's or Stage template's version is fingerprinted whole, a setting's by its value: a Proposal is Out of date once its record changed since the draft.
+- A call that sets an MCP server's secret Server value is also ruled by Secret values, and the stricter setting wins: never Allowed or Consult a person, shown by name only.
+- Turning an MCP server on runs its review as the call is made: the Proposal lists the reviewed tools, its fingerprint is the review's digest, and applying is refused once the server changed since.
+- A newly assigned MCP tool still starts at Consult ([MCP tools](#mcp-tools)).
+- The Caretaker offers only the replacements of its old tools: write a new skill, add and save Pipelines, Stage templates and Project Pipelines, and both Prompt template actions. Delete and apply are Never for it.
+- A Proposal of a Pipeline or Stage template action opens the editor with **Edit before applying** ([2.4.2](2.4.2-decisions.md#proposals-and-approvals)); open Proposals of the retired `skill`, `skill-install`, `skill-update`, `pipeline`, `project-pipeline`, `stage-template` and prompt template kinds still apply.
 
 ## No bypass
 

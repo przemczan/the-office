@@ -1,37 +1,14 @@
+import { Body, Controller, Get, Param, Post, Query, UseFilters } from "@nestjs/common";
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-  Query,
-  UseFilters,
-} from "@nestjs/common";
-import {
-  skillEditSchema,
-  skillEveryoneChangeSchema,
-  skillRolesChangeSchema,
-  skillStateChangeSchema,
   skillUpdateDiffQuerySchema,
   skillUploadQuerySchema,
-  writtenSkillSchema,
   type Skill as SkillResponse,
-  type SkillEdit,
-  type SkillEveryoneChange,
   type SkillReview as SkillReviewResponse,
-  type SkillRolesChange,
-  type SkillStateChange,
   type SkillUpdateDiff,
   type SkillUpdateDiffQuery,
   type SkillUploadQuery,
-  type WrittenSkill,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { RoleSkills } from "../../application/role-skills.js";
 import { SkillLibrary } from "../../application/skill-library.js";
@@ -40,6 +17,7 @@ import { SkillUses } from "../../application/skill-uses.js";
 import type { PinnedVersion } from "../../domain/installed-source.js";
 import type { Skill } from "../../domain/skill.js";
 import { SkillRefusalsFilter } from "./skill-refusals.filter.js";
+import { skillResponseOf, toSkillResponse } from "./skill-responses.js";
 
 @Controller("skills")
 @UseFilters(SkillRefusalsFilter)
@@ -61,13 +39,6 @@ export class SkillsController {
     return skills.map((skill) =>
       toSkillResponse(skill, roles.get(skill.name) ?? [], uses.get(skill.name) ?? 0),
     );
-  }
-
-  @Post()
-  async write(
-    @Body(new ContractPipe(writtenSkillSchema)) written: WrittenSkill,
-  ): Promise<SkillResponse> {
-    return this.response(await this.library.write(written));
   }
 
   @Post("uploads")
@@ -108,15 +79,6 @@ export class SkillsController {
     };
   }
 
-  /** The next version of a written skill. */
-  @Put(":name")
-  async edit(
-    @Param("name") name: string,
-    @Body(new ContractPipe(skillEditSchema)) edit: SkillEdit,
-  ): Promise<SkillResponse> {
-    return this.response(await this.library.edit(name, edit));
-  }
-
   /** The next version of an uploaded skill. */
   @Post(":name/versions")
   async uploadVersion(
@@ -129,70 +91,11 @@ export class SkillsController {
     );
   }
 
-  @Put(":name/state")
-  async changeState(
-    @Param("name") name: string,
-    @Body(new ContractPipe(skillStateChangeSchema)) { state }: SkillStateChange,
-  ): Promise<SkillResponse> {
-    const skill = state === "on" ? this.library.turnOn(name) : this.library.turnOff(name);
-    return this.response(await skill);
-  }
-
-  @Put(":name/everyone")
-  async changeEveryone(
-    @Param("name") name: string,
-    @Body(new ContractPipe(skillEveryoneChangeSchema)) { everyone }: SkillEveryoneChange,
-  ): Promise<SkillResponse> {
-    return this.response(await this.library.changeEveryone(name, everyone));
-  }
-
-  @Put(":name/roles")
-  async assign(
-    @Param("name") name: string,
-    @Body(new ContractPipe(skillRolesChangeSchema)) { roles }: SkillRolesChange,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<SkillResponse> {
-    const assigned = await this.roleSkills.assignSkill(name, roles, userOf(signedIn));
-    return this.response(await this.library.read(name), assigned);
-  }
-
-  @Delete(":name")
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param("name") name: string): Promise<void> {
-    await this.library.remove(name);
-  }
-
-  private async response(skill: Skill, assigned?: readonly string[]): Promise<SkillResponse> {
-    const [roles, uses] = await Promise.all([
-      assigned ?? this.roleSkills.bySkill().then((bySkill) => bySkill.get(skill.name) ?? []),
-      this.uses.libraryCounts(),
-    ]);
-    return toSkillResponse(skill, roles, uses.get(skill.name) ?? 0);
+  private response(skill: Skill): Promise<SkillResponse> {
+    return skillResponseOf(skill, this.roleSkills, this.uses);
   }
 }
 
 function pinnedVersion(tag: string | undefined, commit: string): PinnedVersion {
   return tag === undefined ? { commit } : { tag, commit };
-}
-
-function toSkillResponse(
-  skill: Skill,
-  roles: readonly string[],
-  usesInLast7Days: number,
-): SkillResponse {
-  return {
-    name: skill.name,
-    description: skill.description,
-    source: skill.source,
-    ...(skill.installedFrom && { installedFrom: skill.installedFrom }),
-    ...(skill.update && { update: skill.update }),
-    version: skill.version,
-    filesHash: skill.filesHash,
-    state: skill.state,
-    everyone: skill.everyone,
-    roles: [...roles],
-    addedAt: skill.addedAt.toISOString(),
-    savedAt: skill.savedAt.toISOString(),
-    usesInLast7Days,
-  };
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 
 /** How a skill came into the library. */
 export const skillSourceSchema = z.enum([
@@ -128,6 +129,170 @@ export type SkillEveryoneChange = z.infer<typeof skillEveryoneChangeSchema>;
 /** PUT /skills/:name/roles: exactly the Roles that have it, by key. */
 export const skillRolesChangeSchema = z.object({ roles: z.array(z.string().min(1)) });
 export type SkillRolesChange = z.infer<typeof skillRolesChangeSchema>;
+
+const skillNameInput = z.string().min(1).describe("The skill's name, as the library lists it.");
+
+/** Office action: a skill written in place, which arrives off until the user reviews it. */
+export const WRITE_SKILL_ACTION = officeAction({
+  name: "write_skill",
+  title: "Write a skill",
+  description:
+    "Adds a new skill to the library, written as its SKILL.md: its name, when to use it and its instructions. It arrives off until the user has reviewed it. Refused when the name is taken or the skill is invalid.",
+  input: writtenSkillSchema.extend({
+    name: z
+      .string()
+      .describe(
+        "The skill's name: lowercase letters and digits in words joined by dashes, such as release-notes.",
+      ),
+    description: z
+      .string()
+      .describe("When to use the skill, in one sentence; every session that has it lists it."),
+    instructions: z
+      .string()
+      .describe("The skill's instructions, in Markdown: the body of its SKILL.md."),
+  }),
+  answer: skillSchema,
+  route: { method: "POST", path: "/skills" },
+  status: 201,
+  area: "library",
+  group: "skills",
+  subject: ({ name }) => ({ kind: "skill", id: name.trim() }),
+});
+
+/** Office action: the next version of a skill written in place. */
+export const EDIT_SKILL_ACTION = officeAction({
+  name: "edit_skill",
+  title: "Edit a skill",
+  description:
+    "Saves the next version of a skill written in place: its description and instructions, whole. The new version waits for review. Refused for a skill that wasn't written in place.",
+  input: skillEditSchema.extend({ name: skillNameInput }),
+  answer: skillSchema,
+  route: { method: "PUT", path: "/skills/:name" },
+  area: "library",
+  group: "skills",
+  subject: ({ name }) => ({ kind: "skill", id: name }),
+});
+
+/** POST /skills/installs: one skill of a Source, at the version the Source is pinned at now. */
+export const skillInstallSchema = z.object({
+  source: z
+    .string()
+    .min(1)
+    .describe(
+      "The source: owner/repo on GitHub, or a git URL (https://, ssh://, git@ or file://).",
+    ),
+  folder: z
+    .string()
+    .describe(
+      "The skill's folder in the source, as list_source_skills gives it; empty for its top folder.",
+    ),
+});
+export type SkillInstall = z.infer<typeof skillInstallSchema>;
+
+/** Office action: one skill installed from a Source, off until the user reviews it. */
+export const INSTALL_SKILL_ACTION = officeAction({
+  name: "install_skill",
+  title: "Install a skill from a source",
+  description:
+    "Installs one skill from a source into the library, pinned at the source's newest tag (its newest commit when it has no tags); install one skill per call. It arrives off until the user has reviewed it. Refused when the source or folder holds no valid skill or the name is taken.",
+  input: skillInstallSchema,
+  answer: skillSchema,
+  route: { method: "POST", path: "/skills/installs" },
+  status: 201,
+  area: "library",
+  group: "skills",
+  subject: ({ source, folder }) => ({ kind: "skill", id: `${source.trim()}#${folder.trim()}` }),
+});
+
+/** Office action: an installed skill updated to its Source's newest version. */
+export const UPDATE_SKILL_ACTION = officeAction({
+  name: "update_skill",
+  title: "Update a skill",
+  description:
+    "Updates an installed skill to its source's newest version; it stays on or off as it was. Read it with read_skill_update first. Refused when the skill wasn't installed, its source has nothing newer, or it holds another skill there now.",
+  input: z.object({
+    name: skillNameInput,
+    notes: z
+      .string()
+      .optional()
+      .describe(
+        "What the update changes and what it means for whoever uses the skill, in a sentence or two.",
+      ),
+  }),
+  answer: skillSchema,
+  route: { method: "POST", path: "/skills/:name/update" },
+  status: 200,
+  area: "library",
+  group: "skills",
+  subject: ({ name }) => ({ kind: "skill", id: name }),
+});
+
+/** Office action: a skill turned on or off. */
+export const CHANGE_SKILL_STATE_ACTION = officeAction({
+  name: "change_skill_state",
+  title: "Turn a skill on or off",
+  description:
+    "Turns a skill on or off for the sessions that have it. Turning it on is the user's review of what it holds; refused for a skill still waiting for review unless it is reviewed.",
+  input: skillStateChangeSchema.extend({ name: skillNameInput }),
+  answer: skillSchema,
+  route: { method: "PUT", path: "/skills/:name/state" },
+  area: "library",
+  group: "skills",
+  subject: ({ name }) => ({ kind: "skill", id: name }),
+});
+
+/** Office action: a skill given to every Role, or to none by default. */
+export const CHANGE_SKILL_EVERYONE_ACTION = officeAction({
+  name: "change_skill_everyone",
+  title: "Change whether a skill comes with every Role",
+  description: "Sets whether a skill comes with every Role besides the Roles it is assigned to.",
+  input: skillEveryoneChangeSchema.extend({ name: skillNameInput }),
+  answer: skillSchema,
+  route: { method: "PUT", path: "/skills/:name/everyone" },
+  area: "library",
+  group: "skills",
+  subject: ({ name }) => ({ kind: "skill", id: name }),
+});
+
+/** Office action: exactly the Roles a skill is assigned to. */
+export const CHANGE_SKILL_ROLES_ACTION = officeAction({
+  name: "change_skill_roles",
+  title: "Change the Roles of a skill",
+  description:
+    "Assigns a skill to exactly the Roles given, by key, replacing the Roles it had; their next sessions get it.",
+  input: skillRolesChangeSchema.extend({ name: skillNameInput }),
+  answer: skillSchema,
+  route: { method: "PUT", path: "/skills/:name/roles" },
+  area: "library",
+  group: "skills",
+  subject: ({ name }) => ({ kind: "skill", id: name }),
+});
+
+/** Office action: a skill removed from the library. */
+export const DELETE_SKILL_ACTION = officeAction({
+  name: "delete_skill",
+  title: "Delete a skill",
+  description: "Removes a skill from the library, with all its versions and its Role assignments.",
+  input: z.object({ name: skillNameInput }),
+  answer: z.void(),
+  route: { method: "DELETE", path: "/skills/:name" },
+  status: 204,
+  area: "library",
+  group: "skills",
+  subject: ({ name }) => ({ kind: "skill", id: name }),
+});
+
+/** The Office actions the skill library carries out. */
+export const SKILLS_OFFICE_ACTIONS = [
+  WRITE_SKILL_ACTION,
+  EDIT_SKILL_ACTION,
+  INSTALL_SKILL_ACTION,
+  UPDATE_SKILL_ACTION,
+  CHANGE_SKILL_STATE_ACTION,
+  CHANGE_SKILL_EVERYONE_ACTION,
+  CHANGE_SKILL_ROLES_ACTION,
+  DELETE_SKILL_ACTION,
+] as const;
 
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const skillRefusalSchema = z.object({

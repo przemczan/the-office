@@ -4,6 +4,8 @@ export {
   type SessionProject,
   type SessionSkillRequest,
 } from "./application/session-skills.js";
+export { SessionPeople } from "./application/session-people.js";
+export type { SessionPeopleSource } from "./ports/session-people-source.js";
 export { SkillCommands, type SkillCommand } from "./application/skill-commands.js";
 export { ProjectSkills } from "./application/project-skills.js";
 export { RoleSkills, type RoleSkillsChange } from "./application/role-skills.js";

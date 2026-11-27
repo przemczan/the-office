@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 
 /** A local command the session starts (stdio), or a remote URL (Streamable HTTP). */
 export const mcpServerTransportSchema = z.enum(["stdio", "streamable-http"]);
@@ -141,6 +142,123 @@ export type McpServerStateChange = z.infer<typeof mcpServerStateChangeSchema>;
 /** PUT /mcp-servers/:name/roles: exactly the Roles it is assigned to, by their keys. */
 export const mcpServerRolesChangeSchema = z.object({ roles: z.array(z.string()) });
 export type McpServerRolesChange = z.infer<typeof mcpServerRolesChangeSchema>;
+
+const mcpServerNameInput = z
+  .string()
+  .min(1)
+  .describe("The MCP server's name, as the library lists it; its tools are mcp__<name>__<tool>.");
+
+/**
+ * What runs, flat as an Office action's input is: a local command with its arguments (stdio), or a
+ * remote URL (streamable-http). The one a transport needs is checked when the action is carried out.
+ */
+const mcpServerConnectionInput = {
+  transport: mcpServerTransportSchema.describe(
+    "stdio starts a local command; streamable-http connects to a remote URL.",
+  ),
+  command: z.string().optional().describe("For stdio: the command to start."),
+  arguments: z.array(z.string()).optional().describe("For stdio: its arguments, one by one."),
+  url: z.string().optional().describe("For streamable-http: the server's URL."),
+  serverValues: z
+    .array(serverValueEditSchema)
+    .describe(
+      "Its Server values: an environment variable of a local server, a header of a remote one. A secret's value is the user's to hold: it is never shown again, and a call that gives one is a Proposal the user applies.",
+    ),
+};
+
+/** Office action: an MCP server added to the library, off until the user reviews it. */
+export const ADD_MCP_SERVER_ACTION = officeAction({
+  name: "add_mcp_server",
+  title: "Add an MCP server",
+  description:
+    "Adds an MCP server to the library: its name, what runs it and its Server values. It arrives off until the user has reviewed what runs and the tools it lists. Refused when the name is taken or what runs is invalid.",
+  input: z.object({
+    name: z.string().describe("Its name: lowercase letters and digits."),
+    ...mcpServerConnectionInput,
+  }),
+  answer: mcpServerSchema,
+  route: { method: "POST", path: "/mcp-servers" },
+  status: 201,
+  area: "library",
+  group: "mcpServers",
+  subject: ({ name }) => ({ kind: "mcp-server", id: name.trim() }),
+});
+
+/** Office action: what an MCP server runs and its Server values changed. */
+export const CHANGE_MCP_SERVER_ACTION = officeAction({
+  name: "change_mcp_server",
+  title: "Change an MCP server",
+  description:
+    "Changes what an MCP server runs and its Server values, whole; its name stays. It goes off until reviewed again when what runs or its values' names change.",
+  input: z.object({ name: mcpServerNameInput, ...mcpServerConnectionInput }),
+  answer: mcpServerSchema,
+  route: { method: "PUT", path: "/mcp-servers/:name" },
+  area: "library",
+  group: "mcpServers",
+  subject: ({ name }) => ({ kind: "mcp-server", id: name }),
+});
+
+/** Office action: an MCP server turned on against its review, or off. */
+export const CHANGE_MCP_SERVER_STATE_ACTION = officeAction({
+  name: "change_mcp_server_state",
+  title: "Turn an MCP server on or off",
+  description:
+    "Turns an MCP server on or off. Turning it on connects to it with its Office-wide values, reviews the tools it lists and turns it on against that review; leave `reviewDigest` out, the Office reviews it itself. Refused when it can't connect, or when the server or its tools changed since a Proposal's draft.",
+  input: z.object({
+    name: mcpServerNameInput,
+    state: mcpServerStateSchema,
+    reviewDigest: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "The digest of the review the user read, which the web sends when turning it on; Agents leave it out.",
+      ),
+  }),
+  answer: mcpServerSchema,
+  route: { method: "PUT", path: "/mcp-servers/:name/state" },
+  area: "library",
+  group: "mcpServers",
+  subject: ({ name }) => ({ kind: "mcp-server", id: name }),
+});
+
+/** Office action: exactly the Roles an MCP server is assigned to. */
+export const CHANGE_MCP_SERVER_ROLES_ACTION = officeAction({
+  name: "change_mcp_server_roles",
+  title: "Change the Roles of an MCP server",
+  description:
+    "Assigns an MCP server to exactly the Roles given, by key, replacing the Roles it had; their next sessions get its tools, each starting at Consult for the holder of Default Consultant for MCP tool hard switches.",
+  input: mcpServerRolesChangeSchema.extend({ name: mcpServerNameInput }),
+  answer: mcpServerSchema,
+  route: { method: "PUT", path: "/mcp-servers/:name/roles" },
+  area: "library",
+  group: "mcpServers",
+  subject: ({ name }) => ({ kind: "mcp-server", id: name }),
+});
+
+/** Office action: an MCP server removed from the library. */
+export const REMOVE_MCP_SERVER_ACTION = officeAction({
+  name: "remove_mcp_server",
+  title: "Remove an MCP server",
+  description:
+    "Removes an MCP server from the library, with its Server values and Role assignments.",
+  input: z.object({ name: mcpServerNameInput }),
+  answer: z.void(),
+  route: { method: "DELETE", path: "/mcp-servers/:name" },
+  status: 204,
+  area: "library",
+  group: "mcpServers",
+  subject: ({ name }) => ({ kind: "mcp-server", id: name }),
+});
+
+/** The Office actions the MCP server library carries out. */
+export const MCP_SERVERS_OFFICE_ACTIONS = [
+  ADD_MCP_SERVER_ACTION,
+  CHANGE_MCP_SERVER_ACTION,
+  CHANGE_MCP_SERVER_STATE_ACTION,
+  CHANGE_MCP_SERVER_ROLES_ACTION,
+  REMOVE_MCP_SERVER_ACTION,
+] as const;
 
 /**
  * A Server value on a Project's page: its Office-wide value and the Project's own, which wins. A

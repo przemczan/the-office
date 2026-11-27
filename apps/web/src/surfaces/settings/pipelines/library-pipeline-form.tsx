@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { Duty, Pipeline, PipelineEdit, Role, RoleCardOptions } from "@the-office/contracts";
 import { Button, Card, Input, Textarea, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { applyProposal, proposalQueries } from "../../../api/conversations.ts";
 import {
   addPipeline,
   pipelineQueries,
@@ -19,6 +20,7 @@ import { OfficeFlowEditor } from "../../../shell/pipelines/flow/office-flow-edit
 import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
+import type { ProposedLibraryEdit } from "./proposed-library-edit.ts";
 
 const NEW_PIPELINE: PipelineEdit = { name: "", description: "", stages: [] };
 
@@ -32,6 +34,7 @@ export function LibraryPipelineForm({
   roles,
   duties,
   options,
+  proposed,
   onDone,
 }: {
   /** Undefined while the user makes a new Pipeline. */
@@ -39,13 +42,15 @@ export function LibraryPipelineForm({
   readonly roles: readonly Role[];
   readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
+  /** The Proposal "Edit before applying" opened: its Pipeline starts the draft, and saving applies it. */
+  readonly proposed?: Extract<ProposedLibraryEdit, { kind: "pipeline" }>;
   /** Told once a new Pipeline is added, or its making is given up. */
   readonly onDone: () => void;
 }): ReactNode {
   const saved = pipeline ? editOf(pipeline) : NEW_PIPELINE;
-  const [draft, setDraft] = useState<PipelineEdit>(saved);
+  const [draft, setDraft] = useState<PipelineEdit>(proposed?.edit ?? saved);
   const [removing, setRemoving] = useState(false);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  const dirty = proposed !== undefined || JSON.stringify(draft) !== JSON.stringify(saved);
   const check = useQuery({
     ...pipelineQueries.libraryCheck({ ...draft, pipelineId: pipeline?.id }),
     placeholderData: keepPreviousData,
@@ -73,12 +78,30 @@ export function LibraryPipelineForm({
       await navigate({ to: "/settings/pipelines/$pipelineId", params: { pipelineId: result.id } });
     },
   });
+  const applying = useMutation({
+    mutationFn: async () => {
+      if (!proposed) return;
+      await applyProposal(proposed.proposal.id, { actionInput: { ...draft } });
+      await queryClient.invalidateQueries(proposalQueries.one(proposed.proposal.id));
+      await refreshPipelineList(queryClient);
+    },
+    onSuccess: async () => {
+      showToast(`${draft.name} ${proposed?.recordId ? "saved" : "added to the library"}.`);
+      onDone();
+      await navigate(
+        proposed?.recordId
+          ? { to: "/settings/pipelines/$pipelineId", params: { pipelineId: proposed.recordId } }
+          : { to: "/settings/pipelines" },
+      );
+    },
+  });
+  const submit = proposed ? applying : saving;
   const change = (changed: Partial<PipelineEdit>): void => setDraft({ ...draft, ...changed });
   // Under the form, and under the editor in full screen, so Save stays at hand.
   const saveRow = (withRemove: boolean): ReactNode => (
     <>
       <span className="settings-actions-state">
-        {saveState(pipeline !== undefined, dirty, problems.length)}
+        {saveState(pipeline !== undefined, dirty, problems.length, proposed !== undefined)}
       </span>
       {withRemove && pipeline && (
         <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
@@ -88,17 +111,17 @@ export function LibraryPipelineForm({
       <Button
         variant="secondary"
         disabled={pipeline !== undefined && !dirty}
-        onClick={() => (pipeline ? setDraft(saved) : onDone())}
+        onClick={() => (proposed ? setDraft(proposed.edit) : pipeline ? setDraft(saved) : onDone())}
       >
         Discard
       </Button>
       <HeldSave count={problems.length}>
         <Button
-          loading={saving.isPending}
+          loading={submit.isPending}
           disabled={!dirty || problems.length > 0 || checkAwaited(check)}
-          onClick={() => saving.mutate()}
+          onClick={() => submit.mutate()}
         >
-          {pipeline ? "Save the Pipeline" : "Add the Pipeline"}
+          {proposed ? "Apply the Proposal" : pipeline ? "Save the Pipeline" : "Add the Pipeline"}
         </Button>
       </HeldSave>
     </>
@@ -142,7 +165,7 @@ export function LibraryPipelineForm({
           />
         </div>
       </Card>
-      {saving.error && <RefusalAlert title="The Pipeline wasn't saved" error={saving.error} />}
+      {submit.error && <RefusalAlert title="The Pipeline wasn't saved" error={submit.error} />}
       <div className="settings-actions">{saveRow(true)}</div>
       {removing && pipeline && (
         <RemovePipelineDialog
@@ -166,8 +189,14 @@ function editOf({ name, description, stages, endPosition }: Pipeline): PipelineE
 }
 
 /** "2 problems hold Save" while one stands; otherwise whether there is anything to save. */
-function saveState(inLibrary: boolean, dirty: boolean, problems: number): string {
+function saveState(
+  inLibrary: boolean,
+  dirty: boolean,
+  problems: number,
+  proposed: boolean,
+): string {
   if (problems > 0) return `${problems} ${problems === 1 ? "problem holds" : "problems hold"} Save`;
+  if (proposed) return "Proposed; applies as you edit it here";
   if (!inLibrary) return "Not in the library yet";
   return dirty ? "Unsaved changes" : "Saved";
 }

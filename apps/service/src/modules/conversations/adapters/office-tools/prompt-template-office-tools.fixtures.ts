@@ -1,9 +1,6 @@
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { promptTemplate, type PromptTemplates } from "../../../prompt-templates/index.js";
 import { ProposalAppliers } from "../../application/proposal-appliers.js";
-import type { ProposalService } from "../../application/proposal-service.js";
-import type { ProposedChange } from "../../domain/proposal.js";
-import { ProposalRefused } from "../../domain/proposal-refused.js";
 import { PromptTemplateProposals } from "../proposals/prompt-template-proposals.js";
 import { PromptTemplateOfficeTools } from "./prompt-template-office-tools.js";
 import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
@@ -38,26 +35,18 @@ export const A_BRIEF = promptTemplate({
 });
 
 /**
- * The prompt template Office tools over `templates`, drafting through the Proposals' own applier
- * as ProposalService does, keeping what is drafted.
+ * The prompt template Office tools over `templates`, and the Proposals' applier of the prompt
+ * template kind, which open Proposals of it still go through.
  */
 export function promptTemplateTools(templates: PromptTemplates) {
   const appliers = new ProposalAppliers();
   new PromptTemplateProposals(appliers, templates).onModuleInit();
-  const drafted: ProposedChange[] = [];
-  const proposals = {
-    draft: async (_sessionId: string, change: ProposedChange) => {
-      const problems = await appliers.problemsWith(change);
-      if (problems.length > 0) throw new ProposalRefused(problems);
-      drafted.push(change);
-    },
-  } as unknown as ProposalService;
   const registry = new OfficeToolRegistry();
-  new PromptTemplateOfficeTools(registry, templates, proposals).onModuleInit();
+  new PromptTemplateOfficeTools(registry, templates).onModuleInit();
   const tool = (name: string) => {
     const [named] = registry.named([name], RUN_EVERY_CALL);
     if (!named) throw new Error(`${name} is not registered.`);
     return named;
   };
-  return { tool, drafted, appliers };
+  return { tool, appliers };
 }

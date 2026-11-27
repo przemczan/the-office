@@ -18,6 +18,7 @@ import {
   nowSchema,
   OPEN_DECISION_TOOL,
   pipelineListSchema,
+  stageTemplateListSchema,
   pipelineSchema,
   processOutputSchema,
   projectListSchema,
@@ -5098,6 +5099,59 @@ test(
       });
       expect(restored.ok()).toBe(true);
     }
+  },
+);
+
+test(
+  "the user edits Marta's new Stage template before applying it, and the edited template is added",
+  { tag: "@full" },
+  async ({ page }) => {
+    const started = await page.request.post("/api/chats/office-manager/threads");
+    expect(started.status(), await started.text()).toBe(201);
+    const { id: threadId } = threadSchema.parse(await started.json());
+    const proposedName = "E2E review gate";
+    const editedName = "E2E review gate, edited";
+    // What the service fingerprints for the call: the name's taking and nothing written yet.
+    const fingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          decidedBy: { nameTaken: false },
+          subject: { id: proposedName, kind: "stage-template" },
+          writtenNow: {},
+        }),
+      )
+      .digest("hex");
+    const stage = { kind: "gate", key: "gate", name: proposedName, optional: false };
+    await seedProposal(threadId, {
+      kind: "office-action",
+      action: "add_stage_template",
+      title: "Add a Stage template",
+      input: { stage },
+      subject: { kind: "stage-template", id: proposedName, title: proposedName },
+      fields: [{ label: "Stage", before: null, after: proposedName, form: "short" }],
+      fingerprint,
+      outOfDate: false,
+    });
+    await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+    await proposalCard(page, "Add a Stage template")
+      .getByRole("button", { name: "Edit before applying" })
+      .click();
+
+    await expect(page).toHaveURL(/\/settings\/pipelines\/stage-templates\?proposal=/);
+    await expect(page.getByText("Proposed; applies as you edit it here")).toBeVisible();
+    const name = page.getByLabel("Name", { exact: true });
+    await expect(name).toHaveValue(proposedName);
+    await name.fill(editedName);
+    await page.getByRole("button", { name: "Apply the Proposal" }).click();
+
+    await expect(page).toHaveURL(/\/settings\/pipelines\/stage-templates$/);
+    const templates = stageTemplateListSchema.parse(
+      await (await page.request.get("/api/stage-templates")).json(),
+    );
+    const added = templates.find(({ stage: { name: each } }) => each === editedName);
+    expect(added).toBeDefined();
+    const removed = await page.request.delete(`/api/stage-templates/${added?.id}`);
+    expect(removed.ok()).toBe(true);
   },
 );
 

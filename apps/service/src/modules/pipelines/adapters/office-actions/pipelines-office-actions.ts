@@ -26,21 +26,16 @@ import { StandInSwitches } from "../../application/stand-in-switches.js";
 import { TaskRestarts } from "../../application/task-restarts.js";
 import { TaskStagesService } from "../../application/task-stages-service.js";
 import { withGivenLimits } from "../../domain/flow.js";
-import { GateRefused } from "../../domain/gate-refused.js";
 import { RestartRefused } from "../../domain/restart-refused.js";
 import type { GatePerson, HoldingUser } from "../../domain/stage-run.js";
-import {
-  PipelineRemovalRefused,
-  UnknownPipeline,
-  UnknownProjectPipeline,
-} from "../../domain/pipeline-library-refusals.js";
-import { StagesEditRefused } from "../../domain/stages-edit-refused.js";
 import { ProjectDefaults } from "../../ports/project-defaults.js";
 import { ProjectPipelineRepository } from "../../ports/project-pipeline-repository.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import type { RestartingPerson } from "../../ports/started-tasks.js";
 import { withStagesGiven } from "../http/given-stages.js";
 import { toProjectPipelineResponse, toTaskStagesResponse } from "../http/pipeline-responses.js";
+import { answered } from "./answered.js";
+import { LibraryOfficeActions } from "./library-office-actions.js";
 
 type ContinueAtGate = z.output<typeof CONTINUE_AT_GATE_ACTION.input>;
 type SendBackAtGate = z.output<typeof SEND_BACK_AT_GATE_ACTION.input>;
@@ -73,12 +68,13 @@ export class PipelinesOfficeActions implements OnModuleInit {
     private readonly editor: PipelineLibraryEditor,
     private readonly projectPipelines: ProjectPipelineRepository,
     private readonly projects: ProjectDefaults,
+    private readonly library: LibraryOfficeActions,
   ) {}
 
   onModuleInit(): void {
     this.registry.register(
       officeActionTool(CONTINUE_AT_GATE_ACTION, (input, { sessionId, allowedBy }) =>
-        this.answered(async () => {
+        answered(async () => {
           const person = await this.personInSession(sessionId, allowedBy);
           await this.continueAtGate(input, userBehind(person), gatePersonOf(person));
           return "The Task goes on past the Gate.";
@@ -87,7 +83,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
     );
     this.registry.register(
       officeActionTool(SEND_BACK_AT_GATE_ACTION, (input, { sessionId, allowedBy }) =>
-        this.answered(async () => {
+        answered(async () => {
           const person = await this.personInSession(sessionId, allowedBy);
           await this.sendBackAtGate(input, userBehind(person), gatePersonOf(person));
           return `The Task goes back to the Stage "${input.stageKey}".`;
@@ -96,7 +92,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
     );
     this.registry.register(
       officeActionTool(DROP_AT_GATE_ACTION, (input, { sessionId, allowedBy }) =>
-        this.answered(async () => {
+        answered(async () => {
           const person = await this.personInSession(sessionId, allowedBy);
           await this.dropAtGate(input, userBehind(person), gatePersonOf(person));
           return "The Task is dropped.";
@@ -105,7 +101,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
     );
     this.registry.register(
       officeActionTool(RESTART_TASK_FROM_ACTION, (input, { sessionId, allowedBy }) =>
-        this.answered(async () => {
+        answered(async () => {
           const person = await this.personInSession(sessionId, allowedBy);
           await this.restartTaskFrom(input, userBehind(person), person);
           return `The Task goes on from the Stage "${input.stageKey}".`;
@@ -114,7 +110,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
     );
     this.registry.register(
       officeActionTool(EDIT_TASK_STAGES_ACTION, (input) =>
-        this.answered(async () => {
+        answered(async () => {
           await this.editTaskStages(input);
           return "The Task's Stages are as given now.";
         }),
@@ -122,7 +118,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
     );
     this.registry.register(
       officeActionTool(SWITCH_TO_STAND_IN_ACTION, (input, { sessionId, allowedBy }) =>
-        this.answered(async () => {
+        answered(async () => {
           const person = await this.personInSession(sessionId, allowedBy);
           const { results } = await this.switchToStandIn(input, userBehind(person));
           return results.map(({ words }) => words).join("\n");
@@ -133,7 +129,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
       officeActionTool(
         CREATE_PROJECT_PIPELINE_ACTION,
         (input) =>
-          this.answered(async () => {
+          answered(async () => {
             const made = await this.createProjectPipeline(input);
             return `The Project Pipeline "${made.name}" is made, id ${made.id}.`;
           }),
@@ -147,7 +143,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
       officeActionTool(
         CHANGE_PROJECT_PIPELINE_ACTION,
         (input) =>
-          this.answered(async () => {
+          answered(async () => {
             await this.changeProjectPipeline(input);
             return "The Project Pipeline is saved as given.";
           }),
@@ -161,7 +157,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
       officeActionTool(
         DELETE_PROJECT_PIPELINE_ACTION,
         (input) =>
-          this.answered(async () => {
+          answered(async () => {
             await this.deleteProjectPipeline(input);
             return "The Project Pipeline is deleted.";
           }),
@@ -181,7 +177,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
     return {
       draft: async (input: z.output<Input>) =>
         officeActionDraft(action, input, await this.snapshotOf(action.subject(input))),
-      applyFor: (input: z.output<Input>) => this.answered(() => apply(input)),
+      applyFor: (input: z.output<Input>) => answered(() => apply(input)),
     };
   }
 
@@ -209,6 +205,7 @@ export class PipelinesOfficeActions implements OnModuleInit {
     if (!PIPELINES_OFFICE_ACTIONS.some(({ name }) => name === action.name)) {
       throw new Error(`Pipelines carries out no Office action ${action.name}.`);
     }
+    if (this.library.carriesOut(action)) return this.library.answer(action, input);
     // The route parsed the input with the action's schema.
     switch (action.name) {
       case CONTINUE_AT_GATE_ACTION.name:
@@ -285,27 +282,6 @@ export class PipelinesOfficeActions implements OnModuleInit {
 
   private async switchToStandIn({ runIds }: SwitchToStandIn, by: HoldingUser) {
     return { results: await this.standInSwitches.switch(runIds, by) };
-  }
-
-  /** Pipelines' refusals answer the Agent in words it can act on; anything else fails the call. */
-  private async answered(
-    run: () => Promise<string>,
-  ): Promise<{ readonly text: string; readonly isError: boolean }> {
-    try {
-      return { text: await run(), isError: false };
-    } catch (error) {
-      if (
-        error instanceof RestartRefused ||
-        error instanceof StagesEditRefused ||
-        error instanceof PipelineRemovalRefused ||
-        error instanceof UnknownPipeline ||
-        error instanceof UnknownProjectPipeline ||
-        error instanceof GateRefused
-      ) {
-        return { text: error.message, isError: true };
-      }
-      throw error;
-    }
   }
 
   /** The session's person, refused when nobody keeps the session or no user asked them. */

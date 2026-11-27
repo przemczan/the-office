@@ -1,8 +1,10 @@
 # MCP servers: module map
 
-**Owns:** the MCP server library (`mcp_servers`, spec §5.4): each server's local command and arguments (stdio) or remote URL (Streamable HTTP), its Server values (environment variables of a local server, headers of a remote one; plain or secret; required or not) with their Office-wide values, whether it is on and the tools its review listed when it was turned on. A server is added off (`McpServerLibrary.add`), and an edit to its command, arguments, URL, transport or its values' names turns it off and forgets its tools. The review (`GET /mcp-servers/:name/review`, `McpServerLibrary.review`) connects through the platform's `McpClient` with the Office-wide values and shows the tools, or why it couldn't connect, with a `reviewDigest` (`domain/mcp-server-review.ts`) of what it showed; `PUT /mcp-servers/:name/state` turns it on only when that digest matches the server as kept and its tools listed again, and records them; a pasted JSON config in the shape of Claude Code's `mcpServers` entries is read into a server for the form (`POST /mcp-servers/pasted-config`, `pastedMcpServer`), and nothing is kept until the user adds it.
+**Owns:** the MCP server library (`mcp_servers`, spec §5.4): each server's local command and arguments (stdio) or remote URL (Streamable HTTP), its Server values (environment variables of a local server, headers of a remote one; plain or secret; required or not) with their Office-wide values, whether it is on and the tools its review listed when it was turned on. A server is added off (`McpServerLibrary.add`), and an edit to its command, arguments, URL, transport or its values' names turns it off and forgets its tools. The review (`GET /mcp-servers/:name/review`, `McpServerLibrary.review`) connects through the platform's `McpClient` with the Office-wide values and shows the tools, or why it couldn't connect, with a `reviewDigest` (`domain/mcp-server-review.ts`) of what it showed; turning it on (`change_mcp_server_state`) needs that digest to match the server as kept and its tools listed again, and records them; an Agent's call has no digest, so the handler reviews the server itself and turns it on against that review (refused with the review's problem when it can't connect); a pasted JSON config in the shape of Claude Code's `mcpServers` entries is read into a server for the form (`POST /mcp-servers/pasted-config`, `pastedMcpServer`), and nothing is kept until the user adds it.
 
-**Talks to:** the platform's MCP client (`McpClientModule`), with a launch built by `application/mcp-server-launch.ts`; People reads a Role's servers and their tools (`RoleMcpServers.byRole`, `McpServerOnCard`), and Conversations prepares a session's (`SessionMcpServers`), whose tools leave out those named over 64 characters (`sessionTools`; the review flags them as `toolsTooLong`, and so does each server the library answers, for the Role card); Settings › MCP servers in the web, over `/mcp-servers`.
+**Office actions:** the library's writes (add, change, turn on or off, Roles, remove) are Office actions (`MCP_SERVERS_OFFICE_ACTIONS`), one handler each in `adapters/office-actions/mcp-server-office-actions.ts`, called by their routes (`McpServerOfficeActionsController`) and by their Office tools on the Engine's registry. They sit in `McpServerOfficeActionsModule`, apart from `McpServersModule`, so Conversations and People, which read the library, don't take the Engine in with it. A call that gives a secret's Office-wide value is ruled by Secret values besides MCP servers (the trust anchor's cap: never Allowed or Consult) and shows by name only (`withSecretValues` of the Engine); a draft's fingerprint holds what runs and the values' names and flags, never a value, and turning a server on is fingerprinted by its review's digest. Nothing the library keeps names who changed it, so the handlers don't ask who acts.
+
+**Talks to:** the platform's MCP client (`McpClientModule`) and the Engine's Office tool registry (the actions' tools), with a launch built by `application/mcp-server-launch.ts`; People reads a Role's servers and their tools (`RoleMcpServers.byRole`, `McpServerOnCard`), and Conversations prepares a session's (`SessionMcpServers`), whose tools leave out those named over 64 characters (`sessionTools`; the review flags them as `toolsTooLong`, and so does each server the library answers, for the Role card); Settings › MCP servers in the web, over `/mcp-servers`.
 
 **Traps:** a secret's Office-wide value is kept in the database and never leaves the service: the controller answers `officeWideValueSet` instead, an edit without a value keeps the one kept, and a secret made plain loses its value so a later GET can't show it. The events name the server and never carry it, so a subscriber to every event never sees a secret; a server's own words (its standard error in a failed review) have each secret's value hidden by `withoutSecrets`. The name is never changed: it names the server's tools (`mcp__<name>__<tool>`), so it has single hyphens only, at most 32 characters, and `office` is the Office tools' own.
 
@@ -10,7 +12,7 @@
 
 ## Public entry (`index.ts`)
 
-McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValueView, RoleMcpServers, McpServerOnCard, SessionMcpServers, PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerRolesChanged, McpServerTurnedOff, McpServerTurnedOn, McpServerRefused, ProjectServerValueEdit, LeftOutMcpServer, McpServersModule
+McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValueView, RoleMcpServers, McpServerOnCard, SessionMcpServers, PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerRolesChanged, McpServerTurnedOff, McpServerTurnedOn, McpServerRefused, ProjectServerValueEdit, LeftOutMcpServer, McpServersModule, McpServerOfficeActionsModule
 
 ## Domain events
 
@@ -19,14 +21,9 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 ## HTTP routes (under `/api`)
 
 - `GET /mcp-servers`: McpServersController.list
-- `POST /mcp-servers`: McpServersController.add
 - `POST /mcp-servers/pasted-config`: McpServersController.readPastedConfig
 - `GET /mcp-servers/:name`: McpServersController.read
-- `PUT /mcp-servers/:name`: McpServersController.change
 - `GET /mcp-servers/:name/review`: McpServersController.review
-- `PUT /mcp-servers/:name/state`: McpServersController.changeState
-- `PUT /mcp-servers/:name/roles`: McpServersController.assign
-- `DELETE /mcp-servers/:name`: McpServersController.remove
 
 ## Tables
 
@@ -36,14 +33,24 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 
 ### ./
 
+- `mcp-server-office-actions.module.ts`: McpServerOfficeActionsModule
+- `mcp-servers.fixtures.ts`: startMcpServersApplication
 - `mcp-servers.module.ts`: McpServersModule
 
 ### adapters/http/
 
+- `mcp-server-office-actions.controller.ts`: McpServerOfficeActionsController
 - `mcp-server-refusals.filter.ts`: McpServerRefusalsFilter
+- `mcp-server-responses.ts`: toMcpServerResponse, toReviewResponse, toToolResponse, toNewMcpServerMessage, withConnection, toServerValueResponse
 - `mcp-servers.controller.fixtures.ts`: SECRET, aName, aServer, serverOf, reasonsOf, aFakeServer, PROCESS_TIMEOUT
 - `mcp-servers.controller.ts`: McpServersController
 - Tests: mcp-servers.controller.full.test.ts, mcp-servers.controller.test.ts
+
+### adapters/office-actions/
+
+- `mcp-server-office-actions.fixtures.ts`: toolOf, sender
+- `mcp-server-office-actions.ts`: McpServerOfficeActions
+- Tests: mcp-server-office-actions.full.test.ts, mcp-server-office-actions.test.ts
 
 ### adapters/postgres/
 

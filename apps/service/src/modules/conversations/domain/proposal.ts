@@ -492,7 +492,8 @@ export interface Proposal {
  */
 export type EditedHire =
   | { readonly kind: "hire"; readonly card: RoleCard; readonly skills: readonly string[] }
-  | { readonly kind: "hire-from-preset"; readonly name: string };
+  | { readonly kind: "hire-from-preset"; readonly name: string }
+  | { readonly kind: "action-input"; readonly input: Readonly<Record<string, unknown>> };
 
 /**
  * A change to the Role keyed `roleKey`, whose card is `card` now: the fields of `fields` that
@@ -542,6 +543,10 @@ export function changeToApply(proposal: Proposal, edited: EditedHire | undefined
     const editedInput = editedActionInput(change, edited);
     if (editedInput) return { ...change, editedInput };
   }
+  if (change.kind === "office-action" && edited.kind === "action-input") {
+    const editedInput = editedFlowActionInput(change, edited.input);
+    if (editedInput) return { ...change, editedInput };
+  }
   throw new ProposalRefused(["Only a new Role is edited before hiring, as it was proposed."]);
 }
 
@@ -564,6 +569,34 @@ function editedActionInput(
     return { ...edited, key: input["key"] };
   }
   return undefined;
+}
+
+/** The actions whose Proposals open in the Pipeline or Stage template editor, by what names the record. */
+const EDITABLE_IN_LIBRARY_EDITORS: Readonly<Record<string, string | null>> = {
+  add_library_pipeline: null,
+  change_library_pipeline: "pipelineId",
+  add_stage_template: null,
+  change_stage_template: "templateId",
+};
+
+/** Whether "Edit before applying" opens this action's Proposal in a library editor. */
+export function isEditableInLibraryEditor(action: string): boolean {
+  return action in EDITABLE_IN_LIBRARY_EDITORS;
+}
+
+/**
+ * The input of a library Pipeline or Stage template Proposal as the user edited it in the editor;
+ * undefined for any other action. A change keeps the record it was drafted for.
+ */
+function editedFlowActionInput(
+  { action, input }: ProposedOfficeAction,
+  edited: Readonly<Record<string, unknown>>,
+): Record<string, unknown> | undefined {
+  if (!isEditableInLibraryEditor(action)) return undefined;
+  const recordKey = EDITABLE_IN_LIBRARY_EDITORS[action];
+  return recordKey === null || recordKey === undefined
+    ? { ...edited }
+    : { ...edited, [recordKey]: input[recordKey] };
 }
 
 /**

@@ -15,7 +15,9 @@ import { FilesystemLibraryFolder } from "./adapters/filesystem/filesystem-librar
 import { FilesystemSessionFolders } from "./adapters/filesystem/filesystem-session-folders.js";
 import { GitProjectSkillFiles } from "./adapters/git/git-project-skill-files.js";
 import { GitSourceFetcher } from "./adapters/git/git-source-fetcher.js";
+import { SkillOfficeActionsController } from "./adapters/http/skill-office-actions.controller.js";
 import { SkillsController } from "./adapters/http/skills.controller.js";
+import { SkillOfficeActions } from "./adapters/office-actions/skill-office-actions.js";
 import { PostgresRoleSkillRepository } from "./adapters/postgres/postgres-role-skill-repository.js";
 import { PostgresSessionSkillRepository } from "./adapters/postgres/postgres-session-skill-repository.js";
 import { PostgresSkillRepository } from "./adapters/postgres/postgres-skill-repository.js";
@@ -23,8 +25,10 @@ import { PostgresSkillUseRepository } from "./adapters/postgres/postgres-skill-u
 import { SkillsEarlierRecords } from "./adapters/postgres/skills-earlier-records.js";
 import { SkillWebEvents } from "./adapters/websocket/skill-web-events.js";
 import { YauzlZipReader } from "./adapters/zip/yauzl-zip-reader.js";
+import { EngineModule } from "../engine/index.js";
 import { ProjectSkills } from "./application/project-skills.js";
 import { RoleSkills } from "./application/role-skills.js";
+import { SessionPeople } from "./application/session-people.js";
 import { SessionSkills } from "./application/session-skills.js";
 import { SkillCommands } from "./application/skill-commands.js";
 import { SkillLibrary } from "./application/skill-library.js";
@@ -42,8 +46,8 @@ import { SourceFetcher } from "./ports/source-fetcher.js";
 import { ZipReader } from "./ports/zip-reader.js";
 
 @Module({
-  imports: [ScheduleModule, GitIdentityModule],
-  controllers: [SkillsController],
+  imports: [ScheduleModule, GitIdentityModule, EngineModule],
+  controllers: [SkillsController, SkillOfficeActionsController],
   providers: [
     { provide: SkillRepository, useClass: PostgresSkillRepository },
     { provide: SkillUseRepository, useClass: PostgresSkillUseRepository },
@@ -64,6 +68,8 @@ import { ZipReader } from "./ports/zip-reader.js";
     RoleSkills,
     SkillWebEvents,
     SkillsEarlierRecords,
+    SessionPeople,
+    SkillOfficeActions,
   ],
   exports: [
     SkillLibrary,
@@ -73,6 +79,7 @@ import { ZipReader } from "./ports/zip-reader.js";
     SkillCommands,
     ProjectSkills,
     RoleSkills,
+    SessionPeople,
   ],
 })
 export class SkillsModule implements NestModule, OnApplicationBootstrap {

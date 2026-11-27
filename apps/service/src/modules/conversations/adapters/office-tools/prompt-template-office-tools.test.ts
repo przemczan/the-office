@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
-import { refusalOf, type PromptTemplates } from "../../../prompt-templates/index.js";
+import type { PromptTemplates } from "../../../prompt-templates/index.js";
 import { promptTemplatesFor } from "../../../prompt-templates/index.fixtures.js";
 import {
   LIST_PROMPT_TEMPLATES_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_TOOL,
   READ_PROMPT_TEMPLATE_TOOL,
 } from "../../domain/session-instructions.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
@@ -62,56 +60,15 @@ describe("reading prompt templates", () => {
   });
 });
 
-describe("drafting a prompt template's change", () => {
-  it("drafts the new text from the one the template renders now", async () => {
-    const result = await office
-      .tool(PROPOSE_PROMPT_TEMPLATE_TOOL)
-      .run({ key: A_GREETING.key, text: "Hi {{userName}}." }, session);
-
-    expect(result.isError).toBe(false);
-    expect(office.drafted).toEqual([
-      {
-        kind: "prompt-template",
-        key: A_GREETING.key,
-        name: "A greeting",
-        from: "Hello {{userName}}.",
-        to: "Hi {{userName}}.",
-      },
-    ]);
-  });
-
-  it("refuses a broken text with the words a save in Settings gives", async () => {
-    const broken = "Hi {{name}}. {{#projects}}";
-
-    const result = await office
-      .tool(PROPOSE_PROMPT_TEMPLATE_TOOL)
-      .run({ key: A_GREETING.key, text: broken }, session);
-
-    const savedInSettings = refusalOf(templates.check(A_GREETING.key, broken)).reasons;
-    expect(savedInSettings).not.toEqual([]);
-    expect(result).toEqual({ text: savedInSettings.join(" "), isError: true });
-    expect(office.drafted).toEqual([]);
-  });
-
-  it("drafts a reset to the default", async () => {
-    await templates.save(A_GREETING.key, "Hi {{userName}}.", ANN_LEE);
-
-    const result = await office
-      .tool(PROPOSE_PROMPT_TEMPLATE_RESET_TOOL)
-      .run({ key: A_GREETING.key }, session);
-
-    expect(result.isError).toBe(false);
-    expect(office.drafted).toEqual([
-      expect.objectContaining({ from: "Hi {{userName}}.", to: null }),
-    ]);
-  });
-
-  it("says to draft only when the user asks", () => {
-    for (const name of [PROPOSE_PROMPT_TEMPLATE_TOOL, PROPOSE_PROMPT_TEMPLATE_RESET_TOOL]) {
-      expect(office.tool(name).description).toContain(
-        "Draft one only when the user asks you to change a prompt template.",
-      );
+describe("the retired drafting tools", () => {
+  it("are not registered: the Office actions save and reset a template now", () => {
+    for (const name of ["propose_prompt_template", "propose_prompt_template_reset"]) {
+      expect(() => office.tool(name)).toThrow(`No Office tool is registered as ${name}.`);
     }
+  });
+
+  it("points the reading tool at save_prompt_template", () => {
+    expect(office.tool(READ_PROMPT_TEMPLATE_TOOL).description).toContain("save_prompt_template");
   });
 });
 

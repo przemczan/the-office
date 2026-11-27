@@ -117,6 +117,31 @@ describe("applying a Proposal", () => {
     );
   });
 
+  it("applies a library Pipeline or Stage template call with the input the user edited, keeping its record", () => {
+    const change: ProposedChange = {
+      kind: "office-action",
+      action: "change_stage_template",
+      title: "Change a Stage template",
+      input: { templateId: "review", stage: { name: "Review" } },
+      subject: { kind: "stage-template", id: "review", title: "Review" },
+      fields: [],
+      fingerprint: "f",
+      outOfDate: false,
+    };
+    const edited = {
+      kind: "action-input",
+      input: { templateId: "other", stage: { name: "Review again" } },
+    } as const;
+
+    expect(changeToApply(aProposal({ change }), edited)).toEqual({
+      ...change,
+      editedInput: { templateId: "review", stage: { name: "Review again" } },
+    });
+    expect(() =>
+      changeToApply(aProposal({ change: { ...change, action: "change_role_card" } }), edited),
+    ).toThrow("Only a new Role is edited before hiring, as it was proposed.");
+  });
+
   it("applies the set-up of The Office as drafted, refusing an edit of its hires", () => {
     const change: ProposedChange = {
       kind: "office-setup",

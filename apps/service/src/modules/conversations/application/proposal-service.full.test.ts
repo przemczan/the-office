@@ -1,4 +1,4 @@
-import { OFFICE_INSTRUCTIONS_MAX_CHARACTERS } from "@the-office/contracts";
+import { OFFICE_ACTIONS, OFFICE_INSTRUCTIONS_MAX_CHARACTERS } from "@the-office/contracts";
 import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
 import { MessageImageRules } from "../ports/message-image-rules.js";
 import { MessageImages } from "./message-images.js";
@@ -23,9 +23,7 @@ import { aProposedCard } from "../domain/proposal.fixtures.js";
 import {
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
-  PROPOSE_PROMPT_TEMPLATE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
-  READ_PROMPT_TEMPLATE_TOOL,
   READ_ROLE_TOOL,
   caretakerChatOfficeTools,
   chatOfficeTools,
@@ -69,7 +67,7 @@ import {
   PromptTemplateRepository,
   PromptTemplateRepositoryForTests,
 } from "../../prompt-templates/index.fixtures.js";
-import { SessionSkills } from "../../skills/index.js";
+import { SessionSkills, SkillLibrary } from "../../skills/index.js";
 import { skillCommandsProvider } from "./skill-commands.fixtures.js";
 import { PromptTemplateOfficeTools } from "../adapters/office-tools/prompt-template-office-tools.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
@@ -764,30 +762,25 @@ describe("a Proposal of a prompt template", () => {
     text: "Hello {{userName}}.",
   });
 
-  async function startDrafting(text: string): Promise<PromptTemplates> {
-    await startWith([
-      { step: "start", brief: { id: "brief", text: "" } },
-      ...officeToolCall("c-1", READ_PROMPT_TEMPLATE_TOOL, { key: greeting.key }),
-      ...officeToolCall("c-2", PROPOSE_PROMPT_TEMPLATE_TOOL, { key: greeting.key, text }),
-      ...endsTurn("Here is the card."),
-    ]);
+  /** An open Proposal as `propose_prompt_template`, now retired, drafted it: it applies as before. */
+  async function draftsPromptTemplate(
+    to: string,
+  ): Promise<{ templates: PromptTemplates; proposal: Proposal }> {
+    await startsIdle();
     app.get(PromptTemplateCatalog).register([greeting]);
-    return app.get(PromptTemplates);
-  }
-
-  it("is drafted from the text the Office Manager reads, and saved with who applied it", async () => {
-    const templates = await startDrafting("Hi {{userName}}.");
-
-    const proposal = await theOnlyProposal("Greet me with Hi.");
-
-    expect(toolResultRead("c-1").text).toContain("Text now:\nHello {{userName}}.");
-    expect(proposal.change).toEqual({
+    const proposal = await draftsRole({
       kind: "prompt-template",
       key: greeting.key,
       name: "A greeting",
       from: "Hello {{userName}}.",
-      to: "Hi {{userName}}.",
+      to,
     });
+    return { templates: app.get(PromptTemplates), proposal };
+  }
+
+  it("still applies when it was drafted before the Office actions replaced its tool, saved with who applied it", async () => {
+    const { templates, proposal } = await draftsPromptTemplate("Hi {{userName}}.");
+
     expect((await templates.read(greeting.key)).customised).toBe(false);
 
     await proposals.apply(proposal.id, ANN_LEE);
@@ -800,8 +793,7 @@ describe("a Proposal of a prompt template", () => {
   });
 
   it("is refused once the template changed since the draft, and stays open", async () => {
-    const templates = await startDrafting("Hi {{userName}}.");
-    const proposal = await theOnlyProposal("Greet me with Hi.");
+    const { templates, proposal } = await draftsPromptTemplate("Hi {{userName}}.");
     await templates.save(greeting.key, "Hey {{userName}}.", ANN_LEE);
 
     await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
@@ -1095,6 +1087,97 @@ class TaskTitleStandIn {
     };
   }
 }
+
+/**
+ * The Office actions of the library, ruled Proposal for the Roles that hold them there, which no
+ * module of this app registers: stand-ins with the group the contracts declare for each. The skills'
+ * `write_skill` is the real one, below.
+ */
+const LIBRARY_ACTIONS = [
+  "add_library_pipeline",
+  "create_project_pipeline",
+  "save_prompt_template",
+  "add_stage_template",
+] as const;
+
+describe("a Proposal of a library Office action", () => {
+  it.each(LIBRARY_ACTIONS)(
+    "drafts %s as an office-action Proposal that changes nothing until the user applies it, as that user",
+    async (action) => {
+      await startWith([{ step: "start", brief: { id: "brief", text: "" } }, ...endsTurn("Hi.")]);
+      const { thread } = await ask(OFFICE_MANAGER, "Hello.");
+      if (!thread.session) throw new Error("No session.");
+      const declared = OFFICE_ACTIONS.find(({ name }) => name === action);
+      if (!declared) throw new Error(`${action} is no Office action.`);
+      const applied: { user: string; proposedBy: string }[] = [];
+      const input = { name: "release-notes" };
+      app.get(OfficeToolRegistry).register({
+        name: action,
+        description: declared.description,
+        input: z.object({ name: z.string() }),
+        authority: {
+          group: declared.group,
+          title: declared.title,
+          subject: () => ({ kind: "library", id: "release-notes" }),
+        },
+        run: () => Promise.resolve({ text: "Done.", isError: false }),
+        draft: () =>
+          Promise.resolve({
+            subject: { kind: "library", id: "release-notes", title: "release-notes" },
+            fields: [{ label: "Name", before: "", after: "release-notes", form: "short" as const }],
+            fingerprint: { name: "release-notes" },
+          }),
+        applyFor: (_input, { user, proposedBy }) => {
+          applied.push({ user: user.name, proposedBy });
+          return Promise.resolve({ text: "Done.", isError: false });
+        },
+      });
+      const drafted = await app.get(OfficeToolRegistry).draft(action, input);
+      if (!drafted) throw new Error("Nothing to draft.");
+
+      const proposal = await proposals.draft(thread.session.id, {
+        kind: "office-action",
+        action,
+        title: declared.title,
+        input,
+        ...drafted,
+        outOfDate: false,
+      });
+
+      expect(proposal.change).toMatchObject({ kind: "office-action", action, outOfDate: false });
+      expect(applied).toEqual([]);
+      await proposals.apply(proposal.id, ANN_LEE);
+      expect(applied).toEqual([{ user: ANN_LEE.name, proposedBy: OFFICE_MANAGER }]);
+    },
+  );
+
+  it("drafts write_skill, the skills module's own action, and applies it as the user: the skill arrives off, for review", async () => {
+    await startWith([{ step: "start", brief: { id: "brief", text: "" } }, ...endsTurn("Hi.")]);
+    const { thread } = await ask(OFFICE_MANAGER, "Hello.");
+    if (!thread.session) throw new Error("No session.");
+    const name = `drafted-${randomUUID().slice(0, 8)}`;
+    const input = { name, description: "Writes the release notes.", instructions: "List them." };
+    const drafted = await app.get(OfficeToolRegistry).draft("write_skill", input);
+    if (!drafted) throw new Error("Nothing to draft.");
+
+    const proposal = await proposals.draft(thread.session.id, {
+      kind: "office-action",
+      action: "write_skill",
+      title: "Write a skill",
+      input,
+      ...drafted,
+      outOfDate: false,
+    });
+
+    expect(proposal.change).toMatchObject({ kind: "office-action", action: "write_skill" });
+    await expect(app.get(SkillLibrary).read(name)).rejects.toThrow(name);
+    await proposals.apply(proposal.id, ANN_LEE);
+    expect(await app.get(SkillLibrary).read(name)).toMatchObject({
+      name,
+      state: "waiting-for-review",
+    });
+  });
+});
 
 describe("a Proposal of an Office action", () => {
   let task: TaskTitleStandIn;

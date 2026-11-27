@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FlowStage } from "./flow.js";
-import {
-  proposedRoutes,
-  routeChangesOf,
-  routeChangeWords,
-  routesWords,
-} from "./proposed-routes.js";
+import { routeChangesOf, routesWords } from "./proposed-routes.js";
 import { ENDED_FAILED, ROUTE_BACK_LIMIT, type ConditionGroup, type Route } from "./route.js";
-import { agentStage, gate, scriptStage, straightLine } from "./stage.fixtures.js";
+import { agentStage, scriptStage, straightLine } from "./stage.fixtures.js";
 
 const implement = agentStage();
 const tests = scriptStage();
@@ -150,43 +145,6 @@ describe("routeChangesOf", () => {
         from: [{ ...backToImplement, limit: 3 }, ...reviewWhenChangedOrFailed],
         to: [{ ...backToImplement, limit: 2 }, ...reviewWhenChangedOrFailed],
       },
-    ]);
-  });
-});
-
-describe("proposedRoutes", () => {
-  it("keeps the check's warnings with every field, null where a problem is on no Stage", () => {
-    const routes = proposedRoutes(before, after, [
-      { level: "warning", text: "Mind it." },
-      { stageKey: "review", at: { kind: "route", routeIndex: 0 }, level: "warning", text: "Hm." },
-    ]);
-
-    expect(routes.check).toEqual([
-      { stageKey: null, at: null, level: "warning", text: "Mind it." },
-      { stageKey: "review", at: { kind: "route", routeIndex: 0 }, level: "warning", text: "Hm." },
-    ]);
-    expect(routes.stages).toEqual(routeChangesOf(before, after));
-  });
-});
-
-describe("routeChangeWords", () => {
-  it("says each change in plain words: as it was and as proposed, a new Stage's and a removed one's", () => {
-    const look = gate({ key: "look", name: "Look" });
-
-    expect(
-      routeChangeWords([
-        ...routeChangesOf(before, after),
-        {
-          stageKey: "look",
-          stageName: look.name,
-          from: [{ to: null, condition: null, limit: null }],
-          to: [],
-        },
-      ]),
-    ).toEqual([
-      "- Tests: was to publish always; now to Review when the previous Stage changed files or Tests ended Failed, otherwise to Publish always.",
-      "- Review (new): to publish always.",
-      "- Look (removed): was to End always.",
     ]);
   });
 });

@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { FlowStage } from "./flow.js";
-import type { StageProblem, StageProblemAt, StageProblemLevel } from "./pipeline.js";
+import type { StageProblemAt, StageProblemLevel } from "./pipeline.js";
 import { PUBLISH_RESULT_NAMES } from "./publish-result.js";
 import {
   agentChoiceOf,
@@ -37,23 +37,6 @@ export interface KeptStageProblem {
 export interface ProposedRoutes {
   readonly stages: readonly StageRouteChange[];
   readonly check: readonly KeptStageProblem[];
-}
-
-/** The routes of `from` and `to` that differ, with `warnings`, the check's answer on `to`. */
-export function proposedRoutes(
-  from: readonly FlowStage[],
-  to: readonly FlowStage[],
-  warnings: readonly StageProblem[],
-): ProposedRoutes {
-  return {
-    stages: routeChangesOf(from, to),
-    check: warnings.map(({ stageKey, at, level, text }) => ({
-      stageKey: stageKey ?? null,
-      at: at ?? null,
-      level,
-      text,
-    })),
-  };
 }
 
 /**
@@ -93,18 +76,6 @@ function sameRoutes(one: readonly Route[], other: readonly Route[]): boolean {
 /** As the database keeps it: a field left undefined is the same as one left out. */
 function asKept(routes: readonly Route[]): unknown {
   return JSON.parse(JSON.stringify(routes));
-}
-
-/**
- * The route changes in plain words, a line each, as an agent is told what it proposed:
- * "Review: was to Publish always; now to Review when Tests changed files, otherwise to Publish".
- */
-export function routeChangeWords(changes: readonly StageRouteChange[]): string[] {
-  return changes.map(({ stageName, from, to }) => {
-    if (from.length === 0) return `- ${stageName} (new): ${routesWords(to)}.`;
-    if (to.length === 0) return `- ${stageName} (removed): was ${routesWords(from)}.`;
-    return `- ${stageName}: was ${routesWords(from)}; now ${routesWords(to)}.`;
-  });
 }
 
 /**
