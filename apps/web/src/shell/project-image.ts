@@ -29,8 +29,8 @@ export function versionsToTry(
 
 /**
  * A Project's Icon or Logo in the version for the base of the palette shown (Graphite, Midnight,
- * Mocha, Aubergine, Lagoon and Emerald show the dark one, Paper, Mist, Sage, Lavender, Cobalt and
- * Citrine the light one), or for `palette` when given.
+ * Mocha, Aubergine, Lagoon, Emerald and Contrast dark show the dark one, Paper, Mist, Sage,
+ * Lavender, Cobalt, Citrine and Contrast light the light one), or for `palette` when given.
  * The other version shows when that one is missing or fails to load, and none once both have
  * failed; another image, under its own id, gets a try.
  */

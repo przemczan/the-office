@@ -92,6 +92,8 @@ describe("the palettes after Light and Dark", () => {
     ["cobalt", "light"],
     ["emerald", "dark"],
     ["citrine", "light"],
+    ["contrast-light", "light"],
+    ["contrast-dark", "dark"],
   ] as const)("puts %s over the %s base", (palette, base) => {
     expect(PALETTES[palette].base).toBe(base);
   });
@@ -126,6 +128,8 @@ describe("primary button contrast", () => {
       "cobalt",
       "emerald",
       "citrine",
+      "contrast-light",
+      "contrast-dark",
     ]);
   });
 
@@ -136,4 +140,21 @@ describe("primary button contrast", () => {
       expect(ratio, `--primary-fg on ${background}`).toBeGreaterThanOrEqual(4.5);
     }
   });
+});
+
+describe("the high-contrast palettes", () => {
+  it.each(["contrast-light", "contrast-dark"] as const)(
+    "%s's text reaches 7:1 and its border 3:1 on its backgrounds",
+    (palette) => {
+      const values = fileValues(palette);
+      for (const background of BACKGROUND_ALIASES) {
+        for (const text of ["--fg-1", "--fg-2", "--fg-3"]) {
+          const ratio = contrast(values[text] ?? "", values[background] ?? "");
+          expect(ratio, `${text} on ${background}`).toBeGreaterThanOrEqual(7);
+        }
+        const border = contrast(values["--border"] ?? "", values[background] ?? "");
+        expect(border, `--border on ${background}`).toBeGreaterThanOrEqual(3);
+      }
+    },
+  );
 });

@@ -1,0 +1,37 @@
+/* Contrast light: light with strong text and borders, reasonably high contrast on off-white
+   surfaces rather than pure black on white, on the design system's light aliases. It keeps their
+   inverse, accent and status colours (spec §4). */
+:root[data-palette="contrast-light"] {
+  --bg: #f5f5f1;
+  --surface: #fbfbf8;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e9e9e3;
+  --surface-hover: #ecece6;
+  --surface-selected: #f8dccb;
+  --sidebar-bg: #f5f5f1;
+  --sidebar-fg: #2a2f38;
+  --sidebar-active-bg: #dedfd7;
+  --sidebar-active-fg: #12151a;
+  --fg-1: #14171c;
+  --fg-2: #2f3640;
+  --fg-3: #454c58;
+  --border: #7d838d;
+  --border-subtle: #b3b7bf;
+  --border-strong: #5f6671;
+  --primary: #1b2f6e;
+  --primary-fg: #ffffff;
+  --primary-hover: #26408f;
+  --primary-press: #31509f;
+  --control-hover: #e2e2db;
+  --control-press: #d4d4cb;
+  --neutral-subtle: #e9e9e3;
+  --neutral-fg: #2f3640;
+  --neutral-border: #7d838d;
+}
+
+/* Contrast light's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-contrast-light-page: #f5f5f1;
+  --palette-contrast-light-border: #5f6671;
+  --palette-contrast-light-line: #1b2f6e;
+}

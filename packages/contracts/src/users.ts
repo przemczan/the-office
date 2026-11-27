@@ -209,6 +209,8 @@ export const PALETTE_IDS = [
   "cobalt",
   "emerald",
   "citrine",
+  "contrast-light",
+  "contrast-dark",
 ] as const;
 export const DENSITY_IDS = ["compact", "comfortable", "relaxed"] as const;
 

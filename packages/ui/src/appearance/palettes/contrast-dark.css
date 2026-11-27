@@ -1,0 +1,38 @@
+/* Contrast dark: dark with strong text and borders, reasonably high contrast on dark gray
+   surfaces rather than pure white on black, on the design system's dark aliases, whose accent and
+   status colours it keeps (spec §4). */
+:root[data-palette="contrast-dark"] {
+  --bg: #17191d;
+  --surface: #1e2126;
+  --surface-raised: #272b31;
+  --surface-sunken: #111316;
+  --surface-hover: #2c3037;
+  --surface-selected: #3a2a22;
+  --surface-inverse: #eef0f3;
+  --sidebar-bg: #17191d;
+  --sidebar-fg: #cdd2d9;
+  --sidebar-active-bg: #31353c;
+  --sidebar-active-fg: #f4f5f7;
+  --fg-1: #f1f3f5;
+  --fg-2: #cfd4db;
+  --fg-3: #bcc2cb;
+  --fg-inverse: #17191d;
+  --border: #77808c;
+  --border-subtle: #545b66;
+  --border-strong: #a0a8b3;
+  --primary: #f1f3f5;
+  --primary-fg: #17191d;
+  --primary-hover: #ffffff;
+  --control-hover: #343840;
+  --control-press: #3f444c;
+  --neutral-subtle: #272b31;
+  --neutral-fg: #cfd4db;
+  --neutral-border: #77808c;
+}
+
+/* Contrast dark's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-contrast-dark-page: #17191d;
+  --palette-contrast-dark-border: #a0a8b3;
+  --palette-contrast-dark-line: #f1f3f5;
+}

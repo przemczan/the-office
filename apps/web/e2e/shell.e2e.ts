@@ -154,6 +154,8 @@ const CHOSEN_PALETTES = [
   { palette: "cobalt", base: "light" },
   { palette: "emerald", base: "dark" },
   { palette: "citrine", base: "light" },
+  { palette: "contrast-light", base: "light" },
+  { palette: "contrast-dark", base: "dark" },
 ] as const;
 
 for (const { palette, base } of CHOSEN_PALETTES) {
@@ -260,6 +262,8 @@ asOwnUser.describe("the palette", { tag: "@full" }, () => {
         "Cobalt",
         "Emerald",
         "Citrine",
+        "Contrast light",
+        "Contrast dark",
         "Compact",
         "Comfortable",
         "Relaxed",
@@ -270,8 +274,8 @@ asOwnUser.describe("the palette", { tag: "@full" }, () => {
         .evaluateAll((swatches) =>
           swatches.map((swatch) => getComputedStyle(swatch).backgroundColor),
         );
-      expect(new Set(swatchColours).size).toBe(14);
-      // Fourteen palettes and three densities still fit on a window 900 high.
+      expect(new Set(swatchColours).size).toBe(16);
+      // Sixteen palettes and three densities still fit on a window 900 high.
       const menuBox = await menu.boundingBox();
       expect(menuBox?.y).toBeGreaterThanOrEqual(0);
       expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(900);
@@ -300,6 +304,8 @@ asOwnUser.describe("the palette", { tag: "@full" }, () => {
         ["Cobalt", "cobalt", "light"],
         ["Emerald", "emerald", "dark"],
         ["Citrine", "citrine", "light"],
+        ["Contrast light", "contrast-light", "light"],
+        ["Contrast dark", "contrast-dark", "dark"],
       ] as const) {
         await page.getByRole("button", { name: "Theme" }).click();
         await page.getByRole("menu").getByRole("button", { name }).click();

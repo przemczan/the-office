@@ -1468,25 +1468,27 @@ asOwnUser(
     await expect(headLogo).toHaveAttribute("src", darkAddress);
     await expectLoadedImage(headLogo);
 
-    // Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald count as dark, and Paper, Mist, Sage,
-    // Lavender, Cobalt and Citrine as light, on the page and in How it looks, which opens on the version
-    // for the palette shown.
-    for (const [name, base, address] of [
-      ["Graphite", "Dark", darkAddress],
-      ["Paper", "Light", lightAddress],
-      ["Midnight", "Dark", darkAddress],
-      ["Mist", "Light", lightAddress],
-      ["Mocha", "Dark", darkAddress],
-      ["Sage", "Light", lightAddress],
-      ["Aubergine", "Dark", darkAddress],
-      ["Lavender", "Light", lightAddress],
-      ["Lagoon", "Dark", darkAddress],
-      ["Cobalt", "Light", lightAddress],
-      ["Emerald", "Dark", darkAddress],
-      ["Citrine", "Light", lightAddress],
+    // Graphite, Midnight, Mocha, Aubergine, Lagoon, Emerald and Contrast dark count as dark, and Paper,
+    // Mist, Sage, Lavender, Cobalt, Citrine and Contrast light as light, on the page and in How it
+    // looks, which opens on the version for the palette shown.
+    for (const [name, palette, base, address] of [
+      ["Graphite", "graphite", "Dark", darkAddress],
+      ["Paper", "paper", "Light", lightAddress],
+      ["Midnight", "midnight", "Dark", darkAddress],
+      ["Mist", "mist", "Light", lightAddress],
+      ["Mocha", "mocha", "Dark", darkAddress],
+      ["Sage", "sage", "Light", lightAddress],
+      ["Aubergine", "aubergine", "Dark", darkAddress],
+      ["Lavender", "lavender", "Light", lightAddress],
+      ["Lagoon", "lagoon", "Dark", darkAddress],
+      ["Cobalt", "cobalt", "Light", lightAddress],
+      ["Emerald", "emerald", "Dark", darkAddress],
+      ["Citrine", "citrine", "Light", lightAddress],
+      ["Contrast light", "contrast-light", "Light", lightAddress],
+      ["Contrast dark", "contrast-dark", "Dark", darkAddress],
     ] as const) {
       await settings.getByRole("group", { name: "Palette" }).getByRole("button", { name }).click();
-      await expect(page.locator("html")).toHaveAttribute("data-palette", name.toLowerCase());
+      await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
       await page.goto(`/projects/${project.id}/appearance`);
       await expect(headLogo).toHaveAttribute("src", address);
       await expect(howItLooks(page).getByRole("tab", { name: base })).toHaveAttribute(
@@ -1496,7 +1498,7 @@ asOwnUser(
       for (const logo of await previewLogos.all())
         await expect(logo).toHaveAttribute("src", address);
       await page.screenshot({
-        path: path.join(SCREENSHOTS, `${name.toLowerCase()}-1600-project-appearance.png`),
+        path: path.join(SCREENSHOTS, `${palette}-1600-project-appearance.png`),
       });
     }
 

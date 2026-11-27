@@ -1846,6 +1846,8 @@ asOwnUser.describe("Account › Appearance", { tag: "@full" }, () => {
         ["Cobalt", "cobalt", "light"],
         ["Emerald", "emerald", "dark"],
         ["Citrine", "citrine", "light"],
+        ["Contrast light", "contrast-light", "light"],
+        ["Contrast dark", "contrast-dark", "dark"],
       ] as const) {
         await palette.getByRole("button", { name }).click();
         await expect(html).toHaveAttribute("data-palette", shown);

@@ -79,12 +79,13 @@ Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, dens
 - Components use aliases only, so a palette or a density changes colours and air, never layout.
 - Brand marks use the design system's ramp colours directly, so no palette mutes them.
 - The status colours (badges, edges, dots) and the accent are aliases too, but every palette keeps the design system's values.
-- Palettes are picked in Account › Appearance or from the rail's Theme menu: **Light** (the default, muted), **Dark** (dark gray, not black), **Graphite** (dark, cool), **Paper** (light and warm, a soft beige), **Midnight** (dark, a deep blue-tinted navy, not black), **Mist** (light, a cool soft blue-grey), **Mocha** (dark, a warm brown-grey), **Sage** (light, a soft muted green-grey), **Aubergine** (dark, a deep plum-violet with lavender buttons), **Lavender** (light, a soft violet page with deep violet buttons), **Lagoon** (dark, a deep teal with sea-green buttons), **Cobalt** (light, crisp white on a clearly blue page with cobalt buttons), **Emerald** (dark, a deep emerald green with champagne-gold buttons and a gold active sidebar item) and **Citrine** (light, crisp white on a butter-yellow page with deep indigo buttons and a golden active sidebar item); or following the system, which shows Light or Dark.
-- Dark palettes: Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon, Emerald.
-- Light palettes: Light, Paper, Mist, Sage, Lavender, Cobalt, Citrine.
+- Palettes are picked in Account › Appearance or from the rail's Theme menu: **Light** (the default, muted), **Dark** (dark gray, not black), **Graphite** (dark, cool), **Paper** (light and warm, a soft beige), **Midnight** (dark, a deep blue-tinted navy, not black), **Mist** (light, a cool soft blue-grey), **Mocha** (dark, a warm brown-grey), **Sage** (light, a soft muted green-grey), **Aubergine** (dark, a deep plum-violet with lavender buttons), **Lavender** (light, a soft violet page with deep violet buttons), **Lagoon** (dark, a deep teal with sea-green buttons), **Cobalt** (light, crisp white on a clearly blue page with cobalt buttons), **Emerald** (dark, a deep emerald green with champagne-gold buttons and a gold active sidebar item), **Citrine** (light, crisp white on a butter-yellow page with deep indigo buttons and a golden active sidebar item), **Contrast light** (light, off-white surfaces with dark text and strong borders) and **Contrast dark** (dark gray surfaces with light text and strong borders); or following the system, which shows Light or Dark.
+- Dark palettes: Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon, Emerald, Contrast dark.
+- Light palettes: Light, Paper, Mist, Sage, Lavender, Cobalt, Citrine, Contrast light.
 - Dark or light decides which version of a Project's Icon and Logo shows, and anything else that follows the palette shown.
+- Contrast light and Contrast dark are the high-contrast palettes: reasonably high contrast, never pure black on pure white. Their `--fg-1`, `--fg-2` and `--fg-3` reach at least 7:1 on `--bg`, `--surface` and `--surface-raised`, and their `--border` at least 3:1.
 - Aubergine, Lavender, Lagoon, Cobalt, Emerald and Citrine keep the Ember tint of `--surface-selected`, each as a step of its own page, so a selected item looks the same in every palette; their sidebar stays the page's lightness.
-- Midnight, Mocha, Mist, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald and Citrine leave `--brand-ink` to their base.
+- Midnight, Mocha, Mist, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald, Citrine, Contrast light and Contrast dark leave `--brand-ink` to their base.
 - In every palette that sets them, `--fg-1` and `--fg-2` reach at least 4.5:1 contrast on `--bg`, `--surface` and `--surface-raised`, and `--primary-fg` reaches at least 4.5:1 on `--primary` and `--primary-hover`.
 - The palette and the density are each the signed-in user's own, kept with their account and followed on every device they sign in on ([2.10](2.10-users-and-signing-in.md)).
 
@@ -217,6 +218,29 @@ Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, dens
 - `--primary: #2E3A8C`, `--primary-fg: #FFFFFF`, `--primary-hover: #3A479E`, `--primary-press: #4653AB`;
 - `--control-hover: #EFE6C2`, `--control-press: #E6DBB0`;
 - `--neutral-subtle: #EFE6C2`, `--neutral-fg: #615838`, `--neutral-border: #E0D4A4`.
+
+### Contrast light
+
+- Contrast light sets these and keeps Light's values for every other alias, as Paper does, except the primary ones it sets
+- `--bg: #F5F5F1`, `--surface: #FBFBF8`, `--surface-raised: #FFFFFF`, `--surface-sunken: #E9E9E3`, `--surface-hover: #ECECE6`, `--surface-selected: #F8DCCB`;
+- `--sidebar-bg: #F5F5F1`, `--sidebar-fg: #2A2F38`, `--sidebar-active-bg: #DEDFD7`, `--sidebar-active-fg: #12151A`;
+- `--fg-1: #14171C`, `--fg-2: #2F3640`, `--fg-3: #454C58`;
+- `--border: #7D838D`, `--border-subtle: #B3B7BF`, `--border-strong: #5F6671`;
+- `--primary: #1B2F6E`, `--primary-fg: #FFFFFF`, `--primary-hover: #26408F`, `--primary-press: #31509F`;
+- `--control-hover: #E2E2DB`, `--control-press: #D4D4CB`;
+- `--neutral-subtle: #E9E9E3`, `--neutral-fg: #2F3640`, `--neutral-border: #7D838D`.
+
+### Contrast dark
+
+- Contrast dark sets these and keeps Dark's values for every other alias
+- `--bg: #17191D`, `--surface: #1E2126`, `--surface-raised: #272B31`, `--surface-sunken: #111316`, `--surface-hover: #2C3037`, `--surface-selected: #3A2A22`;
+- `--surface-inverse: #EEF0F3`, `--fg-inverse: #17191D`;
+- `--sidebar-bg: #17191D`, `--sidebar-fg: #CDD2D9`, `--sidebar-active-bg: #31353C`, `--sidebar-active-fg: #F4F5F7`;
+- `--fg-1: #F1F3F5`, `--fg-2: #CFD4DB`, `--fg-3: #BCC2CB`;
+- `--border: #77808C`, `--border-subtle: #545B66`, `--border-strong: #A0A8B3`;
+- `--primary: #F1F3F5`, `--primary-fg: #17191D`, `--primary-hover: #FFFFFF`;
+- `--control-hover: #343840`, `--control-press: #3F444C`;
+- `--neutral-subtle: #272B31`, `--neutral-fg: #CFD4DB`, `--neutral-border: #77808C`.
 
 ## Densities
 
