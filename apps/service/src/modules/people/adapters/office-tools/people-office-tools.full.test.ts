@@ -100,7 +100,7 @@ describe("read_role", () => {
     expect(rows[0]).toBe(
       "Authority in effect (a row not in authority above stands at the preset's default):",
     );
-    expect(rows).toHaveLength(29);
+    expect(rows).toHaveLength(34);
     expect(rows).toEqual(
       expect.arrayContaining([
         "- Work › Task records (taskRecords): Allowed on own · Never on others' (set)",

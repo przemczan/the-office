@@ -39,5 +39,7 @@ export function dutyOf(
       title: holder.card.title,
     },
     fallback: holder ? null : "user",
+    jobSettings: {},
+    jobSettingsToGive: holder ? {} : null,
   };
 }

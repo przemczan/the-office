@@ -72,6 +72,23 @@ export abstract class RoleRepository {
   ): Promise<RoleUpdate>;
 
   /**
+   * The keys of every Role the second Authority move-over hasn't given its duties' jobs yet, people
+   * let go included, in the order they were hired. A Role hired since is never among them.
+   */
+  abstract rolesToGiveDutiesJobs(): Promise<readonly string[]>;
+
+  /**
+   * Applies `change` to the Role as stored, holding it against other changes, saves the new card
+   * version when it returns one, and marks the Role given, so it is never among
+   * `rolesToGiveDutiesJobs` again. Saves nothing when it was given meanwhile; throws RoleNotFound
+   * when the Role was never hired.
+   */
+  abstract giveDutiesJobs(
+    key: string,
+    change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
+  ): Promise<RoleUpdate>;
+
+  /**
    * Applies `change`, which lets the person go or hires them back, to the Role as stored, holding
    * it against other changes. Throws RoleNotFound when the Role was never hired.
    */

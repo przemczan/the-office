@@ -512,3 +512,14 @@
   font: var(--type-label);
   color: var(--fg-1);
 }
+
+.duty-row-needs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px) var(--space-3, 12px);
+}
+
+.duty-row-needs .duty-row-note {
+  margin: 0;
+}

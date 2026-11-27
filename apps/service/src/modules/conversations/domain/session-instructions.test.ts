@@ -9,7 +9,6 @@ import { oneOptionAnswer, oneWordsAnswer } from "./decision.js";
 import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
 import {
   ANSWER_DECISION_TOOL,
-  CHANGE_ROLE_TOOL,
   CALLING_RULE,
   CHAT_DECISION_RULE,
   CONSULT_TOOL,
@@ -40,8 +39,9 @@ import {
   READ_ROLE_TOOL,
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
-  PROPOSE_ROLE_TOOL,
-  roleOfficeTools,
+  personToolsRule,
+  READ_REPOSITORY_RULE,
+  DEFAULT_PERSON_CALLING_RULE,
   RUN_ENVIRONMENT_CHECK_TOOL,
   type HeldDuties,
   WRITING_FOR_THE_USER_RULE,
@@ -60,9 +60,7 @@ const PROMPTS = defaultPromptTexts(CONVERSATIONS_PROMPT_TEMPLATES);
 
 /** The duties each default Role holds while nobody moved them; the Caretaker holds none. */
 const OFFICE_MANAGER: HeldDuties = ["default-person-to-talk-to"];
-const DEVOPS: HeldDuties = ["onboards-projects", "mcp-tool-consultant"];
 const PLANNER: HeldDuties = ["plans"];
-const CARETAKER: HeldDuties = [];
 
 describe("the Office instructions in a session's standing instructions", () => {
   const card = {
@@ -194,37 +192,34 @@ describe("the Caretaker's chat instructions", () => {
 });
 
 describe("chatOfficeTools", () => {
-  it("gives the Office Manager drafting Roles and Office settings as Proposals, never changing one", () => {
-    const tools = chatOfficeTools(OFFICE_MANAGER);
+  it("offers every person the same candidates: the Proposal and record tools follow their Authority, none a duty", () => {
+    const tools = chatOfficeTools();
 
-    expect(tools).toContain(PROPOSE_ROLE_TOOL);
-    expect(tools).toContain(PROPOSE_OFFICE_SETTING_TOOL);
-    expect(tools).toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
-    expect(tools).not.toContain(CHANGE_ROLE_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_ROLE_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
-  });
-
-  it("gives the Default person to talk to and the Caretaker reading prompt templates and drafting their changes and resets, and no other chat", () => {
-    const promptTemplateTools = [
-      LIST_PROMPT_TEMPLATES_TOOL,
-      READ_PROMPT_TEMPLATE_TOOL,
-      PROPOSE_PROMPT_TEMPLATE_TOOL,
-      PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
-    ];
-
-    expect(chatOfficeTools(OFFICE_MANAGER)).toEqual(expect.arrayContaining(promptTemplateTools));
-    expect(caretakerChatOfficeTools(CARETAKER)).toEqual(
-      expect.arrayContaining(promptTemplateTools),
+    expect(tools).not.toContain("propose_role");
+    expect(tools).not.toContain("change_role");
+    expect(tools).toEqual(
+      expect.arrayContaining([
+        PROPOSE_OFFICE_SETTING_TOOL,
+        READ_OFFICE_INSTRUCTIONS_TOOL,
+        LIST_PROMPT_TEMPLATES_TOOL,
+        READ_PROMPT_TEMPLATE_TOOL,
+        PROPOSE_PROMPT_TEMPLATE_TOOL,
+        PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
+        PROPOSE_LIBRARY_PIPELINE_TOOL,
+        PROPOSE_PROJECT_PIPELINE_TOOL,
+        PROPOSE_STAGE_TEMPLATE_TOOL,
+        PROPOSE_PROJECT_COMMANDS_TOOL,
+        READ_REPOSITORY_TOOL,
+        RUN_ENVIRONMENT_CHECK_TOOL,
+        CREATE_INITIATIVE_TOOL,
+        "create_task",
+      ]),
     );
-    for (const held of [PLANNER, DEVOPS]) {
-      for (const tool of promptTemplateTools) expect(chatOfficeTools(held)).not.toContain(tool);
-    }
+    expect(tools).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
   });
 
-  it("gives the Caretaker reading and drafting the Office instructions, Role cards, Prompt templates and Pipelines, and the set-up of The Office", () => {
-    const tools = caretakerChatOfficeTools(CARETAKER);
+  it("gives the Caretaker the set-up of The Office beside them, and no one else", () => {
+    const tools = caretakerChatOfficeTools();
 
     expect(tools).toEqual(
       expect.arrayContaining([
@@ -235,7 +230,6 @@ describe("chatOfficeTools", () => {
         LIST_PIPELINES_TOOL,
         LIST_STAGE_TEMPLATES_TOOL,
         PROPOSE_OFFICE_SETTING_TOOL,
-        PROPOSE_ROLE_TOOL,
         PROPOSE_PROMPT_TEMPLATE_TOOL,
         PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
         PROPOSE_LIBRARY_PIPELINE_TOOL,
@@ -245,47 +239,30 @@ describe("chatOfficeTools", () => {
         CONSULT_TOOL,
       ]),
     );
-    expect(tools).not.toContain(CHANGE_ROLE_TOOL);
-    expect(tools).not.toContain(PROPOSE_PROJECT_COMMANDS_TOOL);
-    for (const held of [PLANNER, DEVOPS, OFFICE_MANAGER, CARETAKER]) {
-      expect(chatOfficeTools(held)).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
-    }
-  });
-
-  it("lists each of the Caretaker's tools once, while they stand in as the Default person to talk to too", () => {
-    const tools = caretakerChatOfficeTools(OFFICE_MANAGER);
-
+    expect(chatOfficeTools()).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
     expect(new Set(tools).size).toBe(tools.length);
   });
 
-  it("gives every session reading the Pipelines and Stage templates, and no one their drafting but whoever onboards Projects, the Caretaker aside", () => {
+  it("gives every session reading the Pipelines and Stage templates", () => {
     expect(READING_OFFICE_TOOLS).toEqual(
       expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
     );
-    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).toEqual(
-        expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
-      );
-    }
+    expect(chatOfficeTools()).toEqual(
+      expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
+    );
     expect(
       consultationOfficeTools(
-        { held: PLANNER, caretaker: false },
+        { caretaker: false },
         { canCall: false, onTask: false, runEnvironment: false },
       ),
     ).toEqual(expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]));
-    expect(chatOfficeTools(DEVOPS)).toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
-    for (const held of [PLANNER, OFFICE_MANAGER, CARETAKER]) {
-      expect(chatOfficeTools(held)).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
-    }
   });
 
   it("gives every chat and every Consultation reading the Threads, which no Agent Stage reads with", () => {
-    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).toContain(READ_THREADS_TOOL);
-    }
+    expect(chatOfficeTools()).toContain(READ_THREADS_TOOL);
     expect(
       consultationOfficeTools(
-        { held: DEVOPS, caretaker: false },
+        { caretaker: false },
         { canCall: true, onTask: false, runEnvironment: false },
       ),
     ).toContain(READ_THREADS_TOOL);
@@ -296,12 +273,11 @@ describe("chatOfficeTools", () => {
 
 describe("answer_decision", () => {
   it("is in every chat, the Caretaker's and the Office Manager's too, and in no Consultation", () => {
-    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).toContain(ANSWER_DECISION_TOOL);
-    }
+    expect(chatOfficeTools()).toContain(ANSWER_DECISION_TOOL);
+    expect(caretakerChatOfficeTools()).toContain(ANSWER_DECISION_TOOL);
     expect(
       consultationOfficeTools(
-        { held: PLANNER, caretaker: false },
+        { caretaker: false },
         { canCall: true, onTask: false, runEnvironment: false },
       ),
     ).not.toContain(ANSWER_DECISION_TOOL);
@@ -312,13 +288,11 @@ describe("answer_decision", () => {
 
 describe("open_decision in a chat", () => {
   it("is in every chat, the Caretaker's and the Office Manager's too, and in no Consultation", () => {
-    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).toContain(OPEN_DECISION_TOOL);
-    }
-    expect(caretakerChatOfficeTools(CARETAKER)).toContain(OPEN_DECISION_TOOL);
+    expect(chatOfficeTools()).toContain(OPEN_DECISION_TOOL);
+    expect(caretakerChatOfficeTools()).toContain(OPEN_DECISION_TOOL);
     expect(
       consultationOfficeTools(
-        { held: PLANNER, caretaker: false },
+        { caretaker: false },
         { canCall: true, onTask: false, runEnvironment: false },
       ),
     ).not.toContain(OPEN_DECISION_TOOL);
@@ -424,22 +398,20 @@ describe("the message an answered Decision is sent with", () => {
 
 describe("calling a person", () => {
   it("is in every chat, the Office Manager's too, who calls only when the user asks", () => {
-    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).toContain(CONSULT_TOOL);
-    }
+    expect(chatOfficeTools()).toContain(CONSULT_TOOL);
     expect(CONSULT_TOOL).toBe(CONTRACT_CONSULT_TOOL);
   });
 
   it("is in a Consultation only while its chain of calls may ask one more", () => {
     expect(
       consultationOfficeTools(
-        { held: PLANNER, caretaker: false },
+        { caretaker: false },
         { canCall: true, onTask: false, runEnvironment: false },
       ),
     ).toContain(CONSULT_TOOL);
     expect(
       consultationOfficeTools(
-        { held: PLANNER, caretaker: false },
+        { caretaker: false },
         { canCall: false, onTask: false, runEnvironment: false },
       ),
     ).not.toContain(CONSULT_TOOL);
@@ -448,100 +420,62 @@ describe("calling a person", () => {
   it("gives a Consultation on a Task writing the run environment definition only with the Run environment capability, never off a Task or in a chat", () => {
     expect(
       consultationOfficeTools(
-        { held: DEVOPS, caretaker: false },
+        { caretaker: false },
         { canCall: false, onTask: true, runEnvironment: true },
       ),
     ).toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
     expect(
       consultationOfficeTools(
-        { held: DEVOPS, caretaker: false },
+        { caretaker: false },
         { canCall: false, onTask: true, runEnvironment: false },
       ),
     ).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
     expect(
       consultationOfficeTools(
-        { held: DEVOPS, caretaker: false },
+        { caretaker: false },
         { canCall: true, onTask: false, runEnvironment: true },
       ),
     ).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
-    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
-    }
-    expect(caretakerChatOfficeTools(CARETAKER)).not.toContain(
-      WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
-    );
+    expect(chatOfficeTools()).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
+    expect(caretakerChatOfficeTools()).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
   });
 
-  it("offers run_environment_check to holders of Onboards and repairs Projects in a chat, a Stage and a Consultation, and to nobody else", () => {
+  it("offers run_environment_check as a candidate in a chat and a Consultation, on a Task or not, its Run installs setting deciding it", () => {
     expect(RUN_ENVIRONMENT_CHECK_TOOL).toBe("run_environment_check");
-    expect(chatOfficeTools(DEVOPS)).toContain(RUN_ENVIRONMENT_CHECK_TOOL);
-    expect(roleOfficeTools(DEVOPS)).toContain(RUN_ENVIRONMENT_CHECK_TOOL);
+    expect(chatOfficeTools()).toContain(RUN_ENVIRONMENT_CHECK_TOOL);
     for (const onTask of [false, true]) {
       expect(
         consultationOfficeTools(
-          { held: DEVOPS, caretaker: false },
+          { caretaker: false },
           { canCall: false, onTask, runEnvironment: false },
         ),
       ).toContain(RUN_ENVIRONMENT_CHECK_TOOL);
-      expect(
-        consultationOfficeTools(
-          { held: PLANNER, caretaker: false },
-          { canCall: false, onTask, runEnvironment: false },
-        ),
-      ).not.toContain(RUN_ENVIRONMENT_CHECK_TOOL);
-    }
-    for (const held of [PLANNER, OFFICE_MANAGER, CARETAKER]) {
-      expect(chatOfficeTools(held)).not.toContain(RUN_ENVIRONMENT_CHECK_TOOL);
-      expect(roleOfficeTools(held)).not.toContain(RUN_ENVIRONMENT_CHECK_TOOL);
     }
   });
 
-  it("gives a Consultation its Consultant's own drafting tools, never the asker's", () => {
-    expect(
-      consultationOfficeTools(
-        { held: DEVOPS, caretaker: false },
-        { canCall: false, onTask: false, runEnvironment: false },
-      ),
-    ).toEqual(
+  it("gives a Consultation its Consultant's own tools, drafting among them, never the asker's", () => {
+    const tools = consultationOfficeTools(
+      { caretaker: false },
+      { canCall: false, onTask: false, runEnvironment: false },
+    );
+
+    expect(tools).toEqual(
       expect.arrayContaining(["propose_project_commands", "read_repository", "create_task"]),
     );
-    expect(
-      consultationOfficeTools(
-        { held: PLANNER, caretaker: false },
-        { canCall: false, onTask: false, runEnvironment: false },
-      ),
-    ).not.toContain("propose_project_commands");
-    expect(
-      consultationOfficeTools(
-        { held: DEVOPS, caretaker: false },
-        { canCall: true, onTask: false, runEnvironment: false },
-      ),
-    ).not.toContain(CHANGE_ROLE_TOOL);
+    expect(tools).not.toContain("change_role");
+    expect(tools).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
   });
 });
 
-describe("a chat's built-in tools and instructions, by the duties held", () => {
+describe("a chat's instructions, by the duties held, and its tools, by none", () => {
   const person = {
     card: { name: "Ada", title: "Receptionist", responsibilities: "", instructions: "" },
     officeInstructions: "",
   };
 
-  it("give whoever holds Default person to talk to the drafting and pointing tools, and calling when the user asks", () => {
-    const tools = chatOfficeTools(["default-person-to-talk-to"]);
-
-    expect(tools).toEqual(
-      expect.arrayContaining([
-        PROPOSE_ROLE_TOOL,
-        PROPOSE_OFFICE_SETTING_TOOL,
-        READ_OFFICE_INSTRUCTIONS_TOOL,
-        "post_link_card",
-        "show_office_status",
-        CREATE_INITIATIVE_TOOL,
-      ]),
-    );
-    expect(tools).not.toContain("create_task");
-    expect(tools).toContain(CONSULT_TOOL);
+  it("tell whoever holds Default person to talk to to point with a Link card and call only when the user asks", () => {
     const instructions = chatInstructions(PROMPTS, person, ["default-person-to-talk-to"]);
+
     expect(instructions).toContain(CALLING_RULE);
     expect(instructions).toContain(
       "You point the user to whoever is responsible with a Link card rather than relay their work",
@@ -549,81 +483,76 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
     expect(chatInstructions(PROMPTS, person, [])).not.toContain("rather than relay");
   });
 
-  it("give whoever holds Onboards Projects the Project tools and reading a repository, with its rule", () => {
-    const tools = chatOfficeTools(["onboards-projects"]);
-
-    expect(tools).toEqual(
-      expect.arrayContaining([
-        "propose_project_commands",
-        "propose_test_targets",
-        "propose_actions",
-        "propose_project",
-        "list_pipelines",
-        "propose_skill_install",
-        READ_REPOSITORY_TOOL,
-        CONSULT_TOOL,
-        "create_task",
-      ]),
-    );
-    expect(tools).not.toContain(PROPOSE_ROLE_TOOL);
+  it("tell whoever holds Onboards Projects to set a Project up with their tools", () => {
     expect(chatInstructions(PROMPTS, person, ["onboards-projects"])).toContain(CALLING_RULE);
     expect(chatInstructions(PROMPTS, person, ["onboards-projects"])).not.toEqual(
       chatInstructions(PROMPTS, person, []),
     );
   });
 
-  it("give whoever holds Shapes Initiatives creating an Initiative, and calling", () => {
-    const tools = chatOfficeTools(["shapes-initiatives", "asked-first-when-out-of-tries"]);
-
-    expect(tools).toContain(CREATE_INITIATIVE_TOOL);
-    expect(tools).toContain(CONSULT_TOOL);
-    expect(tools).not.toContain("propose_project_commands");
-  });
-
-  it("give a person holding no duty the plain chat's tools and the calling rule", () => {
-    const tools = chatOfficeTools([]);
-
-    expect(tools).toContain("create_task");
-    expect(tools).toContain(CONSULT_TOOL);
-    for (const builtIn of [
-      CREATE_INITIATIVE_TOOL,
-      PROPOSE_ROLE_TOOL,
-      "post_link_card",
-      "propose_project_commands",
-      READ_REPOSITORY_TOOL,
-    ]) {
-      expect(tools).not.toContain(builtIn);
-    }
+  it("give a person holding no duty the calling rule", () => {
     expect(chatInstructions(PROMPTS, person, [])).toContain(CALLING_RULE);
     expect(CALLING_RULE).toContain('"ask a colleague to set that up"');
   });
 
-  it("give a Consultant their person's own tools by their duties, whatever key their Role has", () => {
+  it("offer the same candidate tools to every person, whatever duties they hold, in a chat and a Consultation", () => {
+    const consultation = consultationOfficeTools(
+      { caretaker: false },
+      { canCall: false, onTask: false, runEnvironment: false },
+    );
+
+    for (const tool of [
+      "post_link_card",
+      "show_office_status",
+      READ_REPOSITORY_TOOL,
+      CREATE_INITIATIVE_TOOL,
+      "propose_project_commands",
+    ]) {
+      expect(chatOfficeTools()).toContain(tool);
+      expect(consultation).toContain(tool);
+    }
+  });
+});
+
+describe("personToolsRule", () => {
+  const OFFERED = ["create_task", "propose_project", "capture_idea"];
+
+  it("says a person creates a Task only while create_task is offered, whatever duty they hold", () => {
+    const creating = personToolsRule(
+      { offered: OFFERED, defaultPerson: false, caretaker: false },
+      "task",
+    );
+    const pointing = personToolsRule(
+      { offered: ["capture_idea"], defaultPerson: true, caretaker: false },
+      "task",
+    );
+
+    expect(creating).toContain("create a Task in Backlog");
+    expect(pointing).not.toContain("create a Task in Backlog");
+    expect(pointing).toContain(DEFAULT_PERSON_CALLING_RULE);
+    expect(creating).not.toContain(DEFAULT_PERSON_CALLING_RULE);
+  });
+
+  it("adds how to read a repository only to a person offered propose_project, not to one who holds Onboards Projects with it Never", () => {
+    const offered = personToolsRule(
+      { offered: OFFERED, defaultPerson: false, caretaker: false },
+      "initiative",
+    );
+    const never = personToolsRule(
+      { offered: ["create_task"], defaultPerson: false, caretaker: false },
+      "initiative",
+    );
+
+    expect(offered).toContain(READ_REPOSITORY_RULE);
+    expect(never).not.toContain(READ_REPOSITORY_RULE);
+  });
+
+  it("adds how the Caretaker changes how The Office works to the Caretaker alone", () => {
     expect(
-      consultationOfficeTools(
-        { held: ["onboards-projects"], caretaker: false },
-        {
-          canCall: false,
-          onTask: false,
-          runEnvironment: false,
-        },
-      ),
-    ).toContain(READ_REPOSITORY_TOOL);
+      personToolsRule({ offered: OFFERED, defaultPerson: false, caretaker: true }, "task"),
+    ).toContain(OFFICE_PROPOSALS_RULE);
     expect(
-      consultationOfficeTools(
-        { held: ["default-person-to-talk-to"], caretaker: false },
-        {
-          canCall: false,
-          onTask: false,
-          runEnvironment: false,
-        },
-      ),
-    ).toContain("post_link_card");
-    expect(
-      consultationOfficeTools(
-        { held: [], caretaker: false },
-        { canCall: false, onTask: false, runEnvironment: false },
-      ),
-    ).not.toContain("propose_project_commands");
+      personToolsRule({ offered: OFFERED, defaultPerson: false, caretaker: false }, "task"),
+    ).not.toContain(OFFICE_PROPOSALS_RULE);
   });
 });

@@ -22,7 +22,7 @@ import { BusyWorkModule } from "../../office-updates/index.js";
 import { type PreparedMcpServers, SessionMcpServers } from "../../mcp-servers/index.js";
 import { TokensCounted, DecisionAnswered } from "../domain/conversation-events.js";
 import { oneOptionAnswer, oneWordsAnswer } from "../domain/decision.js";
-import { roleOfficeTools } from "../domain/session-instructions.js";
+import { STAGE_AUTHORITY_OFFICE_TOOLS } from "../domain/session-instructions.js";
 import { NO_TOKENS, type TokenTotals, type Thread } from "../domain/thread.js";
 import {
   chooseOverride,
@@ -239,6 +239,16 @@ async function startOn(
   }));
   stageThreads = app.get(StageThreads);
   repository = app.get(ThreadRepository);
+  // Pipelines, Projects and Skills register the setup tools in the service; a Stage offers each its
+  // person's Authority leaves.
+  for (const name of STAGE_AUTHORITY_OFFICE_TOOLS) {
+    app.get(OfficeToolRegistry).register({
+      name,
+      description: name,
+      input: z.object({}),
+      run: () => Promise.resolve({ text: "", isError: false }),
+    });
+  }
 }
 
 function aPerson(name: string): string {
@@ -763,7 +773,7 @@ describe("StageThreads", () => {
     ]);
   });
 
-  it("gives Devops' Stage their own Office tools besides the Stage's, as in their chat", async () => {
+  it("gives Devops' Stage the setup tools their Authority leaves offered, besides the Stage's", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     people.set(
       DEVOPS,
@@ -774,22 +784,47 @@ describe("StageThreads", () => {
         MCP_TOOL_DEFAULT_STAND_IN,
       ),
     );
-    // Pipelines and Projects register these in the service.
-    const registry = app.get(OfficeToolRegistry);
-    for (const name of roleOfficeTools(["onboards-projects"])) {
-      registry.register({
-        name,
-        description: name,
-        input: z.object({}),
-        run: () => Promise.resolve({ text: "", isError: false }),
-      });
-    }
 
     await aStageRun(aStage({ roleKey: DEVOPS }));
 
     expect(engine.sessions[0]?.options.officeTools.map(({ name }) => name)).toEqual(
-      expect.arrayContaining([...roleOfficeTools(["onboards-projects"])]),
+      expect.arrayContaining([...STAGE_AUTHORITY_OFFICE_TOOLS]),
     );
+  });
+
+  it("gives a Stage no setup tool its person's Authority leaves Never, whatever duty they hold", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const never = { kind: "never" } as const;
+    people.set(
+      DEVOPS,
+      sessionRole(
+        DEVOPS,
+        1,
+        aPlannerCard({
+          name: "Nina",
+          title: "Devops",
+          sessionDefault: "always-start-fresh",
+          authority: {
+            projectSettings: never,
+            pipelinesAndStageTemplates: never,
+            proposeProjectCommands: never,
+            proposeTestTargets: never,
+            proposeActions: never,
+            skills: never,
+            runInstalls: never,
+          },
+        }),
+        MCP_TOOL_DEFAULT_STAND_IN,
+      ),
+    );
+
+    await aStageRun(aStage({ roleKey: DEVOPS }));
+
+    const names = engine.sessions[0]?.options.officeTools.map(({ name }) => name) ?? [];
+    // Only the reading tools, which are Core, stay.
+    expect(
+      names.filter((name) => STAGE_AUTHORITY_OFFICE_TOOLS.some((tool) => tool === name)),
+    ).toEqual(["list_source_skills", "read_skill_update"]);
   });
 
   describe("the Office instructions", () => {

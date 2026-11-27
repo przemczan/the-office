@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { copyFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -4999,6 +5000,100 @@ test(
       expect((await dutiesNow(page)).find(isPlans)?.roleKey).toBe(before.find(isPlans)?.roleKey);
     } finally {
       await restoreDuties(page, before);
+    }
+  },
+);
+
+test(
+  "the user gives a duty's new holder the settings its job needs, from Settings › Duties",
+  { tag: "@full" },
+  async ({ page }) => {
+    const DUTY = "Onboards and repairs Projects";
+    const before = await dutiesNow(page);
+    const planner = roleSchema.parse(await (await page.request.get("/api/roles/planner")).json());
+    const { name } = planner.card;
+    try {
+      await page.goto("/settings/duties");
+      await page
+        .getByLabel(DUTY, { exact: true })
+        .selectOption({ label: `${name} · ${planner.card.title}` });
+      const row = page.locator(".duty-row").filter({ hasText: DUTY });
+      await expect(row).toContainText("This job needs:");
+      await expect(row).toContainText("Projects and settings › Project upkeep Allowed");
+      await screenshotScenario(page, "duties-job-settings", { inView: row });
+
+      await row.getByRole("button", { name: `Give ${name} these settings` }).click();
+      await expect(row).not.toContainText("This job needs:");
+      const given = roleSchema.parse(await (await page.request.get("/api/roles/planner")).json());
+      expect(given.card.authority?.["projectUpkeep"]).toEqual({ kind: "allowed" });
+      expect(given.cardVersion).toBe(planner.cardVersion + 1);
+    } finally {
+      await restoreDuties(page, before);
+      const restored = await page.request.put("/api/roles/planner/card", {
+        data: roleCardSchema.parse(planner.card),
+      });
+      expect(restored.ok()).toBe(true);
+    }
+  },
+);
+
+test(
+  "the user edits Marta's change to a Role card before applying it, and the edited card is saved",
+  { tag: "@full" },
+  async ({ page }) => {
+    const started = await page.request.post("/api/chats/office-manager/threads");
+    expect(started.status(), await started.text()).toBe(201);
+    const { id: threadId } = threadSchema.parse(await started.json());
+    const planner = roleSchema.parse(await (await page.request.get("/api/roles/planner")).json());
+    const { card } = planner;
+    const proposed = `${card.instructions}\nAlways name the Task's Project.`;
+    const edited = `${proposed}\nKeep each Plan short.`;
+    // What the service fingerprints for the call: the card's version and the fields it writes.
+    const fingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          decidedBy: { cardVersion: planner.cardVersion },
+          subject: { id: "planner", kind: "role" },
+          writtenNow: { instructions: card.instructions },
+        }),
+      )
+      .digest("hex");
+    try {
+      await seedProposal(threadId, {
+        kind: "office-action",
+        action: "change_role_card",
+        title: "Change a Role card",
+        input: { ...roleCardSchema.parse(card), key: "planner", instructions: proposed },
+        subject: { kind: "role", id: "planner", title: card.name },
+        fields: [
+          { label: "Instructions", before: card.instructions, after: proposed, form: "long" },
+        ],
+        fingerprint,
+        outOfDate: false,
+      });
+      await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+      const proposal = proposalCard(page, "Change a Role card");
+      await proposal.getByRole("button", { name: "Edit before applying" }).click();
+
+      await expect(page).toHaveURL(/\/hire\?proposal=/);
+      const instructions = page.locator("form.role-card-form").getByLabel("Instructions");
+      await expect(instructions).toHaveValue(proposed);
+      await instructions.fill(edited);
+      await screenshotScenario(page, "edit-before-applying", { fullPage: false });
+      await page.getByRole("button", { name: "Save changes" }).click();
+
+      await expect(page).toHaveURL(/\/people\/planner$/);
+      const saved = roleSchema.parse(await (await page.request.get("/api/roles/planner")).json());
+      expect(saved.card.instructions).toBe(edited);
+      await page.goto("/people/planner/role");
+      await expect(page.getByText(/proposed by Marta, applied by you/).first()).toBeVisible();
+      await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+      await expect(proposalCard(page, "Change a Role card")).toContainText("Applied");
+    } finally {
+      const restored = await page.request.put("/api/roles/planner/card", {
+        data: roleCardSchema.parse(card),
+      });
+      expect(restored.ok()).toBe(true);
     }
   },
 );

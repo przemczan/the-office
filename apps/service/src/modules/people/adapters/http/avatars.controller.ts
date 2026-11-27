@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -32,12 +31,6 @@ export class AvatarsController {
   @Post()
   async change(@Param("key") key: string, @Body() body: unknown): Promise<RoleResponse> {
     await this.avatars.change(key, uploadedBytes(body));
-    return this.roleOf(key);
-  }
-
-  @Delete()
-  async remove(@Param("key") key: string): Promise<RoleResponse> {
-    await this.avatars.remove(key);
     return this.roleOf(key);
   }
 

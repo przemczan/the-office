@@ -10,6 +10,8 @@ import { AvatarsController } from "./adapters/http/avatars.controller.js";
 import { DutiesController } from "./adapters/http/duties.controller.js";
 import { MemoryController } from "./adapters/http/memory.controller.js";
 import { RolesController } from "./adapters/http/roles.controller.js";
+import { PeopleOfficeActionsController } from "./adapters/http/people-office-actions.controller.js";
+import { PeopleOfficeActions } from "./adapters/office-actions/people-office-actions.js";
 import { PeopleOfficeTools } from "./adapters/office-tools/people-office-tools.js";
 import { PostgresDutyRepository } from "./adapters/postgres/postgres-duty-repository.js";
 import { PeopleEarlierRecords } from "./adapters/postgres/people-earlier-records.js";
@@ -17,6 +19,8 @@ import { PostgresMemoryRepository } from "./adapters/postgres/postgres-memory-re
 import { PostgresOfficeSetupRepository } from "./adapters/postgres/postgres-office-setup-repository.js";
 import { PostgresRoleRepository } from "./adapters/postgres/postgres-role-repository.js";
 import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
+import { AvatarSources } from "./application/avatar-sources.js";
+import { SessionPeople } from "./application/session-people.js";
 import { AuthorityMoveOver } from "./application/authority-move-over.js";
 import { Duties } from "./application/duties.js";
 import { DutyChangeChecks } from "./application/duty-change-checks.js";
@@ -38,7 +42,13 @@ import { RoleRepository } from "./ports/role-repository.js";
   // A Role card names its skills and MCP servers, which the Skills and MCP servers modules keep;
   // chats read People through an Office tool on the Engine's registry.
   imports: [SkillsModule, McpServersModule, EngineModule],
-  controllers: [RolesController, AvatarsController, MemoryController, DutiesController],
+  controllers: [
+    RolesController,
+    PeopleOfficeActionsController,
+    AvatarsController,
+    MemoryController,
+    DutiesController,
+  ],
   providers: [
     { provide: RoleRepository, useClass: PostgresRoleRepository },
     { provide: MemoryRepository, useClass: PostgresMemoryRepository },
@@ -60,6 +70,9 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleCards,
     RoleWebEvents,
     PeopleOfficeTools,
+    PeopleOfficeActions,
+    AvatarSources,
+    SessionPeople,
     PersonRecords,
     PeopleEarlierRecords,
     EngineSettingsMoveOver,
@@ -70,6 +83,8 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleService,
     MemoryService,
     MemoryTaskTitles,
+    AvatarSources,
+    SessionPeople,
     PersonRecords,
     Duties,
     DutyRepository,

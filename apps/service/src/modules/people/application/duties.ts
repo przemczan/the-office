@@ -14,7 +14,9 @@ import {
   type DutyHolding,
   type DutyKey,
 } from "../domain/duties.js";
+import type { Authority } from "../domain/authority.js";
 import { DutyHolderChanged } from "../domain/duty-events.js";
+import { jobSettingsMissingOn } from "../domain/duty-jobs.js";
 import { DutyNotFound, DutyRefused } from "../domain/duty-refused.js";
 import type { HardSwitchValue } from "../domain/hard-switches.js";
 import type { Role } from "../domain/role.js";
@@ -29,9 +31,14 @@ export interface DutyHolder {
   readonly title: string;
 }
 
-/** A duty's holding, with its holder's name and title. */
+/**
+ * A duty's holding, with its holder's name and title, the job's settings (spec §2.2, "Duty") and
+ * those the holder's card doesn't give yet; none while nobody holds it.
+ */
 export interface DutyWithHolder extends Omit<DutyHolding, "holder"> {
   readonly holder: DutyHolder | null;
+  readonly jobSettings: Authority;
+  readonly jobSettingsToGive: Authority | null;
 }
 
 /**
@@ -226,5 +233,9 @@ function withHolder(holding: DutyHolding, roles: readonly Role[]): DutyWithHolde
   return {
     ...holding,
     holder: role ? { roleKey: role.key, name: role.card.name, title: role.card.title } : null,
+    jobSettings: dutyFor(holding.duty).jobSettings,
+    jobSettingsToGive: role
+      ? jobSettingsMissingOn(role.key, role.card.authority, holding.duty)
+      : null,
   };
 }

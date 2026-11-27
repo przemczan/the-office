@@ -3,7 +3,9 @@ import {
   projectPipelineFieldsSchema,
   proposedFeatureSwitchSchema,
   proposedRoutesSchema,
+  roleCardSchema,
   stageSchema,
+  type SavedRoleCard,
   type ChatActivity as ChatActivityResponse,
   type DecisionFormAnswer as DecisionFormAnswerResponse,
   type EditedAction as EditedActionResponse,
@@ -63,6 +65,7 @@ import {
   type ProposedActionsChange,
   type ProposedChange,
   type ProposedFeatureSwitches,
+  type ProposedOfficeAction,
   type ProposedProjectCommands,
   type ProposedTestTargetsChange,
 } from "../../domain/proposal.js";
@@ -459,6 +462,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         fields: fields.map((field) => ({ ...field })),
         fingerprint,
         outOfDate,
+        editableCard: editableCardOf(change),
       };
     }
     // A kind a later release kept, which a rollback reads: the web shows it as one it can't read.
@@ -792,4 +796,25 @@ function projectPipelineFieldsOf(fields: ProjectPipelineFields): ProjectPipeline
     description: typeof description === "string" ? description : "",
     stages: [],
   };
+}
+
+/**
+ * The card a `hire_role` from scratch or a `change_role_card` Proposal gives, for the user to edit
+ * before applying; null for any other, and for a change whose card leaves its Authority to its Hard
+ * switches, which only the Role's own card could fill in.
+ */
+function editableCardOf({ action, input }: ProposedOfficeAction): SavedRoleCard | null {
+  if (action === "hire_role") {
+    const card = roleCardSchema.safeParse(input["card"]);
+    if (!card.success) return null;
+    const roleKey = hiredKeyOf({ kind: "hire", card: { ...card.data, authority: {} }, skills: [] });
+    return cardWithAuthority(roleKey, card.data, {}) as SavedRoleCard;
+  }
+  if (action === "change_role_card") {
+    const card = roleCardSchema.safeParse(input);
+    return card.success && card.data.authority !== undefined
+      ? ({ ...card.data, authority: card.data.authority } satisfies SavedRoleCard)
+      : null;
+  }
+  return null;
 }

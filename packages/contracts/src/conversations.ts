@@ -912,6 +912,12 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     fields: z.array(changedFieldSchema),
     fingerprint: z.string(),
     outOfDate: z.boolean(),
+    /**
+     * For `hire_role` from scratch and `change_role_card` only: the card the call gives, its
+     * Authority made, which "Edit before applying" opens in the Role card form; applying then takes
+     * the edited card (`proposalApplicationSchema`'s `card`).
+     */
+    editableCard: savedRoleCardSchema.nullable().optional(),
   }),
   /** A kind of change a later release kept, which this release can't read; its card only says so. */
   z.object({ kind: z.literal("unknown") }),
@@ -969,6 +975,7 @@ export const proposalListSchema = z.array(proposalSchema);
 /**
  * POST /proposals/:id/apply: a new Role as the user edited it before hiring, from scratch its card
  * (with its skills), from a preset the person's name; neither to apply the Proposal as drafted.
+ * For a Proposal of `hire_role` or `change_role_card`, `card` is the card as edited before applying.
  */
 export const proposalApplicationSchema = z
   .object({ card: roleCardSchema.optional(), name: z.string().optional() })

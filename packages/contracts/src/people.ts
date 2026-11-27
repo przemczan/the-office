@@ -15,6 +15,7 @@ import {
 } from "./authority.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
+import { officeAction } from "./office-actions.js";
 import { userRefSchema } from "./users.js";
 
 export { effortSchema, type Effort } from "./engines.js";
@@ -338,7 +339,8 @@ export type RoleEngineCascade = z.infer<typeof roleEngineCascadeSchema>;
  * `engineSettingsMovedOver` says a card moved over to `engineSettings`: from its Role override, or
  * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
  * `authorityMovedOver` says the card's Authority was made from its Hard switches and duties; each
- * `authority.<group>` goes from a setting, or null at the preset's default, to another. The
+ * `authority.<group>` goes from a setting, or null at the preset's default, to another;
+ * `authorityFromDutiesHeld` says rows were given what the duties the person holds need. The
  * `hardSwitches.*` fields are named only by entries saved before the card had an Authority.
  */
 export const roleCardFieldSchema = z.enum([
@@ -364,6 +366,7 @@ export const roleCardFieldSchema = z.enum([
   "hardSwitches.changeRoles",
   "hardSwitches.changeProjectSettings",
   "authorityMovedOver",
+  "authorityFromDutiesHeld",
   ...authorityGroupSchema.options.map((group) => `authority.${group}` as const),
 ]);
 export type RoleCardField = z.infer<typeof roleCardFieldSchema>;
@@ -489,6 +492,16 @@ export const dutySchema = z.object({
   roleKey: z.string().nullable(),
   holder: z.object({ roleKey: z.string(), name: z.string(), title: z.string() }).nullable(),
   fallback: dutyFallbackSchema.nullable(),
+  /**
+   * The Authority rows the job needs (spec §2.2, "Duty"), each at its setting: what Settings ›
+   * Duties offers to give a new holder. The duty itself grants nothing.
+   */
+  jobSettings: authoritySchema,
+  /**
+   * The rows of `jobSettings` the current holder's card leaves Never, each at the setting giving
+   * it would put there; null while nobody holds the duty, empty once the card gives the job.
+   */
+  jobSettingsToGive: authoritySchema.nullable(),
 });
 export type Duty = z.infer<typeof dutySchema>;
 
@@ -509,3 +522,164 @@ export const roleWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("duty.changed"), duty: dutyKeySchema }),
 ]);
 export type RoleWebEvent = z.infer<typeof roleWebEventSchema>;
+
+/** The key a Role hired from scratch gets from its card's title; People's `roleKeyFor` makes the same. */
+function roleKeyOfTitle(title: string): string {
+  return title
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+const roleKeyInputSchema = z.string().min(1).describe("The Role's key, such as developer.");
+
+/**
+ * What POST /roles takes as one input: a hire from a preset (`roleKey` and `name`) or from scratch
+ * (`card`), one of the two; the route's body is `hireSchema`'s either shape.
+ */
+export const hireRoleInputSchema = z
+  .object({
+    roleKey: z.string().min(1).optional().describe("The preset's key, to hire from a preset."),
+    name: z.string().optional().describe("The new person's name, to hire from a preset."),
+    card: roleCardSchema
+      .optional()
+      .describe("The whole Role card, to hire from scratch; the Role's key comes from its title."),
+  })
+  .refine(
+    ({ roleKey, name, card }) =>
+      card === undefined
+        ? roleKey !== undefined && name !== undefined
+        : roleKey === undefined && name === undefined,
+    { message: "Give either a preset's roleKey and a name, or a card from scratch." },
+  );
+export type HireRoleInput = z.infer<typeof hireRoleInputSchema>;
+
+/** The Role a hire gives, by its key. */
+export function hiredRoleKeyOf(input: HireRoleInput): string {
+  return input.card === undefined ? (input.roleKey ?? "") : roleKeyOfTitle(input.card.title);
+}
+
+/** Office action: hires a person into a Role, from a preset or from scratch. */
+export const HIRE_ROLE_ACTION = officeAction({
+  name: "hire_role",
+  title: "Hire a person",
+  description:
+    "Hires a person into a Role, from a preset (roleKey and name) or from scratch (the whole card, its key made from its title). Refused with every reason when the card is invalid or someone fills the Role already. Ruled by your Change Roles setting, which a Proposal answers.",
+  input: hireRoleInputSchema,
+  answer: roleSchema,
+  route: { method: "POST", path: "/roles" },
+  status: 201,
+  area: "peopleAndRoles",
+  group: "changeRoles",
+  subject: (input) => ({ kind: "role", id: hiredRoleKeyOf(input) }),
+});
+
+/** Office action: saves a Role's card as its next version. */
+export const CHANGE_ROLE_CARD_ACTION = officeAction({
+  name: "change_role_card",
+  title: "Change a Role card",
+  description:
+    "Saves a Role's card, given whole, as its next version; sessions started afterwards read it. Start from read_role, since your session's copy may be old. Refused with every reason when the card is invalid. Ruled by your Change Roles setting, which a Proposal answers.",
+  input: roleCardSchema.extend({ key: roleKeyInputSchema }),
+  answer: roleSchema,
+  route: { method: "PUT", path: "/roles/:key/card" },
+  area: "peopleAndRoles",
+  group: "changeRoles",
+  subject: ({ key }) => ({ kind: "role", id: key }),
+});
+
+/** Office action: nobody fills the Role from now on. */
+export const LET_GO_ROLE_ACTION = officeAction({
+  name: "let_go_role",
+  title: "Let a person go",
+  description:
+    "Lets the person in a Role go: nobody fills it from now on, and their card, Memory and chats stay, unused. Refused when they were let go already. Ruled by your Change Roles setting.",
+  input: z.object({ key: roleKeyInputSchema }),
+  answer: roleSchema,
+  route: { method: "POST", path: "/roles/:key/let-go" },
+  status: 201,
+  area: "peopleAndRoles",
+  group: "changeRoles",
+  subject: ({ key }) => ({ kind: "role", id: key }),
+});
+
+/** Office action: the person let go fills the Role again. */
+export const HIRE_BACK_ROLE_ACTION = officeAction({
+  name: "hire_back_role",
+  title: "Hire a person back",
+  description:
+    "Hires the person who was let go back into their Role, with their card, Memory and chats as they were. Refused when they fill it. Ruled by your Change Roles setting.",
+  input: z.object({ key: roleKeyInputSchema }),
+  answer: roleSchema,
+  route: { method: "POST", path: "/roles/:key/hire-back" },
+  status: 201,
+  area: "peopleAndRoles",
+  group: "changeRoles",
+  subject: ({ key }) => ({ kind: "role", id: key }),
+});
+
+/** What deleting a Memory note answers. */
+export const memoryNoteDeletedSchema = z.object({ key: z.string(), noteId: z.string() });
+export type MemoryNoteDeleted = z.infer<typeof memoryNoteDeletedSchema>;
+
+/** Office action: deletes one Memory note. */
+export const DELETE_MEMORY_NOTE_ACTION = officeAction({
+  name: "delete_memory_note",
+  title: "Delete a Memory note",
+  description:
+    "Deletes one note from your own Memory; a person may delete only their own. Ruled by your Memory and Avatar setting.",
+  input: z.object({
+    key: roleKeyInputSchema.describe("Your own Role's key."),
+    noteId: z.string().min(1).describe("The note's id, as your Memory lists it."),
+  }),
+  answer: memoryNoteDeletedSchema,
+  route: { method: "DELETE", path: "/roles/:key/memory/:noteId" },
+  area: "peopleAndRoles",
+  group: "memoryAndAvatar",
+  subject: ({ key }) => ({ kind: "role", id: key }),
+});
+
+/** Office action: an image Attachment becomes the person's Avatar. */
+export const SET_AVATAR_FROM_ATTACHMENT_ACTION = officeAction({
+  name: "set_avatar_from_attachment",
+  title: "Set an Avatar from an Attachment",
+  description:
+    "Makes an image Attachment (PNG, JPEG, WebP or SVG, at most 2 MB) your own Avatar; a person sets only their own. The picture is never shown to you. Ruled by your Memory and Avatar setting.",
+  input: z.object({
+    key: roleKeyInputSchema.describe("Your own Role's key."),
+    attachmentId: z.uuid().describe("The id of the image Attachment."),
+  }),
+  answer: roleSchema,
+  route: { method: "POST", path: "/roles/:key/avatar/from-attachment" },
+  status: 201,
+  area: "peopleAndRoles",
+  group: "memoryAndAvatar",
+  subject: ({ key }) => ({ kind: "role", id: key }),
+});
+
+/** Office action: the person goes back to their initials. */
+export const REMOVE_AVATAR_ACTION = officeAction({
+  name: "remove_avatar",
+  title: "Remove an Avatar",
+  description:
+    "Removes your own Avatar, so your initials show again; a person removes only their own. Ruled by your Memory and Avatar setting.",
+  input: z.object({ key: roleKeyInputSchema.describe("Your own Role's key.") }),
+  answer: roleSchema,
+  route: { method: "DELETE", path: "/roles/:key/avatar" },
+  area: "peopleAndRoles",
+  group: "memoryAndAvatar",
+  subject: ({ key }) => ({ kind: "role", id: key }),
+});
+
+/** People's Office actions, each declared above. */
+export const PEOPLE_OFFICE_ACTIONS = [
+  HIRE_ROLE_ACTION,
+  CHANGE_ROLE_CARD_ACTION,
+  LET_GO_ROLE_ACTION,
+  HIRE_BACK_ROLE_ACTION,
+  DELETE_MEMORY_NOTE_ACTION,
+  SET_AVATAR_FROM_ATTACHMENT_ACTION,
+  REMOVE_AVATAR_ACTION,
+] as const;

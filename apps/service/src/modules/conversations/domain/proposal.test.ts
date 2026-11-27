@@ -12,6 +12,20 @@ const thread = aThread({
   roleKey: "office-manager",
 });
 
+const proposed = (action: string, input: Record<string, unknown>) =>
+  aProposal({
+    change: {
+      kind: "office-action",
+      action,
+      title: action,
+      input,
+      subject: { kind: "role", id: "developer", title: "Ada" },
+      fields: [],
+      fingerprint: "abc",
+      outOfDate: false,
+    },
+  });
+
 describe("applying a Proposal", () => {
   it("applies it as drafted, or a new Role as the user edited it", () => {
     const edited = {
@@ -27,6 +41,38 @@ describe("applying a Proposal", () => {
       skills: ["playwright"],
       roleKey: undefined,
     });
+  });
+
+  it("applies a hire_role or change_role_card Proposal with the card the user edited", () => {
+    const card = aProposedCard({ name: "Tom" });
+    const edited = { kind: "hire", card, skills: ["playwright"] } as const;
+    const hired = proposed("hire_role", {
+      card: { name: "Ada", hardSwitches: { runInstalls: "never" } },
+    });
+    expect(changeToApply(hired, edited)).toMatchObject({
+      editedInput: {
+        card: { ...card, skills: ["playwright"], hardSwitches: { runInstalls: "never" } },
+      },
+    });
+    const changed = proposed("change_role_card", {
+      key: "developer",
+      name: "Ada",
+      hardSwitches: { runInstalls: "never" },
+    });
+    expect(changeToApply(changed, edited)).toMatchObject({
+      editedInput: {
+        ...card,
+        skills: ["playwright"],
+        hardSwitches: { runInstalls: "never" },
+        key: "developer",
+      },
+    });
+    expect(() => changeToApply(proposed("change_task_title", { title: "x" }), edited)).toThrow(
+      ProposalRefused,
+    );
+    expect(() =>
+      changeToApply(proposed("hire_role", { roleKey: "qa", name: "Q" }), edited),
+    ).toThrow(ProposalRefused);
   });
 
   it("refuses once it is applied or declined", () => {

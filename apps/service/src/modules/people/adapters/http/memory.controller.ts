@@ -53,12 +53,6 @@ export class MemoryController {
     return toNoteResponse(note);
   }
 
-  @Delete(":noteId")
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param("key") key: string, @Param("noteId") noteId: string): Promise<void> {
-    await this.memory.remove(key, noteId);
-  }
-
   @Delete()
   @HttpCode(HttpStatus.NO_CONTENT)
   async clear(@Param("key") key: string): Promise<void> {

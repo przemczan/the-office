@@ -39,16 +39,21 @@ export class OfficeActionProposals implements OnModuleInit {
     proposedBy: string,
     appliedBy: UserRef,
   ): Promise<ProposedOfficeAction> {
+    // Out of date is judged on the call as drafted, the edited card being the user's own.
     const now = await this.registry.draft(change.action, change.input);
     if (now?.fingerprint !== change.fingerprint) {
       throw new ProposalOutOfDate(change.subject.title, await this.personNamed(proposedBy));
     }
     // The check and the handler aren't one transaction, so a change between them goes through; the
     // handler's own domain rules still refuse what no longer holds.
-    const { text, isError } = await this.registry.applyFor(change.action, change.input, {
-      user: { userId: appliedBy.userId, name: appliedBy.name },
-      proposedBy,
-    });
+    const { text, isError } = await this.registry.applyFor(
+      change.action,
+      change.editedInput ?? change.input,
+      {
+        user: { userId: appliedBy.userId, name: appliedBy.name },
+        proposedBy,
+      },
+    );
     if (isError) throw new ProposalRefused([text]);
     return change;
   }

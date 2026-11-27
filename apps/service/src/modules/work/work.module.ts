@@ -45,6 +45,7 @@ import { BugTaskProposals } from "./adapters/conversations/bug-task-proposals.js
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { ThreadMessageImages } from "./adapters/conversations/thread-message-images.js";
+import { AvatarSourceFromWork } from "./adapters/people/avatar-source-from-work.js";
 import { MemoryTaskTitleSourceFromWork } from "./adapters/people/memory-task-title-source.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { TaskThreadRecords } from "./adapters/conversations/task-thread-records.js";
@@ -374,6 +375,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         MentionedWorkRecords,
         ThreadMessageImages,
         MemoryTaskTitleSourceFromWork,
+        AvatarSourceFromWork,
         OfficeLimitProposals,
         InitiativeProposals,
         ProjectProposals,

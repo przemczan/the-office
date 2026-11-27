@@ -1,7 +1,6 @@
 import {
   PROPOSE_OFFICE_SETTING_TOOL as CONTRACT_PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL as CONTRACT_PROPOSE_OFFICE_SETUP_TOOL,
-  PROPOSE_ROLE_TOOL as CONTRACT_PROPOSE_ROLE_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -15,7 +14,6 @@ import { ProposalRefused } from "../../domain/proposal-refused.js";
 import {
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
-  PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
 } from "../../domain/session-instructions.js";
 import { ProposalOfficeTools } from "./proposal-office-tools.js";
@@ -23,14 +21,12 @@ import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 
 const tester = { role: { key: "tester", card: aProposedCard() } };
-/** The person's effort High on Claude Code, with its default model. */
-const HIGH_ON_CLAUDE_CODE = { "claude-code": { model: null, effort: "high" as const } };
 
 /**
  * The tool named `name` as registered, over Proposals that keep what is drafted, refusing with
  * `refusal`.
  */
-function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL, instructionsNow = "") {
+function toolDrafting(refusal: string | undefined, name: string, instructionsNow = "") {
   const drafted: (ProposedChange | ProposedSettingValue)[] = [];
   const draft = (change: (typeof drafted)[number]) => {
     if (refusal) return Promise.reject(new ProposalRefused([refusal]));
@@ -76,148 +72,6 @@ function namedByTheTitle(name: string) {
     isError: true,
   };
 }
-
-describe("the propose_role tool", () => {
-  it("is named as the contracts name it", () => {
-    expect(PROPOSE_ROLE_TOOL).toBe(CONTRACT_PROPOSE_ROLE_TOOL);
-  });
-
-  it("names the presets a Role is hired from", () => {
-    const { tool } = toolDrafting();
-
-    expect(JSON.stringify(z.toJSONSchema(tool.input))).toContain("developer, planner");
-  });
-
-  it("drafts a person in a preset's Role, under the name given", async () => {
-    const { tool, drafted } = toolDrafting();
-
-    const result = await tool.run({ preset: " developer ", card: { name: "Ada" } }, session);
-
-    expect(result.isError).toBe(false);
-    expect(drafted).toEqual([{ kind: "hire-from-preset", roleKey: "developer", name: "Ada" }]);
-  });
-
-  it("refuses a preset's Role with more than a name, or with a Role to change", async () => {
-    const { tool, drafted } = toolDrafting();
-
-    await expect(
-      tool.run(
-        { preset: "developer", card: { name: "Ada", engineSettings: HIGH_ON_CLAUDE_CODE } },
-        session,
-      ),
-    ).resolves.toMatchObject({ isError: true });
-    await expect(
-      tool.run({ preset: "developer", card: { name: "Ada" }, skills: [] }, session),
-    ).resolves.toMatchObject({ isError: true });
-    await expect(
-      tool.run({ preset: "developer", role: "tester", card: { name: "Ada" } }, session),
-    ).resolves.toEqual({
-      text: "Give a preset to hire from or a Role to change, not both.",
-      isError: true,
-    });
-    expect(drafted).toEqual([]);
-  });
-
-  it("drafts a new Role on its whole card", async () => {
-    const { tool, drafted } = toolDrafting();
-
-    const result = await tool.run({ card: aProposedCard(), skills: ["playwright"] }, session);
-
-    expect(result.isError).toBe(false);
-    expect(drafted).toEqual([
-      { kind: "hire", card: aProposedCard(), skills: ["playwright"], roleKey: undefined },
-    ]);
-  });
-
-  it("drafts a new Role left without engine settings on each engine's defaults", async () => {
-    const { tool, drafted } = toolDrafting();
-    const { engineSettings: _left, ...card } = aProposedCard({
-      engineSettings: HIGH_ON_CLAUDE_CODE,
-    });
-
-    await tool.run({ card, skills: [] }, session);
-
-    expect(drafted).toEqual([
-      { kind: "hire", card: aProposedCard({ engineSettings: {} }), skills: [], roleKey: undefined },
-    ]);
-  });
-
-  it("names what a new Role's card is missing", async () => {
-    const { tool, drafted } = toolDrafting();
-
-    const result = await tool.run({ card: { name: "Tess", title: "Tester" } }, session);
-
-    expect(result.isError).toBe(true);
-    expect(result.text).toContain("responsibilities");
-    expect(drafted).toEqual([]);
-  });
-
-  it("drafts a change of the fields that differ, with what the card has now", async () => {
-    const { tool, drafted } = toolDrafting();
-
-    await tool.run(
-      { role: "tester", card: { name: "Tess", engineSettings: HIGH_ON_CLAUDE_CODE } },
-      session,
-    );
-
-    expect(drafted).toEqual([
-      {
-        kind: "change",
-        roleKey: "tester",
-        from: { engineSettings: {} },
-        to: { engineSettings: HIGH_ON_CLAUDE_CODE },
-      },
-    ]);
-  });
-
-  it("refuses a change to a Role that isn't there, or to its skills", async () => {
-    const { tool, drafted } = toolDrafting();
-
-    await expect(tool.run({ role: "janitor", card: { taskLimit: 2 } }, session)).resolves.toEqual({
-      text: 'The Office has no Role "janitor".',
-      isError: true,
-    });
-    await expect(
-      tool.run({ role: "tester", card: {}, skills: ["playwright"] }, session),
-    ).resolves.toMatchObject({ isError: true });
-    expect(drafted).toEqual([]);
-  });
-
-  it("asks for a first name apart from the title", () => {
-    const { tool } = toolDrafting();
-
-    expect(JSON.stringify(z.toJSONSchema(tool.input))).toContain(
-      "The person's first name, apart from the Role's title",
-    );
-  });
-
-  it("refuses a person named by the Role's title, hired from scratch, from a preset or renamed", async () => {
-    const { tool, drafted } = toolDrafting();
-
-    await expect(
-      tool.run(
-        { card: { ...aProposedCard(), name: "Docs Writer", title: "Docs writer" } },
-        session,
-      ),
-    ).resolves.toEqual(namedByTheTitle("Docs Writer"));
-    await expect(
-      tool.run({ preset: "developer", card: { name: " developer " } }, session),
-    ).resolves.toEqual(namedByTheTitle("developer"));
-    await expect(
-      tool.run({ role: "tester", card: { name: aProposedCard().title } }, session),
-    ).resolves.toEqual(namedByTheTitle(aProposedCard().title));
-    expect(drafted).toEqual([]);
-  });
-
-  it("gives the Agent the reasons a Proposal is refused", async () => {
-    const { tool } = toolDrafting("Choose a model the engine offers.");
-
-    await expect(tool.run({ card: aProposedCard() }, session)).resolves.toEqual({
-      text: "Choose a model the engine offers.",
-      isError: true,
-    });
-  });
-});
 
 describe("the propose_office_setting tool", () => {
   it("is named as the contracts name it", () => {

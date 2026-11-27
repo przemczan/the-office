@@ -4,7 +4,6 @@ import {
   OFFICE_WIDE_LIMIT_MAX,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
-  PROPOSE_ROLE_TOOL,
   roleCardSchema,
   SIZE_THRESHOLD_TOKENS,
 } from "@the-office/contracts";
@@ -15,7 +14,6 @@ import {
   Duties,
   dutiesSuitedTo,
   hiredKeyOf,
-  RoleNotFound,
   RoleService,
   type DutyKey,
   type SetUpDuty,
@@ -25,9 +23,7 @@ import {
 import { OfficeInstructions } from "../../application/office-instructions.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import {
-  fieldsWithAuthority,
   OFFICE_SETTINGS,
-  proposedRoleChange,
   type DutyHolders,
   type OfficeSetting,
   type ProposedChange,
@@ -36,10 +32,7 @@ import {
   type IncomingCardFields,
   type ProposedSettingValue,
 } from "../../domain/proposal.js";
-import {
-  READ_OFFICE_INSTRUCTIONS_TOOL,
-  READ_ROLE_TOOL,
-} from "../../domain/session-instructions.js";
+import { READ_OFFICE_INSTRUCTIONS_TOOL } from "../../domain/session-instructions.js";
 import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).extend({
@@ -63,9 +56,6 @@ const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).extend({
     ),
 });
 
-const ROLE_DRAFTED =
-  "The Proposal is in this Thread as a card; nothing changes until the user applies it, and they may edit a new Role before hiring. Don't wait for it: tell the user what you propose and why, in a line or two.";
-
 const SETUP_DRAFTED =
   "The Proposal is in this Thread as a card; nobody is hired and no duty changes until the user applies it, all together. Don't wait for it: tell the user whom you propose to hire, for which duties, and why, in a few lines.";
 
@@ -73,9 +63,8 @@ const SETTING_DRAFTED =
   "The Proposal is in this Thread as a card; nothing changes until the user applies it. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 /**
- * The Office tools the Default person to talk to drafts Proposals with (spec §2.2): a Role (a new
- * one, from scratch or from a preset, or a change to one) and an Office setting, each a Proposal
- * the user applies with a click, and the read of the Office instructions a draft of them starts
+ * The Office tools the Default person to talk to drafts Proposals with (spec §2.2): an Office
+ * setting, a Proposal the user applies with a click, and the read of the Office instructions a draft of them starts
  * from; and the Caretaker's set-up of The Office, its hires and duties in one Proposal. They
  * change nothing themselves, so they sit behind no Hard switch: the user's click is the approval.
  * They return at once, with the owner's reasons when it would refuse.
@@ -91,57 +80,9 @@ export class ProposalOfficeTools implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.registerProposeRole();
     this.registerProposeOfficeSetting();
     this.registerProposeOfficeSetup();
     this.registerReadOfficeInstructions();
-  }
-
-  private registerProposeRole(): void {
-    const presets = this.roles.presets().map(({ roleKey }) => roleKey);
-    this.registry.register({
-      name: PROPOSE_ROLE_TOOL,
-      description:
-        "Drafts a Role as a Proposal the user applies with a click: a new Role on its whole card, a person hired into a preset's Role, or a change to a hired Role's card, its model and effort on each engine type included. It shows in this Thread as a card and changes nothing until the user applies it. It returns at once.",
-      input: z.object({
-        role: z
-          .string()
-          .optional()
-          .describe(
-            `The key of the Role to change, such as developer; leave it out for a new Role. Read its whole card with ${READ_ROLE_TOOL} first and start the change from what it answers, since your session's copy may be old.`,
-          ),
-        preset: z
-          .string()
-          .optional()
-          .describe(
-            `The key of the preset whose Role to hire into, on the preset's card: ${presets.join(", ")}. A preset's Role is hired only from its preset; give the person's name as card.name and nothing else.`,
-          ),
-        card: roleCardFieldsSchema
-          .partial()
-          .describe(
-            `For a new Role, the whole Role card; for a preset's Role, only the name; for a change, only the fields that change, each one whole, written from what ${READ_ROLE_TOOL} answers: new instructions replace all of them, not only the lines that change.`,
-          ),
-        skills: z
-          .array(z.string())
-          .optional()
-          .describe(
-            "For a new Role, the library skills it has besides the skills for everyone, by name.",
-          ),
-      }),
-      run: async ({ role, preset, card, skills }, { sessionId }) => {
-        const change =
-          preset !== undefined
-            ? this.presetRole(preset.trim(), role, card, skills)
-            : role === undefined
-              ? newRole(card, skills)
-              : await this.changeOf(role.trim(), card, skills);
-        if (typeof change === "string") return { text: change, isError: true };
-        return refusedToTheAgent(async () => {
-          await this.proposals.draft(sessionId, change);
-          return ROLE_DRAFTED;
-        });
-      },
-    });
   }
 
   private registerProposeOfficeSetting(): void {
@@ -311,27 +252,6 @@ export class ProposalOfficeTools implements OnModuleInit {
         return { text: text === "" ? "The Office instructions are empty." : text, isError: false };
       },
     });
-  }
-
-  private async changeOf(
-    roleKey: string,
-    given: IncomingCardFields,
-    skills: readonly string[] | undefined,
-  ): Promise<ProposedChange | string> {
-    if (skills !== undefined) return "A change to a Role leaves its skills as they are.";
-    try {
-      const { role } = await this.roles.read(roleKey);
-      const fields = fieldsWithAuthority(roleKey, given, role.card.authority);
-      const { name, title } = { ...role.card, ...fields };
-      const renamed = fields.name !== undefined || fields.title !== undefined;
-      return (
-        (renamed ? nameProblem(name, title) : undefined) ??
-        proposedRoleChange(roleKey, role.card, fields)
-      );
-    } catch (error) {
-      if (error instanceof RoleNotFound) return `The Office has no Role "${roleKey}".`;
-      throw error;
-    }
   }
 
   /** A person in the preset's Role, or what is wrong with the call, in words the Agent acts on. */

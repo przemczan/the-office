@@ -1,10 +1,5 @@
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import {
-  MemoryService,
-  RoleRefused,
-  sessionRole,
-  type AuthorityValue,
-} from "../../../people/index.js";
+import { MemoryService, RoleRefused, sessionRole } from "../../../people/index.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { REMEMBER_TOOL } from "../../domain/session-instructions.js";
 import type { Thread } from "../../domain/thread.js";
@@ -39,14 +34,13 @@ export function toolWith(thread: Thread | undefined, refusal?: string) {
   return { tool, written };
 }
 
-/** A Planner's session whose Change Roles is as given. */
-export const card = (sharedMemory: boolean, changeRoles: AuthorityValue) =>
+/** A Planner's session whose Shared memory is as given. */
+export const card = (sharedMemory: boolean) =>
   sessionRole(
     "planner",
     1,
     aPlannerCard({
       capabilities: { sharedMemory, chat: true, consultant: true, runEnvironment: false },
-      authority: { ...aPlannerCard().authority, changeRoles },
     }),
     { kind: "ask-me" },
   );

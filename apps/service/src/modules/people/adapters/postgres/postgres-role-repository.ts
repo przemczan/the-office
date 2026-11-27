@@ -19,6 +19,8 @@ import { roleCardVersions, roles, type StoredRoleCard } from "./roles.schema.js"
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type RoleRow = typeof roles.$inferSelect;
+/** A Role's row as a save writes it: whether its duties' jobs were given is set apart. */
+type RoleRowSaved = Omit<RoleRow, "dutyJobsGiven">;
 type RoleCardVersionRow = typeof roleCardVersions.$inferSelect;
 
 /**
@@ -111,6 +113,34 @@ export class PostgresRoleRepository extends RoleRepository {
           engineSettingsMissing: stored.engineSettings === undefined,
         });
         return changed;
+      }),
+    );
+  }
+
+  rolesToGiveDutiesJobs(): Promise<readonly string[]> {
+    return readOnce(readKey("roles.toGiveDutiesJobs"), async () => {
+      const rows = await this.database
+        .select({ key: roles.key })
+        .from(roles)
+        .where(eq(roles.dutyJobsGiven, false))
+        .orderBy(asc(roles.hiredAt), asc(roles.key));
+      return rows.map((row) => row.key);
+    });
+  }
+
+  async giveDutiesJobs(
+    key: string,
+    change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
+  ): Promise<RoleUpdate> {
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const { role, stored, dutyJobsGiven } = await heldRole(transaction, key);
+        // Given meanwhile, by another start of the service.
+        if (dutyJobsGiven) return { role, event: undefined };
+        const changed = change(role);
+        if (changed) await saveVersion(transaction, changed, earlierFieldsOf(stored));
+        await transaction.update(roles).set({ dutyJobsGiven: true }).where(eq(roles.key, key));
+        return changed ?? { role, event: undefined };
       }),
     );
   }
@@ -211,9 +241,10 @@ export class PostgresRoleRepository extends RoleRepository {
  * when someone already fills the Role.
  */
 export async function addRole(transaction: Transaction, role: Role): Promise<boolean> {
+  // Its hire gave it its duties' jobs, so the second Authority move-over leaves it.
   const added = await transaction
     .insert(roles)
-    .values(toRow(role))
+    .values({ ...toRow(role), dutyJobsGiven: true })
     .onConflictDoNothing()
     .returning({ key: roles.key });
   if (added.length === 0) return false;
@@ -249,7 +280,11 @@ async function saveVersion(
 async function heldRole(
   transaction: Transaction,
   key: string,
-): Promise<{ readonly role: Role; readonly stored: StoredRoleCard }> {
+): Promise<{
+  readonly role: Role;
+  readonly stored: StoredRoleCard;
+  readonly dutyJobsGiven: boolean;
+}> {
   // Locked on its own: Postgres re-checks a locked row against a join after waiting for the lock,
   // and the version joined before the other change would no longer match.
   const [locked] = await transaction
@@ -264,10 +299,14 @@ async function heldRole(
     .innerJoin(roleCardVersions, currentCard)
     .where(eq(roles.key, key));
   if (!row) throw new RoleNotFound(key);
-  return { role: toRole(row.roles, row.role_card_versions), stored: row.role_card_versions.card };
+  return {
+    role: toRole(row.roles, row.role_card_versions),
+    stored: row.role_card_versions.card,
+    dutyJobsGiven: row.roles.dutyJobsGiven,
+  };
 }
 
-function toRow(role: Role): RoleRow {
+function toRow(role: Role): RoleRowSaved {
   return {
     key: role.key,
     cardVersion: role.cardVersion,
@@ -349,7 +388,7 @@ function cardOf(
   };
 }
 
-function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
+function toRole(row: RoleRowSaved, version: RoleCardVersionRow): Role {
   return {
     key: row.key,
     card: cardOf(row.key, version.card),

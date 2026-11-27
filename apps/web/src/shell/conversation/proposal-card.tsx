@@ -135,6 +135,7 @@ const OFFICE_LIMITS: Record<
  * Nothing changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
+  const navigate = useNavigate();
   const roles = useQuery(roleQueries.list()).data;
   const duties = useQuery(dutyQueries.list()).data;
   const options = useQuery(roleCardQueries.options()).data;
@@ -462,6 +463,9 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             appliedToast={`${change.title} applied.`}
             openNote={STALE_NOTE}
             outOfDate={change.outOfDate}
+            {...(change.editableCard && {
+              onEdit: () => void navigate({ to: "/hire", search: { proposal: proposal.id } }),
+            })}
           />
         </ProposalFrame>
       );
@@ -1206,6 +1210,7 @@ function AnswerFoot({
   declineLabel = "Not now",
   outOfDate = false,
   onApplied,
+  onEdit,
 }: {
   readonly proposal: Proposal;
   /** What applying it changes, refreshed once it is applied. */
@@ -1219,6 +1224,8 @@ function AnswerFoot({
   readonly outOfDate?: boolean;
   /** Told once it is applied, after the toast. */
   readonly onApplied?: () => void;
+  /** Opens a form to edit it before applying, "Edit before applying" beside Apply. */
+  readonly onEdit?: () => void;
 }): ReactNode {
   const showToast = useToast();
   const answering = useAnswering(proposal, changes, () => {
@@ -1252,6 +1259,11 @@ function AnswerFoot({
               onClick={() => answering.applying.mutate({})}
             >
               {applyLabel}
+            </Button>
+          )}
+          {onEdit && !outOfDate && (
+            <Button size="sm" variant="secondary" disabled={answering.busy} onClick={onEdit}>
+              Edit before applying
             </Button>
           )}
           <Button

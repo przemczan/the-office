@@ -19,18 +19,26 @@ import {
   RoleHiredBack,
   RoleLetGo,
 } from "./role-events.js";
+import { ALLOWED, ASK_ME } from "./hard-switches.js";
 import { RoleRefused } from "./role-refused.js";
 import { ANN_LEE, BEN_ITO } from "./user.fixtures.js";
 
 const at = new Date("2026-10-25T10:00:00.000Z");
 
 describe("hire", () => {
-  it("fills the preset's Role with the named person and the preset's card, at version 1", () => {
+  it("fills the preset's Role with the named person and the preset's card, at version 1, with the job of the duty it holds", () => {
     const { role, event } = hire("planner", " Jan ", undefined, at, ANN_LEE);
 
     expect(role).toEqual({
       key: "planner",
-      card: { ...presetFor("planner")?.card, name: "Jan" },
+      // The Planner's table leaves Initiative records Never; its job of Plans needs them.
+      card: {
+        ...presetFor("planner")?.card,
+        name: "Jan",
+        authority: {
+          initiativeRecords: { kind: "own-and-others", own: ALLOWED, others: ASK_ME },
+        },
+      },
       cardVersion: 1,
       hiredAt: at,
       cardSavedAt: at,

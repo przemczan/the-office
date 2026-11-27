@@ -6,6 +6,7 @@ import {
   type AuthoritySetting,
 } from "./authority.js";
 import type { DutyKey } from "./duties.js";
+import { jobSettingsOf } from "./duty-jobs.js";
 import { ALLOWED, ASK_ME, NEVER, type HardSwitches } from "./hard-switches.js";
 import {
   CARETAKER,
@@ -24,9 +25,34 @@ const OWN_ALLOWED_OTHERS_ASK_ME: AuthoritySetting = {
   others: ASK_ME,
 };
 
-/** `setting` for a person who held the tool that reaches it, else Never. */
-function whenHeld(held: boolean, setting: AuthoritySetting): AuthoritySetting {
-  return held ? setting : NEVER;
+/**
+ * The job rows the first move-over knew, by duty: the reach the duties' drafting and upkeep tools
+ * gave before Authority. The later rows of a job (`DUTIES`' `jobSettings`) are given by the second
+ * move-over alone, so a card moved over now reads as it did when this one first ran.
+ */
+const FIRST_MOVE_OVER_JOB_ROWS: Readonly<Record<string, readonly AuthorityGroup[]>> = {
+  "default-person-to-talk-to": [
+    "initiativeRecords",
+    "changeRoles",
+    "promptTemplates",
+    "officeSettings",
+  ],
+  "shapes-initiatives": ["initiativeRecords"],
+  "onboards-projects": [
+    "publishingSettings",
+    "projectSettings",
+    "projectUpkeep",
+    "pipelinesAndStageTemplates",
+  ],
+};
+
+/** The rows of the held duties' jobs that the first move-over gave, each at its job's setting. */
+function firstMoveOverJob(holds: ReadonlySet<DutyKey>): Authority {
+  const job = jobSettingsOf(holds);
+  const rows = new Set([...holds].flatMap((duty) => FIRST_MOVE_OVER_JOB_ROWS[duty] ?? []));
+  return Object.fromEntries(
+    Object.entries(job).filter(([group]) => rows.has(group as AuthorityGroup)),
+  );
 }
 
 /**
@@ -37,7 +63,8 @@ function whenHeld(held: boolean, setting: AuthoritySetting): AuthoritySetting {
  *   me by the trust anchor's cap, and Never becomes Proposal for the Default person to talk to,
  *   who drafts Roles with `propose_role`.
  * - A record's creators keep their cover: Allowed on their own records, Ask me on others'.
- * - The duties' drafting and upkeep tools become their rows' Proposal or Allowed.
+ * - The duties' drafting and upkeep tools become their rows' Proposal or Allowed, from the duties'
+ *   own job settings (`DUTIES`).
  * Values equal to the preset's default stand at it.
  */
 export function authorityMovedOver(
@@ -47,25 +74,23 @@ export function authorityMovedOver(
 ): Authority {
   if (roleKey === CARETAKER) return {};
   const talksFirst = holds.has("default-person-to-talk-to");
-  const onboards = holds.has("onboards-projects");
+  const job = firstMoveOverJob(holds);
+  const jobRow = (group: AuthorityGroup): AuthoritySetting => job[group] ?? NEVER;
   const moved: Partial<Record<AuthorityGroup, AuthoritySetting>> = {
     // Everyone but the Default person to talk to had create_task.
-    taskRecords: whenHeld(!talksFirst, OWN_ALLOWED_OTHERS_ASK_ME),
-    initiativeRecords: whenHeld(
-      talksFirst || holds.has("shapes-initiatives"),
-      OWN_ALLOWED_OTHERS_ASK_ME,
-    ),
+    taskRecords: talksFirst ? NEVER : OWN_ALLOWED_OTHERS_ASK_ME,
+    initiativeRecords: jobRow("initiativeRecords"),
     ideas: OWN_ALLOWED_OTHERS_ASK_ME,
     captureIdea: ALLOWED,
     changeProjectSettings: switches.changeProjectSettings,
-    publishingSettings: whenHeld(onboards, PROPOSAL),
-    projectSettings: whenHeld(onboards, PROPOSAL),
-    projectUpkeep: whenHeld(onboards, ALLOWED),
-    changeRoles: switches.changeRoles.kind === "never" ? whenHeld(talksFirst, PROPOSAL) : ASK_ME,
+    publishingSettings: jobRow("publishingSettings"),
+    projectSettings: jobRow("projectSettings"),
+    projectUpkeep: jobRow("projectUpkeep"),
+    changeRoles: switches.changeRoles.kind === "never" ? jobRow("changeRoles") : ASK_ME,
     skills: PROPOSAL,
-    pipelinesAndStageTemplates: whenHeld(onboards, PROPOSAL),
-    promptTemplates: whenHeld(talksFirst, PROPOSAL),
-    officeSettings: whenHeld(talksFirst, PROPOSAL),
+    pipelinesAndStageTemplates: jobRow("pipelinesAndStageTemplates"),
+    promptTemplates: jobRow("promptTemplates"),
+    officeSettings: jobRow("officeSettings"),
     runInstalls: switches.runInstalls,
     publishOutsideThePipeline: switches.publishOutsideThePipeline,
   };

@@ -1,5 +1,6 @@
+import { PROPOSAL, type Authority, type AuthoritySetting } from "./authority.js";
 import { isBuiltIn } from "./caretaker.js";
-import { ASK_ME, consult, type HardSwitchValue } from "./hard-switches.js";
+import { ALLOWED, ASK_ME, consult, type HardSwitchValue } from "./hard-switches.js";
 import { CTO, DEVELOPER, DEVOPS, OFFICE_MANAGER, PLANNER, REVIEWER } from "./known-roles.js";
 import type { Role } from "./role.js";
 
@@ -16,7 +17,19 @@ export interface Duty {
   /** Who holds it while it was never set, if hired. */
   readonly defaultRoleKey: string;
   readonly fallback: DutyFallback;
+  /**
+   * The Authority rows the job needs (spec §2.2, "Duty"): what a Role given the duty is offered to
+   * set on its card, never granted by the duty itself. Only the rows the job uses are named.
+   */
+  readonly jobSettings: Authority;
 }
+
+/** A record row's own work Allowed, others' Ask me: the cover a record's creators have. */
+const OWN_ALLOWED_OTHERS_ASK_ME: AuthoritySetting = {
+  kind: "own-and-others",
+  own: ALLOWED,
+  others: ASK_ME,
+};
 
 /** Spec §2.2's duties, in its order. */
 export const DUTIES = [
@@ -25,34 +38,78 @@ export const DUTIES = [
     label: "Default person to talk to",
     defaultRoleKey: OFFICE_MANAGER,
     fallback: "caretaker",
+    jobSettings: {
+      initiativeRecords: OWN_ALLOWED_OTHERS_ASK_ME,
+      changeRoles: PROPOSAL,
+      promptTemplates: PROPOSAL,
+      officeSettings: PROPOSAL,
+      postLinkCard: ALLOWED,
+      showOfficeStatus: ALLOWED,
+    },
   },
   {
     key: "shapes-initiatives",
     label: "Shapes Initiatives",
     defaultRoleKey: CTO,
     fallback: "user",
+    // Its record tools: the Initiative's outcome, Tasks and Pipeline, and a Task's title and description.
+    jobSettings: {
+      initiativeRecords: OWN_ALLOWED_OTHERS_ASK_ME,
+      taskRecords: OWN_ALLOWED_OTHERS_ASK_ME,
+    },
   },
   {
     key: "asked-first-when-out-of-tries",
     label: "Asked first when a Stage runs out of tries",
     defaultRoleKey: CTO,
     fallback: "user",
+    jobSettings: {},
   },
   {
     key: "onboards-projects",
     label: "Onboards and repairs Projects",
     defaultRoleKey: DEVOPS,
     fallback: "user",
+    // Run installs is a Hard switch and stays the person's own: the job never names it.
+    jobSettings: {
+      publishingSettings: PROPOSAL,
+      projectSettings: PROPOSAL,
+      projectUpkeep: ALLOWED,
+      pipelinesAndStageTemplates: PROPOSAL,
+      proposeProjectCommands: PROPOSAL,
+      proposeTestTargets: PROPOSAL,
+      proposeActions: PROPOSAL,
+    },
   },
   {
     key: "mcp-tool-consultant",
     label: "Default Consultant for MCP tool hard switches",
     defaultRoleKey: DEVOPS,
     fallback: "user",
+    jobSettings: {},
   },
-  { key: "plans", label: "Plans", defaultRoleKey: PLANNER, fallback: "user" },
-  { key: "implements", label: "Implements", defaultRoleKey: DEVELOPER, fallback: "unstaffed" },
-  { key: "reviews", label: "Reviews", defaultRoleKey: REVIEWER, fallback: "unstaffed" },
+  {
+    key: "plans",
+    label: "Plans",
+    defaultRoleKey: PLANNER,
+    fallback: "user",
+    // Its dependency and membership tools, which are Initiative records.
+    jobSettings: { initiativeRecords: OWN_ALLOWED_OTHERS_ASK_ME },
+  },
+  {
+    key: "implements",
+    label: "Implements",
+    defaultRoleKey: DEVELOPER,
+    fallback: "unstaffed",
+    jobSettings: {},
+  },
+  {
+    key: "reviews",
+    label: "Reviews",
+    defaultRoleKey: REVIEWER,
+    fallback: "unstaffed",
+    jobSettings: {},
+  },
 ] as const satisfies readonly Duty[];
 
 export type DutyKey = (typeof DUTIES)[number]["key"];

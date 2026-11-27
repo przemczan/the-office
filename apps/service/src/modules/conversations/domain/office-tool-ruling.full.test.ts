@@ -63,21 +63,20 @@ describe("valueOnSubject", () => {
 
 describe("toolRuling", () => {
   it("runs an Allowed call", () => {
-    expect(toolRuling(ALLOWED, false)).toEqual({ kind: "run" });
+    expect(toolRuling(ALLOWED)).toEqual({ kind: "run" });
   });
 
   it("holds a Consult call for the person", () => {
-    expect(toolRuling(CONSULT_CTO, false)).toEqual({ kind: "hold", setting: CONSULT_CTO });
+    expect(toolRuling(CONSULT_CTO)).toEqual({ kind: "hold", setting: CONSULT_CTO });
   });
 
   it("holds an Ask me call, and drafts a Proposal call", () => {
-    expect(toolRuling(ASK_ME, false)).toEqual({ kind: "hold", setting: ASK_ME });
-    expect(toolRuling(PROPOSAL, false)).toEqual({ kind: "propose" });
+    expect(toolRuling(ASK_ME)).toEqual({ kind: "hold", setting: ASK_ME });
+    expect(toolRuling(PROPOSAL)).toEqual({ kind: "propose" });
   });
 
-  it("leaves a Never call out, unless the person holds a duty that grants the tool", () => {
-    expect(toolRuling(NEVER, false)).toEqual({ kind: "never" });
-    expect(toolRuling(NEVER, true)).toEqual({ kind: "run" });
+  it("leaves a Never call out: no duty keeps one running", () => {
+    expect(toolRuling(NEVER)).toEqual({ kind: "never" });
   });
 });
 
@@ -104,15 +103,12 @@ describe("offeredTools", () => {
 
   it("leaves out an Office action's tool ruled Never and keeps every other tool", () => {
     expect(
-      offeredTools(["open_decision", "change_task_title", "move_task"], groupOf, authority, []),
+      offeredTools(["open_decision", "change_task_title", "move_task"], groupOf, authority),
     ).toEqual(["open_decision", "move_task"]);
   });
 
-  it("keeps a duty's tool offered to the duty's holder where the row says Never", () => {
-    expect(offeredTools(["add_dependency"], groupOf, authority, ["shapes-initiatives"])).toEqual([
-      "add_dependency",
-    ]);
-    expect(offeredTools(["add_dependency"], groupOf, authority, [])).toEqual([]);
+  it("leaves out a tool where its row says Never: a duty keeps none offered", () => {
+    expect(offeredTools(["add_dependency"], groupOf, authority)).toEqual([]);
   });
 
   it("keeps a tool with a row of its own on own work offered while that row isn't Never", () => {
@@ -125,16 +121,15 @@ describe("offeredTools", () => {
       ["continue_at_gate", "continueAtGateOnOwnWork"],
     ]);
 
-    expect(offeredTools(["continue_at_gate"], gateGroup, gates, [], ownWork)).toEqual([
+    expect(offeredTools(["continue_at_gate"], gateGroup, gates, ownWork)).toEqual([
       "continue_at_gate",
     ]);
-    expect(offeredTools(["continue_at_gate"], gateGroup, gates, [])).toEqual([]);
+    expect(offeredTools(["continue_at_gate"], gateGroup, gates)).toEqual([]);
     expect(
       offeredTools(
         ["continue_at_gate"],
         gateGroup,
         { ...gates, continueAtGateOnOwnWork: { kind: "never" } },
-        [],
         ownWork,
       ),
     ).toEqual([]);

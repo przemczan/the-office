@@ -850,3 +850,42 @@ describe("ProposalCard linked to", () => {
     }
   });
 });
+
+function roleCardProposal(editableCard: object | null, outOfDate = false): Proposal {
+  return {
+    id: PROPOSAL_ID,
+    threadId: "6f1c2a52-1d0e-4a59-9d55-3c1f7f1f0a02",
+    draftedBy: "office-manager",
+    draftedAt: AT,
+    change: {
+      kind: "office-action",
+      action: "change_role_card",
+      title: "Change a Role card",
+      subject: { kind: "role", id: "planner", title: "Angela" },
+      fields: [],
+      fingerprint: "abc",
+      outOfDate,
+      editableCard,
+    },
+    status: { kind: "open" },
+  } as Proposal;
+}
+
+describe("ProposalCard on an Office action that has an editor", () => {
+  it("offers Edit before applying for a Role card change it holds the card of", async () => {
+    serviceAnswering(roleCardProposal({}));
+    const card = await cardOf(roleCardProposal({}));
+
+    expect(button(card, "Edit before applying")).toBeDefined();
+    expect(button(card, "Apply change")).toBeDefined();
+  });
+
+  it("offers none for a Proposal with no card to edit, or once it is out of date", async () => {
+    serviceAnswering(roleCardProposal(null));
+    const plain = await cardOf(roleCardProposal(null));
+    const stale = await cardOf(roleCardProposal({}, true));
+
+    expect(plain.textContent).not.toContain("Edit before applying");
+    expect(stale.textContent).not.toContain("Edit before applying");
+  });
+});

@@ -44,7 +44,7 @@ import {
   READ_SKILL_UPDATE_TOOL,
   READING_OFFICE_TOOLS,
   READ_STAGE_HISTORY_TOOL,
-  roleOfficeTools,
+  STAGE_AUTHORITY_OFFICE_TOOLS,
   RUN_ENVIRONMENT_CHECK_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
   type HeldDuties,
@@ -62,12 +62,9 @@ import {
 const PROMPTS = defaultPromptTexts(CONVERSATIONS_PROMPT_TEMPLATES);
 
 /** The duties each default Role holds while nobody moved them; the Caretaker holds none. */
-const OFFICE_MANAGER: HeldDuties = ["default-person-to-talk-to"];
-const CTO: HeldDuties = ["shapes-initiatives", "asked-first-when-out-of-tries"];
 const DEVOPS: HeldDuties = ["onboards-projects", "mcp-tool-consultant"];
 const PLANNER: HeldDuties = ["plans"];
 const DEVELOPER: HeldDuties = ["implements"];
-const CARETAKER: HeldDuties = [];
 
 describe("chatInstructions", () => {
   const nina = {
@@ -155,56 +152,43 @@ describe("the Office instructions in a session's standing instructions", () => {
 
 describe("chatOfficeTools", () => {
   it("gives a person's chat every chat tool: the person's own, then the chat's Decision form", () => {
-    expect(chatOfficeTools(PLANNER)).toEqual([
-      ...PERSON_OFFICE_TOOLS,
-      CONSULT_TOOL,
-      OPEN_DECISION_TOOL,
-    ]);
+    expect(chatOfficeTools()).toEqual([...PERSON_OFFICE_TOOLS, CONSULT_TOOL, OPEN_DECISION_TOOL]);
     expect(CHAT_OFFICE_TOOLS).toEqual([...PERSON_OFFICE_TOOLS, OPEN_DECISION_TOOL]);
   });
 
-  it("leaves creating a Task out of the Office Manager's, who points to the Planner", () => {
-    const tools = chatOfficeTools(OFFICE_MANAGER);
+  it("offers every person the same candidates, creating a Task, an Initiative and posting a Link card among them: their Authority leaves each, no duty adds or removes one", () => {
+    const tools = chatOfficeTools();
 
-    expect(tools).not.toContain("create_task");
-    expect(tools).toContain("capture_idea");
+    for (const tool of [
+      "create_task",
+      CREATE_INITIATIVE_TOOL,
+      POST_LINK_CARD_TOOL,
+      "capture_idea",
+    ]) {
+      expect(tools).toContain(tool);
+    }
+    expect(CHAT_OFFICE_TOOLS).toContain(CREATE_INITIATIVE_TOOL);
   });
 
-  it("gives creating an Initiative to the CTO's and the Office Manager's chats alone", () => {
-    expect(chatOfficeTools(CTO)).toContain(CREATE_INITIATIVE_TOOL);
-    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(CREATE_INITIATIVE_TOOL);
-    for (const held of [PLANNER, DEVELOPER, DEVOPS, CARETAKER]) {
-      expect(chatOfficeTools(held)).not.toContain(CREATE_INITIATIVE_TOOL);
-    }
-    expect(CHAT_OFFICE_TOOLS).not.toContain(CREATE_INITIATIVE_TOOL);
-  });
-
-  it("gives creating an Initiative to the CTO's and the Office Manager's Consultations, as their person's, never to their Stages", () => {
-    expect(roleOfficeTools(CTO)).not.toContain(CREATE_INITIATIVE_TOOL);
-    expect(roleOfficeTools(OFFICE_MANAGER)).not.toContain(CREATE_INITIATIVE_TOOL);
-    for (const held of [CTO, OFFICE_MANAGER]) {
-      expect(
-        consultationOfficeTools(
-          { held, caretaker: false },
-          { canCall: true, onTask: false, runEnvironment: false },
-        ),
-      ).toContain(CREATE_INITIATIVE_TOOL);
-    }
+  it("keeps each Consultation's tools those of its Consultant's person, the Stage's setup tools apart", () => {
+    expect(STAGE_AUTHORITY_OFFICE_TOOLS).not.toContain(CREATE_INITIATIVE_TOOL);
+    expect(
+      consultationOfficeTools(
+        { caretaker: false },
+        { canCall: true, onTask: false, runEnvironment: false },
+      ),
+    ).toContain(CREATE_INITIATIVE_TOOL);
   });
 
   it("gives every chat every reading tool, the Office Manager's too", () => {
-    for (const held of [PLANNER, DEVOPS, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
-    }
+    expect(chatOfficeTools()).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
     expect(READING_OFFICE_TOOLS).toContain(READ_ROLE_TOOL);
     expect(READING_OFFICE_TOOLS).toContain("read_initiative");
     expect(READING_OFFICE_TOOLS).toContain("read_attachment");
   });
 
   it("gives every chat reading a Task's Stage history, the Office Manager's too, apart from the reading tools every session has", () => {
-    for (const held of [PLANNER, DEVOPS, OFFICE_MANAGER]) {
-      expect(chatOfficeTools(held)).toContain(READ_STAGE_HISTORY_TOOL);
-    }
+    expect(chatOfficeTools()).toContain(READ_STAGE_HISTORY_TOOL);
     expect(READING_OFFICE_TOOLS).not.toContain(READ_STAGE_HISTORY_TOOL);
   });
 
@@ -224,42 +208,34 @@ describe("chatOfficeTools", () => {
     ]);
   });
 
-  it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {
-    expect(chatOfficeTools(DEVOPS)).toContain(READ_REPOSITORY_TOOL);
-    expect(roleOfficeTools(DEVOPS)).not.toContain(READ_REPOSITORY_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(READ_REPOSITORY_TOOL);
+  it("gives every chat reading a repository on the workstation, a Core tool, never a Stage's setup tools", () => {
+    expect(chatOfficeTools()).toContain(READ_REPOSITORY_TOOL);
+    expect(STAGE_AUTHORITY_OFFICE_TOOLS).not.toContain(READ_REPOSITORY_TOOL);
   });
 
-  it("gives everyone drafting a written skill as a Proposal, the Office Manager too", () => {
-    expect(chatOfficeTools(PLANNER)).toContain(PROPOSE_SKILL_TOOL);
-    expect(chatOfficeTools(DEVOPS)).toContain(PROPOSE_SKILL_TOOL);
-    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(PROPOSE_SKILL_TOOL);
+  it("gives everyone drafting a written skill as a Proposal", () => {
+    expect(chatOfficeTools()).toContain(PROPOSE_SKILL_TOOL);
   });
 
-  it("gives Devops drafting Project commands, test targets, Actions, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates as Proposals", () => {
-    expect(chatOfficeTools(DEVOPS)).toEqual([
-      ...PERSON_OFFICE_TOOLS,
-      PROPOSE_PROJECT_COMMANDS_TOOL,
-      PROPOSE_TEST_TARGETS_TOOL,
-      PROPOSE_ACTIONS_TOOL,
-      PROPOSE_LIBRARY_PIPELINE_TOOL,
-      PROPOSE_PROJECT_PIPELINE_TOOL,
-      PROPOSE_STAGE_TEMPLATE_TOOL,
-      PROPOSE_PROJECT_TOOL,
-      LIST_SOURCE_SKILLS_TOOL,
-      PROPOSE_SKILL_INSTALL_TOOL,
-      READ_SKILL_UPDATE_TOOL,
-      PROPOSE_SKILL_UPDATE_TOOL,
-      RUN_ENVIRONMENT_CHECK_TOOL,
-      READ_REPOSITORY_TOOL,
-      CONSULT_TOOL,
-      OPEN_DECISION_TOOL,
-    ]);
-    expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_PROJECT_PIPELINE_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_STAGE_TEMPLATE_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_SKILL_INSTALL_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_SKILL_UPDATE_TOOL);
+  it("offers drafting Project commands, test targets, Actions, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates, as the Authority leaves each", () => {
+    expect(chatOfficeTools()).toEqual(
+      expect.arrayContaining([
+        PROPOSE_PROJECT_COMMANDS_TOOL,
+        PROPOSE_TEST_TARGETS_TOOL,
+        PROPOSE_ACTIONS_TOOL,
+        PROPOSE_LIBRARY_PIPELINE_TOOL,
+        PROPOSE_PROJECT_PIPELINE_TOOL,
+        PROPOSE_STAGE_TEMPLATE_TOOL,
+        PROPOSE_PROJECT_TOOL,
+        LIST_SOURCE_SKILLS_TOOL,
+        PROPOSE_SKILL_INSTALL_TOOL,
+        READ_SKILL_UPDATE_TOOL,
+        PROPOSE_SKILL_UPDATE_TOOL,
+        RUN_ENVIRONMENT_CHECK_TOOL,
+        READ_REPOSITORY_TOOL,
+      ]),
+    );
+    expect(new Set(chatOfficeTools()).size).toBe(chatOfficeTools().length);
   });
 
   it("names the Proposal tools as the web does", () => {
@@ -277,14 +253,9 @@ describe("chatOfficeTools", () => {
     expect(PROPOSE_PROMPT_TEMPLATE_RESET_TOOL).toBe(CONTRACT_PROPOSE_PROMPT_TEMPLATE_RESET_TOOL);
   });
 
-  it("gives only the Office Manager posting Link cards", () => {
-    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(POST_LINK_CARD_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(POST_LINK_CARD_TOOL);
-  });
-
-  it("gives only the Office Manager showing the Office status", () => {
-    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(SHOW_OFFICE_STATUS_TOOL);
-    expect(chatOfficeTools(PLANNER)).not.toContain(SHOW_OFFICE_STATUS_TOOL);
+  it("offers posting Link cards and showing the Office status as tools of their own, which the Authority decides", () => {
+    expect(chatOfficeTools()).toContain(POST_LINK_CARD_TOOL);
+    expect(chatOfficeTools()).toContain(SHOW_OFFICE_STATUS_TOOL);
   });
 
   it("names the tools whose calls the web shows as cards as the contracts name them", () => {
@@ -296,7 +267,7 @@ describe("chatOfficeTools", () => {
 describe("consultationOfficeTools", () => {
   it("gives a Consultant every reading tool, and no Decision of their own", () => {
     const tools = consultationOfficeTools(
-      { held: CTO, caretaker: false },
+      { caretaker: false },
       {
         canCall: true,
         onTask: false,
@@ -310,7 +281,7 @@ describe("consultationOfficeTools", () => {
   it("gives a Consultant reading the Task's Stage history", () => {
     expect(
       consultationOfficeTools(
-        { held: CTO, caretaker: false },
+        { caretaker: false },
         { canCall: false, onTask: false, runEnvironment: false },
       ),
     ).toContain(READ_STAGE_HISTORY_TOOL);

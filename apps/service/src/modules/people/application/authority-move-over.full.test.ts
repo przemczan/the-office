@@ -8,10 +8,17 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineReferenceLock } from "../../engine/index.js";
 import { PostgresRoleRepository } from "../adapters/postgres/postgres-role-repository.js";
 import { roleCardVersions, roles } from "../adapters/postgres/roles.schema.js";
-import { hardSwitchesOf, PROPOSAL } from "../domain/authority.js";
+import { hardSwitchesOf, PROPOSAL, type Authority } from "../domain/authority.js";
+import { DUTIES, type DutyKey } from "../domain/duties.js";
 import { ALLOWED, ASK_ME, consult, NEVER, type HardSwitches } from "../domain/hard-switches.js";
 import { CARETAKER } from "../domain/known-roles.js";
-import { aCardSavedBeforeAuthority } from "../domain/role.fixtures.js";
+import {
+  aCardSavedBeforeAuthority,
+  aRole,
+  aRoleCard,
+  CARD_CONTEXT,
+} from "../domain/role.fixtures.js";
+import { changeRoleCard } from "../domain/role-changes.js";
 import { RoleCardChanged } from "../domain/role-events.js";
 import { DutyRepositoryForTests } from "../ports/duty-repository.fixtures.js";
 import type { RoleRepository } from "../ports/role-repository.js";
@@ -40,6 +47,9 @@ beforeAll(async () => {
     rolesToMoveAuthorityOver: {
       value: async () =>
         (await repository.rolesToMoveAuthorityOver()).filter((key) => own.has(key)),
+    },
+    rolesToGiveDutiesJobs: {
+      value: async () => (await repository.rolesToGiveDutiesJobs()).filter((key) => own.has(key)),
     },
   });
   // The duties of the test's own: every test file shares the stored ones.
@@ -202,5 +212,132 @@ describe("AuthorityMoveOver", () => {
     expect((await repository.find(key))?.cardVersion).toBe(3);
     expect(await repository.rolesToMoveAuthorityOver()).not.toContain(key);
     expect(published.filter((event) => event.role.key === key)).toEqual([]);
+  });
+});
+
+/**
+ * Hires a Role of the test's own, from scratch, with the card's Authority as set, as hired before
+ * the second move-over: not given its duties' jobs yet.
+ */
+async function aHolder(authority: Authority, duties: readonly DutyKey[]): Promise<string> {
+  const key = `holder-${randomUUID()}`;
+  own.add(key);
+  await repository.add(aRole({ key, card: aRoleCard({ authority }) }));
+  await database.update(roles).set({ dutyJobsGiven: false }).where(eq(roles.key, key));
+  await assignOnly(key, duties);
+  return key;
+}
+
+/** Assigns `duties` to `key` and every other duty to nobody, so no other file's Role is touched. */
+async function assignOnly(key: string, duties: readonly DutyKey[]): Promise<void> {
+  await dutyRepository.assignAll(
+    DUTIES.map(({ key: duty }) => ({
+      duty: duty as DutyKey,
+      roleKey: duties.includes(duty as DutyKey) ? key : null,
+    })),
+  );
+}
+
+describe("AuthorityMoveOver, giving the duties' jobs", () => {
+  it("gives a holder whose card leaves a row of its job Never one new version naming no user, with only those rows", async () => {
+    const key = await aHolder({ projectUpkeep: NEVER, projectSettings: NEVER }, [
+      "onboards-projects",
+    ]);
+
+    await moveOver.giveDutiesJobs();
+
+    const after = await repository.find(key);
+    expect(after).toMatchObject({ cardVersion: 2, cardSavedBy: null, cardProposedBy: undefined });
+    expect(after?.card.authority).toMatchObject({
+      projectUpkeep: ALLOWED,
+      projectSettings: PROPOSAL,
+      // A capped row at Proposal, never Allowed.
+      publishingSettings: PROPOSAL,
+      proposeProjectCommands: PROPOSAL,
+      proposeTestTargets: PROPOSAL,
+      proposeActions: PROPOSAL,
+    });
+    // Ask me stays Ask me: only a Never row takes the job's setting.
+    expect(after?.card.authority.pipelinesAndStageTemplates).toBeUndefined();
+    const [given] = await repository.versions(key);
+    expect(given?.changes[0]).toEqual({ field: "authorityFromDutiesHeld", from: null, to: null });
+    expect(given?.changes.slice(1).every(({ field }) => field.startsWith("authority."))).toBe(true);
+    expect(published.filter((event) => event.role.key === key)).toHaveLength(1);
+  });
+
+  it("changes nothing the second time", async () => {
+    const key = await aHolder({ projectUpkeep: NEVER }, ["onboards-projects"]);
+    await moveOver.giveDutiesJobs();
+    published = [];
+
+    await moveOver.giveDutiesJobs();
+
+    expect((await repository.find(key))?.cardVersion).toBe(2);
+    expect(published.filter((event) => event.role.key === key)).toEqual([]);
+  });
+
+  it("leaves a row the user set Never after it at the next start", async () => {
+    const key = await aHolder({ projectUpkeep: NEVER }, ["onboards-projects"]);
+    await moveOver.giveDutiesJobs();
+    await repository.update(key, (role) =>
+      changeRoleCard(
+        role,
+        { ...role.card, authority: { ...role.card.authority, projectUpkeep: NEVER } },
+        CARD_CONTEXT,
+        new Date(),
+        null,
+      ),
+    );
+
+    await moveOver.giveDutiesJobs();
+
+    expect((await repository.find(key))?.card.authority.projectUpkeep).toEqual(NEVER);
+    expect((await repository.find(key))?.cardVersion).toBe(3);
+  });
+
+  it("gives nothing for a duty assigned after it, nor to a Role hired after it", async () => {
+    const holdsNothing = await aHolder({ projectUpkeep: NEVER }, []);
+    await moveOver.giveDutiesJobs();
+    const hiredAfter = `holder-${randomUUID()}`;
+    own.add(hiredAfter);
+    await repository.add(
+      aRole({ key: hiredAfter, card: aRoleCard({ authority: { projectUpkeep: NEVER } }) }),
+    );
+    await assignOnly(holdsNothing, ["onboards-projects"]);
+
+    await moveOver.giveDutiesJobs();
+    await assignOnly(hiredAfter, ["onboards-projects"]);
+    await moveOver.giveDutiesJobs();
+
+    expect((await repository.find(holdsNothing))?.cardVersion).toBe(1);
+    expect((await repository.find(hiredAfter))?.cardVersion).toBe(1);
+  });
+
+  it("leaves a Role that holds no duty, and one whose card gives its whole job, as they are", async () => {
+    const holdsNothing = await aHolder({ projectUpkeep: NEVER }, []);
+    const gives = await aHolder(
+      {
+        publishingSettings: PROPOSAL,
+        proposeProjectCommands: PROPOSAL,
+        proposeTestTargets: PROPOSAL,
+        proposeActions: PROPOSAL,
+      },
+      ["onboards-projects"],
+    );
+
+    await moveOver.giveDutiesJobs();
+
+    expect((await repository.find(holdsNothing))?.cardVersion).toBe(1);
+    expect((await repository.find(gives))?.cardVersion).toBe(1);
+  });
+
+  it("gives the holder of Default person to talk to Change Roles as Proposal, never Allowed", async () => {
+    const key = await aHolder({}, ["default-person-to-talk-to"]);
+
+    await moveOver.giveDutiesJobs();
+
+    const authority = (await repository.find(key))?.card.authority;
+    expect(authority?.changeRoles).toEqual(PROPOSAL);
+    expect(authority).toMatchObject({ postLinkCard: ALLOWED, showOfficeStatus: ALLOWED });
   });
 });

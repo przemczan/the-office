@@ -95,7 +95,7 @@ Office actions are bound only by the words. Agents read the words, but nothing e
 | Followed by the Agent | Run installs; Publish outside the Pipeline (the two Hard switches with no Office tool) |
 | No area | Approve held calls and apply Proposals (trust anchor), shown after the areas beside the followed groups |
 
-- **The card shows at most 28 rows** besides the MCP servers' tools, as [Authority by role](#authority-by-role) lists them: 23 groups and 2 single tools in the nine areas, the 2 followed groups, and the approvals row.
+- **The card shows at most 33 rows** besides the MCP servers' tools, as [Authority by role](#authority-by-role) lists them: 23 groups and 7 single tools in the nine areas (`capture_idea` and Continue at a Gate on own work among them, with `propose_project_commands`, `propose_test_targets`, `propose_actions`, `post_link_card` and `show_office_status`), the 2 followed groups, and the approvals row.
 - A group or a single tool in an area shows its own row only where its value differs from its area's, or where a cap applies to it. An area whose groups all share one value shows as one row.
 
 **Own work and others' work.**

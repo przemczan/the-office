@@ -43,11 +43,10 @@ import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-to
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { OfficeInstructionsProposals } from "../adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-proposals.js";
-import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
+import type { Proposal, ProposedChange, ProposedSettingChange } from "../domain/proposal.js";
 import {
   chatOfficeTools,
   PROPOSE_OFFICE_SETTING_TOOL,
-  PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_ROLE_TOOL,
 } from "../domain/session-instructions.js";
@@ -268,7 +267,6 @@ class OfficeWideLimitStandIn {
 }
 
 const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
-  PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
 ];
@@ -282,7 +280,7 @@ function chatToolStandIns(): FactoryProvider {
     provide: "chat tool stand-ins",
     inject: [OfficeToolRegistry],
     useFactory: (registry: OfficeToolRegistry) => {
-      for (const name of chatOfficeTools(["default-person-to-talk-to"])) {
+      for (const name of chatOfficeTools()) {
         if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) || TOOLS_OF_PEOPLE.includes(name)) {
           continue;
         }
@@ -308,11 +306,6 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
     versions: [],
     suffixMatches: [],
   };
-}
-
-/** The Office Manager proposes a Role with `input`, then ends their turn. */
-function proposes(input: Record<string, unknown>): SessionScript {
-  return calls(PROPOSE_ROLE_TOOL, input);
 }
 
 /** The Office Manager calls the Office tool `tool` with `input`, then ends their turn. */
@@ -392,6 +385,24 @@ function drafts(text: string): SessionScript {
   return calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-instructions", text });
 }
 
+/**
+ * The Office Manager's chat once their turn ended, with a Proposal of `change` drafted in it as
+ * `propose_role`, now retired, drafted them: one still open applies as before.
+ */
+async function draftsRole(change: ProposedChange): Promise<{
+  readonly thread: Thread;
+  readonly drafted: readonly Proposal[];
+}> {
+  await startWith([
+    { step: "start", brief: { id: "brief", text: "" } },
+    ...endsTurn("Nothing to draft."),
+  ]);
+  const { thread } = await askOfficeManager("We need someone to test the changes.");
+  if (!thread.session) throw new Error("The chat has no session.");
+  await proposals.draft(thread.session.id, change);
+  return { thread, drafted: await proposals.listInThread(thread.id) };
+}
+
 /** Starts on the text `now`, with the Office Manager's draft of `text` open. */
 async function draftOver(now: string, text: string): Promise<Proposal> {
   await startWith(drafts(text));
@@ -419,9 +430,12 @@ setUpEachTest();
 describe("a Proposal of a new Role", () => {
   it("shows as a card in the chat, and hires the Role, as edited, only when the user applies it", async () => {
     const card = aProposedCard({ title });
-    await startWith(proposes({ card }));
-
-    const { thread, drafted } = await askOfficeManager("We need someone to test the changes.");
+    const { thread, drafted } = await draftsRole({
+      kind: "hire",
+      card,
+      skills: [],
+      roleKey: undefined,
+    });
     const [proposal] = drafted;
     if (!proposal) throw new Error("No Proposal was drafted.");
 

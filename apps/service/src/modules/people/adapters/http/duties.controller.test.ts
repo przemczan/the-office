@@ -113,6 +113,37 @@ describe("GET /api/settings/duties", () => {
   });
 });
 
+describe("the duties' job settings", () => {
+  it("lists each duty's job and, while it is held, what the holder's card leaves Never of it", async () => {
+    const { key } = await hireOwn("Quin");
+    await send("PUT", "/settings/duties/onboards-projects", { roleKey: key });
+
+    const duties = dutyListSchema.parse(await get("/settings/duties"));
+
+    const onboards = duties.find(({ key: duty }) => duty === "onboards-projects");
+    expect(onboards?.jobSettings).toMatchObject({
+      projectUpkeep: { kind: "allowed" },
+      proposeProjectCommands: { kind: "proposal" },
+    });
+    // A Role from scratch has Publishing settings and the single Proposal tools at Never.
+    expect(onboards?.jobSettingsToGive).toEqual({
+      publishingSettings: { kind: "proposal" },
+      proposeProjectCommands: { kind: "proposal" },
+      proposeTestTargets: { kind: "proposal" },
+      proposeActions: { kind: "proposal" },
+    });
+    expect(duties.find(({ key: duty }) => duty === "implements")?.jobSettings).toEqual({});
+  });
+
+  it("answers null for a duty nobody holds", async () => {
+    await send("PUT", "/settings/duties/onboards-projects", { roleKey: null });
+
+    const duties = dutyListSchema.parse(await get("/settings/duties"));
+
+    expect(duties.find(({ key }) => key === "onboards-projects")?.jobSettingsToGive).toBeNull();
+  });
+});
+
 describe("PUT /api/settings/duties/:duty", () => {
   it("gives a duty to a hired Role, which the list shows and the web hears of", async () => {
     const { key, title } = await hireOwn("Lea");

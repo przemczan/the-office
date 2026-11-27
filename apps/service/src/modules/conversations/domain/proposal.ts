@@ -431,6 +431,11 @@ export interface ProposedOfficeAction {
   readonly fields: readonly OfficeToolChangedField[];
   readonly fingerprint: string;
   readonly outOfDate: boolean;
+  /**
+   * The input the user edited before applying (`editedActionInput`), which the handler then runs
+   * with; `input` stays as drafted, the fingerprint's own.
+   */
+  readonly editedInput?: Readonly<Record<string, unknown>>;
 }
 
 /** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */
@@ -533,7 +538,32 @@ export function changeToApply(proposal: Proposal, edited: EditedHire | undefined
   if (change.kind === "hire-from-preset" && edited.kind === "hire-from-preset") {
     return { ...change, name: edited.name };
   }
+  if (change.kind === "office-action" && edited.kind === "hire") {
+    const editedInput = editedActionInput(change, edited);
+    if (editedInput) return { ...change, editedInput };
+  }
   throw new ProposalRefused(["Only a new Role is edited before hiring, as it was proposed."]);
+}
+
+/**
+ * The input of a `hire_role` from scratch or a `change_role_card` Proposal with the card the user
+ * edited, as the action takes it; undefined for any other Proposal. A change keeps the Role it was
+ * drafted for.
+ */
+function editedActionInput(
+  { action, input }: ProposedOfficeAction,
+  { card, skills }: Extract<EditedHire, { kind: "hire" }>,
+): Record<string, unknown> | undefined {
+  // The edited card gives its Authority whole, so the Hard switches the card was drafted with only
+  // keep the card whole as the action takes it.
+  const drafted = action === "hire_role" ? input["card"] : input;
+  const hardSwitches = (drafted as { hardSwitches?: unknown } | undefined)?.hardSwitches;
+  const edited = { ...card, hardSwitches, skills: [...skills] };
+  if (action === "hire_role" && input["card"] !== undefined) return { card: edited };
+  if (action === "change_role_card" && typeof input["key"] === "string") {
+    return { ...edited, key: input["key"] };
+  }
+  return undefined;
 }
 
 /**

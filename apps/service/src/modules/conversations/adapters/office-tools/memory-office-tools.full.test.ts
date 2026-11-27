@@ -1,16 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { type HardSwitchValue } from "../../../people/index.js";
 import { aThread } from "../../domain/thread.fixtures.js";
-import {
-  CHANGE_ROLE_TOOL,
-  READ_ROLE_TOOL,
-  REMEMBER_TOOL,
-  sessionOfficeTools,
-} from "../../domain/session-instructions.js";
+import { REMEMBER_TOOL, sessionOfficeTools } from "../../domain/session-instructions.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { SESSION, toolWith, card } from "./memory-office-tools.fixtures.js";
 
-const NEVER: HardSwitchValue = { kind: "never" };
 const TASK = "task-1";
 
 describe("the remember tool", () => {
@@ -49,34 +42,7 @@ describe("the remember tool", () => {
 
 describe("the Office tools of a session", () => {
   it("offer remember only while the card's Shared memory is on", () => {
-    expect(sessionOfficeTools(["read_task"], card(true, NEVER), true)).toEqual([
-      "read_task",
-      REMEMBER_TOOL,
-    ]);
-    expect(sessionOfficeTools(["read_task"], card(false, NEVER), true)).toEqual(["read_task"]);
-  });
-
-  it("offer change_role on a Task when Change Roles is Ask me, with read_role to start from", () => {
-    expect(sessionOfficeTools(["read_task"], card(false, { kind: "ask-me" }), true)).toEqual([
-      "read_task",
-      CHANGE_ROLE_TOOL,
-      READ_ROLE_TOOL,
-    ]);
-  });
-
-  it.each([{ kind: "proposal" }, { kind: "never" }] as const)(
-    "keep change_role when Change Roles is %o, which the view reads as Never",
-    (changeRoles) => {
-      expect(sessionOfficeTools(["read_task"], card(false, changeRoles), true)).toEqual([
-        "read_task",
-      ]);
-    },
-  );
-
-  it("offer read_role once when the place already has it", () => {
-    expect(sessionOfficeTools([READ_ROLE_TOOL], card(false, { kind: "ask-me" }), true)).toEqual([
-      READ_ROLE_TOOL,
-      CHANGE_ROLE_TOOL,
-    ]);
+    expect(sessionOfficeTools(["read_task"], card(true))).toEqual(["read_task", REMEMBER_TOOL]);
+    expect(sessionOfficeTools(["read_task"], card(false))).toEqual(["read_task"]);
   });
 });

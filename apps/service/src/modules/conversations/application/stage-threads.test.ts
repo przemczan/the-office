@@ -70,6 +70,7 @@ import { dutiesProvider } from "./duties.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
+import { STAGE_AUTHORITY_OFFICE_TOOLS } from "../domain/session-instructions.js";
 import { StageThreads, type StageThread, type StageThreadRequest } from "./stage-threads.js";
 import { SwitchFailed } from "../domain/switch-failed.js";
 import { TaskTokens } from "./task-tokens.js";
@@ -266,6 +267,16 @@ async function startOn(
   }));
   stageThreads = app.get(StageThreads);
   repository = app.get(ThreadRepository);
+  // Pipelines, Projects and Skills register the setup tools in the service; a Stage offers each
+  // its person's Authority leaves.
+  for (const name of STAGE_AUTHORITY_OFFICE_TOOLS) {
+    app.get(OfficeToolRegistry).register({
+      name,
+      description: name,
+      input: z.object({}),
+      run: () => Promise.resolve({ text: "", isError: false }),
+    });
+  }
   messageImages = new MessageImagesInMemory();
   app.get(MessageImages).provide(messageImages);
 }

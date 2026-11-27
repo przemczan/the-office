@@ -35,6 +35,9 @@ const TABLE: Readonly<Record<AuthorityGroup, readonly string[]>> = {
   projectSettings: ["N", "N", "N", "N", "P", "N", "Q"],
   projectUpkeep: ["N", "N", "N", "N", "A", "N", "Q"],
   secretValues: ["N", "N", "N", "N", "N", "N", "N"],
+  proposeProjectCommands: ["N", "N", "N", "N", "P", "N", "N"],
+  proposeTestTargets: ["N", "N", "N", "N", "P", "N", "N"],
+  proposeActions: ["N", "N", "N", "N", "P", "N", "N"],
   changeRoles: ["N", "N", "N", "N", "N", "P", "N"],
   memoryAndAvatar: ["Q", "N", "N", "Q", "Q", "Q", "Q"],
   skills: ["P", "P", "P", "P", "P", "P", "P"],
@@ -42,6 +45,8 @@ const TABLE: Readonly<Record<AuthorityGroup, readonly string[]>> = {
   pipelinesAndStageTemplates: ["N", "N", "N", "N", "P", "N", "Q"],
   promptTemplates: ["N", "N", "N", "N", "N", "P", "Q"],
   officeSettings: ["N", "N", "N", "N", "N", "P", "Q"],
+  postLinkCard: ["N", "N", "N", "N", "N", "A", "N"],
+  showOfficeStatus: ["N", "N", "N", "N", "N", "A", "N"],
   testInstances: ["N", "A", "A", "A", "A", "N", "Q"],
   projectDevices: ["N", "Q", "N", "N", "Q", "N", "Q"],
   fireAlarm: ["N", "N", "N", "A", "A", "A", "Q"],
@@ -99,6 +104,19 @@ describe("the values a row takes", () => {
     expect(valuesTakenBy("secretValues")).toEqual(["proposal", "ask-me", "never"]);
     expect(valuesTakenBy("runInstalls")).toEqual(["allowed", "consult", "ask-me", "never"]);
     expect(valuesTakenBy("checks")).toEqual(["allowed", "consult", "ask-me", "proposal", "never"]);
+  });
+
+  it("gives the single tools that run at once Allowed or Never, and those that draft Proposal or Never", () => {
+    for (const group of ["postLinkCard", "showOfficeStatus"] as const) {
+      expect(valuesTakenBy(group)).toEqual(["allowed", "never"]);
+    }
+    for (const group of [
+      "proposeProjectCommands",
+      "proposeTestTargets",
+      "proposeActions",
+    ] as const) {
+      expect(valuesTakenBy(group)).toEqual(["proposal", "never"]);
+    }
   });
 });
 

@@ -105,7 +105,6 @@ interface Rulings extends Pick<Setup, "hired" | "consultants" | "answered" | "th
   readonly setting: AuthoritySetting;
   /** The Tasks the person created, whose work is their own. */
   readonly ownTasks?: readonly string[];
-  readonly duties?: readonly DutyKey[];
   readonly toolName?: string;
   /** The Authority group that rules the tool, Task records when left out. */
   readonly group?: AuthorityGroup;
@@ -120,7 +119,6 @@ interface Rulings extends Pick<Setup, "hired" | "consultants" | "answered" | "th
 
 function rulingsWith({
   ownTasks = [],
-  duties = [],
   toolName = TOOL_NAME,
   group = "taskRecords",
   hooks,
@@ -133,12 +131,10 @@ function rulingsWith({
   const work = {
     isOwnWork: (_roleKey: string, { id }: { id: string }) => Promise.resolve(ownTasks.includes(id)),
   } as unknown as WorkRecords;
-  const dutyHolder = { heldBy: () => Promise.resolve(duties) } as unknown as Duties;
   const registry = new OfficeToolRegistry();
   const rulings = new OfficeToolRulings(
     held.threads,
     held.roleCards,
-    dutyHolder,
     held.heldCalls,
     work,
     held.approvalHolds,
@@ -378,18 +374,11 @@ describe("the ruling of an Office tool call", () => {
     expect(ran).toHaveLength(0);
   });
 
-  it("keeps a duty's tool running for its holder where the row says Never", async () => {
-    const holder = rulingsWith({
-      setting: NEVER,
-      toolName: "add_dependency",
-      duties: ["shapes-initiatives"],
-    });
-    await expect(holder.callWith(input)).resolves.toMatchObject({ isError: false });
-    expect(holder.ran).toHaveLength(1);
-
-    const other = rulingsWith({ setting: NEVER, toolName: "add_dependency" });
-    await expect(other.callWith(input)).resolves.toMatchObject({ isError: true });
-    expect(other.ran).toHaveLength(0);
+  it("refuses a call where the row says Never, whatever duty the person holds", async () => {
+    // A duty grants no tool: the ruling takes no duty (spec 6, "A person's Office tools").
+    const never = rulingsWith({ setting: NEVER, toolName: "add_dependency" });
+    await expect(never.callWith(input)).resolves.toMatchObject({ isError: true });
+    expect(never.ran).toHaveLength(0);
   });
 
   describe("on the person's own work and others'", () => {
@@ -521,13 +510,9 @@ describe("the tools a session is offered", () => {
     const offered = (stageThread: boolean, homeTools: readonly string[]) =>
       (
         places as unknown as {
-          offeredTools(
-            thread: unknown,
-            held: readonly DutyKey[],
-            home: readonly string[],
-          ): Promise<string[]>;
+          offeredTools(thread: unknown, home: readonly string[]): Promise<string[]>;
         }
-      ).offeredTools(aThread({ stageThread }), duties, homeTools);
+      ).offeredTools(aThread({ stageThread }), homeTools);
     return { offered };
   }
 
@@ -541,10 +526,22 @@ describe("the tools a session is offered", () => {
     await expect(offered(false, ["open_decision"])).resolves.toContain("open_decision");
   });
 
-  it("keeps a duty holder's duty tools offered where the row says Never", async () => {
+  it("leaves a duty holder's tools out where the row says Never: a duty grants none", async () => {
     const { offered } = placesWith(NEVER, ["shapes-initiatives"]);
 
-    await expect(offered(false, [])).resolves.toContain(ADD_DEPENDENCY);
+    await expect(offered(false, [])).resolves.not.toContain(ADD_DEPENDENCY);
+  });
+
+  it("offers a hand-written tool by its group, leaving it out at Never, and Core tools always", async () => {
+    const { offered } = placesWith(NEVER, [], "postLinkCard");
+
+    const never = await offered(false, ["post_link_card", "read_repository"]);
+    expect(never).toContain("read_repository");
+    expect(never).not.toContain("post_link_card");
+    const allowed = placesWith(ALLOWED, [], "postLinkCard");
+    await expect(allowed.offered(false, ["post_link_card", "read_repository"])).resolves.toEqual(
+      expect.arrayContaining(["post_link_card", "read_repository"]),
+    );
   });
 
   it("gives a Stage's Thread only its Stage's tools, narrowed by the Authority, never widened", async () => {

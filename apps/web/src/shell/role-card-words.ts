@@ -146,6 +146,9 @@ export const AUTHORITY_ROW_LABELS: Readonly<Record<AuthorityGroup, string>> = {
   publishingSettings: "Publishing settings",
   projectSettings: "Project settings",
   projectUpkeep: "Project upkeep",
+  proposeProjectCommands: "propose_project_commands",
+  proposeTestTargets: "propose_test_targets",
+  proposeActions: "propose_actions",
   secretValues: "Secret values",
   changeRoles: "Change Roles",
   memoryAndAvatar: "Memory and Avatar",
@@ -154,6 +157,8 @@ export const AUTHORITY_ROW_LABELS: Readonly<Record<AuthorityGroup, string>> = {
   pipelinesAndStageTemplates: "Pipelines and Stage templates",
   promptTemplates: "Prompt templates",
   officeSettings: "Office settings",
+  postLinkCard: "post_link_card",
+  showOfficeStatus: "show_office_status",
   testInstances: "Test instances",
   projectDevices: "Project devices",
   fireAlarm: "Fire alarm",
@@ -284,6 +289,25 @@ export function authoritySummaryLines(
   });
 }
 
+/**
+ * The rows a duty's job needs as "Projects and settings › Project upkeep Allowed", in the card's
+ * order, one per row of `settings`; a row in no area is named alone.
+ */
+export function jobSettingsWords(
+  settings: Authority,
+  areas: readonly AuthorityArea[],
+  roleTitles: RoleTitles,
+): string[] {
+  return areas.flatMap((area) =>
+    area.rows.flatMap(({ group, label }) => {
+      const setting = settings[group];
+      if (!setting) return [];
+      const name = area.label === null ? label : `${area.label} › ${label}`;
+      return [`${name} ${authoritySettingLabel(setting, roleTitles)}`];
+    }),
+  );
+}
+
 /** Every row's setting: the card's set rows over the defaults. */
 export function authorityInEffect(
   defaults: AuthorityInEffect,
@@ -353,6 +377,7 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   "hardSwitches.changeRoles": HARD_SWITCH_LABELS.changeRoles,
   "hardSwitches.changeProjectSettings": HARD_SWITCH_LABELS.changeProjectSettings,
   authorityMovedOver: "Authority from the Hard switches and duties",
+  authorityFromDutiesHeld: "Authority from the duties held",
   ...(Object.fromEntries(
     authorityGroupSchema.options.map((group) => [
       `authority.${group}`,
@@ -570,7 +595,9 @@ export function changeLine(change: RoleCardFieldChange, names: FieldValueNames):
   if (LONG_TEXT_FIELDS.has(change.field)) return `${label} edited`;
   if (change.field === "engineSettingsMovedOver") return movedOverLine(change, names);
   // Made from the Hard switches and duties: the card's rows show what it came to.
-  if (change.field === "authorityMovedOver") return label;
+  if (change.field === "authorityMovedOver" || change.field === "authorityFromDutiesHeld") {
+    return label;
+  }
   return `${label} ${fieldValueText(change.field, change.from, names)} → ${fieldValueText(change.field, change.to, names)}`;
 }
 

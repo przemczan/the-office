@@ -2,11 +2,11 @@ import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
 import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
 import { OfficeToolRegistry } from "../../engine/index.js";
-import { CARETAKER, Duties, isAuthorityGroup, RoleCards } from "../../people/index.js";
+import { CARETAKER, Duties, RoleCards } from "../../people/index.js";
 import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import type { Brief } from "../domain/brief.js";
 import { canCall } from "../domain/consult.js";
-import { offeredTools } from "../domain/office-tool-ruling.js";
+import { offeredToPerson } from "../domain/hand-written-tool-groups.js";
 import {
   caretakerChatInstructions,
   chatInstructions,
@@ -59,8 +59,6 @@ export interface SessionPlace {
   /** Hides the Project's Secret variables in what the session writes into the Thread. */
   readonly mask: TextMask;
   readonly officeTools: readonly string[];
-  /** A held call has a Thread to wait in: a Stage's, or the Planner's in Planning. */
-  readonly callsCanWait: boolean;
   /**
    * The session reaches the whole workstation but secrets, from the home folder: the Caretaker's
    * Thread with changes allowed (spec §2.4). Every other session only reads.
@@ -105,7 +103,12 @@ const NO_PROJECT_METRIC: SessionMetric = { "office.project": "", "office.pipelin
  * instructions render with.
  */
 type HomePlace = Omit<SessionPlace, "heldDuties" | "instructions"> & {
-  instructions(prompts: PromptTexts, person: SessionPerson): string;
+  instructions(
+    prompts: PromptTexts,
+    person: SessionPerson,
+    /** The Office tools the session is offered, which what it is told to do follows. */
+    offeredTools: readonly string[],
+  ): string;
 };
 
 /** Where a session that only reads Projects' checkouts works. */
@@ -153,13 +156,13 @@ export class SessionPlaces {
     const held = await this.duties.heldBy(thread.roleKey);
     const home = await this.homePlace(thread, held, logBefore);
     const prompts = await this.promptTemplates.textsOf(SESSION_INSTRUCTION_TEMPLATES);
-    const officeTools = await this.offeredTools(thread, held, home.officeTools);
+    const officeTools = await this.offeredTools(thread, home.officeTools);
     return {
       ...home,
       readableFolders: [...this.knowledgeBase.readableFolders, ...home.readableFolders],
       officeTools,
       heldDuties: held,
-      instructions: (person) => home.instructions(prompts, person),
+      instructions: (person) => home.instructions(prompts, person, officeTools),
     };
   }
 
@@ -168,28 +171,16 @@ export class SessionPlaces {
    * Office action's tool beside them, all but those its person's Authority rules Never (spec 6 ›
    * Tool areas). A Stage's fixed list is narrowed the same way, never widened (spec 2.3.1).
    */
-  private async offeredTools(
-    thread: Thread,
-    held: HeldDuties,
-    homeTools: readonly string[],
-  ): Promise<string[]> {
+  private async offeredTools(thread: Thread, homeTools: readonly string[]): Promise<string[]> {
     const card = await this.roleCards.find(thread.roleKey);
     if (!card) return [...homeTools];
-    const actionTools = this.tools.actionTools();
-    const groupOf = new Map(
-      actionTools.flatMap(({ name, group }) =>
-        isAuthorityGroup(group) ? [[name, group] as const] : [],
-      ),
+    return offeredToPerson(
+      thread.roleKey,
+      card.authority,
+      homeTools,
+      this.tools.actionTools(),
+      thread,
     );
-    const named = thread.stageThread
-      ? [...homeTools]
-      : [...new Set([...homeTools, ...actionTools.map(({ name }) => name)])];
-    const ownWorkGroupOf = new Map(
-      actionTools.flatMap(({ name, onOwnWork }) =>
-        onOwnWork !== undefined && isAuthorityGroup(onOwnWork) ? [[name, onOwnWork] as const] : [],
-      ),
-    );
-    return offeredTools(named, groupOf, card.authority, held, ownWorkGroupOf);
   }
 
   private async homePlace(
@@ -231,10 +222,7 @@ export class SessionPlaces {
       // A Task planned in its Initiative's Thread has no worktree yet to write the definition in.
       ...(thread.consultation
         ? await this.consultationTools(thread, held, setup.folder !== undefined)
-        : {
-            ...this.workThreadTools(thread, held, setup, "task"),
-            callsCanWait: !setup.asking,
-          }),
+        : this.workThreadTools(thread, held, setup, "task")),
     };
   }
 
@@ -295,7 +283,7 @@ export class SessionPlaces {
     thread: Thread,
     held: HeldDuties,
     onTask: boolean,
-  ): Promise<Pick<HomePlace, "officeTools" | "callsCanWait" | "instructions">> {
+  ): Promise<Pick<HomePlace, "officeTools" | "instructions">> {
     const consultation = {
       canCall: canCall(await this.chains.ofCaller(thread)),
       onTask,
@@ -304,8 +292,7 @@ export class SessionPlaces {
         ((await this.roleCards.find(thread.roleKey))?.card.capabilities.runEnvironment ?? false),
     };
     return {
-      officeTools: consultationOfficeTools(toolHolder(thread, held), consultation),
-      callsCanWait: false,
+      officeTools: consultationOfficeTools(toolHolder(thread), consultation),
       instructions: (prompts, person) =>
         consultationInstructions(prompts, person, consultation.canCall, {
           onboardsProjects: held.includes("onboards-projects"),
@@ -335,8 +322,7 @@ export class SessionPlaces {
     }
     const caretaker = thread.roleKey === CARETAKER;
     const chat = {
-      officeTools: caretaker ? caretakerChatOfficeTools(held) : chatOfficeTools(held),
-      callsCanWait: false,
+      officeTools: caretaker ? caretakerChatOfficeTools() : chatOfficeTools(),
       brief,
       span: {},
       metric: NO_PROJECT_METRIC,
@@ -355,7 +341,7 @@ export class SessionPlaces {
   /** The Caretaker reads as any chat does until the user allows changes in the Thread. */
   private async caretakerPlace(
     thread: Thread,
-  ): Promise<Omit<HomePlace, "officeTools" | "callsCanWait" | "brief" | "span" | "metric">> {
+  ): Promise<Omit<HomePlace, "officeTools" | "brief" | "span" | "metric">> {
     if (!(await this.changesAllowed.isAllowed(thread.id))) {
       return {
         ...this.basesPlace(thread),
@@ -400,7 +386,6 @@ export class SessionPlaces {
         ? this.basesPlace(thread)
         : this.initiativeBranchPlace(thread, setup.branchReads)),
       ...this.workThreadTools(thread, held, setup, "initiative"),
-      callsCanWait: false,
       workstation: false,
       readsEngineTranscripts: false,
       refusalAdvice: undefined,
@@ -428,15 +413,22 @@ export class SessionPlaces {
           workThreadInstructions(prompts, person, setup.instructions),
       };
     }
-    const holder = toolHolder(thread, held);
+    const holder = toolHolder(thread);
     return {
       officeTools: threadOfficeTools(holder, setup.officeTools),
-      instructions: (prompts, person) =>
+      instructions: (prompts, person, offered) =>
         workThreadInstructions(
           prompts,
           person,
           setup.instructions,
-          personToolsRule(holder, onRecord),
+          personToolsRule(
+            {
+              offered,
+              defaultPerson: held.includes("default-person-to-talk-to"),
+              caretaker: holder.caretaker,
+            },
+            onRecord,
+          ),
         ),
     };
   }
@@ -473,9 +465,9 @@ export class SessionPlaces {
   }
 }
 
-/** Whose tools a Thread's session works with: its person's, by the duties they hold. */
-function toolHolder({ roleKey }: Thread, held: HeldDuties): ToolHolder {
-  return { held, caretaker: roleKey === CARETAKER };
+/** Whose tools a Thread's session works with: its person's; only the Caretaker's differ in kind. */
+function toolHolder({ roleKey }: Thread): ToolHolder {
+  return { caretaker: roleKey === CARETAKER };
 }
 
 /** The variables the service runs with, which the engine filters The Office's own out of. */

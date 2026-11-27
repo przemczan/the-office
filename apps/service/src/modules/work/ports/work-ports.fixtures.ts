@@ -16,7 +16,7 @@ import {
   type EngineId,
   type EngineModel,
 } from "../../engine/index.js";
-import { DUTIES, MemoryTaskTitles } from "../../people/index.js";
+import { AvatarSources, DUTIES, MemoryTaskTitles } from "../../people/index.js";
 import {
   FeatureSwitchedOff,
   IssueTasks,
@@ -1007,6 +1007,7 @@ const PORTS = [
   WorkRecords,
   MessageImages,
   MemoryTaskTitles,
+  AvatarSources,
   ProposalAppliers,
   FireAlarmInThreads,
   TaskBasesForTests,

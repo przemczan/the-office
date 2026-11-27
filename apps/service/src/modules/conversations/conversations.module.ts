@@ -38,7 +38,7 @@ import { ActionOfficeTools } from "./adapters/office-tools/action-office-tools.j
 import { ProjectsTestTargetsChatRegistration } from "./adapters/projects/projects-test-targets-chat-registration.js";
 import { PromptTemplateOfficeTools } from "./adapters/office-tools/prompt-template-office-tools.js";
 import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
-import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
+import { SessionPeopleForPeople } from "./adapters/people/session-people-source.js";
 import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { ThreadHistoryOfficeTool } from "./adapters/office-tools/thread-history-office-tool.js";
@@ -229,7 +229,7 @@ export class ConversationsModule implements NestModule {
         PromptTemplateProposals,
         DecisionOfficeTools,
         BugTaskOfficeTools,
-        RoleOfficeTools,
+        SessionPeopleForPeople,
         ProjectSettingOfficeTools,
         EnvironmentCheckOfficeTools,
         ProposalOfficeTools,

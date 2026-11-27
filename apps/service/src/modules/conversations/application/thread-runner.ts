@@ -1579,7 +1579,7 @@ export class ThreadRunner implements OnModuleDestroy {
     thread: Thread,
     { id, engineId }: ThreadSession,
     {
-      role: { roleKey, card, hardSwitches, mcpToolDefault },
+      role: { roleKey, card, mcpToolDefault },
       officeInstructions,
       model,
       effort,
@@ -1614,11 +1614,7 @@ export class ThreadRunner implements OnModuleDestroy {
       workstation: place.workstation,
       readsEngineTranscripts: place.readsEngineTranscripts,
       refusalAdvice: place.refusalAdvice,
-      officeTools: sessionOfficeTools(
-        place.officeTools,
-        { card, hardSwitches },
-        place.callsCanWait,
-      ),
+      officeTools: sessionOfficeTools(place.officeTools, { card }),
       mcpServers,
       outputSchema: undefined,
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.

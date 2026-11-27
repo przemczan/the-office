@@ -38,7 +38,9 @@ const CAPABILITY_KEYS = [
  * `engineSettingsMovedOver` says a card moved over to `engineSettings`: from its Role override, or
  * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
  * `authorityMovedOver` says the card's Authority was made from its Hard switches and duties; each
- * `authority.<group>` goes from a setting, or null at the preset's default, to another. The
+ * `authority.<group>` goes from a setting, or null at the preset's default, to another;
+ * `authorityFromDutiesHeld` says rows of the card's Authority were given what the duties it holds
+ * need, by the second move-over. The
  * `hardSwitches.*` fields are named only by entries saved before the card had an Authority.
  */
 export type RoleCardField =
@@ -53,6 +55,7 @@ export type RoleCardField =
   | "permissionProfile"
   | `hardSwitches.${HardSwitchKey}`
   | "authorityMovedOver"
+  | "authorityFromDutiesHeld"
   | `authority.${AuthorityGroup}`;
 
 /** A Role override of none read as the Office default. */

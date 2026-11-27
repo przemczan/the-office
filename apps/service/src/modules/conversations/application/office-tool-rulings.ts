@@ -5,14 +5,7 @@ import {
   type OfficeToolRuled,
   type OfficeToolRuling,
 } from "../../engine/index.js";
-import {
-  ASK_ME,
-  Duties,
-  isAuthorityGroup,
-  RoleCards,
-  type HardSwitchValue,
-} from "../../people/index.js";
-import { dutyActionTools } from "../domain/duty-action-tools.js";
+import { ASK_ME, isAuthorityGroup, RoleCards, type HardSwitchValue } from "../../people/index.js";
 import type { Thread } from "../domain/thread.js";
 import {
   atLeastProposal,
@@ -42,7 +35,6 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
   constructor(
     private readonly threads: ThreadRepository,
     private readonly roleCards: RoleCards,
-    private readonly duties: Duties,
     private readonly heldCalls: HeldCalls,
     private readonly work: WorkRecords,
     private readonly approvalHolds: ApprovalHolds,
@@ -89,13 +81,12 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
     const ownWork =
       (ownWorkGroup !== undefined || setting.kind === "own-and-others") &&
       (await this.work.isOwnWork(thread.roleKey, subject));
-    const dutyHolder = dutyActionTools(await this.duties.heldBy(thread.roleKey)).has(name);
     const value =
       ownWork && ownWorkGroup !== undefined
         ? ownWorkValue(ownWorkGroup, session.authority[ownWorkGroup])
         : valueOnSubject(setting, ownWork);
     const floored = (await authority.floor?.(input)) === "proposal";
-    const ruling = toolRuling(floored ? atLeastProposal(value) : value, dutyHolder);
+    const ruling = toolRuling(floored ? atLeastProposal(value) : value);
     if (ruling.kind === "never") return { kind: "never" };
     // Asked at every outcome but Never, so a repeat after Allow once meets the state of its own time.
     const refused = await authority.check?.(input, call);

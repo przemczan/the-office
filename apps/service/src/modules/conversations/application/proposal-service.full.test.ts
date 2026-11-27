@@ -24,7 +24,6 @@ import {
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
   PROPOSE_PROMPT_TEMPLATE_TOOL,
-  PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_PROMPT_TEMPLATE_TOOL,
   READ_ROLE_TOOL,
@@ -79,7 +78,7 @@ import { DutyProposals } from "../adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "../adapters/proposals/office-instructions-proposals.js";
 import { PromptTemplateProposals } from "../adapters/proposals/prompt-template-proposals.js";
 import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-proposals.js";
-import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
+import type { Proposal, ProposedChange, ProposedSettingChange } from "../domain/proposal.js";
 import type { Thread } from "../domain/thread.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
@@ -342,15 +341,14 @@ class OfficeWideLimitStandIn {
 }
 
 const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
-  PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
 ];
 
-const TOOLS_OF_PROMPT_TEMPLATE_OFFICE_TOOLS: readonly string[] = chatOfficeTools([
-  "default-person-to-talk-to",
-]).filter((name) => name.includes("prompt_template"));
+const TOOLS_OF_PROMPT_TEMPLATE_OFFICE_TOOLS: readonly string[] = chatOfficeTools().filter((name) =>
+  name.includes("prompt_template"),
+);
 
 /** People's own, which PeopleModule, booted here for its Roles, registers on the sessions' registry. */
 const TOOLS_OF_PEOPLE: readonly string[] = ["list_people", READ_ROLE_TOOL];
@@ -361,10 +359,7 @@ function chatToolStandIns(): FactoryProvider {
     provide: "chat tool stand-ins",
     inject: [OfficeToolRegistry],
     useFactory: (registry: OfficeToolRegistry) => {
-      const names = new Set([
-        ...chatOfficeTools(["default-person-to-talk-to"]),
-        ...caretakerChatOfficeTools([]),
-      ]);
+      const names = new Set([...chatOfficeTools(), ...caretakerChatOfficeTools()]);
       for (const name of names) {
         if (
           TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) ||
@@ -397,9 +392,22 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
   };
 }
 
-/** The Office Manager proposes a Role with `input`, then ends their turn. */
-function proposes(input: Record<string, unknown>): SessionScript {
-  return calls(PROPOSE_ROLE_TOOL, input);
+/** Starts on a Thread of the Office Manager's that drafts nothing by itself. */
+function startsIdle(): Promise<void> {
+  return startWith([
+    { step: "start", brief: { id: "brief", text: "" } },
+    ...endsTurn("Nothing to draft."),
+  ]);
+}
+
+/**
+ * Drafts a Proposal of `change` in the Office Manager's chat, as `propose_role`, now retired,
+ * drafted them: one still open applies as before. Start with `startsIdle` first.
+ */
+async function draftsRole(change: ProposedChange): Promise<Proposal> {
+  const { thread } = await askOfficeManager("We need a person for this.");
+  if (!thread.session) throw new Error("The chat has no session.");
+  return proposals.draft(thread.session.id, change);
 }
 
 /** The Office Manager calls the Office tool `tool` with `input`, then ends their turn. */
@@ -524,10 +532,8 @@ function toolResultRead(callId = "c-1"): { readonly text: string; readonly isErr
 describe("a Proposal of a new Role", () => {
   it("stays open with People's reasons when hiring is refused", async () => {
     const card = aProposedCard({ title });
-    await startWith(proposes({ card }));
-    const { drafted } = await askOfficeManager("We need a tester.");
-    const [proposal] = drafted;
-    if (!proposal) throw new Error("No Proposal was drafted.");
+    await startsIdle();
+    const proposal = await draftsRole({ kind: "hire", card, skills: [], roleKey: undefined });
 
     await expect(
       proposals.apply(proposal.id, ANN_LEE, {
@@ -539,22 +545,6 @@ describe("a Proposal of a new Role", () => {
 
     expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
   });
-
-  it("is not drafted on a card People would refuse, and the Agent reads why", async () => {
-    await startWith(
-      proposes({ card: aProposedCard({ title, responsibilities: "Tests.\n\nAnd more tests." }) }),
-    );
-
-    const { thread, drafted } = await askOfficeManager("We need a tester.");
-
-    expect(drafted).toEqual([]);
-    const log = await threads.messages(thread.id);
-    expect(log.some(({ kind }) => kind === "proposal")).toBe(false);
-    expect(toolResultRead()).toEqual({
-      text: expect.stringContaining("one paragraph"),
-      isError: true,
-    });
-  });
 });
 
 // A preset's Role has the preset's fixed key, which only roles.controller.test may hire into
@@ -562,7 +552,7 @@ describe("a Proposal of a new Role", () => {
 // role-changes.test's.
 describe("a Proposal of a person in a preset's Role", () => {
   it("hires them, under the name the user gave, only when the user applies it", async () => {
-    await startWith(proposes({ preset: "developer", card: { name: "Ada" } }));
+    await startsIdle();
     const presetHiringProblems = vi.spyOn(roles, "presetHiringProblems").mockResolvedValue([]);
     const hire = vi
       .spyOn(roles, "hire")
@@ -570,7 +560,11 @@ describe("a Proposal of a person in a preset's Role", () => {
         Promise.resolve({ role: { key, card: { name: name.trim() } }, skills: [] } as never),
       );
 
-    const proposal = await theOnlyProposal("We need a developer.");
+    const proposal = await draftsRole({
+      kind: "hire-from-preset",
+      roleKey: "developer",
+      name: "Ada",
+    });
 
     expect(proposal.change).toEqual({
       kind: "hire-from-preset",
@@ -589,21 +583,6 @@ describe("a Proposal of a person in a preset's Role", () => {
     expect(applied).toMatchObject({
       change: { kind: "hire-from-preset", roleKey: "developer", name: "Grace" },
       status: { kind: "applied" },
-    });
-  });
-
-  it("is not drafted when People would refuse the hire, and the Agent reads why", async () => {
-    await startWith(proposes({ preset: "developer", card: { name: "Ada" } }));
-    vi.spyOn(roles, "presetHiringProblems").mockResolvedValue([
-      "Ada already fills the Developer Role.",
-    ]);
-
-    const { drafted } = await askOfficeManager("We need a developer.");
-
-    expect(drafted).toEqual([]);
-    expect(toolResultRead()).toEqual({
-      text: "Ada already fills the Developer Role.",
-      isError: true,
     });
   });
 });
@@ -834,42 +813,19 @@ describe("a Proposal of a prompt template", () => {
   });
 });
 
+/** The change that gives the tester effort High on Claude Code. */
+const highEffort = (): ProposedChange => ({
+  kind: "change",
+  roleKey,
+  from: { engineSettings: {} },
+  to: { engineSettings: HIGH_ON_CLAUDE_CODE },
+});
+
 describe("a Proposal of a change to a Role", () => {
-  it("is drafted from the whole card the Office Manager reads first, instructions included", async () => {
-    const instructions = "Work from the Plan.\n\nKeep the tests green.";
-    const rewritten = `${instructions}\n\nEnd every Stage with a Handover note.`;
-    await startWith([
-      { step: "start", brief: { id: "brief", text: "" } },
-      ...officeToolCall("c-1", READ_ROLE_TOOL, { role: roleKey }),
-      ...officeToolCall("c-2", PROPOSE_ROLE_TOOL, {
-        role: roleKey,
-        card: { instructions: rewritten },
-      }),
-      ...endsTurn("Here is the card."),
-    ]);
-    await roles.hireFromScratch(aProposedCard({ title, instructions }), [], ANN_LEE);
-
-    const proposal = await theOnlyProposal("Ask the tester for a Handover note.");
-
-    const read = toolResultRead("c-1");
-    expect(read.isError).toBe(false);
-    expect(read.text).toContain(`(Role ${roleKey}), card version 1`);
-    expect(read.text).toContain(`\n\ninstructions:\n${instructions}\n\n`);
-    expect(proposal.change).toEqual({
-      kind: "change",
-      roleKey,
-      from: { instructions },
-      to: { instructions: rewritten },
-    });
-  });
-
   it("changes only the fields it names, when the user applies it, saying who proposed it and who applied it", async () => {
-    await startWith(proposes({ role: roleKey, card: { engineSettings: HIGH_ON_CLAUDE_CODE } }));
+    await startsIdle();
     await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
-
-    const { drafted } = await askOfficeManager("Let the tester think harder.");
-    const [proposal] = drafted;
-    if (!proposal) throw new Error("No Proposal was drafted.");
+    const proposal = await draftsRole(highEffort());
 
     expect(proposal.change).toEqual({
       kind: "change",
@@ -903,11 +859,9 @@ describe("a Proposal of a change to a Role", () => {
   });
 
   it("changes nothing when the user declines it", async () => {
-    await startWith(proposes({ role: roleKey, card: { engineSettings: HIGH_ON_CLAUDE_CODE } }));
+    await startsIdle();
     await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
-    const { drafted } = await askOfficeManager("Let the tester think harder.");
-    const [proposal] = drafted;
-    if (!proposal) throw new Error("No Proposal was drafted.");
+    const proposal = await draftsRole(highEffort());
 
     const declined = await proposals.decline(proposal.id, ANN_LEE);
 

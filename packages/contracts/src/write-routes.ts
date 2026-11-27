@@ -282,14 +282,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   },
 
   // People and Role cards.
-  { route: "POST /roles", agent: "proposal", note: "propose_role, propose_office_setup" },
-  {
-    route: "PUT /roles/:key/card",
-    agent: "proposal",
-    note: "propose_role; change_role",
-  },
-  { route: "POST /roles/:key/let-go", agent: "gap" },
-  { route: "POST /roles/:key/hire-back", agent: "gap" },
   { route: "PUT /settings/duties/:duty", agent: "proposal", note: "propose_office_setting" },
   {
     route: "POST /roles/:key/memory",
@@ -297,8 +289,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     note: "remember (hand-written), one's own Memory only",
   },
   { route: "DELETE /roles/:key/memory", agent: "gap" },
-  { route: "DELETE /roles/:key/memory/:noteId", agent: "gap" },
-  { route: "DELETE /roles/:key/avatar", agent: "gap" },
 
   // Pipelines, Stage templates, the library.
   { route: "POST /pipelines", agent: "proposal", note: "propose_library_pipeline" },

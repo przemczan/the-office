@@ -219,7 +219,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     ],
   }));
   // As the Projects, People and Work modules register the chat tools that read records.
-  for (const name of chatOfficeTools(["default-person-to-talk-to"])) {
+  for (const name of chatOfficeTools()) {
     if (name === POST_LINK_CARD_TOOL) continue;
     app.get(OfficeToolRegistry).register({
       name,

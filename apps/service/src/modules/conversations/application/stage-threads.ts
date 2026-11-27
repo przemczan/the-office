@@ -20,6 +20,7 @@ import {
   EngineCascade,
   mcpToolSettingsFor,
   RoleCards,
+  type AuthorityInEffect,
   type McpToolSettings,
   type SessionRole,
 } from "../../people/index.js";
@@ -46,12 +47,14 @@ import type {
   MessageImage,
   StageWorkClosing,
 } from "../domain/message.js";
+import { handWrittenGroupOf } from "../domain/hand-written-tool-groups.js";
+import { offeredTools } from "../domain/office-tool-ruling.js";
 import { SessionMemory } from "./session-memory.js";
 import {
   messageFromUser,
   openingMessage,
   withLeftOutServers,
-  roleOfficeTools,
+  STAGE_AUTHORITY_OFFICE_TOOLS,
   sessionOfficeTools,
   stageCapabilityOfficeTools,
   type HeldDuties,
@@ -574,7 +577,7 @@ export class StageThreads {
   private async continueIn(
     previous: Thread,
     { request, images, carried }: Carrying,
-    { held, applying, move, brief }: StageSessionDecision,
+    { applying, move, brief }: StageSessionDecision,
     now: Date,
   ): Promise<StageThread> {
     const session = previous.session;
@@ -603,7 +606,6 @@ export class StageThreads {
       threadId: previous.id,
       request,
       person,
-      held,
       effort: applying.effort,
     };
     const { opened, canInterrupt, leftOut } = await this.opening(
@@ -786,7 +788,6 @@ export class StageThreads {
           session,
           request,
           person,
-          held,
           applying,
           applying.effort,
           skills,
@@ -804,7 +805,7 @@ export class StageThreads {
       canInterrupt,
       start,
       firstMessageId,
-      reopening: { threadId, request, person, held, effort: applying.effort },
+      reopening: { threadId, request, person, effort: applying.effort },
     };
   }
 
@@ -886,7 +887,7 @@ export class StageThreads {
    */
   private async reopen(
     session: ThreadSession,
-    { threadId, request, person, held, effort }: Reopening,
+    { threadId, request, person, effort }: Reopening,
     applying: EngineModel,
     start: SessionStartWatch,
   ): Promise<Reopened> {
@@ -906,7 +907,6 @@ export class StageThreads {
         session,
         request,
         person,
-        held,
         applying,
         effort,
         skills,
@@ -924,11 +924,10 @@ export class StageThreads {
     {
       roleKey,
       card,
-      hardSwitches,
+      authority,
       mcpToolDefault,
       officeInstructions,
     }: SessionRole & Pick<SessionPerson, "officeInstructions">,
-    held: HeldDuties,
     applying: EngineModel,
     effort: Effort | null,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
@@ -959,11 +958,10 @@ export class StageThreads {
       officeTools: sessionOfficeTools(
         [
           ...request.session.officeTools,
-          ...roleOfficeTools(held),
+          ...stageAuthorityTools(authority),
           ...stageCapabilityOfficeTools(card.capabilities),
         ],
-        { card, hardSwitches },
-        true,
+        { card },
       ),
       mcpServers,
       outputSchema: request.session.outputSchema,
@@ -1546,8 +1544,8 @@ interface StageWorkPlace {
 }
 
 /**
- * What a Stage's session starts or continues with: the duties the person holds, which decide their
- * built-in tools, the engine, the Context policy's move and the Brief.
+ * What a Stage's session starts or continues with: the duties the person holds, which the Context
+ * policy compares as its session goes on, the engine, the Context policy's move and the Brief.
  */
 interface StageSessionDecision {
   readonly held: HeldDuties;
@@ -1571,14 +1569,13 @@ interface StageEngine extends EngineModel {
 }
 
 /**
- * What a Stage's session is resumed with: its Thread, the Stage's request, its person and duties,
- * and the effort it works with.
+ * What a Stage's session is resumed with: its Thread, the Stage's request, its person and the effort
+ * it works with.
  */
 interface Reopening {
   readonly threadId: string;
   readonly request: StageThreadRequest;
   readonly person: SessionRole & Pick<SessionPerson, "officeInstructions">;
-  readonly held: HeldDuties;
   readonly effort: Effort | null;
 }
 
@@ -1657,4 +1654,18 @@ export function stageThreadTelemetry(
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * The Project setup tools a Stage's session may add to its Stage's list: each only while its
+ * person's Authority leaves it offered, never one the Authority doesn't give (spec 2.3.1, 6).
+ */
+function stageAuthorityTools(authority: AuthorityInEffect): string[] {
+  const groupOf = new Map(
+    STAGE_AUTHORITY_OFFICE_TOOLS.flatMap((name) => {
+      const group = handWrittenGroupOf(name);
+      return group === undefined ? [] : [[name, group] as const];
+    }),
+  );
+  return offeredTools(STAGE_AUTHORITY_OFFICE_TOOLS, groupOf, authority);
 }

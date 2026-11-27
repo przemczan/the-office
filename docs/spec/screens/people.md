@@ -109,7 +109,7 @@ Covers: the People grid, a person's page (head, Overview, Work, Conversations, M
 - Permissions: "Permission profile" (one line per part joined with " · ").
 - Authority, in this order ([2.2](../2.2-people.md#authority-and-hard-switches), [6 Authority](../6-permissions-and-safety.md#authority)):
   - one row per tool area with its value; where a value differs on own work and others' work, both on one row, "Own: Allowed · Others': Ask me";
-  - inside an area, its named groups (Change Roles and Change Project settings among them) and single tools whose value differs from the area's, or that are capped;
+  - inside an area, its named groups (Change Roles and Change Project settings among them) and single tools whose value differs from the area's, or that are capped; the single tools `propose_project_commands`, `propose_test_targets`, `propose_actions` (Proposal or Never), `post_link_card` and `show_office_status` (Allowed or Never) take only the values they can have;
   - then the followed groups, "Run installs" and "Publish outside the Pipeline", each badged "Followed by the Agent", Run installs adding "enforced on run_environment_check"; no other row carries a badge;
   - beside them, the row "Approve held calls and apply Proposals", in no area ([6 The trust anchor](../6-permissions-and-safety.md#the-trust-anchor));
   - a value that consults a Role not yet hired carries the note that it asks the user until the Role is hired.

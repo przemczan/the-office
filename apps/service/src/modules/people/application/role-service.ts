@@ -143,13 +143,13 @@ export class RoleService {
 
   /**
    * Hires `name` into the preset's Role, as the user `savedBy` chose it or applied a Proposal of it
-   * by the person `proposedBy`. Refuses with every reason, before saving, also when someone already
-   * fills the Role.
+   * by the person `proposedBy`; `savedBy` is null when a person hired on their own. Refuses with
+   * every reason, before saving, also when someone already fills the Role.
    */
   async hire(
     roleKey: string,
     name: string,
-    savedBy: UserRef,
+    savedBy: UserRef | null,
     proposedBy?: string,
   ): Promise<RoleWithAssignments> {
     const hiredAt = new Date();
@@ -196,7 +196,7 @@ export class RoleService {
   async hireFromScratch(
     card: IncomingRoleCard,
     skills: readonly string[],
-    savedBy: UserRef,
+    savedBy: UserRef | null,
     proposedBy?: string,
   ): Promise<RoleWithAssignments> {
     const hiredAt = new Date();

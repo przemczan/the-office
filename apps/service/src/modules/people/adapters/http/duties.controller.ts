@@ -33,5 +33,7 @@ function toDutyResponse(duty: DutyWithHolder): Duty {
     roleKey: duty.roleKey,
     holder: duty.holder && { ...duty.holder },
     fallback: duty.fallback,
+    jobSettings: duty.jobSettings,
+    jobSettingsToGive: duty.jobSettingsToGive,
   };
 }

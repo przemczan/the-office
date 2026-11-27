@@ -122,6 +122,8 @@ function defaultPerson(holder: string | null): Duty[] {
       roleKey: holder,
       holder: holder === null ? null : { roleKey: holder, name: "Marta", title: "Receptionist" },
       fallback: holder === null ? "caretaker" : null,
+      jobSettings: {},
+      jobSettingsToGive: holder === null ? null : {},
     },
   ];
 }

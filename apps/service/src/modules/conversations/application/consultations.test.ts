@@ -96,6 +96,24 @@ const outputMasks = new ProjectOutputMasksForTests();
 /** Who holds each duty: their default Roles, so none of the Roles here, under keys of their own. */
 const duties = new DutiesStandIn();
 
+/**
+ * The tools a Consultant hired from scratch is offered: their person's candidates but the single
+ * tools a Role from scratch has at Never, which their Authority leaves out.
+ */
+function consultationToolsOfARoleFromScratch(): string[] {
+  const neverFromScratch = new Set([
+    "propose_project_commands",
+    "propose_test_targets",
+    "propose_actions",
+    "post_link_card",
+    "show_office_status",
+  ]);
+  return consultationOfficeTools(
+    { caretaker: false },
+    { canCall: true, onTask: false, runEnvironment: false },
+  ).filter((name) => !neverFromScratch.has(name));
+}
+
 type Step = SessionScript[number];
 
 const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
@@ -289,7 +307,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   }));
   // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
   for (const name of consultationOfficeTools(
-    { held: await duties.heldBy(consultantKey), caretaker: false },
+    { caretaker: false },
     {
       canCall: true,
       onTask: false,
@@ -580,16 +598,9 @@ describe("a consult of a hired Consultant", () => {
     const [askerSession, consultantSession] = engine.sessions;
     const opening = consultantSession?.received[0];
     expect(opening?.step === "start" && opening.brief.text).toContain(QUESTION);
-    expect(consultantSession?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...consultationOfficeTools(
-        { held: await duties.heldBy(consultantKey), caretaker: false },
-        {
-          canCall: true,
-          onTask: false,
-          runEnvironment: false,
-        },
-      ),
-    ]);
+    expect(consultantSession?.options.officeTools.map(({ name }) => name)).toEqual(
+      consultationToolsOfARoleFromScratch(),
+    );
     const consultationLog = await threads.messages(consultation.id);
     expect(consultationLog).toContainEqual(
       expect.objectContaining({
@@ -932,16 +943,9 @@ describe("a call from a chat", () => {
     await settled(consultation.id);
 
     const [, calleeSession] = engine.sessions;
-    expect(calleeSession?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...consultationOfficeTools(
-        { held: await duties.heldBy(devopsKey), caretaker: false },
-        {
-          canCall: true,
-          onTask: false,
-          runEnvironment: false,
-        },
-      ),
-    ]);
+    expect(calleeSession?.options.officeTools.map(({ name }) => name)).toEqual(
+      consultationToolsOfARoleFromScratch(),
+    );
     expect(calleeSession?.options.profile).toMatchObject({
       edit: false,
       run: { kind: "read-only-git" },

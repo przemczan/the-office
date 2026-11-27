@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 import type { Avatar } from "../../domain/avatar.js";
 import type { Authority } from "../../domain/authority.js";
 import type { HardSwitches, HardSwitchValue } from "../../domain/hard-switches.js";
@@ -16,6 +16,12 @@ export const roles = pgTable("roles", {
   letGoAt: timestamp("let_go_at", { withTimezone: true }),
   /** Null while the person has none. */
   avatar: jsonb("avatar").$type<Avatar>(),
+  /**
+   * Whether the second Authority move-over has given the Role its duties' jobs (spec §2.2, "Duty"),
+   * so it runs once per Role: false on every Role hired before it, true on every Role hired after,
+   * whose hire gives them. A card change never sets it.
+   */
+  dutyJobsGiven: boolean("duty_jobs_given").notNull().default(false),
 });
 
 /**

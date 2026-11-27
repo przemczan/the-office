@@ -144,17 +144,22 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   | Work | Task records; Moving work; Gates and runs; Continue at a Gate on own work (a single tool, [trust anchor](#the-trust-anchor)) |
   | Initiatives | Initiative records; Running an Initiative |
   | Ideas | Ideas; `capture_idea` (a single row; the tool loads with Core) |
-  | Projects and settings | Change Project settings (a Hard switch); Publishing settings (capped); Project settings; Project upkeep; Secret values (trust anchor) |
+  | Projects and settings | Change Project settings (a Hard switch); Publishing settings (capped); Project settings; Project upkeep; Secret values (trust anchor); `propose_project_commands`, `propose_test_targets`, `propose_actions` (single tools, Proposal or Never) |
   | People and Roles | Change Roles (a Hard switch, trust anchor); Memory and Avatar |
   | Library | Skills; MCP servers (their Secret values in the trust anchor); Pipelines and Stage templates; Prompt templates |
-  | Office settings | Office settings |
+  | Office settings | Office settings; `post_link_card`, `show_office_status` (single tools, Allowed or Never) |
   | Test instances and devices | Test instances; Project devices |
   | Operations | Fire alarm; Checks; Updates and restarts |
   | Followed (no area) | Run installs; Publish outside the Pipeline ([Hard switches](#hard-switches)) |
   | No area | Approve held calls and apply Proposals ([trust anchor](#the-trust-anchor)) |
 
+- **Where each hand-written tool belongs:** a tool no Office action declares is offered unless its group is Never; one that drafts its own Proposal is ruled no further, so its group decides only whether it is offered:
+  - Office settings: `propose_office_setting`; Prompt templates: `propose_prompt_template`, `propose_prompt_template_reset`;
+  - Pipelines and Stage templates: `propose_library_pipeline`, `propose_stage_template`; Project settings: `propose_project_pipeline`, `propose_project`;
+  - Skills: `propose_skill`, `propose_skill_install`, `propose_skill_update`; Initiative records: `create_initiative`; Task records: `create_task`;
+  - Run installs: `run_environment_check`; Ideas › `capture_idea`; the five single tools above in their own rows.
 - **Core** is loaded in every session from the start; it isn't an area and isn't one settable group:
-  - the reading tools (`read_*`, `list_*`, `read_attachment`, `read_stage_history`, `read_threads`);
+  - the reading tools (`read_*`, `list_*`, `read_attachment`, `read_stage_history`, `read_threads`), `read_office_instructions`, `list_prompt_templates`, `read_prompt_template`, `read_repository`, `list_source_skills` and `read_skill_update` among them;
   - `consult`, `answer_consultation` in a Consultation, and `open_decision` where the Thread opens Decisions;
   - `answer_decision`, offered to everyone on a Decision waiting on the user in a Thread the user talks in, never on an approval or a Proposal ([A person's Office tools](#a-persons-office-tools));
   - `remember`, offered while the card's Shared memory is on, which is its setting ([2.2](2.2-people.md#shared-memory));
@@ -179,7 +184,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **Who gets it:** every Thread the user talks to the person in, a chat included, and their Agent Stages, unless the setting is Never ([2.2](2.2-people.md#setting-a-project-up)); a Stage's list never adds a tool the person's Authority doesn't give.
 - In a Consultation, a held call is put as [A Consultation's permissions](#a-consultations-permissions) says.
 - **Settings outside the group:** the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back and Actions that leave the workstation are Publishing settings, capped ([The user's alone](#the-users-alone)); Server values, the Engine, the Default Pipeline and Project Pipelines are Project settings; Secret variables' values are in the [trust anchor](#the-trust-anchor).
-- The Proposal tools (`propose_project_commands`, `propose_test_targets`, `propose_actions`) draft those settings, and the group's for a person whose setting is Never, until the Project setting actions take their place, ruled Proposal.
+- The Proposal tools (`propose_project_commands`, `propose_test_targets`, `propose_actions`) draft those settings, each with a single row of its own (Proposal or Never) that decides only whether it is offered, until the Project setting actions take their place, ruled Proposal.
 - **The record:** every change of a Project's commands, test targets, Actions, environment or Run environment is kept as a Project setting change, in the same transaction as the change, by the Project page's saves, an applied Proposal and `change_project_settings` alike.
   - It holds the Project, the setting, a short summary naming what changed by name only (never a Secret variable's value), who made it and when.
   - Who made it is a user; a Proposal a user applied, with the person who proposed it; or a person by Role, name and title, with the Task (none from a chat), the user who asked beside them and, for a call held at Ask me or Consult _person_, the user who allowed it, as History names them ([2.1.3](2.1.3-tasks.md#history)).
@@ -256,7 +261,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - Its session is the Consultant's own, built from them alone: their Role card's permission profile and Authority, Hard switches and MCP tool settings among it, and their [Office tools](#a-persons-office-tools) but `answer_decision`, with `answer_consultation` for their answer.
 - It opens no Decision of its own, and calls someone only while the chain of calls allows one more ([2.2](2.2-people.md#chains-of-calls)).
 - A call it holds is still put, as [2.4.3 The callee's own permissions](2.4.3-consultations.md#the-callees-own-permissions) says.
-- It only reads, as its home does (a Task's worktree on a Task, every Project's base branch in a chat), with no `change_role`, no Allow changes and no write access, so all a call can set up is a record, a Proposal the user applies, a Project setting the Consultant's Change Project settings allows ([Project settings by Agents](#project-settings-by-agents)), or the one exception below.
+- It only reads, as its home does (a Task's worktree on a Task, every Project's base branch in a chat), with no `change_role_card`, no Allow changes and no write access, so all a call can set up is a record, a Proposal the user applies, a Project setting the Consultant's Change Project settings allows ([Project settings by Agents](#project-settings-by-agents)), or the one exception below.
 - A Stage that can write lends none of it to its callee.
 
 ### The one exception: the run environment definition
@@ -399,6 +404,9 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 | Projects and settings › Project settings | Never | Never | Never | Never | Proposal | Never | Ask me |
 | Projects and settings › Project upkeep | Never | Never | Never | Never | Allowed | Never | Ask me |
 | Projects and settings › Secret values (capped) | Never | Never | Never | Never | Never | Never | Never |
+| Projects and settings › `propose_project_commands` | Never | Never | Never | Never | Proposal | Never | Never |
+| Projects and settings › `propose_test_targets` | Never | Never | Never | Never | Proposal | Never | Never |
+| Projects and settings › `propose_actions` | Never | Never | Never | Never | Proposal | Never | Never |
 | **People and Roles** › Change Roles (capped) | Never | Never | Never | Never | Never | Proposal | Never |
 | People and Roles › Memory and Avatar | Ask me | Never | Never | Ask me | Ask me | Ask me | Ask me |
 | **Library** › Skills | Proposal | Proposal | Proposal | Proposal | Proposal | Proposal | Proposal |
@@ -406,6 +414,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 | Library › Pipelines and Stage templates | Never | Never | Never | Never | Proposal | Never | Ask me |
 | Library › Prompt templates | Never | Never | Never | Never | Never | Proposal | Ask me |
 | **Office settings** | Never | Never | Never | Never | Never | Proposal | Ask me |
+| Office settings › `post_link_card` | Never | Never | Never | Never | Never | Allowed | Never |
+| Office settings › `show_office_status` | Never | Never | Never | Never | Never | Allowed | Never |
 | **Test instances and devices** › Test instances | Never | Allowed | Allowed | Allowed | Allowed | Never | Ask me |
 | Test instances and devices › Project devices | Never | Ask me | Never | Never | Ask me | Never | Ask me |
 | **Operations** › Fire alarm | Never | Never | Never | Allowed | Allowed | Allowed | Ask me |
@@ -415,12 +425,12 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 | Followed › Publish outside the Pipeline | Never | Consult CTO | Never | Ask me | Consult CTO | Never | Ask me |
 | **No area** › Approve held calls and apply Proposals (capped) | Never | Never | Never | Never | Never | Never | Never |
 
-- **Duty tools** (a duty's direct tools, such as the planning tools for Plans) follow the job, not the table: they start at Allowed on the holder's card when the duty is assigned ([2.2](2.2-people.md#duty)).
+- **Duty tools** (a duty's direct tools, such as the planning tools for Plans) follow the job, not the table: they start at Allowed on the holder's card when the duty is assigned ([2.2](2.2-people.md#duty)); a preset hired for the duty it holds by default starts with its job's rows, so a hired Planner has Initiative records Allowed · Ask me for the planning tools.
 - **The Caretaker** has its own fixed Authority ([2.2](2.2-people.md#caretaker)).
 - The Change Project settings, Run installs and Publish outside the Pipeline rows are the values the Hard switches had; the Planner and the Reviewer keep Never for Change Project settings.
 - The Office Manager's Change Roles is Proposal, equal in reach to Ask me ([Authority](#authority)), and it keeps "never alone" on starting, stopping and moving work as Ask me.
 - Devops keeps CI re-runs and Workflow starts (Project upkeep, Allowed) and its Pipeline, command, test target and Action Proposals.
-- A Role hired from scratch starts every group at Ask me, except Library › Skills at Proposal and `capture_idea` at Allowed, and every capped row at Never; "From scratch" is The Office's default, which a set value overrides.
+- A Role hired from scratch starts every group at Ask me, except Library › Skills at Proposal and `capture_idea` at Allowed, and every capped row and every single tool that has no Ask me (`post_link_card`, `show_office_status`, `propose_project_commands`, `propose_test_targets`, `propose_actions`) at Never; "From scratch" is The Office's default, which a set value overrides.
 
 ### A missing authority value
 

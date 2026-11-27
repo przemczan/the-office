@@ -1,0 +1,1 @@
+ALTER TABLE "roles" ADD COLUMN "duty_jobs_given" boolean DEFAULT false NOT NULL;

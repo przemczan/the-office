@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Duty } from "@the-office/contracts";
+import type { Duty, Role, RoleCardOptions } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dutyQueries, roleQueries } from "../../../api/people.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../../api/people.ts";
 import {
   CARETAKER,
   DEVELOPER_LET_GO,
@@ -33,6 +33,18 @@ const TALK_TO: Duty = {
   fallback: "caretaker",
 };
 
+/** The Role card's options as the job words read them: two areas and no known Roles. */
+const OPTIONS = {
+  knownRoles: [],
+  authority: [
+    {
+      label: "Projects and settings",
+      rows: [{ group: "projectUpkeep", label: "Project upkeep" }],
+    },
+    { label: "Office settings", rows: [{ group: "postLinkCard", label: "post_link_card" }] },
+  ],
+} as unknown as RoleCardOptions;
+
 const mounted: Root[] = [];
 
 afterEach(() => {
@@ -45,6 +57,7 @@ function sectionWith(duties: readonly Duty[]): { page: HTMLElement; queryClient:
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
   queryClient.setQueryData(dutyQueries.list().queryKey, [...duties]);
+  queryClient.setQueryData(roleCardQueries.options().queryKey, OPTIONS);
   queryClient.setQueryData(roleQueries.list().queryKey, [
     CARETAKER,
     PLANNER,
@@ -182,5 +195,64 @@ describe("Settings › Duties", () => {
     expect(row).toContain("Plans wasn't changed");
     expect(row).toContain("Plans goes to a hired Role.");
     expect(picker(page, "Plans").value).toBe("planner");
+  });
+
+  it("lists the settings a job needs on its holder's card, after a pick too", async () => {
+    const needing: Duty = {
+      ...dutyOf("onboards-projects", "Onboards and repairs Projects", "devops", DEVOPS),
+      jobSettingsToGive: { projectUpkeep: { kind: "allowed" }, postLinkCard: { kind: "allowed" } },
+    };
+    const { page } = sectionWith([needing]);
+
+    const row = rowOf(page, needing.label).textContent;
+    expect(row).toContain(
+      "This job needs: Projects and settings › Project upkeep Allowed, Office settings › post_link_card Allowed",
+    );
+    expect(row).toContain("Give Dwight these settings");
+  });
+
+  it("gives the holder the settings by saving their whole card with them over its Authority", async () => {
+    const card = { ...DEVOPS.card, authority: { skills: { kind: "never" } } };
+    const devops = { ...DEVOPS, card } as Role;
+    const needing: Duty = {
+      ...dutyOf("onboards-projects", "Onboards and repairs Projects", "devops", devops),
+      jobSettingsToGive: { projectUpkeep: { kind: "allowed" } },
+    };
+    const fetched = vi.fn<typeof fetch>(() => Promise.resolve(Response.json(devops)));
+    vi.stubGlobal("fetch", fetched);
+    const { page, queryClient } = sectionWith([needing]);
+    await act(async () => {
+      queryClient.setQueryData(roleQueries.list().queryKey, [CARETAKER, PLANNER, devops]);
+      await new Promise((resolve) => setTimeout(resolve));
+    });
+
+    await act(async () => {
+      const button = [...page.querySelectorAll("button")].find((each) =>
+        each.textContent?.includes("Give Dwight these settings"),
+      );
+      button?.click();
+      await vi.waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    });
+
+    const [url, request] = fetched.mock.calls[0] ?? [];
+    expect(url).toBe("/api/roles/devops/card");
+    expect(request?.method).toBe("PUT");
+    expect(JSON.parse(String(request?.body))).toEqual({
+      ...card,
+      authority: { skills: { kind: "never" }, projectUpkeep: { kind: "allowed" } },
+    });
+  });
+
+  it("says the previous holder keeps the authority on their card", async () => {
+    const changed = dutyOf("plans", "Plans", "devops", DEVOPS);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(Response.json(changed))),
+    );
+    const { page, queryClient } = sectionWith([PLANS]);
+
+    await pick(page, queryClient, "Plans", "devops");
+
+    expect(rowOf(page, "Plans").textContent).toContain("Angela keeps the authority on their card");
   });
 });

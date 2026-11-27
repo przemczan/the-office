@@ -21,5 +21,7 @@ export function aDuty(key: DutyKey, roleKey: string | null, fallback: DutyFallba
     roleKey,
     holder: roleKey === null ? null : { roleKey, name: roleKey, title: roleKey },
     fallback: roleKey === null ? fallback : null,
+    jobSettings: {},
+    jobSettingsToGive: roleKey === null ? null : {},
   };
 }

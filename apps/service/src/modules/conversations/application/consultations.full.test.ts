@@ -230,7 +230,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   }));
   // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
   for (const name of consultationOfficeTools(
-    { held: await duties.heldBy(consultantKey), caretaker: false },
+    { caretaker: false },
     {
       canCall: true,
       onTask: false,

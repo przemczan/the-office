@@ -8,11 +8,12 @@ import {
   type EngineModel,
 } from "../../engine/index.js";
 import { authorityMovedOver, instructionsMovedOver } from "./authority-move-over.js";
+import { jobSettingsOfDutiesMissingOn } from "./duty-jobs.js";
 import type { Avatar } from "./avatar.js";
 import { isBuiltIn } from "./caretaker.js";
 import { mcpToolDefault } from "./duties.js";
 import { ENGINE_TYPES } from "./engine-type-offers.js";
-import { presetFor, presetTitle } from "./presets.js";
+import { dutiesSuitedTo, presetFor, presetTitle } from "./presets.js";
 import type { Role } from "./role.js";
 import {
   personNameProblems,
@@ -63,9 +64,20 @@ export function hire(
   const problems = personNameProblems(name);
   if (filledBy) problems.push(roleTakenProblem(filledBy));
   if (problems.length > 0) throw new RoleRefused(problems);
+  // The jobs of the duties the preset holds by default, which its table doesn't give (the Planner's
+  // Plans), are set on its card as it is hired, as Settings › Duties gives them to a new holder.
+  const jobs = jobSettingsOfDutiesMissingOn(
+    preset.roleKey,
+    preset.card.authority,
+    dutiesSuitedTo(preset),
+  );
   const role: Role = {
     key: preset.roleKey,
-    card: { ...preset.card, name: name.trim() },
+    card: {
+      ...preset.card,
+      name: name.trim(),
+      authority: { ...preset.card.authority, ...jobs },
+    },
     cardVersion: 1,
     hiredAt,
     cardSavedAt: hiredAt,
@@ -287,6 +299,37 @@ export function authorityMovedOverOf(
   const changed: Role = {
     ...role,
     card: { ...role.card, authority, instructions },
+    cardVersion: role.cardVersion + 1,
+    cardSavedAt: savedAt,
+    cardProposedBy: undefined,
+    cardSavedBy: null,
+  };
+  return { role: changed, event: new RoleCardChanged(changed, changes) };
+}
+
+/**
+ * The second move-over (spec §2.2, "Duty"): the Role's card gives back the reach its duties used to
+ * grant on top of its Authority. Each row of the held duties' jobs that the card's Authority in
+ * effect leaves Never (`jobSettingsOfDutiesMissingOn`) is set at the job's setting; every other row
+ * stays as it is. Undefined when the card gives its whole job, so a second run changes nothing.
+ * Its Changes say the Authority came from the duties held, first, then each row set. The version
+ * names no user and nobody proposed it.
+ */
+export function authorityFromDutiesHeldOf(
+  role: Role,
+  holds: ReadonlySet<DutyKey>,
+  savedAt: Date,
+): RoleChange<RoleCardChanged> | undefined {
+  const missing = jobSettingsOfDutiesMissingOn(role.key, role.card.authority, holds);
+  if (Object.keys(missing).length === 0) return undefined;
+  const authority = { ...role.card.authority, ...missing };
+  const changes: RoleCardFieldChange[] = [
+    { field: "authorityFromDutiesHeld", from: null, to: null },
+    ...authorityChanges(role.card.authority, authority),
+  ];
+  const changed: Role = {
+    ...role,
+    card: { ...role.card, authority },
     cardVersion: role.cardVersion + 1,
     cardSavedAt: savedAt,
     cardProposedBy: undefined,

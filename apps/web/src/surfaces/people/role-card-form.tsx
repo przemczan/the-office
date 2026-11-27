@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import {
+  CHANGE_ROLE_CARD_ACTION,
+  HIRE_ROLE_ACTION,
   effortSchema,
+  hiredRoleKeyOf,
   runPermissionSchema,
   sessionDefaultSchema,
   type EngineKind,
@@ -110,6 +113,16 @@ export function HireFromScratchPage(): ReactNode {
     ...proposalQueries.one(proposalId ?? ""),
     enabled: proposalId !== undefined,
   });
+  const proposed = proposal.data?.change;
+  // A change to a card edits that Role's card, whose preset gives each row's default.
+  const changedRoleKey =
+    proposed?.kind === "office-action" && proposed.action === CHANGE_ROLE_CARD_ACTION.name
+      ? proposed.subject.id
+      : undefined;
+  const changedRole = useQuery({
+    ...roleQueries.one(changedRoleKey ?? ""),
+    enabled: changedRoleKey !== undefined,
+  });
   if (!roles.data || !options.data || !library.data || !mcpServers.data) return null;
   const formProps = {
     hiredRoles: filledRoleKeys(roles.data),
@@ -124,6 +137,37 @@ export function HireFromScratchPage(): ReactNode {
   }
   if (!proposal.data) return null;
   const { change, status } = proposal.data;
+  if (change.kind === "office-action" && change.editableCard && status.kind === "open") {
+    if (changedRoleKey === undefined) {
+      return (
+        <RoleCardForm
+          subject={{
+            kind: "proposal",
+            proposal: proposal.data,
+            card: change.editableCard,
+            action: HIRE_ROLE_ACTION.name,
+          }}
+          {...formProps}
+        />
+      );
+    }
+    if (changedRole.error) {
+      return <RefusalAlert title="The Role can't be read" error={changedRole.error} />;
+    }
+    if (!changedRole.data) return null;
+    return (
+      <RoleCardForm
+        subject={{
+          kind: "proposal",
+          proposal: proposal.data,
+          card: change.editableCard,
+          action: CHANGE_ROLE_CARD_ACTION.name,
+          role: changedRole.data,
+        }}
+        {...formProps}
+      />
+    );
+  }
   if (change.kind !== "hire" || status.kind !== "open") {
     return (
       <Alert tone="info" title="This Proposal is no longer open">
@@ -143,7 +187,15 @@ export function HireFromScratchPage(): ReactNode {
 type FormSubject =
   | { readonly kind: "role"; readonly role: Role }
   | { readonly kind: "new-role" }
-  | { readonly kind: "proposal"; readonly proposal: Proposal; readonly card: SavedRoleCard };
+  | {
+      readonly kind: "proposal";
+      readonly proposal: Proposal;
+      readonly card: SavedRoleCard;
+      /** The Office action it calls, when it is one; else the hire of a new Role. */
+      readonly action?: string;
+      /** The Role a `change_role_card` Proposal changes. */
+      readonly role?: Role;
+    };
 
 /** Editing the card of a hired Role, or filling one to hire a person: blank, or as proposed. */
 function RoleCardForm({
@@ -160,7 +212,7 @@ function RoleCardForm({
   readonly mcpServerLibrary: readonly McpServer[];
 }): ReactNode {
   const formId = useId();
-  const ownRoleKey = subject.kind === "role" ? subject.role.key : undefined;
+  const ownRoleKey = subject.kind === "proposal" ? subject.role?.key : roleOf(subject)?.key;
   const saved = startingCard(subject, options);
   // What each Authority row stands at when the card leaves it out: its preset's, or from scratch's.
   const authorityDefaults = defaultAuthorityOf(subject, options);
@@ -223,7 +275,18 @@ function RoleCardForm({
         }
         case "proposal": {
           const { change } = await applyProposal(subject.proposal.id, { card: draft });
-          if (change.kind === "hire" && change.roleKey !== null) {
+          if (change.kind === "office-action") {
+            if (subject.action === CHANGE_ROLE_CARD_ACTION.name && subject.role) {
+              await assignServers(subject.role.key);
+              showToast(`Role card saved. ${draft.name} works with it from the next session.`);
+              await queryClient.invalidateQueries(roleQueries.list());
+              await navigate({ to: "/people/$roleKey", params: { roleKey: subject.role.key } });
+            } else {
+              const hiredKey = hiredRoleKeyOf({ card: draft });
+              await assignServers(hiredKey);
+              await showHired(hiredKey);
+            }
+          } else if (change.kind === "hire" && change.roleKey !== null) {
             await assignServers(change.roleKey);
             await showHired(change.roleKey);
           }
@@ -252,7 +315,7 @@ function RoleCardForm({
   const cardUnsaved = JSON.stringify(draft) !== JSON.stringify(saved);
   const unsaved =
     cardUnsaved || (ownRoleKey !== undefined && assignmentsFor(ownRoleKey).length > 0);
-  const editing = subject.kind === "role";
+  const editing = subject.kind === "role" || (subject.kind === "proposal" && !!subject.role);
   // The Caretaker's capabilities, permission profile, Authority and Task limit are fixed.
   const fixed = subject.kind === "role" && subject.role.builtIn;
   return (
@@ -337,7 +400,14 @@ function startingCard(subject: FormSubject, options: RoleCardOptions): SavedRole
 
 /** Where each Authority row starts: a hired Role's preset defaults, else a Role from scratch's. */
 function defaultAuthorityOf(subject: FormSubject, options: RoleCardOptions): AuthorityInEffect {
-  return subject.kind === "role" ? subject.role.presetAuthority : options.fromScratchAuthority;
+  const role = roleOf(subject);
+  return role ? role.presetAuthority : options.fromScratchAuthority;
+}
+
+/** The hired Role whose card the form edits, when it does. */
+function roleOf(subject: FormSubject): Role | undefined {
+  if (subject.kind === "role") return subject.role;
+  return subject.kind === "proposal" ? subject.role : undefined;
 }
 
 interface FieldsProps {

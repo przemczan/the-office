@@ -50,6 +50,10 @@ export type {
   WorkCascadeLevels,
 } from "./domain/engine-cascade.js";
 export { MemoryService } from "./application/memory-service.js";
+export { AvatarSources } from "./application/avatar-sources.js";
+export { SessionPeople } from "./application/session-people.js";
+export type { AvatarSource } from "./ports/avatar-source.js";
+export type { SessionPeopleSource } from "./ports/session-people-source.js";
 export { MemoryTaskTitles, type MemoryTaskTitleSource } from "./application/memory-task-titles.js";
 export { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./domain/role-events.js";
 export {

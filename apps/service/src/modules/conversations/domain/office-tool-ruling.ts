@@ -1,6 +1,4 @@
 import { canonicalJson } from "../../engine/index.js";
-import { dutyActionTools } from "./duty-action-tools.js";
-import type { HeldDuties } from "./session-instructions.js";
 import {
   ASK_ME,
   type AuthorityGroup,
@@ -50,15 +48,14 @@ export function isOffered(setting: AuthoritySetting): boolean {
 /**
  * What a value makes of a call (spec 5.4.1 › One ruling step). Ask me reads the same in a
  * Consultation, where the approval goes to the user, the one person a Consultation can always ask.
- * `dutyHolder` is whether the person holds a duty that grants the tool, which keeps it offered and
- * allowed where the row says Never, until "People and Memory for Agents" removes the duties' tools.
+ * A duty grants nothing: a row at Never is never allowed (spec 6, "A person's Office tools").
  */
-export function toolRuling(value: AuthorityValue, dutyHolder: boolean): ToolRuling {
+export function toolRuling(value: AuthorityValue): ToolRuling {
   switch (value.kind) {
     case "allowed":
       return { kind: "run" };
     case "never":
-      return dutyHolder ? { kind: "run" } : { kind: "never" };
+      return { kind: "never" };
     case "proposal":
       return { kind: "propose" };
     case "ask-me":
@@ -77,20 +74,19 @@ export function officeToolCallWords(action: string, input: unknown): string {
 }
 
 /**
- * The tools among `names` the person's Authority leaves offered: all but the Office actions' tools
- * ruled Never (`groupOf` names the Authority group of each), those a held duty grants kept.
+ * The tools among `names` the person's Authority leaves offered: all but those ruled Never
+ * (`groupOf` names the Authority group of each tool that has one: the Office actions' and the
+ * hand-written tools'), a tool in no group being Core. A duty never keeps one offered.
  */
 export function offeredTools(
   names: readonly string[],
   groupOf: ReadonlyMap<string, AuthorityGroup>,
   authority: AuthorityInEffect,
-  held: HeldDuties,
   ownWorkGroupOf: ReadonlyMap<string, AuthorityGroup> = new Map(),
 ): string[] {
-  const grantedByDuty = dutyActionTools(held);
   return names.filter((name) => {
     const group = groupOf.get(name);
-    if (group === undefined || grantedByDuty.has(name) || isOffered(authority[group])) return true;
+    if (group === undefined || isOffered(authority[group])) return true;
     // A tool with a row of its own on own work is offered while that row isn't Never.
     const ownWorkGroup = ownWorkGroupOf.get(name);
     return ownWorkGroup !== undefined && isOffered(authority[ownWorkGroup]);

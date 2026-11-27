@@ -1,18 +1,12 @@
-import { Body, Controller, Get, Param, Post, Put, UseFilters } from "@nestjs/common";
+import { Controller, Get, Param, UseFilters } from "@nestjs/common";
 import {
-  hireSchema,
-  roleCardSchema,
-  type Hire,
   type Preset as PresetResponse,
   type Role as RoleResponse,
-  type RoleCard,
   type RoleCardOptions,
   type RoleChange as RoleChangeResponse,
   type UserRef as UserRefResponse,
 } from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { Duties } from "../../application/duties.js";
-import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import type { RoleHistoryEntry } from "../../application/role-history.js";
 import { RoleService } from "../../application/role-service.js";
 import { hardSwitchesOf, presetAuthority } from "../../domain/authority.js";
@@ -70,19 +64,6 @@ export class RolesController {
     };
   }
 
-  @Post("roles")
-  async hire(
-    @Body(new ContractPipe(hireSchema)) hiring: Hire,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<RoleResponse> {
-    const user = userOf(signedIn);
-    const role =
-      "card" in hiring
-        ? await this.roles.hireFromScratch(...cardAndSkills(hiring.card), user)
-        : await this.roles.hire(hiring.roleKey, hiring.name, user);
-    return toRoleResponse(role, await this.responseContext());
-  }
-
   @Get("roles")
   async list(): Promise<RoleResponse[]> {
     const roles = await this.roles.list();
@@ -95,28 +76,6 @@ export class RolesController {
     return toRoleResponse(await this.roles.read(key), await this.responseContext());
   }
 
-  @Put("roles/:key/card")
-  async changeCard(
-    @Param("key") key: string,
-    @Body(new ContractPipe(roleCardSchema)) card: RoleCard,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<RoleResponse> {
-    const role = await this.roles.changeCard(key, ...cardAndSkills(card), userOf(signedIn));
-    return toRoleResponse(role, await this.responseContext());
-  }
-
-  @Post("roles/:key/let-go")
-  async letGo(@Param("key") key: string): Promise<RoleResponse> {
-    const role = await this.roles.letGo(key);
-    return toRoleResponse(role, await this.responseContext());
-  }
-
-  @Post("roles/:key/hire-back")
-  async hireBack(@Param("key") key: string): Promise<RoleResponse> {
-    const role = await this.roles.hireBack(key);
-    return toRoleResponse(role, await this.responseContext());
-  }
-
   @Get("roles/:key/changes")
   async history(@Param("key") key: string): Promise<RoleChangeResponse[]> {
     return (await this.roles.history(key)).map(toChangeResponse);
@@ -125,11 +84,6 @@ export class RolesController {
   private responseContext(): Promise<RoleResponseContext> {
     return roleResponseContext(this.roles, this.duties);
   }
-}
-
-/** Splits the card the user sent into the Role card and the skills the Skills module keeps. */
-function cardAndSkills({ skills, ...card }: RoleCard): [Omit<RoleCard, "skills">, string[]] {
-  return [card, skills];
 }
 
 function toPresetResponse(preset: Preset): PresetResponse {
