@@ -12,7 +12,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
-import { BusyWorkChanged } from "../../../office-updates/index.js";
+import { BusyWorkChanged } from "../../../busy-work/index.js";
 import { EnvironmentCheckFinished } from "../../domain/environment-check-events.js";
 import {
   commitOnOrigin,

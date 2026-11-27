@@ -5,7 +5,10 @@ import { GrafanaInUse, type GrafanaNow } from "../ports/grafana-in-use.js";
 import { GrafanaCheck } from "./grafana-check.js";
 
 class SavedTokenForTests extends GrafanaInUse {
-  constructor(private readonly token: string | undefined) {
+  constructor(
+    private readonly token: string | undefined,
+    private readonly address: string | undefined,
+  ) {
     super();
   }
   now(): Promise<GrafanaNow> {
@@ -14,10 +17,16 @@ class SavedTokenForTests extends GrafanaInUse {
   savedReadToken(): Promise<string | undefined> {
     return Promise.resolve(this.token);
   }
+  savedReadAddress(): Promise<string | undefined> {
+    return Promise.resolve(this.address);
+  }
 }
 
-function checkWith(savedToken?: string): GrafanaCheck {
-  return new GrafanaCheck(new GrafanaStatsSource(), new SavedTokenForTests(savedToken));
+function checkWith(savedToken?: string, savedAddress?: string): GrafanaCheck {
+  return new GrafanaCheck(
+    new GrafanaStatsSource(),
+    new SavedTokenForTests(savedToken, savedAddress),
+  );
 }
 
 describe("GrafanaCheck", () => {
@@ -48,6 +57,30 @@ describe("GrafanaCheck", () => {
       "Bearer glsa_saved",
       "Bearer glsa_saved",
     ]);
+  });
+
+  it("sends a person's check the saved read token at the saved read address only", async () => {
+    const check = checkWith("glsa_saved", `${grafana.address}/`);
+
+    await check.checkAsPerson(grafana.address);
+
+    expect(grafana.requests.map((request) => request.headers.authorization)).toEqual([
+      "Bearer glsa_saved",
+    ]);
+  });
+
+  it("never sends a person's check to another address with the saved read token", async () => {
+    const other = await FakeGrafana.start();
+    try {
+      await checkWith("glsa_saved", grafana.address).checkAsPerson(other.address);
+
+      expect(other.requests.length).toBeGreaterThan(0);
+      expect(other.requests.map((request) => request.headers.authorization)).toEqual(
+        other.requests.map(() => undefined),
+      );
+    } finally {
+      await other.stop();
+    }
   });
 
   it("finds the data sources a Viewer token may query", async () => {

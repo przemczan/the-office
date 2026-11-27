@@ -3,6 +3,7 @@ import { AttachmentNotFound } from "../../domain/attachment-not-found.js";
 import { AttachmentRefused } from "../../domain/attachment-refused.js";
 import type { UserRef } from "../../domain/author.js";
 import type { PersonAuthor } from "../../domain/state-change.js";
+import { FireAlarmRefused } from "../../domain/fire-alarm-refused.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
 import { IdeaRefused } from "../../domain/idea-refused.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
@@ -73,6 +74,7 @@ function isWorkRefusal(error: unknown): error is Error {
     InitiativeRefused,
     TaskRefused,
     AttachmentRefused,
+    FireAlarmRefused,
     IdeaNotFound,
     InitiativeNotFound,
     TaskNotFound,

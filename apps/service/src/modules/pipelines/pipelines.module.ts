@@ -2,7 +2,7 @@ import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nes
 import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
-import { BusyWorkModule } from "../office-updates/index.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.js";
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";

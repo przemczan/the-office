@@ -1,6 +1,6 @@
 import { Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
-import { BusyWorkModule } from "../office-updates/index.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import { DevicesActionDevices } from "./adapters/devices/devices-action-devices.js";
 import { DomainEventSignals } from "./adapters/events/domain-event-signals.js";
 import { ActionRunsController } from "./adapters/http/action-runs.controller.js";

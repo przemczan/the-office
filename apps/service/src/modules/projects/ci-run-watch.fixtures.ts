@@ -4,12 +4,18 @@ import { startTestApplication } from "../../../test/test-application.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
+import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { officeIdentityForTests } from "../../platform/git-identity/office-identity.fixtures.js";
 import { Schedule } from "../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
-import { OfficeToolRegistry } from "../engine/index.js";
+import {
+  EngineModule,
+  OfficeToolRegistry,
+  ScriptedEngine,
+  ScriptedEngineModule,
+} from "../engine/index.js";
 import { GitHubModule } from "../github/index.js";
 import { ProjectServerValues } from "../mcp-servers/index.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
@@ -75,8 +81,13 @@ export class CiRunTestbed {
     const actions = new InMemoryActionRepository();
     const { app, url } = await startTestApplication({
       database: true,
+      moduleOverrides: [
+        { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+      ],
       imports: [
         EventsModule,
+        TelemetryModule,
+        EngineModule,
         EventStreamModule,
         ScheduleModule,
         GitHubModule.register(github.urls),
@@ -99,7 +110,6 @@ export class CiRunTestbed {
         ManualWorkflows,
         WorkflowStarts,
         ActionWorkflows,
-        OfficeToolRegistry,
         // What the other Office actions of Projects carry out with isn't used by these tests.
         ...[
           ProjectService,

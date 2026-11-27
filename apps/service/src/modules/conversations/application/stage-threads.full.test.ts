@@ -18,7 +18,7 @@ import {
   type Engine,
 } from "../../engine/index.js";
 import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
-import { BusyWorkModule } from "../../office-updates/index.js";
+import { BusyWorkModule } from "../../busy-work/index.js";
 import { type PreparedMcpServers, SessionMcpServers } from "../../mcp-servers/index.js";
 import { TokensCounted, DecisionAnswered } from "../domain/conversation-events.js";
 import { oneOptionAnswer, oneWordsAnswer } from "../domain/decision.js";

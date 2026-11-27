@@ -15,7 +15,7 @@ import { ImageFolder } from "../../platform/images/image-folder.js";
 import { OfficeDataDirectory } from "../../platform/office-data/office-data-directory.js";
 import { OfficeTestInstance } from "../../platform/test-instance/office-test-instance.js";
 import { EngineModule } from "../engine/index.js";
-import { BusyWorkModule } from "../office-updates/index.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { ProjectOfficeActions } from "./adapters/office-actions/project-office-actions.js";

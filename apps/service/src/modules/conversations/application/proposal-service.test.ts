@@ -13,7 +13,7 @@ import {
   RoleService,
   type SessionRole,
 } from "../../people/index.js";
-import { BusyWorkModule } from "../../office-updates/index.js";
+import { BusyWorkModule } from "../../busy-work/index.js";
 import { OfficeInstructionsChanged } from "../domain/conversation-events.js";
 import { aProposedCard } from "../domain/proposal.fixtures.js";
 import { randomUUID } from "node:crypto";

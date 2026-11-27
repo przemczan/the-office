@@ -54,7 +54,7 @@ import { EventStreamModule } from "../../../../platform/websocket/event-stream.m
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
-import { BusyWorkModule } from "../../../office-updates/index.js";
+import { BusyWorkModule } from "../../../busy-work/index.js";
 import { EngineCascadeStandIn } from "../../../people/index.fixtures.js";
 import { McpServersModule } from "../../../mcp-servers/index.js";
 import { SkillsModule } from "../../../skills/index.js";

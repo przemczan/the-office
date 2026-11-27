@@ -43,6 +43,8 @@ export interface UsersApplicationOptions {
    * `testPasswordHashing` unless the test replaces it too.
    */
   readonly overrides?: TestApplicationOptions["overrides"];
+  /** Replaces these modules wherever they are imported, such as `EngineModule` by a scripted one. */
+  readonly moduleOverrides?: TestApplicationOptions["moduleOverrides"];
 }
 
 /**
@@ -54,6 +56,7 @@ export async function startUsersApplication({
   imports = [],
   identityProviders = { imports: [], identityProviders: [] },
   overrides = [],
+  moduleOverrides = [],
 }: UsersApplicationOptions = {}): Promise<UsersApplication> {
   const users = UsersModule.register(identityProviders);
   const started = await startTestApplication({
@@ -70,6 +73,7 @@ export async function startUsersApplication({
       }),
     ],
     overrides: [{ provide: PasswordHashing, useValue: testPasswordHashing }, ...overrides],
+    moduleOverrides,
     requestAccess: "guarded",
   });
   return { ...started, schedule: started.app.get(Schedule) as ManualSchedule };

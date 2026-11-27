@@ -6,14 +6,11 @@ import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
+import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import {
-  BusyWork,
-  BusyWorkModule,
-  OfficeUpdates,
-  OfficeUpdatesModule,
-  ScheduledExits,
-} from "../../office-updates/index.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../engine/index.js";
+import { BusyWork, BusyWorkModule } from "../../busy-work/index.js";
+import { OfficeUpdates, OfficeUpdatesModule, ScheduledExits } from "../../office-updates/index.js";
 import { createOfficeCheckout, updateSystem } from "../../office-updates/index.fixtures.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
@@ -42,9 +39,13 @@ beforeEach(async () => {
   await mkdir(updateFolder);
   ({ app } = await startTestApplication({
     database: true,
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
     imports: [
       EventsModule,
       EventStreamModule,
+      TelemetryModule,
       BusyWorkModule,
       OfficeUpdatesModule.register({ checkout: checkout.path, updateFolder }),
     ],

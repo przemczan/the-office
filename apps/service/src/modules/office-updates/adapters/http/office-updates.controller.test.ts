@@ -5,11 +5,13 @@ import { type INestApplication } from "@nestjs/common";
 import { officeUpdateSchema, type OfficeUpdate } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
-import { BusyWork } from "../../application/busy-work.js";
+import { BusyWork } from "../../../busy-work/index.js";
 import { OfficeUpdates } from "../../application/office-updates.js";
 import { LOCAL_CHANGES } from "../../domain/update-refusal.js";
 import { OfficeUpdatesModule } from "../../office-updates.module.js";
@@ -45,8 +47,13 @@ async function start(
   officeFolder = checkout.path,
 ): Promise<void> {
   const started = await startTestApplication({
+    database: true,
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
     imports: [
       EventsModule,
+      TelemetryModule,
       EventStreamModule,
       OfficeUpdatesModule.register({
         checkout: officeFolder,

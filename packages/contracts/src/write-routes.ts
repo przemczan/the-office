@@ -50,6 +50,11 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
   { route: "POST /proposals/:id/apply", specHeading: THE_USERS_ALONE },
   { route: "PUT /threads/:id/allow-changes", specHeading: THE_USERS_ALONE },
 
+  // The fire alarm: an Agent may sound it, only the user eases it.
+  { route: "POST /fire-alarm/all-clear", specHeading: THE_USERS_ALONE },
+  { route: "PUT /fire-alarm/lifts/:threadId", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /fire-alarm/lifts/:threadId", specHeading: THE_USERS_ALONE },
+
   // Projects: running an Action.
   {
     route: "POST /projects/:id/actions/:key/runs",
@@ -219,10 +224,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "PUT /threads/:id/title", agent: "gap" },
   { route: "PUT /threads/:id/context-override", agent: "gap" },
   { route: "DELETE /threads/:id/allow-changes", agent: "undecided", note: NOT_YET_IN_SPEC },
-  { route: "POST /fire-alarm/sound", agent: "gap", note: "for the permissions design" },
-  { route: "POST /fire-alarm/all-clear", agent: "undecided", note: NOT_YET_IN_SPEC },
-  { route: "PUT /fire-alarm/lifts/:threadId", agent: "undecided", note: NOT_YET_IN_SPEC },
-  { route: "DELETE /fire-alarm/lifts/:threadId", agent: "undecided", note: NOT_YET_IN_SPEC },
 
   // Projects and their settings.
   { route: "POST /projects", agent: "proposal", note: "propose_project" },
@@ -323,14 +324,7 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     agent: "undecided",
     note: "engine credentials",
   },
-  { route: "POST /office-update/check", agent: "gap" },
-  { route: "POST /office-update/schedule", agent: "gap", note: "ends every running session" },
-  { route: "DELETE /office-update/schedule", agent: "gap" },
-  { route: "POST /office-restart/schedule", agent: "gap", note: "ends every running session" },
-  { route: "DELETE /office-restart/schedule", agent: "gap" },
   { route: "PUT /settings/telemetry", agent: "gap" },
-  { route: "POST /settings/telemetry/bundled-grafana/start", agent: "gap" },
-  { route: "POST /stats/grafana-check", agent: "gap" },
   {
     route: "POST /office-identity/ssh-key/regenerate",
     agent: "gap",
@@ -344,7 +338,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     note: "the Office identity's sign-in, in the user's browser",
   },
   { route: "DELETE /github/sign-in", agent: "undecided", note: NOT_YET_IN_SPEC },
-  { route: "POST /github/permissions/check", agent: "gap" },
 
   // Test instances, Connected devices.
   {

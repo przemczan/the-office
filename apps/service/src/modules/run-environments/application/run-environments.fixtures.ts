@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import type {
   FileOwnerIds,
   RunEnvironmentOptions,

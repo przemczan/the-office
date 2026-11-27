@@ -17,4 +17,7 @@ export abstract class GrafanaInUse {
 
   /** The read token saved for the user's own Grafana, for a check that leaves it out. */
   abstract savedReadToken(): Promise<string | undefined>;
+
+  /** The read address saved for the user's own Grafana, which the saved read token belongs to. */
+  abstract savedReadAddress(): Promise<string | undefined>;
 }

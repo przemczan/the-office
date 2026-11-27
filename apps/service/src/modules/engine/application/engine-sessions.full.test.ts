@@ -43,7 +43,7 @@ import {
 import type { SessionOptions } from "../ports/session-options.js";
 import type { EngineSession } from "../ports/engine-session.js";
 import type { MetricReader } from "@opentelemetry/sdk-metrics";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { EventBus } from "../../../platform/events/event-bus.js";

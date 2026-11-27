@@ -1,11 +1,8 @@
-import { Body, Controller, Get, HttpCode, Post, Query } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import {
   basicStatsQuerySchema,
   fullStatsQuerySchema,
-  grafanaCheckSchema,
   systemHealthQuerySchema,
-  type GrafanaCheck as GrafanaCheckRequest,
-  type GrafanaCheckAnswer,
   type BasicStats as BasicStatsResponse,
   type BasicStatsQuery,
   type FullStats as FullStatsResponse,
@@ -61,21 +58,5 @@ export class StatsController {
     @Query(new ContractPipe(systemHealthQuerySchema)) { range }: SystemHealthQuery,
   ): Promise<SystemHealthResponse> {
     return toSystemHealthResponse(await this.systemHealth.read(range));
-  }
-
-  /**
-   * Settings › Telemetry's Test: whether Stats could read the user's own Grafana at the address,
-   * with the read token given or, left out, the saved one. Here, not in the platform's settings
-   * routes, as only this module reads Grafana.
-   */
-  @Post("grafana-check")
-  @HttpCode(200)
-  async checkGrafana(
-    @Body(new ContractPipe(grafanaCheckSchema)) { readAddress, readToken }: GrafanaCheckRequest,
-  ): Promise<GrafanaCheckAnswer> {
-    const answer = await this.grafanaCheck.check(readAddress.trim(), readToken?.trim());
-    return answer.state === "no-data-sources"
-      ? { ...answer, missing: [...answer.missing] }
-      : answer;
   }
 }

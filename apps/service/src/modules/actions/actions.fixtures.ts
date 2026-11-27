@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
-import { BusyWork } from "../office-updates/index.js";
+import { BusyWork } from "../busy-work/index.js";
 import { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
 import { OfficeTestInstance } from "../../platform/test-instance/office-test-instance.js";
 import { ActionLimits } from "./application/action-limits.js";

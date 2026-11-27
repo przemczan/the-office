@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { BusyWork, type EndBusyWork } from "../../office-updates/index.js";
+import { BusyWork, type EndBusyWork } from "../../busy-work/index.js";
 import {
   ProcessOutputKept,
   SubAgentMessagesKept,

@@ -33,6 +33,7 @@ import {
   FIRST_CLAUDE_CODE_ENGINE,
   OfficeToolRegistry,
   ScriptedEngine,
+  EngineModule,
   ScriptedEngineModule,
   type Engine,
   type SessionScript,
@@ -44,7 +45,7 @@ import {
   type ApiEngineOnFakeServer,
   anOfficeToolCall,
 } from "../../engine/index.fixtures.js";
-import { BusyWork, BusyWorkModule } from "../../office-updates/index.js";
+import { BusyWork, BusyWorkModule } from "../../busy-work/index.js";
 import {
   sessionRole as sessionRoleOf,
   CARETAKER,
@@ -362,6 +363,19 @@ async function startOn(
   };
   ({ app } = await startTestApplication({
     database: true,
+    moduleOverrides: [
+      {
+        module: EngineModule,
+        useModule: ScriptedEngineModule.register({
+          "agent-sdk": engine,
+          "claude-code-p": standIn ?? new ScriptedEngine([]),
+          "openai-compatible-api": api?.engine ?? new ScriptedEngine([]),
+          codex: codex ?? new ScriptedEngine([]),
+          "copilot-cli": new ScriptedEngine([]),
+          "gemini-cli": new ScriptedEngine([]),
+        }),
+      },
+    ],
     imports: [
       ConversationsPromptTemplatesForTests,
       EventsModule,
@@ -369,14 +383,7 @@ async function startOn(
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
-      ScriptedEngineModule.register({
-        "agent-sdk": engine,
-        "claude-code-p": standIn ?? new ScriptedEngine([]),
-        "openai-compatible-api": api?.engine ?? new ScriptedEngine([]),
-        codex: codex ?? new ScriptedEngine([]),
-        "copilot-cli": new ScriptedEngine([]),
-        "gemini-cli": new ScriptedEngine([]),
-      }),
+      EngineModule,
       // Signed in with GitHub, as the app may be, so a session holding the token would show.
       GitHubModule.register(),
       BusyWorkModule,
@@ -687,7 +694,7 @@ describe("a new Thread's first message", () => {
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
       readsEngineTranscripts: false,
     });
-    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
+    expect(namesOf(session?.options.officeTools)).toEqual([
       ...offeredToARoleFromScratch(PERSON_OFFICE_TOOLS),
       CONSULT_TOOL,
       OPEN_DECISION_TOOL,
@@ -1912,7 +1919,7 @@ describe("a Thread on a Task", () => {
       readsEngineTranscripts: false,
     });
     // The person's own tools, then those planning adds, each once.
-    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
+    expect(namesOf(session?.options.officeTools)).toEqual([
       ...offeredToARoleFromScratch(PERSON_OFFICE_TOOLS),
       CONSULT_TOOL,
       OPEN_DECISION_TOOL,
@@ -2166,7 +2173,7 @@ describe("a Thread on an Initiative", () => {
       readsEngineTranscripts: false,
     });
     expect(refreshedOnInitiative).toEqual([]);
-    const tools = session?.options.officeTools.map(({ name }) => name);
+    const tools = namesOf(session?.options.officeTools);
     expect(tools).toEqual(expect.arrayContaining(["read_task", "create_task", "capture_idea"]));
     expect(tools).not.toContain(OPEN_DECISION_TOOL);
     expect(session?.options.instructions).toMatch(
@@ -2464,7 +2471,7 @@ describe("a person's Thread on a Task", () => {
       /On this Task you are asked\.\n\nWherever the user talks to you, you have your own Office tools/,
     );
     // The person's own tools, the same as in their chat but for its Decision form.
-    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
+    expect(namesOf(session?.options.officeTools)).toEqual([
       ...offeredToARoleFromScratch(PERSON_OFFICE_TOOLS),
       CONSULT_TOOL,
     ]);
@@ -2522,7 +2529,7 @@ describe("a person's Thread on a Task", () => {
 
     const [first, resumed] = engine.sessions;
     expect(resumed?.id).toBe(first?.id);
-    expect(resumed?.options.officeTools.map(({ name }) => name)).toEqual([
+    expect(namesOf(resumed?.options.officeTools)).toEqual([
       ...offeredToARoleFromScratch(PERSON_OFFICE_TOOLS),
       CONSULT_TOOL,
     ]);
@@ -4969,9 +4976,23 @@ function offeredToTheCaretaker(tools: readonly string[]): string[] {
   return offeredToARoleFromScratch(tools).filter((name) => !never.has(name));
 }
 
+/**
+ * The names of the Office tools a session was offered, without GitHub's Check again: the real
+ * GitHub module is started here, signed in, and registers it beside the tools these tests list.
+ */
+function namesOf(
+  tools: readonly { readonly name: string }[] | undefined,
+): readonly string[] | undefined {
+  return tools && withoutGitHubTool(tools.map(({ name }) => name));
+}
+
+function withoutGitHubTool(names: readonly string[]): readonly string[] {
+  return names.filter((name) => name !== "check_github_permissions");
+}
+
 /** The Office tools of the Thread's `index`th session, by name. */
 function toolsOf(index: number): readonly string[] | undefined {
-  return engine.sessions[index]?.options.officeTools.map(({ name }) => name);
+  return namesOf(engine.sessions[index]?.options.officeTools);
 }
 
 describe("a chat's tools, by their person's Authority, and its instructions, by the duties its person holds", () => {
@@ -5086,7 +5107,7 @@ describe("a chat's tools, by their person's Authority, and its instructions, by 
     for (const place of [inTheChat, onATask, onAnInitiative]) {
       expect(place.officeTools).toEqual(expect.arrayContaining(persons));
     }
-    expect(onATask.officeTools).toEqual(persons);
+    expect(withoutGitHubTool(onATask.officeTools)).toEqual(persons);
     expect(inTheChat.officeTools).toContain(OPEN_DECISION_TOOL);
   });
 
@@ -5099,7 +5120,7 @@ describe("a chat's tools, by their person's Authority, and its instructions, by 
     duties.set("default-person-to-talk-to", roleKey);
     const defaultPerson = await places.of(await threads.startInChat(roleKey));
 
-    expect(plain.officeTools).toEqual([
+    expect(withoutGitHubTool(plain.officeTools)).toEqual([
       ...offeredToARoleFromScratch(PERSON_OFFICE_TOOLS),
       CONSULT_TOOL,
       OPEN_DECISION_TOOL,

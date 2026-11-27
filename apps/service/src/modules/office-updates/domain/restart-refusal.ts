@@ -1,5 +1,5 @@
 import type { OfficeContainerRead } from "./office-container.js";
-import type { ScheduledExitKind } from "./scheduled-exit.js";
+import type { ScheduledExitKind } from "../../busy-work/index.js";
 
 /**
  * What decides whether something would start The Office again once it exits: its launcher, which

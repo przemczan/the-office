@@ -1795,6 +1795,24 @@ export const soundFireAlarmSchema = z
   .prefault({});
 export type SoundFireAlarm = z.input<typeof soundFireAlarmSchema>;
 
+/** Office action: sound the fire alarm, or make it stricter (spec §2.8). */
+export const SOUND_FIRE_ALARM_ACTION = officeAction({
+  name: "sound_fire_alarm",
+  title: "Sound the fire alarm",
+  description:
+    "Sounds the fire alarm one of its three ways, or makes it stricter while a softer way is on, and answers the alarm. ASAP stops every Stage, waiting Task, Consultation and background work at the next safe point and pauses every started Task; it takes the tools of every chat's Agent at once, this session's included, and the hard stop comes 60 s later. After the current Stages lets each running Stage run end and pauses its Task at the Stage boundary; after the current Tasks lets every started Task walk on to its end. Under every way nothing new starts. A softer way than the one on is refused. Only the user gives the all clear.",
+  input: z.object({
+    way: fireAlarmWaySchema
+      .default("asap")
+      .describe("How to stop: asap, after-stages or after-tasks; asap when left out."),
+  }),
+  answer: fireAlarmSchema,
+  route: { method: "POST", path: "/fire-alarm/sound" },
+  area: "operations",
+  group: "fireAlarm",
+  subject: () => ({ kind: "office-setting", id: "fire-alarm" }),
+});
+
 /**
  * POST /fire-alarm/all-clear, which answers the alarm, off: the Tasks the alarm paused that the
  * user holds or drops, by id; every other one it paused resumes.
@@ -2436,6 +2454,7 @@ export const ONBOARD_PROJECT_ACTION = officeAction({
 
 /** Work's Office actions, each declared above. */
 export const WORK_OFFICE_ACTIONS = [
+  SOUND_FIRE_ALARM_ACTION,
   ONBOARD_PROJECT_ACTION,
   ADD_DEPENDENCY_ACTION,
   REMOVE_DEPENDENCY_ACTION,

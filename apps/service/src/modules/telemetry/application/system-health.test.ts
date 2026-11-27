@@ -56,6 +56,9 @@ class GrafanaForTests extends GrafanaInUse {
   savedReadToken(): Promise<string | undefined> {
     return Promise.resolve(undefined);
   }
+  savedReadAddress(): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
 }
 
 class ReadingsForTests extends HealthReadings {

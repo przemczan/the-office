@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import { TaskStateChanged } from "../../work/index.js";
 import {
   DEFINITION_FOLDER,

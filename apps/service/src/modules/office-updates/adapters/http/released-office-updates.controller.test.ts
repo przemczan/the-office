@@ -5,8 +5,10 @@ import { type INestApplication } from "@nestjs/common";
 import { officeUpdateSchema, type OfficeUpdate } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { ScheduledExits } from "../../application/scheduled-exits.js";
 import type { InstallKind } from "../../domain/install-kind.js";
@@ -123,8 +125,13 @@ afterEach(async () => {
 
 async function start(install: InstallKind | undefined, launched = true): Promise<void> {
   const started = await startTestApplication({
+    database: true,
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
     imports: [
       EventsModule,
+      TelemetryModule,
       EventStreamModule,
       OfficeUpdatesModule.register({
         checkout: release,

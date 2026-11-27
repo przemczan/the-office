@@ -1,5 +1,5 @@
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
-import { BusyWork } from "../../../office-updates/index.js";
+import { BusyWork } from "../../../busy-work/index.js";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { BatchSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";

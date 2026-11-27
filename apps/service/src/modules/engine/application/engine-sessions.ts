@@ -6,7 +6,7 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown, SkillCalled } from "../domain/engine-events.js";
 import { EngineRefused } from "../domain/engine-refused.js";
 import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import {
   COPILOT_CLI_AUTO_MODEL,
   hasUsageWindows,

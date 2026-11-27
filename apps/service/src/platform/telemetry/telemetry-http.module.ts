@@ -4,6 +4,7 @@ import { BundledGrafana } from "./bundled-grafana/bundled-grafana.js";
 import { BundledGrafanaKeeper } from "./bundled-grafana/bundled-grafana-keeper.js";
 import { DockerComposeBundledGrafana } from "./bundled-grafana/docker-compose-bundled-grafana.js";
 import { SavedTelemetrySetting } from "./saved-telemetry-setting.js";
+import { TelemetrySettingsView } from "./telemetry-settings-view.js";
 import { TelemetrySettingsController } from "./telemetry-settings.controller.js";
 
 /**
@@ -16,6 +17,7 @@ import { TelemetrySettingsController } from "./telemetry-settings.controller.js"
 @Module({
   providers: [
     SavedTelemetrySetting,
+    TelemetrySettingsView,
     BundledGrafanaKeeper,
     {
       provide: BundledGrafana,
@@ -25,6 +27,6 @@ import { TelemetrySettingsController } from "./telemetry-settings.controller.js"
     },
   ],
   controllers: [TelemetrySettingsController],
-  exports: [BundledGrafanaKeeper, SavedTelemetrySetting],
+  exports: [BundledGrafanaKeeper, SavedTelemetrySetting, TelemetrySettingsView],
 })
 export class TelemetryHttpModule {}

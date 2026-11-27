@@ -10,7 +10,8 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered, stageAnswerOf } from "../../conversations/index.js";
-import { ScheduledExitCancelled, ScheduledExitHold } from "../../office-updates/index.js";
+import { ScheduledExitHold } from "../../busy-work/index.js";
+import { ScheduledExitCancelled } from "../../office-updates/index.js";
 import {
   AlarmSounded,
   STARTED_STATES,

@@ -24,12 +24,25 @@ export class GrafanaCheck {
     private readonly inUse: GrafanaInUse,
   ) {}
 
-  /** Checks the Grafana at the address; with no token given, with the saved read token. */
+  /** The user's Test: the Grafana at the address; with no token given, with the saved read token. */
   async check(address: string, token: string | undefined): Promise<GrafanaCheckAnswer> {
+    return this.read(address, token || (await this.inUse.savedReadToken()));
+  }
+
+  /**
+   * A person's Test: the saved read token goes only to the saved read address, never to one the
+   * person names, which a token left out would otherwise carry it to.
+   */
+  async checkAsPerson(address: string): Promise<GrafanaCheckAnswer> {
+    const saved = await this.inUse.savedReadAddress();
+    const savedToken = saved !== undefined && sameAddress(saved, address);
+    return this.read(address, savedToken ? await this.inUse.savedReadToken() : undefined);
+  }
+
+  private async read(address: string, readToken: string | undefined): Promise<GrafanaCheckAnswer> {
     if (!isHttpUrl(address)) {
       return { state: "unreachable", problem: `${address} isn't an http:// or https:// address.` };
     }
-    const readToken = token || (await this.inUse.savedReadToken());
     const access: GrafanaAccess = { address, ...(readToken && { token: readToken }) };
     const answer = await this.source.dataSources(access);
     switch (answer.kind) {
@@ -58,4 +71,12 @@ function isHttpUrl(text: string): boolean {
   } catch {
     return false;
   }
+}
+
+function sameAddress(saved: string, address: string): boolean {
+  return withoutTrailingSlashes(saved.trim()) === withoutTrailingSlashes(address);
+}
+
+function withoutTrailingSlashes(address: string): string {
+  return address.replace(/\/+$/, "");
 }

@@ -5,13 +5,14 @@ import { type INestApplication } from "@nestjs/common";
 import { officeUpdateSchema, type OfficeUpdate } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
-import { BusyWork } from "../../application/busy-work.js";
+import { BusyWork, ScheduledExitHold } from "../../../busy-work/index.js";
 import { NO_RESTART_SCHEDULED, RESTARTING } from "../../application/office-restarts.js";
 import { RESTART_SCHEDULED } from "../../application/office-updates.js";
-import { ScheduledExitHold } from "../../application/scheduled-exit-hold.js";
 import { ScheduledExits } from "../../application/scheduled-exits.js";
 import type { InstallKind } from "../../domain/install-kind.js";
 import type { OfficeContainerRead } from "../../domain/office-container.js";
@@ -111,8 +112,13 @@ async function start({
   officeFolder = checkout.path,
 }: Started = {}): Promise<void> {
   const started = await startTestApplication({
+    database: true,
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
     imports: [
       EventsModule,
+      TelemetryModule,
       EventStreamModule,
       OfficeUpdatesModule.register({
         checkout: officeFolder,

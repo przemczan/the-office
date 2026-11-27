@@ -1,7 +1,10 @@
 import { Module, type DynamicModule } from "@nestjs/common";
+import { EngineModule } from "../engine/index.js";
 import { GitHubRestApi } from "./adapters/github/github-rest-api.js";
 import { GitHubAppController } from "./adapters/http/github-app.controller.js";
+import { GitHubOfficeActionsController } from "./adapters/http/github-office-actions.controller.js";
 import { GitHubController } from "./adapters/http/github.controller.js";
+import { GitHubOfficeActions } from "./adapters/office-actions/github-office-actions.js";
 import { PostgresGitHubApp } from "./adapters/postgres/postgres-github-app.js";
 import { PostgresGitHubSignIn } from "./adapters/postgres/postgres-github-sign-in.js";
 import { GitHubWebEvents } from "./adapters/websocket/github-web-events.js";
@@ -28,7 +31,8 @@ export class GitHubModule {
   static register(urls: GitHubUrls = GITHUB_URLS): DynamicModule {
     return {
       module: GitHubModule,
-      controllers: [GitHubAppController, GitHubController],
+      imports: [EngineModule],
+      controllers: [GitHubAppController, GitHubController, GitHubOfficeActionsController],
       providers: [
         { provide: GitHubUrls, useValue: urls },
         { provide: GitHubApi, useClass: GitHubRestApi },
@@ -43,6 +47,7 @@ export class GitHubModule {
         GitHubIssues,
         GitHubPermissions,
         GitHubWebEvents,
+        GitHubOfficeActions,
       ],
       exports: [GitHubAccess, GitHubIdentities, GitHubPullRequests, GitHubIssues],
     };

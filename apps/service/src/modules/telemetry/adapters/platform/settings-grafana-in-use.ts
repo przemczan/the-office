@@ -51,4 +51,9 @@ export class SettingsGrafanaInUse extends GrafanaInUse {
     const saved = await this.saved.read();
     return saved?.kind === "own-endpoint" ? (saved.grafana?.readToken ?? undefined) : undefined;
   }
+
+  async savedReadAddress(): Promise<string | undefined> {
+    const saved = await this.saved.read();
+    return saved?.kind === "own-endpoint" ? (saved.grafana?.readAddress ?? undefined) : undefined;
+  }
 }

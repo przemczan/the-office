@@ -28,7 +28,7 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
-import { BusyWorkModule } from "../../office-updates/index.js";
+import { BusyWorkModule } from "../../busy-work/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";

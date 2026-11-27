@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 
 /** Where the browser lands after registering the GitHub App or signing in: Settings › Office identity. */
 export const OFFICE_IDENTITY_SETTINGS_PATH = "/settings/office-identity";
@@ -113,3 +114,20 @@ export const gitHubWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("github.changed") }),
 ]);
 export type GitHubWebEvent = z.infer<typeof gitHubWebEventSchema>;
+
+/** Office action: Check again for the GitHub App's permissions (Settings › Office identity). */
+export const CHECK_GITHUB_PERMISSIONS_ACTION = officeAction({
+  name: "check_github_permissions",
+  title: "Check GitHub permissions again",
+  description:
+    "Reads again from GitHub which permissions of The Office's GitHub App an installation still lacks, after the user granted them on GitHub, and answers the state of Sign in with GitHub with what is still missing. Never answers a token.",
+  input: z.object({}),
+  answer: gitHubStateSchema,
+  route: { method: "POST", path: "/github/permissions/check" },
+  area: "operations",
+  group: "checks",
+  subject: () => ({ kind: "office-setting", id: "github" }),
+});
+
+/** GitHub's Office actions, each declared above. */
+export const GITHUB_OFFICE_ACTIONS = [CHECK_GITHUB_PERMISSIONS_ACTION] as const;

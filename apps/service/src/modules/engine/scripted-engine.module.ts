@@ -1,4 +1,4 @@
-import { BusyWorkModule } from "../office-updates/index.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ScriptedEngine } from "./adapters/scripted/scripted-engine.js";

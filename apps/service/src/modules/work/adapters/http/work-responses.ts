@@ -4,6 +4,7 @@ import type {
   AttachmentOwner as AttachmentOwnerResponse,
   Author as AuthorResponse,
   EngineUsageEstimate as EngineUsageEstimateResponse,
+  FireAlarm as FireAlarmResponse,
   History as HistoryResponse,
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
@@ -20,6 +21,7 @@ import type { EngineId } from "../../../engine/index.js";
 import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
+import type { FireAlarm } from "../../domain/fire-alarm.js";
 import type { Idea } from "../../domain/idea.js";
 import {
   initiativeProjectIds,
@@ -362,4 +364,8 @@ export function toHistoryResponse(entries: readonly HistoryEntry[]): HistoryResp
           by: stateChangeCauseWords(entry.by),
         },
   );
+}
+
+export function toFireAlarmResponse(alarm: FireAlarm): FireAlarmResponse {
+  return alarm.on ? { on: true, since: alarm.since.toISOString(), way: alarm.way } : { on: false };
 }

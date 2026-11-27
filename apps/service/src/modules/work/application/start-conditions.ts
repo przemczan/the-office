@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { onceByKey, readEach } from "../../../platform/database/fan-out.js";
-import { ScheduledExitHold } from "../../office-updates/index.js";
+import { ScheduledExitHold } from "../../busy-work/index.js";
 import {
   EngineModels,
   EngineSessions,

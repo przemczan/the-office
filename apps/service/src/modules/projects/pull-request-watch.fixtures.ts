@@ -4,6 +4,8 @@ import { startTestApplication } from "../../../test/test-application.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventsModule } from "../../platform/events/events.module.js";
+import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../engine/index.js";
 import { officeIdentityForTests } from "../../platform/git-identity/office-identity.fixtures.js";
 import { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
@@ -101,7 +103,15 @@ export class PullRequestWatchTestbed {
   static async create(github: SignedInGitHub): Promise<PullRequestWatchTestbed> {
     const { app } = await startTestApplication({
       database: true,
-      imports: [EventsModule, EventStreamModule, GitHubModule.register(github.urls)],
+      moduleOverrides: [
+        { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+      ],
+      imports: [
+        EventsModule,
+        EventStreamModule,
+        TelemetryModule,
+        GitHubModule.register(github.urls),
+      ],
       providers: [PostgresProjectRepository, PostgresPullRequestRepository, GitHubCodeHost],
       overrides: [github.signIn],
     });

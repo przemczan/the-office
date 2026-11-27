@@ -121,7 +121,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **Signing in and out, in every way:** a person is never a user ([2.10](2.10-users-and-signing-in.md#users)).
 - **Users** (add, one-time password, remove) and closing First-run setup: signing in guards The Office against people without an account ([Threat model for signing in](#threat-model-for-signing-in)).
 - **Credentials** (an engine's sign-in, code, token or API key; GitHub sign-in; the Google client; the OpenID Connect provider; the Office identity's ssh key; known hosts): they sign The Office in somewhere, or decide whom it trusts, and are refused to Agents ([Secrets](#secrets)).
-- **The fire alarm's all clear, a lift and dropping a lift:** the fire alarm is the user's stop ([2.8](2.8-fire-alarm.md)).
+- **The fire alarm's all clear, a lift and dropping a lift:** the fire alarm is the user's stop: an Agent may sound it (Operations › Fire alarm), only the user eases it ([2.8](2.8-fire-alarm.md)).
 - **Deleting a Task's or an Initiative's branch:** deleting work isn't an Agent's call ([5.5](5.5-git-and-isolation.md#deleting-by-hand)).
 - **Starting or stopping an Action run:** no Agent starts an Action; one that leaves the workstation would need a Hard switch of its own ([2.15](2.15-actions.md#who-starts-an-action), [Actions](#actions)).
 - **Merging a pull request:** merging into the base is publishing, which a Publish Stage does ([2.3.4](2.3.4-publish.md)).
@@ -129,6 +129,8 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **Not the user's alone:** these are in Authority, each with a preset default ([Authority by role](#authority-by-role)):
   - Reopen a Dropped Task, Restart from a Stage (Skip a Stage among it) and Start over: Work › Gates and runs;
   - a Gate's Continue on others' work, and Send back and Drop at a Gate: Work › Gates and runs;
+  - sounding the fire alarm: Operations › Fire alarm;
+  - checking for updates, GitHub's permissions and Grafana, and starting the bundled Grafana again: Operations › Checks;
   - scheduling or cancelling an Office update or restart: Operations › Updates and restarts;
   - closing a pull request: Projects and settings › Project upkeep;
   - saved views: Work › Moving work;

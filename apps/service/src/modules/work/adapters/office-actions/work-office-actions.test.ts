@@ -53,10 +53,12 @@ import { TaskService } from "../../application/task-service.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
 import {
+  FireAlarmRepositoryForTests,
   SessionPeopleForTests,
   SessionTasksForTests,
   TaskThreadsForTests,
 } from "../../ports/work-ports.fixtures.js";
+import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { WRITE_PLAN } from "../office-tools/planning-office-tools.js";
 import {
@@ -1093,5 +1095,38 @@ describe("set_initiative_engine and write_initiative_short_name", () => {
     // With no Pipeline in any Project, the Initiative has no Short name to write.
     expect(refused.status).toBe(422);
     expect(named.isError).toBe(true);
+  });
+});
+
+describe("sound_fire_alarm", () => {
+  beforeEach(async () => {
+    // The test's own alarm: the stored one would hold every other file's Starts.
+    await work.app.close();
+    work = await startWorkApplication(officeData, [
+      { provide: FireAlarmRepository, useValue: new FireAlarmRepositoryForTests() },
+    ]);
+    work.app.get(SessionPeopleForTests).people.set(SHAPER_SESSION, "cto");
+  });
+
+  it("sounds the alarm through the route and through its tool, which also makes it stricter", async () => {
+    const route = await sendJson(work, "POST", "/fire-alarm/sound", { way: "after-tasks" });
+    const stricter = await callTool("sound_fire_alarm", { way: "asap" });
+
+    expect(route.status).toBe(200);
+    expect(await route.json()).toMatchObject({ on: true, way: "after-tasks" });
+    expect(stricter.isError).toBe(false);
+    expect(stricter.text).toContain("The fire alarm is on");
+    const alarm = await (await sendJson(work, "GET", "/fire-alarm")).json();
+    expect(alarm).toMatchObject({ on: true, way: "asap" });
+  });
+
+  it("refuses a softer way than the one on, by the route and by the tool", async () => {
+    await callTool("sound_fire_alarm", { way: "asap" });
+
+    const route = await sendJson(work, "POST", "/fire-alarm/sound", { way: "after-stages" });
+    const tool = await callTool("sound_fire_alarm", { way: "after-stages" });
+
+    expect(route.status).toBe(422);
+    expect(tool.isError).toBe(true);
   });
 });

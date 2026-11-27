@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { rmdir } from "node:fs/promises";
 import { Injectable, Logger, type BeforeApplicationShutdown } from "@nestjs/common";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";

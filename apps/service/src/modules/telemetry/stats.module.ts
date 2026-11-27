@@ -1,6 +1,8 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { TelemetryHttpModule } from "../../platform/telemetry/telemetry-http.module.js";
+import { TelemetryOfficeActionsController } from "./adapters/http/telemetry-office-actions.controller.js";
+import { TelemetryOfficeActions } from "./adapters/office-actions/telemetry-office-actions.js";
 import { StatsController } from "./adapters/http/stats.controller.js";
 import { SettingsGrafanaInUse } from "./adapters/platform/settings-grafana-in-use.js";
 import { BasicStats } from "./application/basic-stats.js";
@@ -74,7 +76,7 @@ export class StatsModule {
     return {
       module: StatsModule,
       imports: [ScheduleModule, TelemetryHttpModule, ...imports],
-      controllers: [StatsController],
+      controllers: [StatsController, TelemetryOfficeActionsController],
       providers: [
         { provide: DayTokens, useExisting: dayTokens },
         { provide: EngineWindows, useExisting: engineWindows },
@@ -93,6 +95,7 @@ export class StatsModule {
         BasicStats,
         FullStats,
         GrafanaCheck,
+        TelemetryOfficeActions,
         SystemHealth,
       ],
     };

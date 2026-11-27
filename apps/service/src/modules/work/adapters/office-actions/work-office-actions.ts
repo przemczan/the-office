@@ -8,6 +8,7 @@ import {
   PLAN_IDEA_AS_TASK_ACTION,
   RESUME_INITIATIVE_ACTION,
   SET_INITIATIVE_ENGINE_ACTION,
+  SOUND_FIRE_ALARM_ACTION,
   SHAPE_IDEA_INTO_INITIATIVE_ACTION,
   SHAPE_IDEA_INTO_TASK_ACTION,
   START_READY_TASKS_ACTION,
@@ -64,6 +65,7 @@ import type { z } from "zod";
 import { officeActionDraft, officeActionTool, OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
+import { FireAlarmService } from "../../application/fire-alarm-service.js";
 import { InitiativeMembership } from "../../application/initiative-membership.js";
 import {
   InitiativePause,
@@ -81,6 +83,7 @@ import { TaskService } from "../../application/task-service.js";
 import { TaskWaysBack } from "../../application/task-ways-back.js";
 import type { Attachment } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
+import type { FireAlarm, FireAlarmWay } from "../../domain/fire-alarm.js";
 import type { Idea } from "../../domain/idea.js";
 import type { OffBoardTaskStart } from "../../domain/off-board-task.js";
 import type { Initiative } from "../../domain/initiative.js";
@@ -102,6 +105,7 @@ import { toOffBoardTaskStartResponse } from "../http/off-board-task-responses.js
 import { TaskResponses } from "../http/task-responses.js";
 import {
   toAttachmentResponse,
+  toFireAlarmResponse,
   toIdeaResponse,
   toQueueResponse,
   toSavedViewResponse,
@@ -169,6 +173,7 @@ export class WorkOfficeActions implements OnModuleInit {
     private readonly pausing: InitiativePause,
     private readonly attachments: AttachmentService,
     private readonly snapshots: WorkSubjectSnapshots,
+    private readonly fireAlarm: FireAlarmService,
     private readonly onboarding: OnboardingService,
   ) {
     this.handlers = new Map(
@@ -229,6 +234,7 @@ export class WorkOfficeActions implements OnModuleInit {
         this.resumeInitiative(),
         this.setInitiativeEngine(),
         this.writeInitiativeShortName(),
+        this.soundFireAlarm(),
       ].map((each) => [each.action.name, each]),
     );
     const unhandled = WORK_OFFICE_ACTIONS.filter(({ name }) => !this.handlers.has(name));
@@ -938,6 +944,19 @@ export class WorkOfficeActions implements OnModuleInit {
     });
   }
 
+  /** Takes no Author: the alarm keeps no History of who sounded it. */
+  private soundFireAlarm(): AnyWorkActionHandler {
+    return handler({
+      action: SOUND_FIRE_ALARM_ACTION,
+      handle: ({ way }) => this.fireAlarm.sound(way),
+      response: async (alarm: FireAlarm) => toFireAlarmResponse(alarm),
+      words: async (alarm: FireAlarm, { way }) =>
+        alarm.on
+          ? `The fire alarm is on, sounded ${FIRE_ALARM_WAY_WORDS[alarm.way]} since ${alarm.since.toISOString()}.`
+          : `The fire alarm sounded ${FIRE_ALARM_WAY_WORDS[way]} is off already.`,
+    });
+  }
+
   /** Takes no Author and keeps no History: nothing to record. */
   private setInitiativeEngine(): AnyWorkActionHandler {
     return handler({
@@ -961,6 +980,12 @@ export class WorkOfficeActions implements OnModuleInit {
     });
   }
 }
+
+const FIRE_ALARM_WAY_WORDS: Readonly<Record<FireAlarmWay, string>> = {
+  asap: "ASAP",
+  "after-stages": "after the current Stages",
+  "after-tasks": "after the current Tasks",
+};
 
 /** A Task Start left started or queued, with its place in the queue when it is. */
 interface StartedOrQueued {

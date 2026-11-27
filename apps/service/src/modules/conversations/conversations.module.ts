@@ -13,7 +13,7 @@ import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
-import { BusyWorkModule } from "../office-updates/index.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";

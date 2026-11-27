@@ -286,7 +286,7 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
       expect(grafana.stoppedEarlier).toEqual(["the-office-otel-lgtm-1"]);
     });
 
-    it("tells why it couldn't start, and Try again starts it again", async () => {
+    it("tells why it couldn't start", async () => {
       await start();
       grafana.failStartWith = { kind: "port-taken" };
       await put({ kind: "bundled-grafana" });
@@ -295,22 +295,6 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
         state: "failed",
         problem: expect.stringContaining("port 3300, 4317 or 4318") as unknown,
       });
-
-      grafana.failStartWith = undefined;
-      const retried = await fetch(`${url}/bundled-grafana/start`, { method: "POST" });
-
-      expect(retried.status).toBe(200);
-      expect((await settingsOnceStarted()).bundledGrafana.state).toBe("running");
-      expect(grafana.calls.filter((call) => call === "start")).toHaveLength(2);
-    });
-
-    it("refuses Try again while Bundled Grafana isn't saved", async () => {
-      await start();
-
-      const refused = await fetch(`${url}/bundled-grafana/start`, { method: "POST" });
-
-      expect(refused.status).toBe(409);
-      expect(grafana.calls).toEqual([]);
     });
 
     it("starts nothing when another choice is saved", async () => {

@@ -8,11 +8,19 @@ import {
   systemHealthReadSchema,
   systemHealthSchema,
 } from "@the-office/contracts";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { EventsModule } from "../../../../platform/events/events.module.js";
+import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
-import { TelemetryHttpModule } from "../../../../platform/telemetry/telemetry-http.module.js";
+import { BundledGrafana } from "../../../../platform/telemetry/bundled-grafana/bundled-grafana.js";
+import { ScriptedBundledGrafana } from "../../../../platform/telemetry/bundled-grafana/scripted-bundled-grafana.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import type { StatsStageRun, StatsTask } from "../../domain/basic-stats.js";
 import type {
   StatsInitiative,
@@ -241,29 +249,33 @@ const SOURCES = [
 @Module({ providers: SOURCES, exports: SOURCES })
 class StatsSourcesForTests {}
 
-/** Settings › Telemetry's module, which the full stats' Grafana in use reads, left out here. */
-@Module({})
-class NoTelemetrySettings {}
-
 const READY: GrafanaNow = { kind: "ready", access: { address: "http://127.0.0.1:3300" } };
 let grafanaInUse: GrafanaNow = READY;
 const grafanaNow: {
   now: () => Promise<GrafanaNow>;
   savedReadToken: () => Promise<string | undefined>;
+  savedReadAddress: () => Promise<string | undefined>;
 } = {
   now: () => Promise.resolve(grafanaInUse),
   savedReadToken: () => Promise.resolve("saved-token"),
+  savedReadAddress: () => Promise.resolve("http://saved:3000"),
 };
 const statsSource = new ScriptedStatsSource();
 
 let app: INestApplication;
 let url: string;
+let officeData: string;
 
 beforeAll(async () => {
+  officeData = await mkdtemp(join(tmpdir(), "stats-controller-"));
   ({ app, url } = await startTestApplication({
+    database: true,
     imports: [
+      EventsModule,
+      OfficeDataModule.forRoot(officeData),
+      TelemetryModule,
       StatsModule.register({
-        imports: [StatsSourcesForTests],
+        imports: [StatsSourcesForTests, EngineModule],
         dayTokens: DaysForTests,
         engineWindows: EnginesForTests,
         stageRunTotals: RunsForTests,
@@ -279,8 +291,11 @@ beforeAll(async () => {
         statsSource: ScriptedStatsSource,
       }),
     ],
-    moduleOverrides: [{ module: TelemetryHttpModule, useModule: NoTelemetrySettings }],
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
     overrides: [
+      { provide: BundledGrafana, useValue: new ScriptedBundledGrafana() },
       { provide: GrafanaInUse, useValue: grafanaNow },
       { provide: StatsSource, useValue: statsSource },
     ],
@@ -289,6 +304,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app.close();
+  await rm(officeData, { recursive: true, force: true });
 });
 
 describe("GET /stats/basic", () => {

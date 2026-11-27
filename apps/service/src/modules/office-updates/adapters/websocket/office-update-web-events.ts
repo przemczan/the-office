@@ -1,9 +1,8 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import type { OfficeUpdateWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
-import { ScheduledExitHold } from "../../application/scheduled-exit-hold.js";
+import { BusyWorkChanged, ScheduledExitHold } from "../../../busy-work/index.js";
 import {
-  BusyWorkChanged,
   OfficeRestartScheduled,
   OfficeUpdateChecked,
   OfficeUpdateScheduled,

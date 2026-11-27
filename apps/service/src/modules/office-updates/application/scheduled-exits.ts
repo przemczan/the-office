@@ -1,17 +1,21 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { BusyWorkChanged, ScheduledExitCancelled } from "../domain/office-update-events.js";
-import type { ScheduledExit, ScheduledExitKind } from "../domain/scheduled-exit.js";
-import { BusyWork } from "./busy-work.js";
-import { ScheduledExitHold } from "./scheduled-exit-hold.js";
+import {
+  BusyWork,
+  BusyWorkChanged,
+  ScheduledExitHold,
+  type ScheduledExitKind,
+} from "../../busy-work/index.js";
+import { ScheduledExitCancelled } from "../domain/office-update-events.js";
+import type { OfficeScheduledExit } from "../domain/scheduled-exit.js";
 
 /**
  * Carries out a scheduled exit of its kind once nothing is busy: `exit` when the service is to
  * exit now, `stay` when something else carries it on while the service runs. Throws when it
  * couldn't be handed over, which leaves it scheduled.
  */
-export type GoAhead = (exit: ScheduledExit) => Promise<"exit" | "stay">;
+export type GoAhead = (exit: OfficeScheduledExit) => Promise<"exit" | "stay">;
 
 /**
  * The scheduled Office update or restart (spec §5.1 Defaults), one at a time: it holds new work
@@ -45,8 +49,9 @@ export class ScheduledExits implements OnModuleInit {
     this.readyListeners.push(listener);
   }
 
-  get scheduled(): ScheduledExit | undefined {
-    return this.hold.scheduled;
+  get scheduled(): OfficeScheduledExit | undefined {
+    // Only Office updates schedules an exit, so an update's target is always its own.
+    return this.hold.scheduled as OfficeScheduledExit | undefined;
   }
 
   /** Whether the scheduled exit has gone ahead, so it can't be cancelled any more. */
@@ -55,7 +60,7 @@ export class ScheduledExits implements OnModuleInit {
   }
 
   /** Holds new work for `exit`, announces it, and goes ahead at once when nothing is busy. */
-  async schedule(exit: ScheduledExit, announcement: DomainEvent): Promise<void> {
+  async schedule(exit: OfficeScheduledExit, announcement: DomainEvent): Promise<void> {
     this.hold.hold(exit);
     await this.events.publish(announcement);
     await this.goAheadIfIdle();
@@ -69,7 +74,7 @@ export class ScheduledExits implements OnModuleInit {
   }
 
   private async goAheadIfIdle(): Promise<void> {
-    const scheduled = this.hold.scheduled;
+    const scheduled = this.scheduled;
     if (!scheduled || this.goingAhead || this.busyWork.list().length > 0) return;
     const goAhead = this.goAheads.get(scheduled.kind);
     if (!goAhead) throw new Error(`Nothing carries out a scheduled ${scheduled.kind}.`);

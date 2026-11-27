@@ -2,7 +2,7 @@ import { availableParallelism } from "node:os";
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { currentOperatingSystem } from "../../platform/os/current-operating-system.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
-import { BusyWorkModule } from "../office-updates/index.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import { ComposeCommandLine } from "./adapters/compose/compose-command-line.js";
 import { ProjectRunEnvironmentsController } from "./adapters/http/project-run-environments.controller.js";
 import { RunEnvironmentOfficeLimitsController } from "./adapters/http/run-environment-office-limits.controller.js";

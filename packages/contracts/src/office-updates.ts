@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { officeAction } from "./office-actions.js";
 
 /** A commit of The Office's own checkout. */
 export const officeCommitSchema = z.object({
@@ -152,3 +153,87 @@ export const officeUpdateRefusalSchema = z.object({
   reasons: z.array(z.string()).min(1),
 });
 export type OfficeUpdateRefusal = z.infer<typeof officeUpdateRefusalSchema>;
+
+const WAITS_FOR_RUNNING_WORK =
+  "It waits for the running work to end, an Agent's turn included (this session's too), and then ends every session: Agents' sessions, chats and Stage Threads alike. Refused with its reasons when it can't be scheduled now.";
+
+/** Office action: Check for updates (Settings › Updates). */
+export const CHECK_FOR_UPDATES_ACTION = officeAction({
+  name: "check_for_updates",
+  title: "Check for Office updates",
+  description:
+    "Checks now whether a newer Office is available, from the upstream of a checkout or from GitHub Releases, and answers the update: the version The Office runs, what the check found, and any update or restart scheduled.",
+  input: z.object({}),
+  answer: officeUpdateSchema,
+  route: { method: "POST", path: "/office-update/check" },
+  area: "operations",
+  group: "checks",
+  subject: () => ({ kind: "office-setting", id: "office-update" }),
+});
+
+/** Office action: schedule an Office update. */
+export const SCHEDULE_OFFICE_UPDATE_ACTION = officeAction({
+  name: "schedule_office_update",
+  title: "Schedule an Office update",
+  description: `Schedules an update of The Office to the newest version the last check found, after a fresh check. ${WAITS_FOR_RUNNING_WORK}`,
+  input: z.object({}),
+  answer: z.void(),
+  route: { method: "POST", path: "/office-update/schedule" },
+  status: 204,
+  area: "operations",
+  group: "updatesAndRestarts",
+  subject: () => ({ kind: "office-setting", id: "office-update" }),
+});
+
+/** Office action: cancel the scheduled Office update. */
+export const CANCEL_OFFICE_UPDATE_ACTION = officeAction({
+  name: "cancel_office_update",
+  title: "Cancel the scheduled Office update",
+  description:
+    "Cancels the scheduled Office update, so The Office goes on running as it is; Tasks waiting for it start again.",
+  input: z.object({}),
+  answer: z.void(),
+  route: { method: "DELETE", path: "/office-update/schedule" },
+  status: 204,
+  area: "operations",
+  group: "updatesAndRestarts",
+  subject: () => ({ kind: "office-setting", id: "office-update" }),
+});
+
+/** Office action: schedule an Office restart. */
+export const SCHEDULE_OFFICE_RESTART_ACTION = officeAction({
+  name: "schedule_office_restart",
+  title: "Schedule an Office restart",
+  description: `Schedules a restart of The Office, which starts again as it is. ${WAITS_FOR_RUNNING_WORK}`,
+  input: z.object({}),
+  answer: z.void(),
+  route: { method: "POST", path: "/office-restart/schedule" },
+  status: 204,
+  area: "operations",
+  group: "updatesAndRestarts",
+  subject: () => ({ kind: "office-setting", id: "office-restart" }),
+});
+
+/** Office action: cancel the scheduled Office restart. */
+export const CANCEL_OFFICE_RESTART_ACTION = officeAction({
+  name: "cancel_office_restart",
+  title: "Cancel the scheduled Office restart",
+  description:
+    "Cancels the scheduled Office restart, so The Office goes on running; Tasks waiting for it start again.",
+  input: z.object({}),
+  answer: z.void(),
+  route: { method: "DELETE", path: "/office-restart/schedule" },
+  status: 204,
+  area: "operations",
+  group: "updatesAndRestarts",
+  subject: () => ({ kind: "office-setting", id: "office-restart" }),
+});
+
+/** Office updates' Office actions, each declared above. */
+export const OFFICE_UPDATE_OFFICE_ACTIONS = [
+  CHECK_FOR_UPDATES_ACTION,
+  SCHEDULE_OFFICE_UPDATE_ACTION,
+  CANCEL_OFFICE_UPDATE_ACTION,
+  SCHEDULE_OFFICE_RESTART_ACTION,
+  CANCEL_OFFICE_RESTART_ACTION,
+] as const;

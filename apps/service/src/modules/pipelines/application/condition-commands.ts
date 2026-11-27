@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import type { NextMove } from "../domain/pipeline-walk.js";
 import type { Stage } from "../domain/stage.js";
 import { conditionRunsOf, failedInstall, installRuns } from "../domain/stage-command-run.js";

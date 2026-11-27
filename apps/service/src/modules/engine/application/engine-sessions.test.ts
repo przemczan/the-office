@@ -18,7 +18,7 @@ import {
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
 import { MeterProvider, MetricReader } from "@opentelemetry/sdk-metrics";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import {
   InMemorySpanExporter,
   SimpleSpanProcessor,

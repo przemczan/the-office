@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
-import { BusyWorkModule } from "../../../office-updates/index.js";
+import { BusyWorkModule } from "../../../busy-work/index.js";
 import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processes.js";
 import { SessionStops } from "../../application/session-stops.js";
 import { aThread } from "../../domain/thread.fixtures.js";

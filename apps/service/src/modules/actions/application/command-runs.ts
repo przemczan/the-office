@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import {
   failedRun,
   runName,

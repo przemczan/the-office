@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { setUp as setUpTelemetry } from "../../../platform/telemetry/telemetry.fixtures.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import { NoLanguageServers } from "../adapters/scripted/no-language-servers.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import {

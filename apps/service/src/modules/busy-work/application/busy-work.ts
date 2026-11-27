@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { BusyItem } from "../domain/busy-item.js";
-import { BusyWorkChanged } from "../domain/office-update-events.js";
+import { BusyWorkChanged } from "../domain/busy-work-events.js";
 
 /** Ends a piece of work `BusyWork.begin` counted. Calling it again does nothing. */
 export type EndBusyWork = () => void;

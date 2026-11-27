@@ -29,13 +29,6 @@ export class OfficeRestartScheduled extends DomainEvent {}
  */
 export class ScheduledExitCancelled extends DomainEvent {}
 
-/** The work going on now changed: an update or restart scheduled waits for what is left. */
-export class BusyWorkChanged extends DomainEvent {
-  constructor(readonly count: number) {
-    super();
-  }
-}
-
 /**
  * The launcher or the Office updater updated The Office, as the service found at its start: `from`
  * and `to` are commits for a checkout, versions for a release or a container.

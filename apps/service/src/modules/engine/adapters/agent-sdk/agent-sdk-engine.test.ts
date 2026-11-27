@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { BusyWork } from "../../../office-updates/index.js";
+import { BusyWork } from "../../../busy-work/index.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

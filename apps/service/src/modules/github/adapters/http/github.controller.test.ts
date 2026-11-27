@@ -14,8 +14,10 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { GitHubModule } from "../../github.module.js";
 import { FAKE_GITHUB_SECRETS, FAKE_TOKEN_PREFIXES, FakeGitHub } from "../../index.fixtures.js";
 import { GitHubAppRepository } from "../../ports/github-app-repository.js";
@@ -37,7 +39,11 @@ beforeEach(async () => {
   github = await FakeGitHub.start();
   signIns = new GitHubSignInForTests();
   ({ app, url } = await startTestApplication({
-    imports: [EventsModule, EventStreamModule, GitHubModule.register(github.urls)],
+    database: true,
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
+    imports: [EventsModule, EventStreamModule, TelemetryModule, GitHubModule.register(github.urls)],
     overrides: [
       { provide: GitHubAppRepository, useValue: new GitHubAppForTests() },
       { provide: GitHubSignInRepository, useValue: signIns },

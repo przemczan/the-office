@@ -15,7 +15,8 @@ import {
   type TaskStage,
 } from "@the-office/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { BusyWork, ScheduledExits } from "../../../office-updates/index.js";
+import { BusyWork } from "../../../busy-work/index.js";
+import { ScheduledExits } from "../../../office-updates/index.js";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";

@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { GitHubAccess, GitHubModule } from "../../../github/index.js";
 import {
   FakeGitHub,
@@ -38,10 +40,14 @@ beforeEach(async () => {
   const app = github.registerApp(["http://localhost/api/github/sign-in/callback"]);
   gitIdentityToken = github.issueUserToken("office-user");
   office = await startUsersApplication({
+    imports: [TelemetryModule],
     identityProviders: {
       imports: [GitHubModule.register(github.urls)],
       identityProviders: [GitHubIdentityProvider],
     },
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
     overrides: [registeredGitHubAppForTests(app), signedInWithGitHubForTests(gitIdentityToken)],
   });
   localhost = atLocalhost(office.port);

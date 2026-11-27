@@ -23,7 +23,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import { sessionRole, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
-import { BusyWorkModule } from "../../office-updates/index.js";
+import { BusyWorkModule } from "../../busy-work/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";

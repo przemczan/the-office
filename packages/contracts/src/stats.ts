@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { tokenTotalsSchema } from "./conversations.js";
 import { engineIdSchema } from "./engines.js";
+import { officeAction } from "./office-actions.js";
 import { usageWindowSchema } from "./notifications.js";
 import { projectFilterParamSchema } from "./project-filter.js";
+import { telemetrySettingsSchema } from "./telemetry.js";
 
 /** How many office days the basic stats' tokens per day covers, ending today (spec 2.11). */
 export const BASIC_STATS_DAYS = 30;
@@ -413,3 +415,37 @@ export const grafanaCheckAnswerSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal("no-data-sources"), missing: z.array(grafanaDataSourceKindSchema) }),
 ]);
 export type GrafanaCheckAnswer = z.infer<typeof grafanaCheckAnswerSchema>;
+
+/** Office action: the Grafana Test of Settings › Telemetry. */
+export const CHECK_GRAFANA_ACTION = officeAction({
+  name: "check_grafana",
+  title: "Test a Grafana",
+  description:
+    "Checks whether Stats could read the Grafana at the read address, and answers what it found. The saved read token is used only when the address is the saved read address; any other address is checked with no token. A read token can't be given: only the user types one.",
+  input: grafanaCheckSchema,
+  answer: grafanaCheckAnswerSchema,
+  route: { method: "POST", path: "/stats/grafana-check" },
+  area: "operations",
+  group: "checks",
+  subject: () => ({ kind: "office-setting", id: "telemetry" }),
+});
+
+/** Office action: Try again, starting the bundled Grafana (Settings › Telemetry). */
+export const START_BUNDLED_GRAFANA_ACTION = officeAction({
+  name: "start_bundled_grafana",
+  title: "Start the bundled Grafana again",
+  description:
+    "Starts the bundled Grafana again while it is the saved telemetry choice (Try again), and answers the telemetry settings with its state. Refused while the environment sets telemetry or when the bundled Grafana isn't the saved choice.",
+  input: z.object({}),
+  answer: telemetrySettingsSchema,
+  route: { method: "POST", path: "/settings/telemetry/bundled-grafana/start" },
+  area: "operations",
+  group: "checks",
+  subject: () => ({ kind: "office-setting", id: "telemetry" }),
+});
+
+/** Telemetry's Office actions, each declared above. */
+export const TELEMETRY_OFFICE_ACTIONS = [
+  CHECK_GRAFANA_ACTION,
+  START_BUNDLED_GRAFANA_ACTION,
+] as const;

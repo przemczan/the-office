@@ -1,5 +1,5 @@
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
-import { BusyWorkModule } from "../office-updates/index.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import { Module } from "@nestjs/common";
 import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { EnginePromptTemplates } from "./adapters/prompt-templates/engine-prompt-templates.js";

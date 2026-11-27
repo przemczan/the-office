@@ -15,7 +15,7 @@ import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import { setUpByOf } from "./command-set-up-by.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunWaits } from "./stage-run-waits.js";

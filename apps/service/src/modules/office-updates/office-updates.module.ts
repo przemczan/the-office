@@ -5,6 +5,7 @@ import {
   processorArchitecture,
 } from "../../platform/os/current-operating-system.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
+import { EngineModule } from "../engine/index.js";
 import { ContainerRestart } from "./adapters/docker/container-restart.js";
 import { DockerCliOfficeContainer } from "./adapters/docker/docker-cli-office-container.js";
 import { UpdaterHandOff } from "./adapters/docker/updater-hand-off.js";
@@ -14,16 +15,17 @@ import { LauncherHandOff } from "./adapters/filesystem/launcher-hand-off.js";
 import { LauncherRestart } from "./adapters/filesystem/launcher-restart.js";
 import { CommandLineOfficeCheckout } from "./adapters/git/command-line-office-checkout.js";
 import { GitHubOfficeReleases } from "./adapters/github/github-office-releases.js";
-import { OfficeRestartController } from "./adapters/http/office-restart.controller.js";
+import { OfficeUpdateOfficeActionsController } from "./adapters/http/office-update-office-actions.controller.js";
 import { OfficeUpdatesController } from "./adapters/http/office-updates.controller.js";
 import { ScheduledExitRefusalsFilter } from "./adapters/http/scheduled-exit-refusals.filter.js";
+import { OfficeUpdateOfficeActions } from "./adapters/office-actions/office-update-office-actions.js";
 import { OfficeUpdateWebEvents } from "./adapters/websocket/office-update-web-events.js";
 import { InstalledOffice } from "./application/installed-office.js";
 import { OfficeInstallSetting } from "./application/office-install.js";
 import { OfficeRestarts } from "./application/office-restarts.js";
 import { OfficeUpdates } from "./application/office-updates.js";
 import { ScheduledExits } from "./application/scheduled-exits.js";
-import { BusyWorkModule } from "./busy-work.module.js";
+import { BusyWorkModule } from "../busy-work/index.js";
 import type { InstallKind } from "./domain/install-kind.js";
 import { OfficeCheckout } from "./ports/office-checkout.js";
 import { OfficeContainer } from "./ports/office-container.js";
@@ -69,8 +71,8 @@ export class OfficeUpdatesModule {
     const container = new DockerCliOfficeContainer();
     return {
       module: OfficeUpdatesModule,
-      imports: [ScheduleModule, BusyWorkModule],
-      controllers: [OfficeUpdatesController, OfficeRestartController],
+      imports: [ScheduleModule, BusyWorkModule, EngineModule],
+      controllers: [OfficeUpdatesController, OfficeUpdateOfficeActionsController],
       providers: [
         { provide: OfficeCheckout, useValue: new CommandLineOfficeCheckout(checkout) },
         { provide: OfficeReleaseStamp, useValue: new FilesystemOfficeReleaseStamp(checkout) },
@@ -103,6 +105,7 @@ export class OfficeUpdatesModule {
         ScheduledExits,
         OfficeUpdates,
         OfficeRestarts,
+        OfficeUpdateOfficeActions,
         ScheduledExitRefusalsFilter,
         OfficeUpdateWebEvents,
       ],

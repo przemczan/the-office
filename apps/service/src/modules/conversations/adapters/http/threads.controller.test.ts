@@ -28,7 +28,7 @@ import {
   sessionRole,
   type SessionRole,
 } from "../../../people/index.js";
-import { BusyWorkModule } from "../../../office-updates/index.js";
+import { BusyWorkModule } from "../../../busy-work/index.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadService } from "../../application/thread-service.js";

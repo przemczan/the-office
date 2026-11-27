@@ -5,8 +5,10 @@ import { type INestApplication } from "@nestjs/common";
 import { officeUpdateSchema, type OfficeUpdate } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
@@ -43,8 +45,13 @@ afterEach(async () => {
 /** On a system that updates The Office, whichever the tests run on, unless told `overrides`. */
 async function start(launched = true, overrides = [updateSystem()]): Promise<void> {
   const started = await startTestApplication({
+    database: true,
+    moduleOverrides: [
+      { module: EngineModule, useModule: ScriptedEngineModule.register(new ScriptedEngine([])) },
+    ],
     imports: [
       EventsModule,
+      TelemetryModule,
       EventStreamModule,
       OfficeUpdatesModule.register({
         checkout: checkout.path,

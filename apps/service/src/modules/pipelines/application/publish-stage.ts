@@ -32,7 +32,7 @@ import { InitiativeBranchStages } from "./initiative-branch-stages.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import { StageRunsFiles } from "./stage-runs-files.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
 

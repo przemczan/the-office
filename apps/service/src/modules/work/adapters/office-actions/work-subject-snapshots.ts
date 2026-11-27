@@ -58,6 +58,8 @@ export class WorkSubjectSnapshots {
           values: { title: idea.title, notes: idea.notes, projectId: idea.projectId },
         };
       }
+      case "office-setting":
+        return { title: "The fire alarm", decidedBy: {}, values: {} };
       default:
         // A record Work keeps no title of, such as a saved view named by its id.
         return { title: id, decidedBy: {}, values: {} };

@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnApplicationBootstrap, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import type { BusyItem } from "../domain/busy-item.js";
+import { BusyWork, type BusyItem } from "../../busy-work/index.js";
 import type { InstallKind } from "../domain/install-kind.js";
 import { shortCommit, type OfficeCommit } from "../domain/office-commit.js";
 import { imageRepository } from "../domain/office-container.js";
@@ -16,7 +16,7 @@ import type { OfficeUpdateRequest } from "../domain/office-update-request.js";
 import { stepWords, type OfficeUpdateResult } from "../domain/office-update-result.js";
 import { targetWords, type OfficeUpdateTarget } from "../domain/office-update-target.js";
 import { tarballAssetsOf, type PublishedRelease } from "../domain/published-release.js";
-import type { ScheduledExit } from "../domain/scheduled-exit.js";
+import type { OfficeScheduledExit } from "../domain/scheduled-exit.js";
 import { ScheduledExitRefused } from "../domain/scheduled-exit-refused.js";
 import { updateRefusal, type UpdateState } from "../domain/update-refusal.js";
 import { OfficeCheckout } from "../ports/office-checkout.js";
@@ -25,7 +25,6 @@ import { OfficeReleases } from "../ports/office-releases.js";
 import { UpdateFolder } from "../ports/update-folder.js";
 import { UpdateHandOff } from "../ports/update-hand-off.js";
 import { UpdateSystem } from "../ports/update-system.js";
-import { BusyWork } from "./busy-work.js";
 import { InstalledOffice } from "./installed-office.js";
 import { ScheduledExits } from "./scheduled-exits.js";
 
@@ -73,7 +72,7 @@ export interface OfficeUpdateView {
   readonly refusal: string | undefined;
   readonly checking: boolean;
   /** The scheduled update or restart, with what it waits for. */
-  readonly scheduled: (ScheduledExit & { readonly busy: readonly BusyItem[] }) | undefined;
+  readonly scheduled: (OfficeScheduledExit & { readonly busy: readonly BusyItem[] }) | undefined;
   readonly lastResult: OfficeUpdateResult | undefined;
 }
 
@@ -318,7 +317,7 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /** Hands the update over once nothing is busy: `ScheduledExits` calls it. */
-  private async goAhead(scheduled: ScheduledExit): Promise<"exit" | "stay"> {
+  private async goAhead(scheduled: OfficeScheduledExit): Promise<"exit" | "stay"> {
     if (scheduled.kind !== "update")
       throw new Error(`An update can't carry out a ${scheduled.kind}.`);
     const handedOff = await this.handOff.handOff(await this.requestFor(scheduled.target));

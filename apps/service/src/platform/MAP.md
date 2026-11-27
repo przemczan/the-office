@@ -20,7 +20,6 @@
 - `GET /health`: HealthController.report
 - `GET /settings/telemetry`: TelemetrySettingsController.settings
 - `PUT /settings/telemetry`: TelemetrySettingsController.save
-- `POST /settings/telemetry/bundled-grafana/start`: TelemetrySettingsController.startBundledGrafana
 - `GET /workstation/load`: WorkstationController.load
 
 ## Files
@@ -208,6 +207,7 @@
 - `telemetry-file.ts`: TELEMETRY_FILE, telemetryFilePath, TelemetryFileReading, readTelemetryFile, writeTelemetryFile
 - `telemetry-http.module.ts`: TelemetryHttpModule
 - `telemetry-in-effect.ts`: rememberTelemetryInEffect, RunningTelemetrySettings
+- `telemetry-settings-view.ts`: TelemetrySettingsView
 - `telemetry-settings.controller.ts`: TelemetrySettingsController
 - `telemetry-settings.ts`: TELEMETRY_VARIABLES, TelemetryInEffect, TELEMETRY_OFF, telemetrySetByEnvironment, telemetrySettingsFrom, isSetByEnvironment, runningTelemetryOf, sameTelemetry
 - `telemetry.fixtures.ts`: CollectingMetricReader, setUp

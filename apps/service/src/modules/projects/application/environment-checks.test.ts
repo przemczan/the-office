@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
-import { BusyWork } from "../../office-updates/index.js";
+import { BusyWork } from "../../busy-work/index.js";
 import { CommandLineGit } from "../adapters/git/command-line-git.js";
 import { RepositoryLocks } from "../adapters/git/repository-locks.js";
 import {
