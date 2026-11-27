@@ -34,7 +34,7 @@ These terms are new or widened. The [glossary](../../GLOSSARY.md) carries them o
 - **Tool area:** the Office tools of one part of The Office, such as Work or Library. An area is both what a session loads together and a section of the Role card's Authority.
 - **Core:** the Office tools every session has loaded from the start. Core is not an area. Core as a whole has no setting: reading, `consult` and `answer_decision` (never on an approval or a Proposal) are always on; `remember` follows Shared memory and `capture_idea` has its row in Ideas.
 - **Hard switch:** one of four named groups of authority settings: Run installs, Publish outside the Pipeline, Change Roles and Change Project settings. Two of them hold Office tools. The other two are followed by the Agent, because no Office tool exists for them yet.
-- **Own work:** for one person, a Task they created or worked a Stage of, and an Idea or an Initiative they created.
+- **Own work:** for one person, a Task they created or worked a Stage of, an Idea or an Initiative they created, and an Initiative they have a shaping Thread on (a planning Thread doesn't count).
 - **Trust anchor:** the tools that change the rules binding Agents. Their setting is held to the trust anchor's cap, and The Office enforces it.
 - **The trust anchor's cap:** a trust-anchor item can be set only to Proposal or Ask me, or Never (not offered); never Allowed or Consult a person.
 - **The user's alone:** the one list of actions no Agent takes, each with its reason. It holds the reasons for the caps (the trust anchor's, and Publishing settings', which take the same values) and the actions that have no Office tool at all.

@@ -13,10 +13,11 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
-import { planningThreadOf } from "../../domain/initiative.js";
+import { planningThreadOf, type Initiative } from "../../domain/initiative.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import type { Author } from "../../domain/author.js";
+import { InitiativeThreads } from "../../ports/initiative-threads.js";
 import { TaskThreads } from "../../ports/task-threads.js";
 
 /**
@@ -37,6 +38,7 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
     private readonly attachments: AttachmentService,
     private readonly ideas: IdeaService,
     private readonly taskThreads: TaskThreads,
+    private readonly initiativeThreads: InitiativeThreads,
   ) {}
 
   onModuleInit(): void {
@@ -51,8 +53,12 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
             createdBy(roleKey, (await this.tasks.read(id)).createdBy) ||
             (await this.taskThreads.titlesOnTasksWith(roleKey)).some(({ taskId }) => taskId === id)
           );
-        case "initiative":
-          return createdBy(roleKey, (await this.initiatives.read(id)).createdBy);
+        case "initiative": {
+          const initiative = await this.initiatives.read(id);
+          return (
+            createdBy(roleKey, initiative.createdBy) || (await this.shapes(roleKey, initiative))
+          );
+        }
         case "idea":
           return createdBy(roleKey, (await this.ideas.read(id)).capturedBy);
         default:
@@ -68,6 +74,12 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
       }
       throw error;
     }
+  }
+
+  /** Whether the person has a shaping Thread on the Initiative: one of theirs, but a planning one. */
+  private async shapes(roleKey: string, initiative: Initiative): Promise<boolean> {
+    const threadIds = await this.initiativeThreads.idsOnInitiativeWith(initiative.id, roleKey);
+    return threadIds.some((threadId) => planningThreadOf(initiative, threadId) === undefined);
   }
 
   async taskRecord(taskId: string): Promise<string | undefined> {

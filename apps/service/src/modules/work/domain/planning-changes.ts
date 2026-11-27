@@ -39,40 +39,25 @@ import {
  * (the user's words of 2026-11-11).
  */
 
-export function proposePlan(
-  task: Task,
-  writing: PlanWriting,
-  by: Author,
-): TaskChange<TaskPlanProposed> | undefined {
-  const written = writtenPlan(task, writing);
-  refuseWith([...proposingProblems(task, "The Plan"), ...writtenPlanProblems(written)]);
-  if (samePlan(task, written)) return undefined;
-  return proposedPart(
-    task,
-    { ...task, ...written, planConfirmed: false },
-    (leftReady) => new TaskPlanProposed(task.id, leftReady),
-    by,
-  );
-}
-
 /**
- * The user's Plan. Changing it leaves it unconfirmed, and a Ready Task goes back to Planning, or
- * to Backlog when it has no planning Thread, moved by `by`, who saved it.
+ * A write of the Plan, by the user or the Planner: the same refusals and changes for both. Changing
+ * it leaves it unconfirmed, and a Ready Task goes back to Planning, or to Backlog when it has no
+ * planning Thread, moved by `by`. `inPlanningThread`, the Planner writing from a planning Thread,
+ * adds only that Thread's rules (`writePart`).
  */
-export function savePlan(
+export function writePlan(
   task: Task,
   writing: PlanWriting,
   by: Author,
-): TaskChange<TaskPlanSaved> | undefined {
+  inPlanningThread = false,
+): TaskChange<TaskPlanSaved | TaskPlanProposed> | undefined {
   const written = writtenPlan(task, writing);
-  refuseWith([...changingProblems(task, "Plan"), ...writtenPlanProblems(written)]);
+  refuseWith([...partProblems(task, "Plan", inPlanningThread), ...writtenPlanProblems(written)]);
   if (samePlan(task, written)) return undefined;
-  return savedPart(
-    task,
-    { ...task, ...written, planConfirmed: false },
-    by,
-    (leftReady) => new TaskPlanSaved(task.id, leftReady),
-  );
+  return writePart(task, { ...task, ...written, planConfirmed: false }, by, inPlanningThread, {
+    saved: (leftReady) => new TaskPlanSaved(task.id, leftReady),
+    proposed: (leftReady) => new TaskPlanProposed(task.id, leftReady),
+  });
 }
 
 /** Confirm takes the Plan as it reads. */
@@ -101,42 +86,28 @@ function samePlan(task: Task, written: WrittenPlan): boolean {
   );
 }
 
-export function proposeDefinitionOfDone(
+/** A write of the Definition of Done, under the Plan's rules (`writePlan`). */
+export function writeDefinitionOfDone(
   task: Task,
   statements: readonly string[],
   by: Author,
-): TaskChange<TaskDefinitionOfDoneProposed> | undefined {
+  inPlanningThread = false,
+): TaskChange<TaskDefinitionOfDoneSaved | TaskDefinitionOfDoneProposed> | undefined {
   const trimmed = trimmedStatements(statements);
   refuseWith([
-    ...proposingProblems(task, "The Definition of Done"),
+    ...partProblems(task, "Definition of Done", inPlanningThread),
     ...definitionOfDoneProblems(trimmed),
   ]);
   if (sameStatements(trimmed, task.definitionOfDone)) return undefined;
-  return proposedPart(
-    task,
-    { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: false },
-    (leftReady) => new TaskDefinitionOfDoneProposed(task.id, leftReady),
-    by,
-  );
-}
-
-/** The user's Definition of Done, under the Plan's rules. */
-export function saveDefinitionOfDone(
-  task: Task,
-  statements: readonly string[],
-  by: Author,
-): TaskChange<TaskDefinitionOfDoneSaved> | undefined {
-  const trimmed = trimmedStatements(statements);
-  refuseWith([
-    ...changingProblems(task, "Definition of Done"),
-    ...definitionOfDoneProblems(trimmed),
-  ]);
-  if (sameStatements(trimmed, task.definitionOfDone)) return undefined;
-  return savedPart(
+  return writePart(
     task,
     { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: false },
     by,
-    (leftReady) => new TaskDefinitionOfDoneSaved(task.id, leftReady),
+    inPlanningThread,
+    {
+      saved: (leftReady) => new TaskDefinitionOfDoneSaved(task.id, leftReady),
+      proposed: (leftReady) => new TaskDefinitionOfDoneProposed(task.id, leftReady),
+    },
   );
 }
 
@@ -156,24 +127,37 @@ export function confirmDefinitionOfDone(
 }
 
 /**
- * The user's change to a part, unconfirmed by now. Ready needs both parts confirmed, so a Ready
- * Task leaves Ready in the same save, nothing can start it in between: back to Planning, in its
- * planning Thread and auto mode, to be marked Ready again; or, with no planning Thread to go back
- * to (marked Ready from Backlog), to Backlog, as a Task is never in Planning without its Thread.
- * Moved here rather than by `changeTaskState`, as nobody may ask for this move on its own.
+ * A change to a part, unconfirmed by now, by the user or the Planner. Ready needs both parts
+ * confirmed, so a Ready Task leaves Ready in the same save, nothing can start it in between: back to
+ * Planning, in its planning Thread and auto mode, to be marked Ready again; or, with no planning
+ * Thread to go back to (marked Ready from Backlog), to Backlog, as a Task is never in Planning
+ * without its Thread. Moved here rather than by `changeTaskState`, as nobody may ask for this move
+ * on its own.
+ *
+ * The Planner writing from a planning Thread (`inPlanningThread`) adds only that Thread's own
+ * rules: the part is announced as proposed, the Task is no longer marked planned, and a Ready Task
+ * goes back to Planning in the Task's own planning Thread, moved `by` the person planning it (an
+ * Initiative's rewrites go through `rewriteInInitiative`).
  */
-function savedPart<Event extends DomainEvent>(
+function writePart<Saved extends DomainEvent, Proposed extends DomainEvent>(
   task: Task,
-  saved: Task,
+  changed: Task,
   by: Author,
-  announced: (leftReady: TaskStateChanged | undefined) => Event,
-): TaskChange<Event> {
-  if (task.state !== "ready") return edited({ task: saved, event: announced(undefined) }, task, by);
-  return edited(
-    outOfReady(task, saved, task.hasPlanningThread ? "planning" : "backlog", by, announced),
-    task,
-    by,
-  );
+  inPlanningThread: boolean,
+  events: {
+    readonly saved: (leftReady: TaskStateChanged | undefined) => Saved;
+    readonly proposed: (leftReady: TaskStateChanged | undefined) => Proposed;
+  },
+): TaskChange<Saved | Proposed> {
+  const announced = inPlanningThread ? events.proposed : events.saved;
+  const written: Task = inPlanningThread ? { ...changed, markedPlanned: false } : changed;
+  if (task.state !== "ready")
+    return edited({ task: written, event: announced(undefined) }, task, by);
+  const ownThread: Task = inPlanningThread
+    ? { ...written, initiativePlanningThreadId: undefined, hasPlanningThread: true }
+    : written;
+  const to = inPlanningThread || task.hasPlanningThread ? "planning" : "backlog";
+  return edited(outOfReady<Saved | Proposed>(task, ownThread, to, by, announced), task, by);
 }
 
 /** The part's change with its edit kept, by whoever wrote it (record-edits.ts). */
@@ -185,30 +169,6 @@ function edited<Event extends DomainEvent>(
   return withTaskEdits(change, before, by) ?? change;
 }
 
-/**
- * The Planner's change to a part, unconfirmed by now and no longer marked planned. A Ready Task
- * goes back to Planning in the same save, moved `by` the person planning it, as the user's Save
- * takes it. The Planner writes here in the Task's own planning Thread (an Initiative's rewrites go
- * through `rewriteInInitiative`), so from then on the Task is planned in that Thread.
- */
-function proposedPart<Event extends DomainEvent>(
-  task: Task,
-  proposed: Task,
-  announced: (leftReady: TaskStateChanged | undefined) => Event,
-  by: Author,
-): TaskChange<Event> {
-  const unmarked: Task = { ...proposed, markedPlanned: false };
-  if (task.state !== "ready") {
-    return edited({ task: unmarked, event: announced(undefined) }, task, by);
-  }
-  const inOwnThread: Task = {
-    ...unmarked,
-    initiativePlanningThreadId: undefined,
-    hasPlanningThread: true,
-  };
-  return edited(outOfReady(task, inOwnThread, "planning", by, announced), task, by);
-}
-
 function outOfReady<Event extends DomainEvent>(
   task: Task,
   changed: Task,
@@ -216,7 +176,7 @@ function outOfReady<Event extends DomainEvent>(
   by: StateChangeCause,
   announced: (leftReady: TaskStateChanged | undefined) => Event,
 ): TaskChange<Event> {
-  return withStateChange(
+  return withStateChange<Event>(
     {
       task: { ...changed, state: to, markedPlanned: false },
       event: announced(new TaskStateChanged(task.id, "ready", to)),
@@ -238,11 +198,14 @@ export function proposePipeline(
   refuseWith(problems);
   const current = task.proposedPipeline;
   if (current?.pipelineId === proposal.pipelineId && current.reason === reason) return undefined;
-  return proposedPart(
+  const announced = (leftReady: TaskStateChanged | undefined) =>
+    new TaskPipelineProposed(task.id, proposal.pipelineId, leftReady);
+  return writePart(
     task,
     { ...task, proposedPipeline: { pipelineId: proposal.pipelineId, reason } },
-    (leftReady) => new TaskPipelineProposed(task.id, proposal.pipelineId, leftReady),
     by,
+    true,
+    { saved: announced, proposed: announced },
   );
 }
 
@@ -347,6 +310,11 @@ function proposingProblems(task: Task, part: string): string[] {
   return [
     `${part} is proposed while the Task is in Planning or Ready, before it starts; this one is in ${TASK_STATE_NAMES[task.state]}.`,
   ];
+}
+
+/** Why a part can't be written: from a planning Thread, outside Planning or Ready; else as changed. */
+function partProblems(task: Task, part: string, inPlanningThread: boolean): string[] {
+  return inPlanningThread ? proposingProblems(task, `The ${part}`) : changingProblems(task, part);
 }
 
 function changingProblems(task: Task, part: string): string[] {

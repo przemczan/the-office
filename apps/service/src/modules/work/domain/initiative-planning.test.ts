@@ -10,7 +10,7 @@ import {
   type InitiativePlanningProject,
   type OpenTaskDecision,
 } from "./initiative-planning.js";
-import { proposeDefinitionOfDone, proposePipeline, proposePlan } from "./planning-changes.js";
+import { proposePipeline, writeDefinitionOfDone, writePlan } from "./planning-changes.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import { startPlanningTask } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
@@ -20,6 +20,12 @@ import { anInitiative, aPlanningThread, aTask, BEN_ITO } from "./work.fixtures.j
 import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
 
 const prompts = defaultWorkPrompts();
+
+/** The Planner's writes from a planning Thread. */
+const proposePlan = (task: Task, writing: { plan: string }, by: Author) =>
+  writePlan(task, writing, by, true);
+const proposeDefinitionOfDone = (task: Task, statements: readonly string[], by: Author) =>
+  writeDefinitionOfDone(task, statements, by, true);
 
 /** Whoever holds Plans in these tests; the moves are theirs, whatever their Role key. */
 const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };

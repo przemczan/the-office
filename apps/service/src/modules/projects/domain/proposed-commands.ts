@@ -16,6 +16,7 @@ import {
   type ProjectCommandFields,
   type PublishingLine,
 } from "./project.js";
+import type { CommandEdit } from "./project-changes.js";
 
 /** A field as the Project had it when the Proposal was drafted (`from`), and as proposed (`to`). */
 export interface ProposedValue<Value> {
@@ -100,6 +101,25 @@ function proposedLine(
 ): ProposedValue<string> | undefined {
   const to = given[line]?.trim();
   return to !== undefined && to !== project[line] ? { from: project[line], to } : undefined;
+}
+
+/** The edits a Proposal makes once applied, in the order the Project page would save them. */
+export function commandEditsOfProposed(proposed: ProposedCommands): CommandEdit[] {
+  const { installCommand, installInputs } = proposed;
+  return [
+    ...(installCommand ? [{ kind: "install", commandLine: installCommand.to } as const] : []),
+    ...(installInputs ? [{ kind: "installInputs", inputs: installInputs.to } as const] : []),
+    ...PUBLISHING_LINES.flatMap((line) => {
+      const change = proposed[line];
+      return change ? [{ kind: "publishingLine", line, commandLine: change.to } as const] : [];
+    }),
+    ...proposed.commands.map(({ key, from, to }): CommandEdit => {
+      if (to === null) return { kind: "remove", key };
+      return from === null
+        ? { kind: "add", command: { key, ...to } }
+        : { kind: "change", key, fields: to };
+    }),
+  ];
 }
 
 /** The keys of the commands the Proposal removes. */

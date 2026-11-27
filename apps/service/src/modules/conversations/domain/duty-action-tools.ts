@@ -7,6 +7,11 @@ import type { HeldDuties } from "./session-instructions.js";
  */
 const DUTY_ACTION_TOOLS: Readonly<Record<string, readonly string[]>> = {
   "shapes-initiatives": [
+    "write_initiative_outcome",
+    "add_task",
+    "change_task_title",
+    "change_task_description",
+    "choose_pipeline",
     "add_dependency",
     "remove_dependency",
     "add_to_initiative",

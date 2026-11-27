@@ -560,6 +560,15 @@ export function addTaskToInitiative(
 export type InitiativeChangeRoute = "straight" | "by-proposal";
 
 /**
+ * The route a change by `by` takes: the user's own click on the page writes straight, so only while
+ * the Initiative is shaping; whatever a person writes, or a user applies from a person's Proposal or
+ * allows after a held call, reaches it as a Proposal does, while it is shaping or active.
+ */
+export function changeRouteOf(by: Author): InitiativeChangeRoute {
+  return by.kind === "user" && by.proposedBy === undefined ? "straight" : "by-proposal";
+}
+
+/**
  * What must be true once it is done, written by whoever shapes Initiatives or the user; undefined
  * when it says so already. Each change below judges what it asks before the Initiative's state, so
  * a request that is wrong or changes nothing is answered as such, never turned into a Proposal.
@@ -582,24 +591,8 @@ export function writeOutcome(
 }
 
 /**
- * A new Task by whoever shapes Initiatives in the Initiative; the user adds one with
- * addTaskToInitiative.
- */
-export function addShaperTask(
-  initiative: Initiative,
-  route: InitiativeChangeRoute,
-  id: string,
-  given: NewTask,
-  setting: Omit<NewTaskSetting, "initiativeId" | "originIdeaId">,
-  at: Date,
-): TaskChange<TaskCreated> {
-  requireShaperTaskAllowed(initiative, route, given);
-  return addTaskToInitiative(initiative, id, given, setting, at);
-}
-
-/**
- * Refuses a new Task by whoever shapes Initiatives as addShaperTask would, without making it,
- * together with `blockerProblems`, the reasons it couldn't wait for the Tasks it asks to.
+ * Judges a Proposal of a new Task by whoever shapes Initiatives without making it, together with
+ * `blockerProblems`, the reasons it couldn't wait for the Tasks it asks to.
  */
 export function requireShaperTaskAllowed(
   initiative: Initiative,

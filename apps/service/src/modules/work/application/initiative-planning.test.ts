@@ -12,7 +12,11 @@ import {
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
-import { InitiativeThreadSetups, TaskThreadSetups } from "../../conversations/index.js";
+import {
+  InitiativeThreadSetups,
+  TaskThreadSetups,
+  WorkRecords,
+} from "../../conversations/index.js";
 import { withCallingRule } from "../adapters/conversations/calling-rule.js";
 import {
   INITIATIVE_PLANNING_OFFICE_TOOLS,
@@ -166,6 +170,10 @@ async function planTask(taskId: string, sessionId = SESSION) {
 /** The Threads with a turn running, as the fake of Conversations' answer keeps them. */
 function turns(): ThreadTurnsForTests {
   return work.app.get(ThreadTurns) as ThreadTurnsForTests;
+}
+
+function ownWork(roleKey: string, initiativeId: string): Promise<boolean> {
+  return work.app.get(WorkRecords).isOwnWork(roleKey, { kind: "initiative", id: initiativeId });
 }
 
 describe("Plan the Initiative", () => {
@@ -803,5 +811,30 @@ describe("one Role holding both Shapes Initiatives and Plans", () => {
       instructions: INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
     });
     expect(await of(shapingThreadId)).toMatchObject({ instructions: SHAPING_THREAD_INSTRUCTIONS });
+  });
+});
+
+describe("an Initiative as own work (spec 6 › Authority)", () => {
+  it("is its shaper's on one the user created, but not its planner's or anyone else's", async () => {
+    const { initiative } = await anActiveInitiative();
+    await planned(initiative.id, false);
+
+    expect(initiative.createdBy).toMatchObject({ kind: "user" });
+    expect(await ownWork("cto", initiative.id)).toBe(true);
+    expect(await ownWork("planner", initiative.id)).toBe(false);
+    expect(await ownWork("architect", initiative.id)).toBe(false);
+  });
+
+  it("counts a planning Thread for nothing when one Role holds both duties", async () => {
+    const people = work.app.get(KnownPeopleForTests);
+    people.hold("shapes-initiatives", "architect");
+    const { initiative: shapedByTheArchitect } = await anActiveInitiative();
+    people.hold("shapes-initiatives", "cto");
+    people.hold("plans", "architect");
+    const { initiative: plannedByTheArchitect } = await anActiveInitiative();
+    await planned(plannedByTheArchitect.id, false);
+
+    expect(await ownWork("architect", shapedByTheArchitect.id)).toBe(true);
+    expect(await ownWork("architect", plannedByTheArchitect.id)).toBe(false);
   });
 });

@@ -217,7 +217,9 @@ export {
   type ProjectFeatureSwitches,
 } from "./domain/project-features.js";
 export { TestInstanceRefused, type RefusedInTestInstance } from "./domain/test-instance-refused.js";
+export { commandEditsProblems, type CommandEdit } from "./domain/project-changes.js";
 export {
+  commandEditsOfProposed,
   proposedCommands,
   type CommandsToPropose,
   type ProposedCommand,

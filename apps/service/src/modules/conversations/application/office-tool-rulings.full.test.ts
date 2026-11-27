@@ -24,7 +24,7 @@ const CONSULT_CTO = { kind: "consult", role: "cto" } as const;
 
 const TOOL_NAME = "change_task_title";
 
-type ToolHooks = Pick<OfficeToolAuthority, "check" | "approvalLines">;
+type ToolHooks = Pick<OfficeToolAuthority, "check" | "approvalLines" | "floor">;
 
 /** A stand-in for the tool of an Office action of Task records, whose subject is its Task. */
 function aTaskTool(
@@ -309,6 +309,32 @@ describe("the ruling of an Office tool call", () => {
     ]);
     expect(ran).toHaveLength(0);
     expect(opened).toHaveLength(0);
+  });
+
+  it("reads Allowed as Proposal under the tool's floor, and keeps Never", async () => {
+    const floored = { floor: () => Promise.resolve("proposal" as const) };
+    const drafted: unknown[] = [];
+    const proposals = { draft: (_session: string, change: unknown) => drafted.push(change) };
+
+    const allowed = rulingsWith({ setting: ALLOWED, hooks: floored, withDraft: true, proposals });
+    const answer = await allowed.callWith(input);
+    const never = rulingsWith({ setting: NEVER, hooks: floored, withDraft: true, proposals });
+
+    expect(answer.text).toContain("Drafted a Proposal");
+    expect(drafted).toHaveLength(1);
+    expect(allowed.ran).toHaveLength(0);
+    await expect(never.callWith(input)).resolves.toMatchObject({ isError: true });
+    expect(never.ran).toHaveLength(0);
+  });
+
+  it("runs an Allowed call whose floor says nothing", async () => {
+    const { callWith, ran } = rulingsWith({
+      setting: ALLOWED,
+      hooks: { floor: () => Promise.resolve(undefined) },
+    });
+
+    await expect(callWith(input)).resolves.toMatchObject({ isError: false });
+    expect(ran).toHaveLength(1);
   });
 
   it("refuses a call of a tool ruled Never as no such tool", async () => {

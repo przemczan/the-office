@@ -36,7 +36,8 @@ export interface WorkRecordSource {
   ideaRecord(ideaId: string): Promise<string | undefined>;
   /**
    * Whether the subject is the person's own work (spec 6 › Authority): a Task, Idea or Initiative
-   * they created, or a Task they worked a Stage of. False for any other subject.
+   * they created, a Task they worked a Stage of, or an Initiative they have a shaping Thread on.
+   * False for any other subject.
    */
   isOwnWork(roleKey: string, subject: OfficeToolSubject): Promise<boolean>;
 }

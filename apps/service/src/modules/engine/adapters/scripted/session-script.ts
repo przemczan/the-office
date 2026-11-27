@@ -325,6 +325,31 @@ export async function writeRecording(
   await writeFile(file, lines.map((line) => `${line}\n`).join(""));
 }
 
+/**
+ * A record's id a script names by the session's Brief, as `<brief:Initiative>`: the id the Brief
+ * gives as "(Initiative <id>)", so a script replays against a record its test made while it ran.
+ */
+const BRIEF_ID = /<brief:(\w+)>/g;
+
+/**
+ * The value with each `<brief:Kind>` replaced by the id `brief` gives the first record of that kind;
+ * throws when the Brief names none.
+ */
+export function withBriefIds(value: unknown, brief: string | undefined): unknown {
+  if (typeof value === "string") {
+    return value.replaceAll(BRIEF_ID, (_placeholder, kind: string) => {
+      const id = new RegExp(`\\(${kind} ([0-9a-f-]{36})\\)`).exec(brief ?? "")?.[1];
+      if (id === undefined) throw new Error(`The session's Brief names no ${kind} by its id.`);
+      return id;
+    });
+  }
+  if (Array.isArray(value)) return value.map((item) => withBriefIds(item, brief));
+  if (value instanceof Date || value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, withBriefIds(item, brief)]),
+  );
+}
+
 /** A step of a recording as it happens in these places. */
 export function inPlaces<Step extends ScriptStep>(step: Step, places: RecordedPlaces): Step {
   return PLACES.reduce<unknown>(

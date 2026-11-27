@@ -28,6 +28,11 @@ export function valueOnSubject(setting: AuthoritySetting, ownWork: boolean): Aut
   return ownWork ? setting.own : setting.others;
 }
 
+/** The value as a call under a floor of Proposal reads it: Allowed becomes Proposal, the rest stay. */
+export function atLeastProposal(value: AuthorityValue): AuthorityValue {
+  return value.kind === "allowed" ? { kind: "proposal" } : value;
+}
+
 /** Whether the tool is offered at all: unless its setting is Never on every subject. */
 export function isOffered(setting: AuthoritySetting): boolean {
   if (setting.kind === "own-and-others") {

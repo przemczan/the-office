@@ -439,6 +439,72 @@ describe("ScriptedEngine", () => {
     expect(ran).toEqual([]);
   });
 
+  it("fills a call's <brief:Kind> with the id the session's Brief gives that record, and fails without one", async () => {
+    const initiativeId = randomUUID();
+    const given: unknown[] = [];
+    const script: SessionScript = [
+      { step: "start", brief: { id: "brief", text: "Shape the Initiative." } },
+      {
+        step: "event",
+        event: {
+          kind: "tool-call",
+          callId: "call-1",
+          tool: "write_initiative_outcome",
+          officeTool: true,
+          input: { initiativeId: "<brief:Initiative>", outcome: "Usage exports." },
+          withinToolCall: undefined,
+        },
+      },
+      {
+        step: "event",
+        event: {
+          kind: "tool-result",
+          callId: "call-1",
+          text: "",
+          isError: false,
+          withinToolCall: undefined,
+        },
+      },
+      { step: "event", event: TURN_ENDED },
+      { step: "end" },
+    ];
+    const started = async (brief: string) => {
+      const engine = new ScriptedEngine([script]);
+      const session = await engine.start({
+        id: randomUUID(),
+        options: {
+          ...options(),
+          officeTools: [
+            {
+              name: "write_initiative_outcome",
+              description: "Writes the outcome.",
+              input: z.object({ initiativeId: z.uuid(), outcome: z.string() }),
+              run: (input) => {
+                given.push(input);
+                return Promise.resolve({ text: "Written.", isError: false });
+              },
+            },
+          ],
+        },
+        brief: { id: randomUUID(), text: brief },
+      });
+      return { session, reading: readAll(session.events) };
+    };
+
+    const named = await started(`## The Initiative\n\nUsage exports (Initiative ${initiativeId})`);
+    await named.session.end();
+    expect((await named.reading)[0]).toMatchObject({
+      kind: "tool-call",
+      input: { initiativeId, outcome: "Usage exports." },
+    });
+    expect(given).toEqual([{ initiativeId, outcome: "Usage exports." }]);
+
+    const unnamed = await started("Shape the Initiative.");
+    await expect(unnamed.reading).rejects.toThrow(
+      "The session's Brief names no Initiative by its id.",
+    );
+  });
+
   it("fails the session when the caller does something other than the script's next step", async () => {
     const engine = new ScriptedEngine([READS_A_FILE]);
     const session = await engine.start({

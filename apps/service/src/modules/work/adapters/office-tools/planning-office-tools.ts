@@ -1,16 +1,17 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { PlanningService, type MarkedPlanned } from "../../application/planning-service.js";
+import {
+  PlanningService,
+  type MarkedPlanned,
+  type PlanningThread,
+} from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import type { Author } from "../../domain/author.js";
 import { rewritingProblems } from "../../domain/initiative-planning.js";
 import { TASK_KINDS, type Task } from "../../domain/task.js";
 import { TASK_KIND_NAMES } from "../../domain/task-kind-words.js";
-import {
-  SessionInitiatives,
-  type SessionInitiativeThread,
-} from "../../ports/session-initiatives.js";
+import { SessionInitiatives } from "../../ports/session-initiatives.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import { SessionTasks } from "../../ports/session-tasks.js";
 import { answered, WorkToolRefused, type OfficeToolResult } from "./work-tool-answers.js";
@@ -48,13 +49,14 @@ const TASK_ID = z
  */
 
 /**
- * The Task a planning tool writes onto, the planning Thread it is rewritten from, if it is, and the
- * person in the session, who the moves it makes are recorded as made by.
+ * The Task a planning tool writes onto, the planning Thread it is written from (an Initiative's,
+ * when it rewrites an already planned Task from there), and the person in the session, who the
+ * moves it makes are recorded as made by.
  */
 interface PlanningTarget {
   readonly taskId: string;
   readonly by: Author;
-  readonly rewriteFrom: SessionInitiativeThread | undefined;
+  readonly from: PlanningThread;
   /** In an Initiative's planning Thread, where the Planner plans on while a Decision waits. */
   readonly inInitiative: boolean;
 }
@@ -131,11 +133,11 @@ export class PlanningOfficeTools implements OnModuleInit {
       run: ({ taskId, plan, filesToChange, estimatedTokens }, { sessionId }) =>
         answered(async () => {
           const target = await this.planningTaskOf(sessionId, taskId);
-          await this.planning.proposePlan(
+          await this.planning.writePlan(
             target.taskId,
             { plan, filesToChange, estimatedTokens },
             target.by,
-            target.rewriteFrom,
+            target.from,
           );
           return `Wrote the Plan onto the Task. ${PROPOSED}`;
         }),
@@ -155,11 +157,11 @@ export class PlanningOfficeTools implements OnModuleInit {
       run: ({ taskId, statements }, { sessionId }) =>
         answered(async () => {
           const target = await this.planningTaskOf(sessionId, taskId);
-          await this.planning.proposeDefinitionOfDone(
+          await this.planning.writeDefinitionOfDone(
             target.taskId,
             statements,
             target.by,
-            target.rewriteFrom,
+            target.from,
           );
           return `Wrote the Definition of Done onto the Task. ${PROPOSED}`;
         }),
@@ -182,7 +184,7 @@ export class PlanningOfficeTools implements OnModuleInit {
             target.taskId,
             { pipelineId, reason: why },
             target.by,
-            target.rewriteFrom,
+            target.from,
           );
           return `Proposed the Pipeline ${pipelineId}. The Task follows it once the user confirms it.`;
         }),
@@ -301,7 +303,7 @@ export class PlanningOfficeTools implements OnModuleInit {
           "This Thread is on one Task, and writes onto it alone: leave the Task id out.",
         );
       }
-      return { taskId: ownTaskId, by, rewriteFrom: undefined, inInitiative: false };
+      return { taskId: ownTaskId, by, from: {}, inInitiative: false };
     }
     const thread = await this.sessionInitiatives.initiativeThreadInSession(sessionId);
     if (!thread) {
@@ -319,10 +321,10 @@ export class PlanningOfficeTools implements OnModuleInit {
       task.initiativeId === thread.initiativeId &&
       task.state === "planning" &&
       task.initiativePlanningThreadId === thread.threadId;
-    if (plannedHere) return { taskId: task.id, by, rewriteFrom: undefined, inInitiative: true };
+    if (plannedHere) return { taskId: task.id, by, from: {}, inInitiative: true };
     const problems = rewritingProblems(task, thread);
     if (problems.length > 0) throw new WorkToolRefused(problems.join(" "));
-    return { taskId: task.id, by, rewriteFrom: thread, inInitiative: true };
+    return { taskId: task.id, by, from: { rewriteFrom: thread }, inInitiative: true };
   }
 
   /** The person in the session, as the Author of the moves their writing makes. */

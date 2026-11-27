@@ -15,12 +15,11 @@ import {
   RunEnvironmentSwitchRegistry,
   TestTargets,
   isFeatureOn,
-  proposedCommands,
   switchedOffWords,
   type Action,
   type ActionFields,
+  type CommandEdit,
   type EditedTestTarget,
-  type ProposedCommands,
   type SettingChangedBy,
   type TestTarget,
 } from "../../../projects/index.js";
@@ -323,15 +322,9 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
         problems.push(switchedOffWords(feature, project.name));
       }
     }
-    const commands = this.commandsChange(project, sections);
-    if (commands) {
-      const misplaced = misplacedCommands(project, sections.commands);
-      problems.push(
-        ...(misplaced.length > 0
-          ? misplaced
-          : await this.projects.proposedCommandsProblems(project.id, commands)),
-      );
-    }
+    const commands = commandEditsOf(sections);
+    if (commands)
+      problems.push(...(await this.projects.commandEditsProblems(project.id, commands)));
     const targets = sections.testTargets && editedTargets(sections.testTargets, problems);
     const storedActions = sections.actions ? await this.actions.list(project.id) : [];
     if (sections.actions) {
@@ -359,25 +352,11 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
     );
   }
 
-  /** The install and commands change, as a Proposal of them would carry it, when the call has one. */
-  private commandsChange(project: Project, sections: Sections): ProposedCommands | undefined {
-    const { install, installInputs, commands } = sections;
-    if (install === undefined && installInputs === undefined && commands === undefined) {
-      return undefined;
-    }
-    return proposedCommands(project, {
-      installCommand: install,
-      installInputs,
-      commands: [...(commands?.add ?? []), ...(commands?.change ?? [])],
-      removeCommands: commands?.remove,
-    });
-  }
-
   /** Each section's change, in the order they apply, Run environment last. */
   private steps(
     project: Project,
     sections: Sections,
-    commands: ProposedCommands | undefined,
+    commands: readonly CommandEdit[] | undefined,
     targets: readonly EditedTestTarget[] | undefined,
   ): Step[] {
     const steps: Step[] = [];
@@ -412,7 +391,7 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
       steps.push({
         setting: "commands",
         run: async (by) => {
-          await this.projects.changeCommandsAsProposed(project.id, commands, by);
+          await this.projects.changeCommands(project.id, commands, by);
           return "commands";
         },
       });
@@ -518,7 +497,7 @@ type Checked =
   | { readonly refused: string }
   | {
       readonly sections: Sections;
-      readonly commands: ProposedCommands | undefined;
+      readonly commands: readonly CommandEdit[] | undefined;
       readonly targets: readonly EditedTestTarget[] | undefined;
     };
 
@@ -678,16 +657,27 @@ function changeLines(
   return lines;
 }
 
-/** Each command added that the Project has, or changed or removed that it hasn't. */
-function misplacedCommands(project: Project, commands: CommandsInput | undefined): string[] {
-  const has = (key: string) => project.commands.some((command) => command.key === key.trim());
+/**
+ * The call's install, install inputs and commands as the edits the Project page's routes make, in
+ * that order, added, then changed, then removed; none when the call has none. Their refusals are
+ * the routes' own.
+ */
+function commandEditsOf({ install, installInputs, commands }: Sections): CommandEdit[] | undefined {
+  if (install === undefined && installInputs === undefined && commands === undefined) {
+    return undefined;
+  }
   return [
-    ...(commands?.add ?? [])
-      .filter(({ key }) => has(key))
-      .map(({ key }) => `The Project has a ${key.trim()} command already: give it under change.`),
-    ...[...(commands?.change ?? []).map(({ key }) => key), ...(commands?.remove ?? [])]
-      .filter((key) => !has(key))
-      .map((key) => `The Project has no command with the key "${key.trim()}".`),
+    ...(install !== undefined ? [{ kind: "install", commandLine: install } as const] : []),
+    ...(installInputs !== undefined
+      ? [{ kind: "installInputs", inputs: installInputs } as const]
+      : []),
+    ...(commands?.add ?? []).map((command): CommandEdit => ({ kind: "add", command })),
+    ...(commands?.change ?? []).map(({ key, ...fields }): CommandEdit => ({
+      kind: "change",
+      key: key.trim(),
+      fields,
+    })),
+    ...(commands?.remove ?? []).map((key): CommandEdit => ({ kind: "remove", key: key.trim() })),
   ];
 }
 

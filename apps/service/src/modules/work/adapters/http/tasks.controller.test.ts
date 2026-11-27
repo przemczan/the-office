@@ -328,15 +328,17 @@ async function proposedWithMakeAPlan(autoMode: boolean): Promise<Task> {
   const task = await create();
   await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, { autoMode });
   const planning = work.app.get(PlanningService);
-  await planning.proposePlan(
+  await planning.writePlan(
     task.id,
     { plan: "Keep the requested path through the sign-in." },
     THE_PLANNER,
+    {},
   );
-  await planning.proposeDefinitionOfDone(
+  await planning.writeDefinitionOfDone(
     task.id,
     ["Signing in returns to the page asked for."],
     THE_PLANNER,
+    {},
   );
   await planning.proposePipeline(
     task.id,

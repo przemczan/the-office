@@ -52,7 +52,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
   - **Never:** the tool isn't offered ([Tool areas](#tool-areas)).
 - **One setting per tool area:** an area shows one value; a group or a single tool inside it shows only where its value differs from its area's, or where a cap or a domain rule applies to it ([the groups](#tool-areas)).
 - The card's Authority lists one row per area, with its groups and the single tools that differ, then the followed groups ([Hard switches](#hard-switches)) and the row Approve held calls and apply Proposals ([the trust anchor](#the-trust-anchor)); then, in the MCP servers group right after it, each MCP tool's setting ([MCP tools](#mcp-tools)); how the card shows them is in [People › Role card tab](screens/people.md#role-card-tab).
-- **Own work:** for one person, the Tasks, Ideas and Initiatives they created, and every Task they worked a Stage of, the Stage running now included.
+- **Own work:** for one person, the Tasks, Ideas and Initiatives they created, every Task they worked a Stage of, the Stage running now included, and every Initiative they have a shaping Thread on; a planning Thread doesn't count.
 - In the Work, Initiatives and Ideas areas a value can differ on own work and on others' work.
 - **One ruling step:** every Office tool call is ruled once by its setting, before its handler runs, as [5.4.1 One ruling step](5.4.1-engine-kinds.md#one-ruling-step) says; held calls cover every Office tool, and their cards and Proposals are in [2.4.2](2.4.2-decisions.md#proposals-and-approvals).
 - Approvals by colleagues show on the Task, in the Stage log and as one line in Since you left; never a Notification.
@@ -434,7 +434,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 
 - A Task created or an Idea captured in a person's Thread on a Task is found while working on that Task; the tool's `taskId` given as null makes it link to nothing.
 - One made in a chat or in a Thread on an Initiative links to nothing.
-- A Task created with `create_task` is never part of an Initiative: the shaping Thread's `add_task`, or joining ([2.1.3](2.1.3-tasks.md#joining-and-leaving-an-initiative)), makes one part of it, since that brings the Initiative's branch and Pipeline.
+- A Task created with `create_task` is never part of an Initiative: the shaping Thread's `add_task` (the Add a Task route's action), or joining ([2.1.3](2.1.3-tasks.md#joining-and-leaving-an-initiative)), makes one part of it, since that brings the Initiative's branch and Pipeline.
 
 ### Default profiles
 

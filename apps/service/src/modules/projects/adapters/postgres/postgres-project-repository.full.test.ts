@@ -6,7 +6,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   asProjectChanges,
-  changeCommandsAsProposed,
+  changeCommandsBy,
   changeImage,
   changeProjectEngine,
 } from "../../domain/project-changes.js";
@@ -144,31 +144,20 @@ describe("PostgresProjectRepository", () => {
       await repository.add(project);
 
       const changes = await repository.update(project.id, (stored) =>
-        changeCommandsAsProposed(stored, {
-          installCommand: { from: stored.installCommand, to: "npm install" },
-          commands: [
-            {
-              key: "test",
-              from: { name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" },
-              to: {
-                name: "Test",
-                kind: "test",
-                commandLine: "npm test -- --run",
-                rerunCommandLine: "",
-              },
+        changeCommandsBy(stored, [
+          { kind: "install", commandLine: "npm install" },
+          {
+            kind: "change",
+            key: "test",
+            fields: {
+              name: "Test",
+              kind: "test",
+              commandLine: "npm test -- --run",
+              rerunCommandLine: "",
             },
-            {
-              key: "lint",
-              from: {
-                name: "Lint",
-                kind: "lint",
-                commandLine: "npm run lint",
-                rerunCommandLine: "",
-              },
-              to: null,
-            },
-          ],
-        }),
+          },
+          { kind: "remove", key: "lint" },
+        ]),
       );
 
       expect(changes.events).toHaveLength(3);

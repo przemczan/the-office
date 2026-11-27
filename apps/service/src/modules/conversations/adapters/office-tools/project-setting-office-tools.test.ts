@@ -25,7 +25,7 @@ const EVERY_SECTION = {
 /** The methods the sections apply through, in the order they apply. */
 const IN_ORDER = [
   "changeEnvironment",
-  "changeCommandsAsProposed",
+  "changeCommands",
   "testTargets.change",
   "actions.change",
   "runEnvironments.change",

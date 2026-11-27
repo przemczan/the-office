@@ -176,13 +176,13 @@
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-shaping","text":"Shape the Initiative with the user"}}
-{"step":"event","event":{"kind":"tool-call","callId":"shape-1","tool":"write_outcome","officeTool":true,"input":{"outcome":"Customers download their monthly usage as a CSV file from the web app."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"shape-1","tool":"write_initiative_outcome","officeTool":true,"input":{"initiativeId":"<brief:Initiative>","outcome":"Customers download their monthly usage as a CSV file from the web app."},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"shape-1","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"I wrote the outcome. Add the Tasks, and confirm the Initiative when it is right.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-shaping"],"usage":{"input":3,"output":60,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"send","message":{"id":"shaping-api","text":"The API should export it too"},"priority":"later"}
-{"step":"event","event":{"kind":"tool-call","callId":"shape-2","tool":"write_outcome","officeTool":true,"input":{"outcome":"Customers download their monthly usage as a CSV file from the web app and the API."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"shape-2","tool":"write_initiative_outcome","officeTool":true,"input":{"initiativeId":"<brief:Initiative>","outcome":"Customers download their monthly usage as a CSV file from the web app and the API."},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"shape-2","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"The Initiative is active, so I proposed the new outcome for you to apply.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["shaping-api"],"usage":{"input":2,"output":40,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}

@@ -20,10 +20,11 @@ import {
 } from "../domain/project.js";
 import {
   addProject,
-  addCommand,
   asProjectChanges,
-  changeCommand,
-  changeCommandsAsProposed,
+  changeCommandsBy,
+  commandEditsProblems,
+  removedKeysOf,
+  type CommandEdit,
   changeInstallCommand,
   changeDefaultPipeline,
   changeIssueSettings,
@@ -40,7 +41,6 @@ import {
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
-  removeCommand,
   type ProjectChange,
   type ProjectChanges,
 } from "../domain/project-changes.js";
@@ -227,11 +227,7 @@ export class ProjectService {
   }
 
   async addCommand(id: string, command: ProjectCommand, by: SettingChangedBy): Promise<Project> {
-    return this.update(
-      id,
-      (project) => addCommand(project, command),
-      recorded("commands", commandAddedSummary(command.key), by),
-    );
+    return this.changeCommands(id, [{ kind: "add", command }], by);
   }
 
   /** A running Task runs the new line from its next Script Stage, which reads it when it runs. */
@@ -241,21 +237,12 @@ export class ProjectService {
     change: ProjectCommandFields,
     by: SettingChangedBy,
   ): Promise<Project> {
-    return this.update(
-      id,
-      (project) => changeCommand(project, key, change),
-      recorded("commands", commandChangedSummary(key), by),
-    );
+    return this.changeCommands(id, [{ kind: "change", key, fields: change }], by);
   }
 
   /** Refused while the Project's default Pipeline, or a Kind's, runs the command (spec §2.1). */
   async removeCommand(id: string, key: string, by: SettingChangedBy): Promise<Project> {
-    await this.checks.checkCommandRemoval(await this.read(id), key);
-    return this.update(
-      id,
-      (project) => removeCommand(project, key),
-      recorded("commands", commandRemovedSummary(key), by),
-    );
+    return this.changeCommands(id, [{ kind: "remove", key }], by);
   }
 
   async changeInstallInputs(
@@ -284,24 +271,40 @@ export class ProjectService {
   }
 
   /**
-   * Applies a Proposal of commands (spec §2.3) all or nothing: checked against the Project as its
-   * row is held and saved in one go, so a hand edit can't land between fields. Refused while the
-   * default Pipeline, or a Kind's, runs a command it removes.
+   * Every reason the edits can't apply to the Project now, as `changeCommands` refuses them
+   * (`commandEditsProblems`, and a command a default Pipeline runs can't be removed), or that
+   * there is no such Project.
    */
-  async changeCommandsAsProposed(
+  async commandEditsProblems(id: string, edits: readonly CommandEdit[]): Promise<string[]> {
+    const project = await this.find(id);
+    if (!project) return [new ProjectNotFound(id).message];
+    return [
+      ...(await this.checks.commandRemovalProblems(project, removedKeysOf(edits))),
+      ...commandEditsProblems(project, edits),
+    ];
+  }
+
+  /**
+   * Applies the edits all or nothing, as the one way commands change (the Project page's routes
+   * with one edit each, the Agents' tool, an applied Proposal): checked against the Project as its
+   * row is held and saved in one go, so a hand edit can't land between edits, and one edit that
+   * breaks a rule saves none. Refused while the default Pipeline, or a Kind's, runs a command it
+   * removes (spec §2.1).
+   */
+  async changeCommands(
     id: string,
-    proposed: ProposedCommands,
+    edits: readonly CommandEdit[],
     by: SettingChangedBy,
   ): Promise<Project> {
     const removalProblems = await this.checks.commandRemovalProblems(
       await this.read(id),
-      removedCommandKeys(proposed),
+      removedKeysOf(edits),
     );
     if (removalProblems.length > 0) throw new ProjectRefused(removalProblems);
     return this.updateTogether(
       id,
-      (project) => changeCommandsAsProposed(project, proposed),
-      recorded("commands", COMMANDS_CHANGED, by),
+      (project) => changeCommandsBy(project, edits),
+      recorded("commands", commandEditsSummary(edits), by),
     );
   }
 
@@ -527,6 +530,26 @@ function recorded(
   by: SettingChangedBy,
 ): SettingChangeToRecord {
   return { setting, summary, by };
+}
+
+/** One edit is recorded in its own words, as the Project page names it; more, as a change of commands. */
+function commandEditsSummary(edits: readonly CommandEdit[]): string {
+  const [only] = edits;
+  if (edits.length !== 1 || !only) return COMMANDS_CHANGED;
+  switch (only.kind) {
+    case "add":
+      return commandAddedSummary(only.command.key);
+    case "change":
+      return commandChangedSummary(only.key);
+    case "remove":
+      return commandRemovedSummary(only.key);
+    case "install":
+      return INSTALL_CHANGED;
+    case "installInputs":
+      return INSTALL_INPUTS_CHANGED;
+    case "publishingLine":
+      return COMMANDS_CHANGED;
+  }
 }
 
 function withResolvedPath(newProject: NewProject): NewProject {

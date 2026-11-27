@@ -1,5 +1,10 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { ProjectNotFound, ProjectRefused, ProjectService } from "../../projects/index.js";
+import {
+  ProjectNotFound,
+  ProjectRefused,
+  ProjectService,
+  commandEditsOfProposed,
+} from "../../projects/index.js";
 import type { ProposedProjectCommands } from "../domain/proposal.js";
 import type { UserRef } from "../domain/user.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
@@ -34,9 +39,15 @@ export class ProjectCommandProposals implements OnModuleInit {
   ): Promise<ProposedProjectCommands> {
     const user = { userId: appliedBy.userId, name: appliedBy.name };
     try {
-      await this.projects.changeCommandsAsProposed(
+      // The drift check first (a field changed since it was drafted), then the one shared handler.
+      const problems = await this.projects.proposedCommandsProblems(
         change.projectId,
         change.changes,
+      );
+      if (problems.length > 0) throw new ProposalRefused(problems);
+      await this.projects.changeCommands(
+        change.projectId,
+        commandEditsOfProposed(change.changes),
         proposalId === undefined ? { kind: "user", user } : { kind: "proposal", proposalId, user },
       );
       return change;

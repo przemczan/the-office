@@ -174,6 +174,14 @@ export class ThreadService {
     return this.repository.listIn({ kind: "initiative", initiativeId });
   }
 
+  /** The ids of the person's Threads on an Initiative, by their Role's key; Consultations aside. */
+  async idsOnInitiativeWith(initiativeId: string, roleKey: string): Promise<readonly string[]> {
+    const onInitiative = await this.listOnInitiative(initiativeId);
+    return onInitiative
+      .filter((thread) => thread.roleKey === roleKey && !thread.consultation)
+      .map(({ id }) => id);
+  }
+
   /**
    * How many engine sessions are working now, in Stages, chats and Threads: each Thread answering
    * whose person works in it, as the Live view counts them (`worksIn`), so a Stage Thread waiting

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { CHOOSE_PIPELINE_ACTION } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ProposalAppliers, ProposalRefused } from "../../../conversations/index.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
@@ -9,14 +10,8 @@ import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import type { Initiative } from "../../domain/initiative.js";
-import {
-  KnownProjectsForTests,
-  ProposalDraftsForTests,
-  SessionInitiativesForTests,
-} from "../../ports/work-ports.fixtures.js";
+import { KnownProjectsForTests, SessionPeopleForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
-import { SHAPING_OFFICE_TOOLS } from "../conversations/initiative-thread-records.js";
-import { CHOOSE_PIPELINE } from "./shaping-office-tools.js";
 import { ANN_LEE } from "../../domain/work.fixtures.js";
 import { ANN_LEE as ANN_LEE_USER } from "../../../conversations/index.fixtures.js";
 import { RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
@@ -50,17 +45,24 @@ beforeEach(async () => {
   await work.app
     .get(InitiativeService)
     .addTask(initiative.id, { title: "Queue writes", projectId, priority: "normal" }, [], ANN_LEE);
-  work.app.get(SessionInitiativesForTests).initiatives.set(SESSION, initiative.id);
+  work.app.get(SessionPeopleForTests).people.set(SESSION, "cto");
 });
 
 afterEach(async () => {
   await work.app.close();
 });
 
+function tool() {
+  const [found] = work.app
+    .get(OfficeToolRegistry)
+    .named([CHOOSE_PIPELINE_ACTION.name], RUN_EVERY_CALL);
+  if (!found) throw new Error(`No Office tool ${CHOOSE_PIPELINE_ACTION.name}.`);
+  return found;
+}
+
 function call(input: Record<string, unknown>) {
-  const [tool] = work.app.get(OfficeToolRegistry).named([CHOOSE_PIPELINE], RUN_EVERY_CALL);
-  if (!tool) throw new Error(`No Office tool ${CHOOSE_PIPELINE}.`);
-  return tool.run(input, anOfficeToolCall(SESSION));
+  const given = tool().input.parse({ initiativeId: initiative.id, ...input });
+  return tool().run(given, anOfficeToolCall(SESSION));
 }
 
 function current(): Promise<Initiative> {
@@ -87,49 +89,42 @@ function pipelineOf(chosen: Initiative): string | undefined {
 }
 
 describe("choose_pipeline", () => {
-  it("is among a shaping session's Office tools", () => {
-    expect(SHAPING_OFFICE_TOOLS).toContain(CHOOSE_PIPELINE);
-  });
-
-  it("sets the Initiative's Pipeline straight onto it while shaping, naming its Short name and that it has no Gate", async () => {
+  it("sets the Initiative's Pipeline straight onto it while shaping, naming its Short name", async () => {
     const result = await call({ projectId, pipelineId: "full" });
 
-    expect(result).toEqual({
-      text: `In ${projectId} the Initiative follows Full, on its page. Its Short name is ${shortName}, so Confirm makes initiative/${shortName} in ${projectId}. It has no Gate, so it publishes without the user's review; say so to the user.`,
-      isError: false,
-    });
+    expect(result.isError).toBe(false);
+    expect(result.text).toBe(
+      `In ${projectId} the Initiative follows full now; its Short name is ${shortName}.`,
+    );
     expect(await current()).toMatchObject({
       pipelines: [{ projectId, pipelineId: "full" }],
       shortName,
     });
-    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
   });
 
-  it("drafts a Proposal of another Pipeline once the Initiative is active", async () => {
+  it("is ruled no more freely than Proposal once the Initiative is active, not before", async () => {
+    const input = { initiativeId: initiative.id, projectId, pipelineId: "quick-fix" };
+    expect(await tool().authority?.floor?.(input)).toBeUndefined();
+
     await confirmedOn("full");
 
-    const result = await call({ projectId, pipelineId: "quick-fix" });
-
-    expect(result).toEqual({
-      text: "The Initiative is active, so this is drafted as a Proposal in this Thread: it changes the Initiative once the user applies it.",
-      isError: false,
-    });
-    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([
-      { sessionId: SESSION, change: proposed("quick-fix") },
-    ]);
-    expect(pipelineOf(await current())).toBe("full");
+    expect(await tool().authority?.floor?.(input)).toBe("proposal");
   });
 
-  it("drafts nothing for None once the Initiative is active", async () => {
+  it("applying it as the user changes the Pipeline, and refuses None once active", async () => {
     await confirmedOn("full");
 
-    const result = await call({ projectId, pipelineId: null });
+    await tool().applyFor?.(
+      tool().input.parse({ initiativeId: initiative.id, projectId, pipelineId: "quick-fix" }),
+      { user: { userId: "ann", name: "Ann Lee" }, proposedBy: "cto" },
+    );
+    const none = await call({ projectId, pipelineId: null });
 
-    expect(result).toEqual({
+    expect(pipelineOf(await current())).toBe("quick-fix");
+    expect(none).toEqual({
       text: `Whether the Initiative has a Pipeline in The ${projectId} was fixed at Confirm.`,
       isError: true,
     });
-    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
   });
 });
 

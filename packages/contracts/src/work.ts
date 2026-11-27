@@ -850,12 +850,70 @@ export const TAKE_OUT_OF_INITIATIVE_ACTION = officeAction({
   subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
 });
 
+/** Office action: a new Task in an Initiative. */
+export const ADD_TASK_ACTION = officeAction({
+  name: "add_task",
+  title: "Add a Task to an Initiative",
+  description:
+    "Adds a new Task to an Initiative in your name, in one Project, on no Pipeline until one is chosen, waiting from the start for the Tasks it names: in Shaping until the Initiative is confirmed, in Backlog from then on; planning it comes after. On an active Initiative it is drafted as a Proposal in this Thread, which adds the Task only when the user applies it.",
+  input: z.object({
+    initiativeId: initiativeIdInput,
+    title: z.string().describe("One line naming the outcome of this Task."),
+    projectId: z.string().describe("The Project's id, as list_projects gives it."),
+    description: z
+      .string()
+      .default("")
+      .describe("What the Task is for, in plain language; none when the title says it all."),
+    priority: prioritySchema.default("normal").describe("Normal unless the user says otherwise."),
+    kind: taskKindSchema.default("feature").describe("Feature, Bug or Chore."),
+    tags: z
+      .array(z.string())
+      .default([])
+      .describe("Free-form words to find it by; none unless asked."),
+    blockedBy: z
+      .array(z.uuid())
+      .default([])
+      .describe(
+        "The ids of the Tasks that must be Done before this one can start, in any Project or Initiative; none unless it must wait. It waits directly only for those no other of them already waits for.",
+      ),
+  }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/tasks" },
+  status: 201,
+  area: "initiatives",
+  group: "initiativeRecords",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
+/** Office action: the Initiative's Pipeline in one Project it spans. */
+export const CHOOSE_PIPELINE_ACTION = officeAction({
+  name: "choose_pipeline",
+  title: "Choose an Initiative's Pipeline",
+  description:
+    "Chooses an Initiative's Pipeline in one Project it spans, from the office-wide Pipelines and that Project's own Project Pipelines, or None with null. Each Project has its own: with one, the Project's Tasks publish into the Initiative's branch there, initiative/<Short name>, and its Publishing Task publishes the whole change through that Pipeline; with None, each of its Tasks publishes on its own. The Short name comes from the Initiative's title once any Project has a Pipeline; only the user edits it. Whether each Project has a Pipeline is fixed at Confirm; once the Initiative is active only another Pipeline can be chosen for a Project that has one, or a first one for a Project it came to span since, and your call is drafted as a Proposal in this Thread, which changes it only when the user applies it. Refused for another Project's Project Pipeline, and when the Project lacks a command the Pipeline runs.",
+  input: z.object({
+    initiativeId: initiativeIdInput,
+    projectId: z.string().describe("The id of a Project this Initiative spans."),
+    pipelineId: z
+      .string()
+      .nullable()
+      .describe(
+        "An office-wide Pipeline's id or one of that Project's Project Pipelines, as the Brief lists them; null for None.",
+      ),
+  }),
+  answer: initiativeSchema,
+  route: { method: "PUT", path: "/initiatives/:initiativeId/pipeline" },
+  area: "initiatives",
+  group: "initiativeRecords",
+  subject: ({ initiativeId }) => ({ kind: "initiative", id: initiativeId }),
+});
+
 /** Office action: the Task's title. */
 export const CHANGE_TASK_TITLE_ACTION = officeAction({
   name: "change_task_title",
   title: "Change a Task's title",
   description:
-    "Changes a Task's title, in any state but Done and Dropped. The change is kept in the Task's History, with who made it.",
+    "Changes a Task's title, in any state but Done and Dropped. For a Task of an active Initiative your call is drafted as a Proposal in this Thread, which changes it only when the user applies it. The change is kept in the Task's History, with who made it.",
   input: z.object({ taskId: taskIdInput, title: z.string().describe("The new title.") }),
   answer: taskSchema,
   route: { method: "PUT", path: "/tasks/:taskId/title" },
@@ -869,7 +927,7 @@ export const CHANGE_TASK_DESCRIPTION_ACTION = officeAction({
   name: "change_task_description",
   title: "Change a Task's Description",
   description:
-    "Replaces a Task's Description, in Markdown, until the Task starts. The change is kept in the Task's History, with who made it.",
+    "Replaces a Task's Description, in Markdown, until the Task starts; empty leaves it none. The user may have written it, so read the Task with read_task first and keep what they said. For a Task of an active Initiative your call is drafted as a Proposal in this Thread, which changes it only when the user applies it. The change is kept in the Task's History, with who made it.",
   input: z.object({
     taskId: taskIdInput,
     description: z.string().describe("The whole new Description, in Markdown."),
@@ -1054,7 +1112,7 @@ export const WRITE_INITIATIVE_OUTCOME_ACTION = officeAction({
   name: "write_initiative_outcome",
   title: "Write an Initiative's outcome",
   description:
-    "Replaces an Initiative's outcome, what it is for, while it is being shaped. The change is kept in the Initiative's History, with who made it.",
+    "Replaces an Initiative's outcome: what must be true once it is done, in plain language the user agreed to. While the Initiative is being shaped it shows on the Initiative's page at once; once it is active your call is drafted as a Proposal in this Thread, which changes it only when the user applies it. The change is kept in the Initiative's History, with who made it.",
   input: z.object({
     initiativeId: initiativeIdInput,
     outcome: z.string().describe("The whole new outcome, in Markdown."),
@@ -2350,6 +2408,8 @@ export const WORK_OFFICE_ACTIONS = [
   REMOVE_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
+  ADD_TASK_ACTION,
+  CHOOSE_PIPELINE_ACTION,
   CHANGE_TASK_TITLE_ACTION,
   CHANGE_TASK_DESCRIPTION_ACTION,
   CHANGE_TASK_KIND_ACTION,

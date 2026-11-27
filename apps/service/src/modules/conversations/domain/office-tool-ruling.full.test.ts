@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  atLeastProposal,
   isOffered,
   officeToolCallWords,
   offeredTools,
@@ -14,6 +15,15 @@ const NEVER = { kind: "never" } as const;
 const ASK_ME = { kind: "ask-me" } as const;
 const PROPOSAL = { kind: "proposal" } as const;
 const CONSULT_CTO = { kind: "consult", role: "cto" } as const;
+
+describe("atLeastProposal", () => {
+  it("reads Allowed as Proposal and keeps every other value", () => {
+    expect(atLeastProposal(ALLOWED)).toEqual(PROPOSAL);
+    for (const value of [PROPOSAL, ASK_ME, NEVER, CONSULT_CTO]) {
+      expect(atLeastProposal(value)).toBe(value);
+    }
+  });
+});
 
 describe("canonicalJson", () => {
   it("sorts every object's keys and leaves out whitespace", () => {

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Author } from "./author.js";
+import type { Task } from "./task.js";
+import type { PlanWriting } from "./written-parts.js";
 import {
   acceptInAutoMode,
   markingPlannedProblems,
   confirmDefinitionOfDone,
   confirmPipeline,
   confirmPlan,
-  proposeDefinitionOfDone,
   proposePipeline,
-  proposePlan,
-  saveDefinitionOfDone,
-  savePlan,
+  writeDefinitionOfDone,
+  writePlan,
 } from "./planning-changes.js";
 import {
   TaskDefinitionOfDoneConfirmed,
@@ -31,6 +31,16 @@ import { ANN_LEE, aPlannedTask, aTask } from "./work.fixtures.js";
 const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
 
 const PLANNING = aTask({ state: "planning" });
+
+/** The Planner's writes, from a planning Thread, and the user's saves, from the page. */
+const proposePlan = (task: Task, writing: PlanWriting, by: Author) =>
+  writePlan(task, writing, by, true);
+const savePlan = (task: Task, writing: PlanWriting, by: Author) =>
+  writePlan(task, writing, by, false);
+const proposeDefinitionOfDone = (task: Task, statements: readonly string[], by: Author) =>
+  writeDefinitionOfDone(task, statements, by, true);
+const saveDefinitionOfDone = (task: Task, statements: readonly string[], by: Author) =>
+  writeDefinitionOfDone(task, statements, by, false);
 
 describe("proposePlan", () => {
   it("writes the Plan as proposed, also over a confirmed one", () => {
@@ -635,5 +645,80 @@ describe("markingPlannedProblems", () => {
         proposedPipeline: { pipelineId: "full", reason: "It changes code." },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("one write for the page and the planning Thread", () => {
+  const writes = [
+    {
+      part: "Plan",
+      write: (task: Task, inThread: boolean) =>
+        writePlan(task, { plan: "Changed." }, THE_PLANNER, inThread),
+    },
+    {
+      part: "Definition of Done",
+      write: (task: Task, inThread: boolean) =>
+        writeDefinitionOfDone(task, ["Changed."], THE_PLANNER, inThread),
+    },
+  ];
+
+  it.each(writes)("refuses a started or Dropped Task's $part alike", ({ write }) => {
+    for (const state of ["in-progress", "done", "dropped"] as const) {
+      const task = aPlannedTask({ state });
+      const refusal = (inThread: boolean): string[] => {
+        try {
+          write(task, inThread);
+        } catch (error) {
+          return error instanceof TaskRefused ? [...error.reasons] : ["other"];
+        }
+        return [];
+      };
+      expect(refusal(false)).not.toEqual([]);
+      expect(refusal(true)).not.toEqual([]);
+    }
+  });
+
+  it("refuses an invalid part the same words from both", () => {
+    expect(() => writePlan(PLANNING, { plan: " " }, THE_PLANNER, false)).toThrow(
+      new TaskRefused(["The Plan can't be empty."]),
+    );
+    expect(() => writePlan(PLANNING, { plan: " " }, THE_PLANNER, true)).toThrow(
+      new TaskRefused(["The Plan can't be empty."]),
+    );
+    for (const inThread of [false, true]) {
+      expect(() => writeDefinitionOfDone(PLANNING, [], THE_PLANNER, inThread)).toThrow(TaskRefused);
+    }
+  });
+
+  it.each(writes)(
+    "changes a Ready Task's $part alike but for the Thread's own rules",
+    ({ write }) => {
+      const ready = aPlannedTask({ state: "ready", markedPlanned: true, hasPlanningThread: true });
+      const fromPage = write(ready, false);
+      const fromThread = write(ready, true);
+
+      expect(fromPage?.task).toMatchObject({ state: "planning", markedPlanned: false });
+      expect(fromThread?.task).toMatchObject({ state: "planning", markedPlanned: false });
+      expect(fromPage?.event.leftReady).toBeInstanceOf(TaskStateChanged);
+      expect(fromThread?.event.leftReady).toBeInstanceOf(TaskStateChanged);
+      expect(fromPage?.event).not.toBeInstanceOf(TaskPlanProposed);
+      expect(fromThread?.event).not.toBeInstanceOf(TaskPlanSaved);
+    },
+  );
+
+  it("applies only the planning Thread's own rules: Planning or Ready, markedPlanned reset", () => {
+    const marked = aPlannedTask({ state: "planning", markedPlanned: true });
+    const backlog = aTask({ state: "backlog" });
+
+    expect(writePlan(marked, { plan: "Changed." }, THE_PLANNER, false)?.task.markedPlanned).toBe(
+      true,
+    );
+    expect(writePlan(marked, { plan: "Changed." }, THE_PLANNER, true)?.task.markedPlanned).toBe(
+      false,
+    );
+    expect(writePlan(backlog, { plan: "Saved." }, ANN_LEE, false)?.event).toBeInstanceOf(
+      TaskPlanSaved,
+    );
+    expect(() => writePlan(backlog, { plan: "Proposed." }, THE_PLANNER, true)).toThrow(TaskRefused);
   });
 });

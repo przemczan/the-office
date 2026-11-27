@@ -66,6 +66,13 @@ export interface OfficeToolAuthority {
    */
   check?(input: unknown, call: OfficeToolCall): Promise<string | undefined>;
   /**
+   * "proposal" when the call may run no more freely than as a Proposal whatever the person's
+   * Authority says (an Allowed value is read as Proposal; Ask me, Consult and Never are kept), such as
+   * a change to an active Initiative (spec 2.1.4); undefined when Authority alone rules it. It only
+   * reads.
+   */
+  floor?(input: unknown): Promise<"proposal" | undefined>;
+  /**
    * What a call changes, one plain line each, as the approval card lists them; the call's input is
    * shown instead when the tool has none. It only reads, and names Secret variables by name only.
    */

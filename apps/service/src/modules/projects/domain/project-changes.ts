@@ -86,7 +86,6 @@ import {
 } from "./project-features.js";
 import { forceOfferedBy, sameProjectEngine, type ProjectEngineChange } from "./project-engine.js";
 import { ProjectRefused } from "./project-refused.js";
-import { proposedCommandsProblems, type ProposedCommands } from "./proposed-commands.js";
 
 /** A Project after a change, with the event that announces it. */
 export interface ProjectChange<Event extends DomainEvent> {
@@ -109,34 +108,74 @@ export function asProjectChanges(
 }
 
 /**
- * Applies a Proposal of commands (spec §2.3) whole: refused with every reason when one field
- * changed since it was drafted or breaks a rule, else every field it changes, each with its own
- * event, as the Project page would save them one by one.
+ * One edit of the Project's commands, as the Project page's command routes, the Agents' tool and an
+ * applied Proposal of commands make them: each is kept in turn after the ones before it.
  */
-export function changeCommandsAsProposed(
-  project: Project,
-  proposed: ProposedCommands,
-): ProjectChanges {
-  const problems = proposedCommandsProblems(project, proposed);
-  if (problems.length > 0) throw new ProjectRefused(problems);
-  const { installCommand, installInputs, beforePublishingCommand, afterPublishingCommand } =
-    proposed;
-  return changesInTurn(project, [
-    (current) => (installCommand ? changeInstallCommand(current, installCommand.to) : undefined),
-    (current) => (installInputs ? changeInstallInputs(current, installInputs.to) : undefined),
-    (current) =>
-      beforePublishingCommand
-        ? changePublishingLine(current, "beforePublishingCommand", beforePublishingCommand.to)
-        : undefined,
-    (current) =>
-      afterPublishingCommand
-        ? changePublishingLine(current, "afterPublishingCommand", afterPublishingCommand.to)
-        : undefined,
-    ...proposed.commands.map(({ key, from, to }) => (current: Project) => {
-      if (to === null) return removeCommand(current, key);
-      return from === null ? addCommand(current, { key, ...to }) : changeCommand(current, key, to);
-    }),
-  ]);
+export type CommandEdit =
+  | { readonly kind: "add"; readonly command: ProjectCommand }
+  | { readonly kind: "change"; readonly key: string; readonly fields: ProjectCommandFields }
+  | { readonly kind: "remove"; readonly key: string }
+  | { readonly kind: "install"; readonly commandLine: string }
+  | { readonly kind: "installInputs"; readonly inputs: readonly string[] }
+  | {
+      readonly kind: "publishingLine";
+      readonly line: PublishingLine;
+      readonly commandLine: string;
+    };
+
+/** The keys of the commands the edits remove. */
+export function removedKeysOf(edits: readonly CommandEdit[]): string[] {
+  return edits.flatMap((edit) => (edit.kind === "remove" ? [edit.key] : []));
+}
+
+function commandEditChange(
+  current: Project,
+  edit: CommandEdit,
+): ProjectChange<DomainEvent> | undefined {
+  switch (edit.kind) {
+    case "add":
+      return addCommand(current, edit.command);
+    case "change":
+      return changeCommand(current, edit.key, edit.fields);
+    case "remove":
+      return removeCommand(current, edit.key);
+    case "install":
+      return changeInstallCommand(current, edit.commandLine);
+    case "installInputs":
+      return changeInstallInputs(current, edit.inputs);
+    case "publishingLine":
+      return changePublishingLine(current, edit.line, edit.commandLine);
+  }
+}
+
+/**
+ * Applies the edits in turn, all or nothing: the first one that breaks a rule refuses the whole,
+ * else every edit that changes something, each with its own event, as the Project page would save
+ * them one by one.
+ */
+export function changeCommandsBy(project: Project, edits: readonly CommandEdit[]): ProjectChanges {
+  return changesInTurn(
+    project,
+    edits.map((edit) => (current: Project) => commandEditChange(current, edit)),
+  );
+}
+
+/**
+ * Every reason the edits can't apply, each edit judged on the Project the ones before it leave, an
+ * edit that breaks a rule left out of that Project.
+ */
+export function commandEditsProblems(project: Project, edits: readonly CommandEdit[]): string[] {
+  const problems: string[] = [];
+  let current = project;
+  for (const edit of edits) {
+    try {
+      current = asProjectChanges(current, commandEditChange(current, edit)).project;
+    } catch (error) {
+      if (!(error instanceof ProjectRefused)) throw error;
+      problems.push(...error.reasons);
+    }
+  }
+  return problems;
 }
 
 /**

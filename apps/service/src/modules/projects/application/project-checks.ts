@@ -79,15 +79,6 @@ export class ProjectChecks {
     if (problems.length > 0) throw new ProjectRefused(problems);
   }
 
-  /** Refuses removing a command the Project's default Pipeline, or a Kind's, runs. */
-  async checkCommandRemoval(
-    project: Pick<Project, "id" | "defaultPipeline" | "kindDefaultPipelines">,
-    key: string,
-  ): Promise<void> {
-    const problems = await this.commandRemovalProblems(project, [key]);
-    if (problems.length > 0) throw new ProjectRefused(problems);
-  }
-
   /**
    * Why the commands can't be removed: the Project's default Pipeline, or a Kind's own default
    * Pipeline, runs one, a Project Pipeline of its own by its Stages, so each default stays

@@ -852,7 +852,7 @@ One of four named groups of authority settings: Run installs, Publish outside th
 _Avoid_: Permission flag, guard, gate (for this)
 
 **Own work**:
-For one person, the Tasks, Ideas and Initiatives they created, plus every Task whose Stages they work or have worked. Some authority settings are about own work only. See [6](docs/spec/6-permissions-and-safety.md#authority).
+For one person, the Tasks, Ideas and Initiatives they created, plus every Task whose Stages they work or have worked and every Initiative they have a shaping Thread on. Some authority settings are about own work only. See [6](docs/spec/6-permissions-and-safety.md#authority).
 _Avoid_: Their records, assigned work
 
 **Trust anchor**:

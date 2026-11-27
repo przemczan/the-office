@@ -36,6 +36,7 @@ import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import {
   inPlaces,
   recordedMessage,
+  withBriefIds,
   type CallerRequest,
   type CallerStep,
   type EventStep,
@@ -391,6 +392,8 @@ export class ScriptedSession implements EngineSession {
   private readonly marks = new Map<string, ReachedMark>();
   private readonly recordedWindows: (UsageWindows | undefined)[];
   private readonly recordedContextUsage: ContextUsage[];
+  /** The Brief the session started with, whose ids a script's `<brief:Kind>` names. */
+  private brief: string | undefined;
   private readonly played: Promise<void>;
 
   constructor(
@@ -536,6 +539,7 @@ export class ScriptedSession implements EngineSession {
     }
     if (expected.step === "start" && request.step === "start") {
       this.messageIds.set(expected.brief.id, request.brief.id);
+      this.brief = request.brief.text;
     }
     if (expected.step === "send" && request.step === "send") {
       this.messageIds.set(expected.message.id, request.message.id);
@@ -553,21 +557,22 @@ export class ScriptedSession implements EngineSession {
   private async replay(event: SessionEvent): Promise<SessionEvent[]> {
     switch (event.kind) {
       case "tool-call": {
-        const mcpTool = event.officeTool ? undefined : mcpToolOf(event.tool);
+        const call = { ...event, input: this.withBriefIds(event.input) };
+        const mcpTool = call.officeTool ? undefined : mcpToolOf(call.tool);
         if (mcpTool !== undefined) {
-          const outcome = this.mcpCall(event.tool, mcpTool, event.input);
+          const outcome = this.mcpCall(call.tool, mcpTool, call.input);
           // Awaited when the script reaches the call's result.
           outcome.catch(() => undefined);
-          this.mcpCalls.set(event.callId, outcome);
-          return [event];
+          this.mcpCalls.set(call.callId, outcome);
+          return [call];
         }
         const held = await this.options.toolHold?.();
         if (held !== undefined) {
-          this.heldCalls.set(event.callId, { tool: event.tool, reason: held });
-          return [event];
+          this.heldCalls.set(call.callId, { tool: call.tool, reason: held });
+          return [call];
         }
-        if (event.officeTool) this.runOfficeTool(event.callId, event.tool, event.input);
-        return [callAsRun(event, this.options)];
+        if (call.officeTool) this.runOfficeTool(call.callId, call.tool, call.input);
+        return [callAsRun(call, this.options)];
       }
       case "sub-agent-started":
         return [
@@ -611,6 +616,14 @@ export class ScriptedSession implements EngineSession {
         ];
       default:
         return [event];
+    }
+  }
+
+  private withBriefIds(input: unknown): unknown {
+    try {
+      return withBriefIds(input, this.brief);
+    } catch (error) {
+      throw new ScriptMismatch(`Session ${this.id}: ${(error as Error).message}`);
     }
   }
 

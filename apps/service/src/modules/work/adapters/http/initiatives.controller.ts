@@ -13,21 +13,16 @@ import {
 } from "@nestjs/common";
 import {
   archivedInitiativesQuerySchema,
-  initiativePipelineChoiceSchema,
   initiativePipelinesChangeSchema,
   initiativePlanningSchema,
-  newInitiativeTaskSchema,
   searchQuerySchema,
   type ArchivedInitiativesPage,
   type ArchivedInitiativesQuery,
   type History,
   type Initiative as InitiativeResponse,
-  type InitiativePipelineChoice,
   type InitiativePipelinesChange,
   type InitiativePlanningRequest,
-  type NewInitiativeTask,
   type SearchQuery,
-  type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
@@ -38,7 +33,6 @@ import {
   toArchivedInitiativesPageResponse,
   toHistoryResponse,
   toInitiativeResponse,
-  toTaskResponse,
 } from "./work-responses.js";
 import { initiativeResponse } from "./initiative-response.js";
 import { authorOf } from "./signed-in-author.js";
@@ -95,22 +89,6 @@ export class InitiativesController {
   }
 
   /**
-   * The user's choice of the Initiative's Pipeline in one Project it spans, null for None; refused
-   * once the Initiative is no longer being shaped, where only a Proposal of whoever shapes
-   * Initiatives changes it.
-   */
-  @Put(":id/pipeline")
-  async choosePipeline(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(initiativePipelineChoiceSchema))
-    { projectId, pipelineId }: InitiativePipelineChoice,
-  ): Promise<InitiativeResponse> {
-    return this.respond(
-      await this.initiatives.choosePipeline(id, projectId, pipelineId, "straight"),
-    );
-  }
-
-  /**
    * The user's Pipelines block saved as a whole: every Project's Pipeline and the Short name, all
    * or nothing; refused once the Initiative is no longer being shaped.
    */
@@ -160,20 +138,6 @@ export class InitiativesController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<InitiativeResponse> {
     return this.respond(await this.planning.planWith(id, authorOf(signedIn)));
-  }
-
-  /**
-   * A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it
-   * names.
-   */
-  @Post(":id/tasks")
-  async addTask(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(newInitiativeTaskSchema)) { blockedBy, ...given }: NewInitiativeTask,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    const task = await this.initiatives.addTask(id, given, blockedBy, authorOf(signedIn));
-    return toTaskResponse(task, (await this.initiatives.read(id)).engineOverride);
   }
 
   private async respond(initiative: Initiative): Promise<InitiativeResponse> {

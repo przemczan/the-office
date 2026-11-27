@@ -85,7 +85,15 @@ export class RoleOfficeTools implements OnModuleInit {
         isError: false,
       };
     }
-    await this.roles.reword(roleKey, words, outcome.roleKey);
+    // The Role card's own save, with the card as it is now and these words: refused where it is.
+    const { role: current, skills } = await this.roles.read(roleKey);
+    await this.roles.changeCard(
+      roleKey,
+      { ...current.card, ...words },
+      skills,
+      null,
+      outcome.roleKey,
+    );
     return {
       text: `Changed: ${role.card.name}'s next sessions read the new words.`,
       isError: false,

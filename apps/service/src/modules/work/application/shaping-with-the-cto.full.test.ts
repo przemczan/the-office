@@ -1,3 +1,4 @@
+import { ADD_TASK_ACTION, WRITE_INITIATIVE_OUTCOME_ACTION } from "@the-office/contracts";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -71,7 +72,6 @@ import {
   ProjectFeaturesForTests,
   UsageHistoryForTests,
 } from "../ports/work-ports.fixtures.js";
-import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
 import { WorkModule } from "../work.module.js";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import { IdeaService } from "./idea-service.js";
@@ -80,6 +80,17 @@ import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE } from "../domain/work.fixtures.js";
 import { ANN_LEE as ANN_LEE_USER } from "../../conversations/index.fixtures.js";
 import { ConversationsThreadTurns } from "../adapters/conversations/conversations-thread-turns.js";
+
+/** The Initiative the CTO shapes, which the scripted calls name once it is known. */
+let shapedInitiativeId = "";
+
+/** A scripted call's input that names the Initiative as it stands when the call is made. */
+function onTheShapedInitiative(input: Record<string, unknown>): Record<string, unknown> {
+  return Object.defineProperty({ ...input }, "initiativeId", {
+    enumerable: true,
+    get: () => shapedInitiativeId,
+  });
+}
 
 /** The Role holding Shapes Initiatives by default. */
 const CTO = "cto";
@@ -102,8 +113,11 @@ const CTO_ROLE: SessionRole = sessionRole(
     engineSettings: { "claude-code": { model: null, effort: "low" } },
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
-    // The CTO preset's, but Change Project settings Never.
-    authority: { changeProjectSettings: { kind: "never" } },
+    // The CTO preset's, but Change Project settings Never and its Initiative records Allowed.
+    authority: {
+      changeProjectSettings: { kind: "never" },
+      initiativeRecords: { kind: "allowed" },
+    },
     taskLimit: 2,
     sessionDefault: "context-policy",
   },
@@ -436,15 +450,27 @@ describe("shaping an Initiative with the CTO", () => {
     await startWith([
       { step: "start", brief: { id: "brief", text: "" } },
       ...turn("brief", [
-        [WRITE_OUTCOME, { outcome: "Writes made offline reach the server." }],
-        [ADD_TASK, { title: "Queue writes", projectId: PROJECT }],
+        [
+          WRITE_INITIATIVE_OUTCOME_ACTION.name,
+          onTheShapedInitiative({ outcome: "Writes made offline reach the server." }),
+        ],
+        [
+          ADD_TASK_ACTION.name,
+          onTheShapedInitiative({ title: "Queue writes", projectId: PROJECT }),
+        ],
       ]),
       { step: "send", message: { id: "after-confirm", text: "" }, priority: "later" },
-      ...turn("after-confirm", [[WRITE_OUTCOME, { outcome: "Writes made offline sync." }]]),
+      ...turn("after-confirm", [
+        [
+          WRITE_INITIATIVE_OUTCOME_ACTION.name,
+          onTheShapedInitiative({ outcome: "Writes made offline sync." }),
+        ],
+      ]),
     ]);
     const initiatives = app.get(InitiativeService);
 
     const shaped = await shapeAnIdea();
+    shapedInitiativeId = shaped.id;
     const threadId = await shapingThreadOnceAnswered(shaped.id, 1);
 
     const whileShaping = await initiatives.read(shaped.id);
@@ -469,9 +495,9 @@ describe("shaping an Initiative with the CTO", () => {
     expect(proposal).toMatchObject({
       draftedBy: CTO,
       change: {
-        kind: "initiative",
-        initiativeId: shaped.id,
-        edit: { kind: "outcome", outcome: "Writes made offline sync." },
+        kind: "office-action",
+        action: WRITE_INITIATIVE_OUTCOME_ACTION.name,
+        input: { initiativeId: shaped.id, outcome: "Writes made offline sync." },
       },
       status: { kind: "open" },
     });

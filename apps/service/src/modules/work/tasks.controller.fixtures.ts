@@ -149,15 +149,17 @@ export function tasksHttp(current: () => TasksHttpTest) {
     const task = await create();
     await plan(task.id);
     const planning = work().app.get(PlanningService);
-    await planning.proposePlan(
+    await planning.writePlan(
       task.id,
       { plan: "Keep the requested path through the sign-in." },
       THE_PLANNER,
+      {},
     );
-    await planning.proposeDefinitionOfDone(
+    await planning.writeDefinitionOfDone(
       task.id,
       ["Signing in returns to the page asked for."],
       THE_PLANNER,
+      {},
     );
     await planning.proposePipeline(
       task.id,

@@ -17,7 +17,6 @@ import {
   type ArchiveSearch,
 } from "../domain/initiative-archive.js";
 import {
-  addShaperTask,
   addDependencyOfItsTask,
   addTaskToInitiative,
   blockingItsPublishingTask,
@@ -47,7 +46,6 @@ import {
 } from "../domain/initiative-edit.js";
 import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
-import { InitiativeNotShaping } from "../domain/initiative-not-shaping.js";
 import {
   initiativePipelineChangeProblems,
   startedPublishingTask,
@@ -96,7 +94,6 @@ import { KnownPipelines } from "../ports/known-pipelines.js";
 import { taskPipelineProblems } from "../domain/pipeline-commands.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
-import { ProposalDrafts } from "../ports/proposal-drafts.js";
 import { RecordEdits } from "../ports/record-edits.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
@@ -115,13 +112,6 @@ function requiredProject(
   if (!project) throw new Error(`The Project ${projectId} to publish in wasn't read first.`);
   return project;
 }
-
-/**
- * A change by whoever shapes Initiatives as written straight onto the Initiative, or drafted as a
- * Proposal.
- */
-export type ShaperChange =
-  { readonly kind: "written"; readonly edit: InitiativeEdit } | { readonly kind: "proposed" };
 
 /** One Project's Pipeline as the user's Pipelines block saves it, null for None. */
 export interface PipelinesBlockChoice {
@@ -170,7 +160,6 @@ export class InitiativeService implements OnModuleInit {
     private readonly stageEdits: TaskStageEdits,
     private readonly people: KnownPeople,
     private readonly threads: InitiativeThreads,
-    private readonly proposals: ProposalDrafts,
     private readonly search: WorkSearch,
     private readonly events: EventBus,
     private readonly promptTemplates: PromptTemplates,
@@ -681,24 +670,7 @@ export class InitiativeService implements OnModuleInit {
     blockedBy: readonly string[],
     createdBy: Author,
   ): Promise<Task> {
-    return this.createTask(id, given, createdBy, addTaskToInitiative, blockedBy);
-  }
-
-  /** A new Task by whoever shapes Initiatives, as `addTask`, by the route the change takes. */
-  private async addShaperTask(
-    id: string,
-    given: NewTask,
-    blockedBy: readonly string[],
-    createdBy: Author,
-    route: InitiativeChangeRoute,
-  ): Promise<Task> {
-    return this.createTask(
-      id,
-      given,
-      createdBy,
-      (initiative, ...made) => addShaperTask(initiative, route, ...made),
-      blockedBy,
-    );
+    return this.createTask(id, given, createdBy, blockedBy);
   }
 
   /** Whoever shapes Initiatives makes one of its Tasks wait for `blockerId`, any Task anywhere. */
@@ -751,29 +723,6 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * A change by whoever shapes Initiatives (spec §2.1 Defaults): straight onto the Initiative while
-   * it is being shaped; once it is active, drafted as a Proposal in the Thread of `sessionId` for
-   * the user to apply, refused with every reason applying it would be.
-   */
-  async changeByShaper(
-    id: string,
-    edit: InitiativeEdit,
-    shaper: Author,
-    sessionId: string,
-  ): Promise<ShaperChange> {
-    try {
-      return { kind: "written", edit: await this.applyEdit(id, edit, shaper, "straight") };
-    } catch (error) {
-      if (!(error instanceof InitiativeNotShaping && error.state === "active")) throw error;
-    }
-    // Judged again here, outside the hold, as the Proposal's applier judges it while it is drafted.
-    const problems = await this.problemsWithProposal(id, edit);
-    if (problems.length > 0) throw new InitiativeRefused(problems);
-    await this.proposals.draft(sessionId, { kind: "initiative", initiativeId: id, edit });
-    return { kind: "proposed" };
-  }
-
-  /**
    * Carries out a Proposal of whoever shapes Initiatives the user `appliedBy` applied, as proposed
    * by `proposedBy`, and answers the edit as applied: a new Task with its id, created by
    * `proposedBy`. Its edits are kept as `appliedBy`'s, the person who proposed them when no user is
@@ -801,7 +750,7 @@ export class InitiativeService implements OnModuleInit {
         await this.writeOutcome(id, edit.outcome, route, editedBy);
         return edit;
       case "add-task": {
-        const task = await this.addShaperTask(id, newTaskOf(edit), edit.blockedBy, shaper, route);
+        const task = await this.addTask(id, newTaskOf(edit), edit.blockedBy, shaper);
         return { ...edit, taskId: task.id };
       }
       case "add-dependency":
@@ -848,7 +797,6 @@ export class InitiativeService implements OnModuleInit {
     id: string,
     given: NewTask,
     createdBy: Author,
-    create: typeof addTaskToInitiative,
     blockedBy: readonly string[],
   ): Promise<Task> {
     if (!(await this.projects.find(given.projectId))) {
@@ -863,7 +811,7 @@ export class InitiativeService implements OnModuleInit {
       (initiative, takenOrders, tasks) =>
         blockingItsPublishingTask(
           createdWaitingFor(
-            create(
+            addTaskToInitiative(
               initiative,
               randomUUID(),
               given,

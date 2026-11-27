@@ -5,7 +5,9 @@ import type { RoleCards } from "../../../people/index.js";
 import {
   ProjectRefused,
   RunEnvironmentSwitchRegistry,
+  commandEditsProblems,
   type Action,
+  type CommandEdit,
   type ProjectActions,
   type ProjectService,
   type SettingChangedBy,
@@ -132,8 +134,10 @@ export function toolsWith(
   const projects = {
     find: (id: string) => Promise.resolve(id === project.id ? project : undefined),
     read: () => Promise.resolve(project),
-    proposedCommandsProblems: () => Promise.resolve([]),
-    changeCommandsAsProposed: record("changeCommandsAsProposed"),
+    // The rules of the edits are the domain's, which ProjectService judges them by.
+    commandEditsProblems: (_id: string, edits: readonly CommandEdit[]) =>
+      Promise.resolve(commandEditsProblems(project, edits)),
+    changeCommands: record("changeCommands"),
     changeEnvironment: record("changeEnvironment"),
   } as unknown as ProjectService;
   const testTargets = {

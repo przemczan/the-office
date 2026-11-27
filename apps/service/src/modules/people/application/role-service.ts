@@ -39,7 +39,6 @@ import {
   roleCardProblems,
   trimmedRoleCard,
   type IncomingRoleCard,
-  type RoleCard,
   type RoleCardContext,
 } from "../domain/role-card.js";
 import {
@@ -323,15 +322,16 @@ export class RoleService {
   /**
    * Saves the card as its next version and gives the Role exactly `skills`, refusing with every
    * reason before saving either. The user `savedBy` wrote the card, or applied a Proposal of it by
-   * the person `proposedBy`. Sessions started from now on get both; running ones keep theirs. Held under
-   * Engine's `EngineReferenceLock` from reading the engines through the save, as the card's Role
-   * override names one.
+   * the person `proposedBy`; `savedBy` is null when that person changed it on their own. Sessions
+   * started from now on get both; running ones keep theirs. Held under Engine's
+   * `EngineReferenceLock` from reading the engines through the save, as the card's Role override
+   * names one.
    */
   async changeCard(
     key: string,
     edit: IncomingRoleCard,
     skills: readonly string[],
-    savedBy: UserRef,
+    savedBy: UserRef | null,
     proposedBy?: string,
   ): Promise<RoleWithAssignments> {
     const saved = await this.engineReferences.holding(() =>
@@ -418,27 +418,6 @@ export class RoleService {
       consultable: consultableRoleKeys(roles.map((role) => role.key)),
       mcpConsultant,
     };
-  }
-
-  /**
-   * Saves the card with these words changed and nothing else, as `changeCard` does, as the person
-   * filling `proposedBy` changed it on their own: no user saved it. The card is read under the same hold as the save, so a
-   * removal can't move its Role override in between.
-   */
-  async reword(
-    key: string,
-    words: Partial<Pick<RoleCard, "responsibilities" | "instructions">>,
-    proposedBy: string,
-  ): Promise<RoleWithAssignments> {
-    const { saved, skills } = await this.engineReferences.holding(async () => {
-      const current = await this.read(key);
-      const edit = { ...current.role.card, ...words };
-      return {
-        saved: await this.savedCard(key, edit, current.skills, null, proposedBy),
-        skills: current.skills,
-      };
-    });
-    return this.announcedWithSkills(saved, skills, null);
   }
 
   /**

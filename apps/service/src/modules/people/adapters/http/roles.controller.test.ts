@@ -785,9 +785,18 @@ describe("GET /api/roles/:key/changes", () => {
     }
   });
 
-  it("names the person who reworded the Role, as a Proposal's change does, and no user", async () => {
+  it("names the person who changed the Role on their own, as a Proposal's change does, and no user", async () => {
     await hire("developer", "Ada");
-    await app.get(RoleService).reword("developer", { instructions: "Test first." }, "planner");
+    const { role, skills } = await app.get(RoleService).read("developer");
+    await app
+      .get(RoleService)
+      .changeCard(
+        "developer",
+        { ...role.card, instructions: "Test first." },
+        skills,
+        null,
+        "planner",
+      );
 
     const [latest] = roleChangeListSchema.parse(await get("/roles/developer/changes"));
 

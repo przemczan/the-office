@@ -491,7 +491,7 @@ describe("planning with whoever holds Plans", () => {
 
     await work.app
       .get(PlanningService)
-      .proposePlan(task.id, { plan: "The lead's Plan." }, byTheLead);
+      .writePlan(task.id, { plan: "The lead's Plan." }, byTheLead, {});
 
     expect((await readTask(task.id)).state).toBe("planning");
     const changes = await work.app.get(TaskRepository).stateChangesOf(task.id);

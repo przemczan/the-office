@@ -57,21 +57,20 @@ describe("its install and commands", () => {
 
     expect(changes).toEqual([
       {
-        method: "changeCommandsAsProposed",
+        method: "changeCommands",
         args: [
           "shop",
-          expect.objectContaining({
-            installCommand: { from: "npm ci", to: "npm install" },
-            installInputs: { from: ["package-lock.json"], to: [".nvmrc"] },
-            commands: [
-              expect.objectContaining({ key: "e2e", from: null }),
-              expect.objectContaining({
-                key: "test",
-                to: expect.objectContaining({ name: "Unit" }),
-              }),
-              expect.objectContaining({ key: "build", to: null }),
-            ],
-          }),
+          [
+            { kind: "install", commandLine: "npm install" },
+            { kind: "installInputs", inputs: [".nvmrc"] },
+            { kind: "add", command: TEST_E2E },
+            {
+              kind: "change",
+              key: "test",
+              fields: expect.objectContaining({ name: "Unit" }),
+            },
+            { kind: "remove", key: "build" },
+          ],
           BY_NINA,
         ],
       },
@@ -105,7 +104,7 @@ describe("its install and commands", () => {
     });
 
     expect(result).toEqual({
-      text: 'The Project has a test command already: give it under change. The Project has no command with the key "e2e".',
+      text: 'The Project already has a command with the key "test". The Project has no command with the key "e2e".',
       isError: true,
     });
   });

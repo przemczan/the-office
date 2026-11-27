@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addShaperTask,
+  requireShaperTaskAllowed,
   addDependencyOfItsTask,
   changeDescriptionOfItsTask,
   changeTitleOfItsTask,
@@ -372,7 +372,6 @@ describe("writeOutcome", () => {
 });
 
 describe("the CTO's Tasks and their dependencies", () => {
-  const setting = { order: "a3", createdBy: ANN_LEE };
   const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
   const blocker = aTask({ id: "blocker", projectId: "web" });
   const its = aTask({ id: "its", initiativeId: "initiative-1" });
@@ -380,9 +379,6 @@ describe("the CTO's Tasks and their dependencies", () => {
   it("adds a Task and changes its Tasks' dependencies, the blocker anywhere", () => {
     const initiative = anInitiative();
 
-    expect(addShaperTask(initiative, "straight", "task-9", given, setting, at).task).toMatchObject({
-      initiativeId: "initiative-1",
-    });
     const added = addDependencyOfItsTask(initiative, "straight", its, "blocker", [its, blocker]);
     expect(added?.task.blockedBy).toEqual(["blocker"]);
     const removed = removeDependencyOfItsTask(
@@ -402,7 +398,6 @@ describe("the CTO's Tasks and their dependencies", () => {
       "its Tasks and their dependencies change straight onto it",
     );
 
-    expect(() => addShaperTask(active, "straight", "task-9", given, setting, at)).toThrow(refusal);
     expect(() =>
       addDependencyOfItsTask(active, "straight", its, "blocker", [its, blocker]),
     ).toThrow(refusal);
@@ -414,9 +409,6 @@ describe("the CTO's Tasks and their dependencies", () => {
   it("makes each one by Proposal once it is active", () => {
     const active = anInitiative({ state: "active" });
 
-    expect(addShaperTask(active, "by-proposal", "task-9", given, setting, at).task.id).toBe(
-      "task-9",
-    );
     const added = addDependencyOfItsTask(active, "by-proposal", its, "blocker", [its, blocker]);
     expect(added?.task.blockedBy).toEqual(["blocker"]);
   });
@@ -424,9 +416,9 @@ describe("the CTO's Tasks and their dependencies", () => {
   it("judges what is asked before the state: a wrong or empty change is never a Proposal", () => {
     const active = anInitiative({ state: "active" });
 
-    expect(() =>
-      addShaperTask(active, "straight", "task-9", { ...given, title: " " }, setting, at),
-    ).toThrow(TaskRefused);
+    expect(() => requireShaperTaskAllowed(active, "straight", { ...given, title: " " })).toThrow(
+      TaskRefused,
+    );
     expect(() => addDependencyOfItsTask(active, "straight", its, "its", [its])).toThrow(
       TaskRefused,
     );

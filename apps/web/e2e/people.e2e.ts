@@ -6336,12 +6336,12 @@ test(
       await expect(page.getByRole("button", { name: "Confirm the Initiative" })).toHaveCount(0);
       await expect(outcome.getByRole("button", { name: "Edit" })).toHaveCount(0);
 
-      // Once it is active, Bob's change is a Proposal the user applies.
+      // Once it is active, Bob's change is an Office action Proposal the user applies.
       const message = conversation.getByRole("textbox", { name: "Message" });
       await message.fill("The API should export it too");
       await message.press("Enter");
       const proposal = conversation.getByRole("region", {
-        name: "Proposal: New outcome for the Initiative",
+        name: "Proposal: Write an Initiative's outcome",
       });
       await expect(proposal).toContainText(PROPOSED_OUTCOME);
       await proposal.getByRole("button", { name: "Apply change" }).click();
@@ -7168,7 +7168,8 @@ test(
       await markReady.click();
       await expect(page.getByText(`${title} is Ready. Starting it is your call.`)).toBeVisible();
 
-      // Straight from Backlog to Ready, created by Jan's Role: no Planning, no planning Thread.
+      // Straight from Backlog to Ready, created by Jan's Role at the user's asking: no Planning, no
+      // planning Thread.
       const stateChanges = await queryOfficeDatabase(
         "SELECT from_state, to_state, changed_by FROM task_state_changes WHERE task_id = $1 ORDER BY id",
         [task.id],
@@ -7177,7 +7178,11 @@ test(
         {
           from_state: null,
           to_state: "backlog",
-          changed_by: { kind: "person", roleKey: "planner" },
+          changed_by: {
+            kind: "person",
+            roleKey: "planner",
+            askedBy: { name: E2E_USER.name, userId: expect.any(String) },
+          },
         },
         {
           from_state: "backlog",

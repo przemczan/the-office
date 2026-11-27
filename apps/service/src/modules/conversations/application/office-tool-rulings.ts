@@ -14,7 +14,12 @@ import {
 } from "../../people/index.js";
 import { dutyActionTools } from "../domain/duty-action-tools.js";
 import type { Thread } from "../domain/thread.js";
-import { officeToolCallWords, toolRuling, valueOnSubject } from "../domain/office-tool-ruling.js";
+import {
+  atLeastProposal,
+  officeToolCallWords,
+  toolRuling,
+  valueOnSubject,
+} from "../domain/office-tool-ruling.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ApprovalHolds } from "./approval-holds.js";
@@ -76,7 +81,9 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
     const ownWork =
       setting.kind === "own-and-others" && (await this.work.isOwnWork(thread.roleKey, subject));
     const dutyHolder = dutyActionTools(await this.duties.heldBy(thread.roleKey)).has(name);
-    const ruling = toolRuling(valueOnSubject(setting, ownWork), dutyHolder);
+    const value = valueOnSubject(setting, ownWork);
+    const floored = (await authority.floor?.(input)) === "proposal";
+    const ruling = toolRuling(floored ? atLeastProposal(value) : value, dutyHolder);
     if (ruling.kind === "never") return { kind: "never" };
     // Asked at every outcome but Never, so a repeat after Allow once meets the state of its own time.
     const refused = await authority.check?.(input, call);

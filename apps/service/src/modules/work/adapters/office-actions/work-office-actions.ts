@@ -30,7 +30,9 @@ import {
   STOP_TASK_ACTION,
   TAKE_OUT_OF_QUEUE_ACTION,
   ADD_DEPENDENCY_ACTION,
+  ADD_TASK_ACTION,
   ADD_TO_INITIATIVE_ACTION,
+  CHOOSE_PIPELINE_ACTION,
   ATTACH_LINK_ACTION,
   WRITE_COMMIT_MESSAGE_ACTION,
   ARCHIVE_INITIATIVE_ACTION,
@@ -79,6 +81,8 @@ import type { Attachment } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
+import { changeRouteOf } from "../../domain/initiative-changes.js";
+import { pipelineIn } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
 import { TASK_KIND_NAMES } from "../../domain/task-kind-words.js";
 import { confirmationWords } from "../../domain/written-parts.js";
@@ -101,6 +105,17 @@ import {
 import { attachedWords } from "../office-tools/attachment-office-tools.js";
 import { WorkSubjectSnapshots } from "./work-subject-snapshots.js";
 import { answered, personInSession } from "../office-tools/work-tool-answers.js";
+
+/** The actions that shape an Initiative, named by its id, and those that shape one of its Tasks. */
+const SHAPING_ACTIONS: ReadonlySet<string> = new Set([
+  ADD_TASK_ACTION.name,
+  CHOOSE_PIPELINE_ACTION.name,
+  WRITE_INITIATIVE_OUTCOME_ACTION.name,
+]);
+const TASK_SHAPING_ACTIONS: ReadonlySet<string> = new Set([
+  CHANGE_TASK_TITLE_ACTION.name,
+  CHANGE_TASK_DESCRIPTION_ACTION.name,
+]);
 
 /**
  * One of Work's Office actions as Work carries it out: `handle` for the user's request and the
@@ -156,6 +171,8 @@ export class WorkOfficeActions implements OnModuleInit {
         this.addDependency(),
         this.removeDependency(),
         this.addToInitiative(),
+        this.addTask(),
+        this.choosePipeline(),
         this.takeOutOfInitiative(),
         this.changeTaskTitle(),
         this.changeTaskDescription(),
@@ -228,6 +245,7 @@ export class WorkOfficeActions implements OnModuleInit {
               return each.words(result, input);
             }),
           {
+            floor: (input) => this.floorOf(each.action.name, input),
             draft: async (input) =>
               officeActionDraft(
                 each.action,
@@ -242,6 +260,24 @@ export class WorkOfficeActions implements OnModuleInit {
         ),
       );
     }
+  }
+
+  /**
+   * Whether a person's call is ruled no more freely than Proposal (spec 2.1.4: once an Initiative
+   * is active, each change to it is a Proposal): a shaping call on an active Initiative, or on a
+   * Task of one.
+   */
+  private async floorOf(name: string, input: unknown): Promise<"proposal" | undefined> {
+    const initiativeId = await this.shapedInitiativeOf(name, input);
+    if (initiativeId === undefined) return undefined;
+    return (await this.initiatives.read(initiativeId)).state === "active" ? "proposal" : undefined;
+  }
+
+  private async shapedInitiativeOf(name: string, input: unknown): Promise<string | undefined> {
+    const { initiativeId, taskId } = input as { initiativeId?: string; taskId?: string };
+    if (SHAPING_ACTIONS.has(name)) return initiativeId;
+    if (!TASK_SHAPING_ACTIONS.has(name) || taskId === undefined) return undefined;
+    return (await this.tasks.read(taskId)).initiativeId;
   }
 
   /** The route's answer to the action, carried out for the signed-in user `by`. */
@@ -537,6 +573,37 @@ export class WorkOfficeActions implements OnModuleInit {
     });
   }
 
+  /** The user's new Task, or a person's whose Initiative is shaping or the user applied. */
+  private addTask(): AnyWorkActionHandler {
+    return handler({
+      action: ADD_TASK_ACTION,
+      handle: ({ initiativeId, blockedBy, ...given }, by) =>
+        this.initiatives.addTask(initiativeId, given, blockedBy, by),
+      response: (task: Task) => this.responses.task(task),
+      words: async (task) =>
+        `Added the Task "${task.title}" (Task ${task.id}) in ${TASK_STATE_NAMES[task.state]} in ${task.projectId}${await this.waitingWords(task)}, on the Initiative's page.`,
+    });
+  }
+
+  private async waitingWords(task: Task): Promise<string> {
+    if (task.blockedBy.length === 0) return "";
+    const blockers = await this.tasks.findAll([...task.blockedBy]);
+    return `, waiting for ${blockers.map(({ title }) => `"${title}"`).join(" and ")}`;
+  }
+
+  private choosePipeline(): AnyWorkActionHandler {
+    return handler({
+      action: CHOOSE_PIPELINE_ACTION,
+      handle: ({ initiativeId, projectId, pipelineId }, by) =>
+        this.initiatives.choosePipeline(initiativeId, projectId, pipelineId, changeRouteOf(by)),
+      response: (initiative: Initiative) => initiativeResponse(this.initiatives, initiative),
+      words: async (initiative, { projectId }) =>
+        pipelineIn(initiative, projectId) === undefined
+          ? `The Initiative's Pipeline in ${projectId} is None, on its page: each of its Tasks there publishes on its own.`
+          : `In ${projectId} the Initiative follows ${pipelineIn(initiative, projectId)} now${initiative.shortName ? `; its Short name is ${initiative.shortName}` : ""}.`,
+    });
+  }
+
   private async initiativeName(id: string): Promise<string> {
     return (await this.initiatives.read(id)).name;
   }
@@ -588,7 +655,7 @@ export class WorkOfficeActions implements OnModuleInit {
   private changeTaskPlan(): AnyWorkActionHandler {
     return handler({
       action: CHANGE_TASK_PLAN_ACTION,
-      handle: (writing, by) => this.planning.savePlan(writing.taskId, writing, by),
+      handle: (writing, by) => this.planning.writePlan(writing.taskId, writing, by),
       response: (task: Task) => this.responses.task(task),
       words: async (task) =>
         `"${task.title}" has the Plan as given now, ${confirmationWords(task.planConfirmed)}, ${stateWords(task)}.`,
@@ -600,7 +667,7 @@ export class WorkOfficeActions implements OnModuleInit {
     return handler({
       action: CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
       handle: ({ taskId, definitionOfDone }, by) =>
-        this.planning.saveDefinitionOfDone(taskId, definitionOfDone, by),
+        this.planning.writeDefinitionOfDone(taskId, definitionOfDone, by),
       response: (task: Task) => this.responses.task(task),
       words: async (task) =>
         `"${task.title}" has the Definition of Done as given now, ${confirmationWords(task.definitionOfDoneConfirmed)}, ${stateWords(task)}.`,
@@ -710,7 +777,7 @@ export class WorkOfficeActions implements OnModuleInit {
     return handler({
       action: WRITE_INITIATIVE_OUTCOME_ACTION,
       handle: ({ initiativeId, outcome }, by) =>
-        this.initiatives.writeOutcome(initiativeId, outcome, "straight", by),
+        this.initiatives.writeOutcome(initiativeId, outcome, changeRouteOf(by), by),
       response: (initiative: Initiative) => initiativeResponse(this.initiatives, initiative),
       words: async (initiative) =>
         `The Initiative "${initiative.name}" has the outcome as given now.`,

@@ -729,19 +729,33 @@ export class TaskThreadsForTests extends TaskThreads {
 
 /**
  * Keeps each Thread opened on an Initiative, without a session: those started at once in `opened`,
- * those waiting for the user in `waiting`; and each asked again. Or fails, once `failure` is set.
+ * those waiting for the user in `waiting`, either by id in `byId`; and each asked again. Or fails,
+ * once `failure` is set.
  */
 @Injectable()
 export class InitiativeThreadsForTests extends InitiativeThreads {
   readonly opened: InitiativeThreadOpening[] = [];
   readonly waiting: InitiativeThreadWaiting[] = [];
+  readonly byId = new Map<string, InitiativeThreadWaiting>();
   readonly askedAgain: AskedAgain[] = [];
   failure: Error | undefined;
 
   async openOnInitiative(waiting: InitiativeThreadWaiting): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;
     this.waiting.push(waiting);
-    return { id: waiting.threadId ?? crypto.randomUUID() };
+    return this.kept(waiting);
+  }
+
+  async idsOnInitiativeWith(initiativeId: string, roleKey: string): Promise<readonly string[]> {
+    return [...this.byId]
+      .filter(([, thread]) => thread.initiativeId === initiativeId && thread.roleKey === roleKey)
+      .map(([id]) => id);
+  }
+
+  private kept(thread: InitiativeThreadWaiting): { readonly id: string } {
+    const id = thread.threadId ?? crypto.randomUUID();
+    this.byId.set(id, thread);
+    return { id };
   }
 
   async askAgain(threadId: string, opening: string): Promise<{ readonly id: string }> {
@@ -753,7 +767,7 @@ export class InitiativeThreadsForTests extends InitiativeThreads {
   async startOnInitiative(opening: InitiativeThreadOpening): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;
     this.opened.push(opening);
-    return { id: opening.threadId ?? crypto.randomUUID() };
+    return this.kept(opening);
   }
 }
 

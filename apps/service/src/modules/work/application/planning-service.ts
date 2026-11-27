@@ -15,11 +15,9 @@ import {
   confirmPlan,
   markingPlannedProblems,
   markPlanned,
-  proposeDefinitionOfDone,
   proposePipeline,
-  proposePlan,
-  saveDefinitionOfDone,
-  savePlan,
+  writeDefinitionOfDone,
+  writePlan,
 } from "../domain/planning-changes.js";
 import type { PlanWriting } from "../domain/written-parts.js";
 import { PUBLISHING_TASK_NEVER_PLANNED } from "../domain/publishing-task.js";
@@ -65,6 +63,15 @@ import { pipelineChoiceProblems, TaskEngineChecks } from "./task-engine-checks.j
  * the user confirms them and marks the Task Ready. Planning is optional: the user may save and
  * confirm both parts in Backlog and mark the Task Ready from there.
  */
+
+/**
+ * The planning Thread the Planner writes a part from. Writing from one adds that Thread's own
+ * rules to the write's: Planning or Ready only, no longer marked planned, and `rewriteFrom`, an
+ * Initiative's planning Thread, rewrites an already planned Task from there.
+ */
+export interface PlanningThread {
+  readonly rewriteFrom?: SessionInitiativeThread;
+}
 
 /** A part the user saved, or the Planner wrote; either may take a Ready Task out of Ready. */
 type Saved = TaskPlanSaved | TaskDefinitionOfDoneSaved;
@@ -246,24 +253,18 @@ export class PlanningService {
   }
 
   /**
-   * The Planner's Plan. `rewriteFrom`, the Initiative's planning Thread, rewrites an already
-   * planned Task from there, as `rewriteInInitiative` does; so do the other parts' proposals.
+   * A write of the Plan, by the user's save or the Planner's tool, with the same refusals: unconfirmed
+   * once changed, and a Ready Task goes back to Planning, or to Backlog when it has no planning
+   * Thread. `from`, the planning Thread the Planner writes from, adds only that Thread's own rules
+   * (`writePart`, `rewriteInInitiative`).
    */
-  async proposePlan(
+  async writePlan(
     taskId: string,
     writing: PlanWriting,
     by: Author,
-    rewriteFrom?: SessionInitiativeThread,
+    from?: PlanningThread,
   ): Promise<Task> {
-    return this.write(taskId, by, rewriteFrom, (task) => proposePlan(task, writing, by));
-  }
-
-  /**
-   * The user's Plan: unconfirmed once changed, and a Ready Task goes back to Planning, or to
-   * Backlog when it has no planning Thread.
-   */
-  async savePlan(taskId: string, writing: PlanWriting, by: Author): Promise<Task> {
-    return this.save(taskId, (task) => savePlan(task, writing, by));
+    return this.write(taskId, by, from, (task) => writePlan(task, writing, by, from !== undefined));
   }
 
   /** The Plan, confirmed as it reads. */
@@ -271,24 +272,16 @@ export class PlanningService {
     return this.update(taskId, confirmPlan);
   }
 
-  async proposeDefinitionOfDone(
+  /** A write of the Definition of Done, under the Plan's rules (`writePlan`). */
+  async writeDefinitionOfDone(
     taskId: string,
     statements: readonly string[],
     by: Author,
-    rewriteFrom?: SessionInitiativeThread,
+    from?: PlanningThread,
   ): Promise<Task> {
-    return this.write(taskId, by, rewriteFrom, (task) =>
-      proposeDefinitionOfDone(task, statements, by),
+    return this.write(taskId, by, from, (task) =>
+      writeDefinitionOfDone(task, statements, by, from !== undefined),
     );
-  }
-
-  /** The user's Definition of Done, under the Plan's rules. */
-  async saveDefinitionOfDone(
-    taskId: string,
-    statements: readonly string[],
-    by: Author,
-  ): Promise<Task> {
-    return this.save(taskId, (task) => saveDefinitionOfDone(task, statements, by));
   }
 
   /** The Definition of Done, confirmed as it reads. */
@@ -296,14 +289,15 @@ export class PlanningService {
     return this.update(taskId, confirmDefinitionOfDone);
   }
 
+  /** The Planner's Pipeline proposal, from a planning Thread; refused as the user's choice is. */
   async proposePipeline(
     taskId: string,
     proposal: ProposedPipeline,
     by: Author,
-    rewriteFrom?: SessionInitiativeThread,
+    from: PlanningThread = {},
   ): Promise<Task> {
     await this.refusePipelineFor(await this.read(taskId), proposal.pipelineId);
-    return this.write(taskId, by, rewriteFrom, (task) => proposePipeline(task, proposal, by));
+    return this.write(taskId, by, from, (task) => proposePipeline(task, proposal, by));
   }
 
   /**
@@ -360,17 +354,17 @@ export class PlanningService {
   }
 
   /**
-   * The Planner's write of a part: onto a Task in Planning or Ready, which goes back to Planning,
-   * or, from the Initiative's planning Thread, rewriting an already planned one in the same save,
-   * then publishing the part's event and the moves it made, so the queue lets go of a Task that
-   * left Ready.
+   * A write of a part: onto the Task as `save` does, or, from an Initiative's planning Thread,
+   * rewriting an already planned one in the same save, then publishing the part's event and the
+   * moves it made, so the queue lets go of a Task that left Ready.
    */
-  private async write<Event extends Proposed>(
+  private async write<Event extends Saved | Proposed>(
     taskId: string,
     by: Author,
-    rewriteFrom: SessionInitiativeThread | undefined,
+    from: PlanningThread | undefined,
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<Task> {
+    const rewriteFrom = from?.rewriteFrom;
     if (!rewriteFrom) return this.save(taskId, change);
     const { task, event } = await this.initiatives.changeTask(
       rewriteFrom.initiativeId,

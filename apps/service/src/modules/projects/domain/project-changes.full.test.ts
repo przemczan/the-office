@@ -4,7 +4,9 @@ import {
   addCommand,
   addProject,
   changeCommand,
-  changeCommandsAsProposed,
+  changeCommandsBy,
+  commandEditsProblems,
+  type CommandEdit,
   changeInstallCommand,
   changeDefaultPipeline,
   changeEnvironment,
@@ -42,7 +44,6 @@ import { aNewProject, aProject, startingCommands } from "./project.fixtures.js";
 import type { ProjectEngine } from "./project.js";
 import type { EngineTypeOffers } from "../../engine/index.js";
 import { ProjectRefused } from "./project-refused.js";
-import type { ProposedCommands } from "./proposed-commands.js";
 
 const addedAt = new Date("2026-10-25T10:00:00.000Z");
 
@@ -237,31 +238,30 @@ describe("removeCommand", () => {
   });
 });
 
-describe("changeCommandsAsProposed", () => {
-  const proposed: ProposedCommands = {
-    installCommand: { from: "npm ci", to: "npm install" },
-    installInputs: { from: ["package-lock.json"], to: ["package-lock.json", ".nvmrc"] },
-    commands: [
-      {
-        key: "test",
-        from: { name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" },
-        to: { name: "Test", kind: "test", commandLine: "vitest run", rerunCommandLine: "" },
-      },
-      {
-        key: "lint",
-        from: { name: "Lint", kind: "lint", commandLine: "npm run lint", rerunCommandLine: "" },
-        to: null,
-      },
-      {
+describe("changeCommandsBy", () => {
+  const edits: CommandEdit[] = [
+    { kind: "install", commandLine: "npm install" },
+    { kind: "installInputs", inputs: ["package-lock.json", ".nvmrc"] },
+    {
+      kind: "change",
+      key: "test",
+      fields: { name: "Test", kind: "test", commandLine: "vitest run", rerunCommandLine: "" },
+    },
+    { kind: "remove", key: "lint" },
+    {
+      kind: "add",
+      command: {
         key: "test-e2e",
-        from: null,
-        to: { name: "End to end", kind: "test", commandLine: "npm run e2e", rerunCommandLine: "" },
+        name: "End to end",
+        kind: "test",
+        commandLine: "npm run e2e",
+        rerunCommandLine: "",
       },
-    ],
-  };
+    },
+  ];
 
-  it("changes every field it proposes, each announced in turn", () => {
-    const { project, events } = changeCommandsAsProposed(aProject(), proposed);
+  it("changes every field it edits, each announced in turn", () => {
+    const { project, events } = changeCommandsBy(aProject(), edits);
 
     expect(project.installCommand).toBe("npm install");
     expect(project.installInputs).toEqual(["package-lock.json", ".nvmrc"]);
@@ -291,12 +291,26 @@ describe("changeCommandsAsProposed", () => {
     ]);
   });
 
-  it("refuses the whole Proposal when one field changed since it was drafted", () => {
-    const editedByHand = aProject({ installInputs: ["pnpm-lock.yaml"] });
+  it("refuses the whole list when one edit breaks a rule, as a route does one", () => {
+    const bad: CommandEdit[] = [...edits, { kind: "remove", key: "e2e" }];
 
-    expect(() => changeCommandsAsProposed(editedByHand, proposed)).toThrow(
-      new ProjectRefused(["The install inputs changed since this was proposed."]),
+    expect(() => changeCommandsBy(aProject(), bad)).toThrow(
+      new ProjectRefused(['The Project has no command with the key "e2e".']),
     );
+  });
+
+  it("judges each edit on the Project the ones before it leave, every reason together", () => {
+    expect(commandEditsProblems(aProject(), edits)).toEqual([]);
+    expect(
+      commandEditsProblems(aProject(), [
+        { kind: "remove", key: "e2e" },
+        { kind: "remove", key: "lint" },
+        { kind: "remove", key: "lint" },
+      ]),
+    ).toEqual([
+      'The Project has no command with the key "e2e".',
+      'The Project has no command with the key "lint".',
+    ]);
   });
 });
 

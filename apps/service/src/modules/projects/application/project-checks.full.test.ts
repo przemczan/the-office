@@ -354,21 +354,21 @@ describe("ProjectChecks.checkDefaultPipeline", () => {
   });
 });
 
-describe("ProjectChecks.checkCommandRemoval", () => {
+describe("ProjectChecks.commandRemovalProblems", () => {
   it("refuses removing a command the default Pipeline runs, and passes any other", async () => {
-    expect(await reasonsOf(checksWith().checkCommandRemoval(aProject(), "test"))).toEqual([
+    expect(await checksWith().commandRemovalProblems(aProject(), ["test"])).toEqual([
       "Full, this Project's default Pipeline, runs test; choose another default first.",
     ]);
-    await expect(checksWith().checkCommandRemoval(aProject(), "lint")).resolves.toBeUndefined();
+    expect(await checksWith().commandRemovalProblems(aProject(), ["lint"])).toEqual([]);
   });
 
   it("refuses removing a command its own Project Pipeline, as the default, runs in its built Stages", async () => {
     const project = aProject({ defaultPipeline: "full-for-admin" });
 
-    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "lint"))).toEqual([
+    expect(await checksWith().commandRemovalProblems(project, ["lint"])).toEqual([
       "Full for Admin panel, this Project's default Pipeline, runs lint; choose another default first.",
     ]);
-    await expect(checksWith().checkCommandRemoval(project, "test")).resolves.toBeUndefined();
+    expect(await checksWith().commandRemovalProblems(project, ["test"])).toEqual([]);
   });
 
   it("refuses removing a command a Kind's own default Pipeline runs, naming its Kinds", async () => {
@@ -376,11 +376,11 @@ describe("ProjectChecks.checkCommandRemoval", () => {
       kindDefaultPipelines: { feature: "full", bug: "thorough", chore: "thorough" },
     });
 
-    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "e2e"))).toEqual([
+    expect(await checksWith().commandRemovalProblems(project, ["e2e"])).toEqual([
       "Thorough, this Project's default Pipeline for Bugs and Chores, runs e2e; choose another default for Bugs and Chores first.",
     ]);
     // A Kind following the default Pipeline names it once, as the Project's.
-    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "test"))).toEqual([
+    expect(await checksWith().commandRemovalProblems(project, ["test"])).toEqual([
       "Full, this Project's default Pipeline, runs test; choose another default first.",
     ]);
   });
@@ -390,10 +390,10 @@ describe("ProjectChecks.checkCommandRemoval", () => {
       kindDefaultPipelines: { feature: null, bug: "e2e-for-admin", chore: null },
     });
 
-    await expect(
-      checksWith().checkCommandRemoval({ ...project, id: "shop" }, "e2e"),
-    ).resolves.toBeUndefined();
-    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "e2e"))).toEqual([
+    expect(await checksWith().commandRemovalProblems({ ...project, id: "shop" }, ["e2e"])).toEqual(
+      [],
+    );
+    expect(await checksWith().commandRemovalProblems(project, ["e2e"])).toEqual([
       "Full with e2e, this Project's default Pipeline for Bugs, runs e2e; choose another default for Bugs first.",
     ]);
   });

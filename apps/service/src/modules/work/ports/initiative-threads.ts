@@ -27,6 +27,9 @@ export abstract class InitiativeThreads {
   /** Opens the Thread; the person starts on `opening` at once, with the Initiative's Brief. */
   abstract startOnInitiative(opening: InitiativeThreadOpening): Promise<{ readonly id: string }>;
 
+  /** The ids of the person's Threads on the Initiative, by the key of their Role. */
+  abstract idsOnInitiativeWith(initiativeId: string, roleKey: string): Promise<readonly string[]>;
+
   /**
    * Has the person start again on `opening` in the Thread, its session continued or replaced under
    * the Context policy.
