@@ -20,6 +20,7 @@ import {
   newMessageSchema,
   pageQuerySchema,
   recordLinksIn,
+  threadMessagesQuerySchema,
   threadSeenSchema,
   threadTitleSchema,
   type ChatActivity as ChatActivityResponse,
@@ -35,6 +36,7 @@ import {
   type NewMessage,
   type PeopleWorking as PeopleWorkingResponse,
   type Thread as ThreadResponse,
+  type ThreadMessagesQuery,
   type ThreadSeen,
   type ThreadStop,
   type ThreadTitle,
@@ -249,13 +251,17 @@ export class ThreadsController {
 
   /**
    * The log, with each Decision's card and answer showing the Decision as it is now, each
-   * Proposal's card the Proposal, and each Link card whether its person was let go.
+   * Proposal's card the Proposal, and each Link card whether its person was let go; with
+   * `?after=`, only what was logged after that message, as a page holding the log up to it reads on.
    */
   @Get("threads/:id/messages")
-  async messages(@Param("id", ParseUUIDPipe) id: string): Promise<MessageResponse[]> {
+  async messages(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query(new ContractPipe(threadMessagesQuerySchema)) { after }: ThreadMessagesQuery,
+  ): Promise<MessageResponse[]> {
     // A card's message and its Decision or Proposal commit together, so they're read after the
     // messages: read alongside, a card committed in between came without its record.
-    const messages = await this.threads.messages(id);
+    const messages = await this.threads.messages(id, after);
     const [decisions, proposals] = await Promise.all([
       this.decisions.listInThread(id),
       this.proposals.listInThread(id),

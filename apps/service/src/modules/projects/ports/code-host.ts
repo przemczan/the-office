@@ -94,6 +94,12 @@ export abstract class CodeHost {
   /** The host's name in the user's words, such as GitHub. */
   abstract readonly name: string;
 
+  /**
+   * Where the user signs in so The Office reads the host as them, in the user's words, such as
+   * "Sign in with GitHub in Settings › Office identity"; refusals end it with what it is for.
+   */
+  abstract readonly signInWords: string;
+
   /** Whether this host holds the repository at `remoteUrl`, without asking it. */
   abstract reaches(remoteUrl: string): boolean;
 

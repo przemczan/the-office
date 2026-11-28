@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { OutputMask } from "../../../projects/index.js";
 import { TaskStateChanged } from "../../../work/index.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   taskIn,
   writeFiles,
@@ -80,8 +81,8 @@ describe.skipIf(missing !== undefined)(
 
     afterAll(async () => {
       // Everything carries this test's own Office label, so nothing of another Office is touched.
-      testbed.knownTasks.tasks = [];
-      await testbed.environments.sweep();
+      // As after a restart, with no open Task: everything this test's Office made goes.
+      await (await restartedTestbed(testbed, runtime)).environments.sweep();
       for (const { name } of await runtime.listImages(officeLabels(testbed.folders.instance))) {
         await runtime.removeImage(name);
       }
@@ -196,9 +197,10 @@ describe.skipIf(missing !== undefined)(
         await writeFiles(each.worktree, DEFINITION);
         await testbed.environments.prepare(each, join(testbed.folder, `${each.taskId}.log`));
       }
-      testbed.knownTasks.tasks = [{ id: "open", title: "Open", state: "in-progress" }];
+      const restarted = await restartedTestbed(testbed, runtime);
+      restarted.knownTasks.tasks = [{ id: "open", title: "Open", state: "in-progress" }];
 
-      await testbed.environments.sweep();
+      await restarted.environments.sweep();
 
       const instance = testbed.folders.instance;
       expect(await runtime.listByLabel(taskLabels(instance, "leftover"))).toEqual([]);

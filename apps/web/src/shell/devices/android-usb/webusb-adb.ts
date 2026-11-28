@@ -290,6 +290,8 @@ function attachedPhone(
 
   void (async () => {
     while (!phone.released()) {
+      // A relay with no room holds the phone's next read until its socket has sent what it holds.
+      await sink.writable();
       const packet = await readPacket(device, adb.inEndpoint);
       if (packet === "ended") return;
       if (packet === undefined) continue;

@@ -25,7 +25,8 @@ import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
  * A repository's file is served on The Office's own origin, so nothing in it may run: no script, no
  * request, no form, whatever the browser takes it for. Inline styles let an SVG draw as it should.
  */
-const FILE_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+const FILE_CONTENT_SECURITY_POLICY =
+  "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'";
 
 /** The files committed on a Project's branches, for the Repository file browser and the Files tab. */
 @Controller("projects")

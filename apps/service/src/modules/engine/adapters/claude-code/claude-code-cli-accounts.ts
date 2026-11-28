@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { OnModuleDestroy } from "@nestjs/common";
+import { Logger, type OnModuleDestroy } from "@nestjs/common";
 import { KeyedLocks } from "../../../../platform/locks/keyed-locks.js";
 import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
@@ -34,6 +34,8 @@ import {
   writePastedToken,
 } from "./engine-credentials.js";
 import { sessionEnvironment } from "./session-settings.js";
+
+const logger = new Logger("ClaudeCodeCliAccounts");
 
 /** How the Claude Code binary is run: the pinned one in the service, a stand-in in tests. */
 export interface ClaudeCodeCli {
@@ -213,18 +215,25 @@ class RunningSignIn {
     private readonly child: ChildProcessWithoutNullStreams,
     private readonly processTrees: ProcessTrees,
   ) {
+    const giveUp = setTimeout(() => {
+      void this.end().catch((error: unknown) => {
+        logger.warn("The Claude Code Sign in that ran too long didn't end.", error);
+      });
+    }, SIGN_IN_TIMEOUT_MS);
+    giveUp.unref();
     this.ended = new Promise((resolve) => {
-      child.once("close", () => resolve());
-      child.once("error", () => resolve());
+      const ended = (): void => {
+        clearTimeout(giveUp);
+        resolve();
+      };
+      child.once("close", ended);
+      child.once("error", ended);
     });
     this.page = this.pageOf(child);
     // A code pasted while the login exits meets a closing pipe; `enter` says so instead.
     child.stdin.on("error", () => undefined);
     // A rejected page is awaited by the Sign in; this only keeps a late rejection quiet.
     this.page.catch(() => undefined);
-    const giveUp = setTimeout(() => void this.end(), SIGN_IN_TIMEOUT_MS);
-    giveUp.unref();
-    void this.ended.then(() => clearTimeout(giveUp));
   }
 
   /** Whether the login could still take the code. */

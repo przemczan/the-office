@@ -15,6 +15,7 @@ import {
 } from "../domain/run-environment.js";
 import type { TestInstallStart } from "./hosted-services.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   writeFiles,
   type RunEnvironmentsTestbed,
@@ -121,7 +122,7 @@ describe("HostedServices.install", () => {
     expect(await environment.attach({ arguments: ["adb", "devices"] })).toBeUndefined();
   });
 
-  it("is removed by the instance's stop, and by the sweep", async () => {
+  it("is removed by the instance's stop, and by the sweep after a restart alone", async () => {
     const stopped = await testbed.hostedServices.install(await anInstall());
     await testbed.hostedServices.stop(INSTANCE_ID);
     expect(runtime.projects.has(projectName)).toBe(false);
@@ -130,6 +131,8 @@ describe("HostedServices.install", () => {
 
     await testbed.hostedServices.install(await anInstall());
     await testbed.hostedServices.sweep();
+    expect(runtime.projects.has(projectName)).toBe(true);
+    await (await restartedTestbed(testbed, runtime)).hostedServices.sweep();
     expect(runtime.projects.has(projectName)).toBe(false);
   });
 

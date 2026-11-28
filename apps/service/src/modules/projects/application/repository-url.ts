@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { parseGitRemote } from "../../../platform/git-identity/git-remote.js";
+import { parseGitRemote } from "../../office-identity/index.js";
 
 /**
  * A Repository URL (spec §5.5 Defaults): an https, `ssh://` or `user@host:path` address of a

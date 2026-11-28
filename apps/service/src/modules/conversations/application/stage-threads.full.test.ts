@@ -39,6 +39,7 @@ import { TaskTokens } from "./task-tokens.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
+import { SessionThreads } from "./session-threads.js";
 import { storedBeforeOfficeInstructions } from "../domain/thread.fixtures.js";
 import { OfficeInstructions } from "./office-instructions.js";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
@@ -69,6 +70,7 @@ import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
+import { LiveSessions } from "./live-sessions.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
@@ -219,6 +221,7 @@ async function startOn(
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      LiveSessions,
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
@@ -234,6 +237,7 @@ async function startOn(
       FireAlarmInThreads,
       DecisionOfficeTools,
       ThreadService,
+      SessionThreads,
       TaskTokens,
     ],
   }));
@@ -1064,7 +1068,7 @@ describe("barge-in", () => {
       ),
     );
     const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
-    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
+    await app.get(ThreadRunner).send(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
 
     const turn = await stageThread.nextTurn();
 
@@ -1077,6 +1081,51 @@ describe("barge-in", () => {
         delivery: "delivered",
         writtenBy: ANN_LEE,
       },
+    ]);
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+
+  it("goes with the records it mentions and who wrote it, as a chat's barge-in does", async () => {
+    const taskId = randomUUID();
+    await startWith(
+      started(
+        aBargeIn("barge-in"),
+        ...aTurn({ status: "done" }, "Done.", ["brief"]),
+        ...aTurn({ status: "done", list: true }, "Compared them.", ["barge-in"]),
+      ),
+    );
+    app.get(WorkRecords).provide({
+      taskSubjects: () => Promise.resolve(new Map()),
+      taskRecord: (id) =>
+        Promise.resolve(
+          id === taskId ? "Export CSV (Task) · Plan: write the exporter." : undefined,
+        ),
+      taskTitle: () => Promise.resolve(undefined),
+      taskAttachmentIds: () => Promise.resolve([]),
+      initiativeTaskAttachmentIds: () => Promise.resolve(undefined),
+      isInitiativePlanningThread: () => Promise.resolve(false),
+      initiativeAttachmentIds: () => Promise.resolve([]),
+      initiativeRecord: () => Promise.resolve(undefined),
+      initiativeName: () => Promise.resolve(undefined),
+      projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
+      ideaRecord: () => Promise.resolve(undefined),
+      isOwnWork: () => Promise.resolve(false),
+    });
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+
+    await app
+      .get(ThreadRunner)
+      .send(stageThread.threadId, "Compare [@Export CSV](/tasks/x).", ANN_LEE, {
+        mentions: [{ kind: "task", taskId }],
+      });
+    await stageThread.nextTurn();
+
+    const sentNext = engine.sessions[0]?.received.flatMap((request) =>
+      request.step === "send" && request.priority === "next" ? [request.message.text] : [],
+    );
+    expect(sentNext).toEqual([
+      "## The message from the user Ann Lee\n\nCompare [@Export CSV](/tasks/x)." +
+        "\n\n## Records the user mentioned\n\nExport CSV (Task) · Plan: write the exporter.",
     ]);
     await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
@@ -1094,7 +1143,7 @@ describe("barge-in", () => {
     await stageThread.nextTurn();
 
     // Sent now, it would start a turn the Stage would read as the correction's answer.
-    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
+    await app.get(ThreadRunner).send(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
     const corrected = await stageThread.send("Correct it.", "The result was invalid.");
 
     expect(corrected.output).toEqual({ status: "done" });
@@ -1113,7 +1162,7 @@ describe("barge-in", () => {
     await startWith(started(...aTurn({ status: "done" })));
     const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
     await stageThread.nextTurn();
-    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
+    await app.get(ThreadRunner).send(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
 
     await stageThread.endSession();
 
@@ -1126,7 +1175,7 @@ describe("barge-in", () => {
       },
     ]);
     await expect(
-      stageThreads.bargeIn(stageThread.threadId, "And the page?", ANN_LEE),
+      app.get(ThreadRunner).send(stageThread.threadId, "And the page?", ANN_LEE),
     ).rejects.toThrow(ThreadRefused);
     await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
@@ -1212,7 +1261,7 @@ describe("Stop", () => {
     const since = new Date();
     const stopped = await stageThreads.open(aStage({ roleKey: ada }));
     const turn = stopped.nextTurn();
-    await stageThreads.bargeIn(stopped.threadId, "Rename it on the list instead.", ANN_LEE);
+    await app.get(ThreadRunner).send(stopped.threadId, "Rename it on the list instead.", ANN_LEE);
     await stopped.interrupt();
     await turn;
     await stopped.end({
@@ -1275,7 +1324,7 @@ describe("Stop", () => {
     const ada = aPerson("Ada");
     const earlier = await stageThreads.open(aStage({ roleKey: ada }));
     await earlier.nextTurn();
-    await stageThreads.bargeIn(earlier.threadId, "An old message.", ANN_LEE);
+    await app.get(ThreadRunner).send(earlier.threadId, "An old message.", ANN_LEE);
     await earlier.end({ handoverNote: undefined, closing: undefined });
 
     await stageThreads.open(
@@ -1344,7 +1393,7 @@ describe("Office tools on a Stage", () => {
     const { stageThread } = await aStageRun(request);
     const sessionId = (await threadOf(stageThread.threadId)).session?.id ?? "";
 
-    const threads = app.get(ThreadService);
+    const threads = app.get(SessionThreads);
 
     await expect(threads.personInSession(sessionId)).resolves.toBe(ada);
     await expect(threads.taskInSession(sessionId)).resolves.toBe(request.taskId);

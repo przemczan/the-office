@@ -10,6 +10,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import { open } from "node:fs/promises";
 import { StringDecoder } from "node:string_decoder";
+import { Logger } from "@nestjs/common";
 import type { BackgroundEnding, BackgroundEvent } from "../../ports/session-events.js";
 import { SUB_AGENT_TOOLS } from "../office-rules/foreground-sub-agents.js";
 import type { HookRewrites } from "./office-rules-hook.js";
@@ -17,6 +18,8 @@ import { toolResultText } from "./sdk-events.js";
 
 /** How often a running Process's output file is read (spec 2.9: "every half second"). */
 export const OUTPUT_READ_EVERY_MS = 500;
+
+const logger = new Logger("BackgroundTasks");
 
 /** The tools whose call may run a command in the background. */
 const COMMAND_TOOLS: ReadonlySet<string> = new Set(["Bash", "PowerShell"]);
@@ -380,7 +383,7 @@ export class BackgroundTasks {
     const running = this.processes.get(notified.task_id);
     if (running !== undefined) {
       running.reader.readFrom(notified.output_file);
-      void this.endProcess(
+      this.endInBackground(
         running,
         this.endingOf(notified, running.interruptsBefore),
         exitCodeIn(notified.summary),
@@ -414,7 +417,7 @@ export class BackgroundTasks {
       if (live.has(taskId)) {
         running.listed = true;
       } else if (running.listed) {
-        void this.endProcess(running, this.missedStop(running.interruptsBefore), undefined);
+        this.endInBackground(running, this.missedStop(running.interruptsBefore), undefined);
       }
     }
   }
@@ -445,6 +448,17 @@ export class BackgroundTasks {
   private missedStop(interruptsBefore: number): BackgroundEnding {
     if (this.sessionEnding) return { state: "stopped", by: "session-end" };
     return { state: "stopped", by: this.interrupts > interruptsBefore ? "interrupt" : "agent" };
+  }
+
+  /** Ends the process as `endProcess` does, without waiting; a failure to end it is logged. */
+  private endInBackground(
+    running: RunningProcess,
+    ending: BackgroundEnding,
+    exitCode: number | undefined,
+  ): void {
+    void this.endProcess(running, ending, exitCode).catch((error: unknown) => {
+      logger.error(`The end of the process ${running.callId} wasn't told.`, error);
+    });
   }
 
   /** Its last read, then its end: what it wrote comes before its end, and the end comes once. */

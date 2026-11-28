@@ -21,8 +21,8 @@ const COMPOSE = `
 services:
   app:
     build:
-      context: ..
-      dockerfile: .devcontainer/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       args:
         NODE_VERSION: "22"
     command: sleep infinity
@@ -48,6 +48,13 @@ function definitionProblems(compose: string, devcontainer = DEVCONTAINER): reado
   return readDefinition(settingsOf(devcontainer), files).problems;
 }
 
+/** The problems of the app service mounting each of `volumes`, beside a named volume `data`. */
+function mountProblems(volumes: string): readonly string[] {
+  return definitionProblems(
+    `services:\n  app:\n    image: node:22\n    volumes:\n${volumes}volumes:\n  data: {}\n`,
+  );
+}
+
 describe("readDevcontainer and readDefinition", () => {
   it("read a valid definition: its compose files, service, image build, services, networks and volumes", () => {
     const reading = readDefinition(settingsOf(DEVCONTAINER), [
@@ -60,8 +67,8 @@ describe("readDevcontainer and readDefinition", () => {
         service: "app",
         serviceImage: {
           kind: "build",
-          context: ".",
-          dockerfile: ".devcontainer/Dockerfile",
+          context: ".devcontainer",
+          dockerfile: "Dockerfile",
           args: { NODE_VERSION: "22" },
         },
         services: ["app", "postgres"],
@@ -206,6 +213,214 @@ networks:
     expect(
       definitionProblems("services:\n  app:\n    build:\n      context: .\n      ssh: [default]\n"),
     ).toEqual([`The service app's build sets "ssh", which The Office doesn't support.`]);
+  });
+
+  it("reports any property a service sets that The Office doesn't take, and leaves x- ones", () => {
+    expect(
+      definitionProblems(`
+services:
+  app:
+    image: node:22
+    x-notes: kept
+    env_file: /etc/environment
+    extends: { file: ../../other.yaml, service: base }
+    secrets: [token]
+    use_api_socket: true
+    gpus: all
+`),
+    ).toEqual([
+      'The service app in .devcontainer/compose.yaml sets "env_file": variables from a file compose reads on this computer: give them in "environment".',
+      `The service app in .devcontainer/compose.yaml sets "extends": a service of another file, which The Office doesn't check: write the service whole.`,
+      'The service app in .devcontainer/compose.yaml sets "secrets": secrets from files or variables of this computer.',
+      `The service app in .devcontainer/compose.yaml sets "use_api_socket": the container runtime's socket, which gives it the whole computer.`,
+      `The service app in .devcontainer/compose.yaml sets "gpus", which The Office doesn't support.`,
+    ]);
+  });
+
+  it("checks what a merge key brings into a service", () => {
+    expect(
+      definitionProblems(`
+x-base: &base
+  privileged: true
+services:
+  app:
+    <<: *base
+    image: node:22
+`),
+    ).toEqual([
+      'The service app in .devcontainer/compose.yaml sets "privileged": privileged mode, which gives it the whole computer.',
+    ]);
+  });
+
+  it("reports a compose file's own property The Office doesn't take: an include, secrets or configs", () => {
+    expect(
+      definitionProblems(`
+include: [../../elsewhere.yaml]
+services:
+  app:
+    image: node:22
+secrets:
+  token: { file: /home/office/.ssh/id_ed25519 }
+configs:
+  settings: { file: /etc/shadow }
+`),
+    ).toEqual([
+      `The compose file .devcontainer/compose.yaml sets "include", which The Office doesn't support.`,
+      `The compose file .devcontainer/compose.yaml sets "secrets", which The Office doesn't support.`,
+      `The compose file .devcontainer/compose.yaml sets "configs", which The Office doesn't support.`,
+    ]);
+  });
+
+  it("reports a variable read from The Office's environment, and takes $$ as a $", () => {
+    expect(
+      definitionProblems(`
+services:
+  app:
+    image: node:22
+    environment:
+      LEAKED: \${DATABASE_URL}
+      PRICE: "$$5"
+    healthcheck:
+      test: ["CMD-SHELL", 'test -n "$$HOME" && echo $HOME']
+`),
+    ).toEqual([
+      "The compose file .devcontainer/compose.yaml reads a variable at services.app.environment.LEAKED: compose would take it from The Office's own environment, so write the value itself, or $$ for a $.",
+      "The compose file .devcontainer/compose.yaml reads a variable at services.app.healthcheck.test[1]: compose would take it from The Office's own environment, so write the value itself, or $$ for a $.",
+    ]);
+  });
+
+  it("reports a variable given no value, which compose would fill from The Office's environment", () => {
+    expect(
+      definitionProblems(`
+services:
+  app:
+    image: node:22
+    environment: [DATABASE_URL, "CI=1"]
+  worker:
+    build:
+      context: .
+      args:
+        GH_TOKEN:
+        NODE_VERSION: "22"
+    environment:
+      ANTHROPIC_API_KEY:
+`),
+    ).toEqual([
+      `The service app in .devcontainer/compose.yaml gives DATABASE_URL no value in "environment": compose would take it from The Office's own environment.`,
+      `The service worker in .devcontainer/compose.yaml gives ANTHROPIC_API_KEY no value in "environment": compose would take it from The Office's own environment.`,
+      `The service worker's build gives GH_TOKEN no value in "args": compose would take it from The Office's own environment.`,
+    ]);
+  });
+
+  it("reports every mount of a folder or pipe of this computer, and takes named volumes and a tmpfs", () => {
+    const folder =
+      "The service app in .devcontainer/compose.yaml mounts a folder of this computer: The Office mounts the worktree itself, so use named volumes only.";
+
+    expect(
+      mountProblems(
+        "      - data:/data\n      - /anonymous\n      - { type: volume, source: data, target: /more }\n      - { type: tmpfs, target: /tmp }\n",
+      ),
+    ).toEqual([]);
+    for (const volume of [
+      "/:/host",
+      "~/.ssh:/keys",
+      "./src:/src",
+      "C:\\Users\\office:/h",
+      "c:/Users:/h",
+      "\\\\.\\pipe\\docker_engine:/pipe",
+      "{ type: bind, source: /, target: /host }",
+      "{ type: npipe, source: '\\\\.\\pipe\\docker_engine', target: /pipe }",
+      "{ type: volume, source: /etc, target: /etc-copy }",
+    ]) {
+      expect(
+        mountProblems(`      - ${volume.startsWith("{") ? volume : JSON.stringify(volume)}\n`),
+      ).toEqual([folder]);
+    }
+  });
+
+  it("refuses a mount whose source reads a variable, whatever it would be", () => {
+    expect(
+      definitionProblems('services:\n  app:\n    image: node:22\n    volumes: ["${HOME}:/h"]\n'),
+    ).toEqual([
+      "The compose file .devcontainer/compose.yaml reads a variable at services.app.volumes[0]: compose would take it from The Office's own environment, so write the value itself, or $$ for a $.",
+      "The service app in .devcontainer/compose.yaml mounts a folder of this computer: The Office mounts the worktree itself, so use named volumes only.",
+    ]);
+  });
+
+  it("reports a declared volume or network reaching past the runtime's own plain ones", () => {
+    expect(
+      definitionProblems(`
+services:
+  app:
+    image: node:22
+volumes:
+  root:
+    driver_opts: { type: none, o: bind, device: / }
+  shared:
+    name: the-office_postgres-data
+  data:
+    labels: { purpose: cache }
+networks:
+  lan:
+    driver: macvlan
+  private:
+    internal: true
+`),
+    ).toEqual([
+      `The network lan in .devcontainer/compose.yaml sets "driver", which The Office doesn't support.`,
+      `The volume root in .devcontainer/compose.yaml sets "driver_opts", which The Office doesn't support.`,
+      `The volume shared in .devcontainer/compose.yaml sets "name", which The Office doesn't support.`,
+    ]);
+  });
+
+  it("reports another service's build reading outside the repository", () => {
+    expect(
+      definitionProblems(`
+services:
+  app:
+    image: node:22
+  root:
+    build: /
+  home:
+    build: { context: "~" }
+  above:
+    build: { context: ../.. }
+  passwd:
+    build: { context: ., dockerfile: /etc/passwd }
+  web:
+    build: { context: .., dockerfile: web/Dockerfile }
+`),
+    ).toEqual([
+      "The service root's build context is outside the repository.",
+      "The service home's build context is outside the repository.",
+      "The service above's build context is outside the repository.",
+      "The service passwd's Dockerfile is outside the repository.",
+    ]);
+  });
+
+  it("reports the checks' service built from outside .devcontainer/, which its image's key doesn't hold", () => {
+    const words =
+      "The service app's build context and Dockerfile must be in .devcontainer/: its image is keyed by that folder alone, so a file outside it wouldn't build the image again when it changed. Copy what it needs there, or have the install command make it from the Install inputs.";
+
+    expect(definitionProblems("services:\n  app:\n    build: ..\n")).toEqual([words]);
+    expect(
+      definitionProblems(
+        "services:\n  app:\n    build:\n      context: .\n      dockerfile: ../Dockerfile\n",
+      ),
+    ).toEqual([words]);
+    expect(definitionProblems("services:\n  app:\n    build:\n      context: ./image\n")).toEqual(
+      [],
+    );
+  });
+
+  it("reports an image that isn't one name", () => {
+    expect(
+      definitionProblems(
+        'services:\n  app:\n    image: "alpine\\nRUN --mount=type=secret,id=OFFICE_VARIABLE_0 cat"\n',
+      ),
+    ).toEqual([
+      "The service app's image \"alpine\\nRUN --mount=type=secret,id=OFFICE_VARIABLE_0 cat\" isn't an image's name.",
+    ]);
   });
 });
 

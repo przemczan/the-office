@@ -5,7 +5,7 @@ import {
   type Engine,
   type EngineRemoval,
   type EngineTypeOffers,
-} from "../../engine/index.js";
+} from "../../engine/index.domain.js";
 import {
   DEFAULT_ISSUE_SETTINGS,
   type IssueSettings,

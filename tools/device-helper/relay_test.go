@@ -229,3 +229,65 @@ func TestTheCommandLine(t *testing.T) {
 		t.Fatal("an unknown command succeeded")
 	}
 }
+
+func TestRelayKeepsCarryingTheOtherConnectionsWhileOneDoesNotRead(t *testing.T) {
+	r, address := startRelay(t)
+	stalled, err := net.DialTCP("tcp", nil, mustResolve(t, address))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stalled.Close()
+	// A small receive buffer, so the loopback can't take what follows for the stalled connection.
+	_ = stalled.SetReadBuffer(4096)
+	r.next() // OPEN 1
+	reading, err := net.Dial("tcp", address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reading.Close()
+	r.next() // OPEN 2
+
+	// More than the kernel holds for a connection that reads nothing, within its own queue.
+	payload := make([]byte, frameMaxPayloadBytes)
+	for range connectionQueueFrames / 2 {
+		r.send(frame{typ: frameData, channel: 1, payload: payload})
+	}
+	r.send(frame{typ: frameData, channel: 2, payload: []byte("still here")})
+
+	_ = reading.SetReadDeadline(time.Now().Add(5 * time.Second))
+	got := make([]byte, len("still here"))
+	if _, err := io.ReadFull(reading, got); err != nil || string(got) != "still here" {
+		t.Fatalf("the reading connection read %q, %v", got, err)
+	}
+}
+
+func TestRelayWritesWhatWasQueuedBeforeTheServicesClose(t *testing.T) {
+	r, address := startRelay(t)
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	r.next() // OPEN 1
+
+	r.send(frame{typ: frameData, channel: 1, payload: []byte("last ")})
+	r.send(frame{typ: frameData, channel: 1, payload: []byte("words")})
+	r.send(frame{typ: frameClose, channel: 1})
+	// DATA after the service's CLOSE is left out, not written to a closed connection.
+	r.send(frame{typ: frameData, channel: 1, payload: []byte("late")})
+
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	got, err := io.ReadAll(conn)
+	if err != nil || string(got) != "last words" {
+		t.Fatalf("the connection read %q, %v", got, err)
+	}
+}
+
+func mustResolve(t *testing.T, address string) *net.TCPAddr {
+	t.Helper()
+	resolved, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}

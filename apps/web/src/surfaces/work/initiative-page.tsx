@@ -15,7 +15,7 @@ import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, useEveryTask } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { initiativeProgress, progressWords } from "../../shell/work/initiative-progress.ts";
-import { useShaper } from "../../shell/work/use-shaper.ts";
+import { useShaper } from "./use-shaper.ts";
 import { ArchivedBadge } from "./archive-parts.tsx";
 import { InitiativeAttachments } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";

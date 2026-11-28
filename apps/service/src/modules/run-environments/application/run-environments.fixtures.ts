@@ -101,6 +101,30 @@ export async function runEnvironmentsTestbed(
   readiness?: HostedServiceReadinessOptions,
 ): Promise<RunEnvironmentsTestbed> {
   const folder = await mkdtemp(join(tmpdir(), "office-run-environments-"));
+  return testbedIn(folder, runtime, options, serviceOwner, readiness);
+}
+
+/**
+ * The testbed's Office after a restart, as the startup sweep finds it: the same runtime, folder and
+ * Office data directory, every service made again with nothing in memory and no open Task.
+ */
+export function restartedTestbed(
+  testbed: Pick<RunEnvironmentsTestbed, "folder">,
+  runtime: ContainerRuntime,
+  options?: RunEnvironmentOptions,
+  serviceOwner?: FileOwnerIds | ServiceOwner,
+  readiness?: HostedServiceReadinessOptions,
+): Promise<RunEnvironmentsTestbed> {
+  return testbedIn(testbed.folder, runtime, options, serviceOwner, readiness);
+}
+
+async function testbedIn(
+  folder: string,
+  runtime: ContainerRuntime,
+  options: RunEnvironmentOptions | undefined,
+  serviceOwner: FileOwnerIds | ServiceOwner | undefined,
+  readiness: HostedServiceReadinessOptions | undefined,
+): Promise<RunEnvironmentsTestbed> {
   const events = new EventBus();
   const folders = new RunEnvironmentFolders(new OfficeDataDirectory(join(folder, "office-data")));
   const settings = new RunEnvironmentSettingsForTests(options);

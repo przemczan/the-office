@@ -29,8 +29,8 @@ import {
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
-import type { EngineCommand } from "../claude-code/engine-process.js";
-import { engineRead, serviceVariables, type EngineReadLimits } from "../claude-code/engine-read.js";
+import type { EngineCommand } from "../shared/engine-process.js";
+import { engineRead, serviceVariables, type EngineReadLimits } from "../shared/engine-read.js";
 import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import {
   officeToolCall,
@@ -51,7 +51,8 @@ import { codexEffort, CodexSession, type CodexConnect } from "./codex-session.js
 import { CodexThreadFile, CodexThreadMissing } from "./codex-thread-file.js";
 import { codexUsageWindows, codexWindowsOf } from "./codex-usage-windows.js";
 import { startCodexUsageWindow } from "./codex-usage-window-start.js";
-import { WINDOW_START_PROMPT, windowStartWhat } from "../claude-code/usage-window-start.js";
+import { WINDOW_START_PROMPT, windowStartWhat } from "../shared/usage-window-start.js";
+import { RuledMcpCalls } from "./ruled-mcp-calls.js";
 import { SessionMcpEndpoint } from "./session-mcp-endpoint.js";
 
 /**
@@ -335,6 +336,7 @@ export class CodexAppServerEngine extends AgentEngine {
     const decide: ToolDecider = (tool, input) => toolDecision(rules, holds, tool, input);
     const shellTool = codexShellTool(os.agentShells);
     const connections = new McpServerConnections(options.mcpServers, this.mcpClient);
+    const ruledCalls = new RuledMcpCalls();
     let endpoint: SessionMcpEndpoint | undefined;
     const close = async (): Promise<void> => {
       await endpoint?.close();
@@ -351,6 +353,7 @@ export class CodexAppServerEngine extends AgentEngine {
         decide,
         mcpServers: options.mcpServers,
         connections,
+        ruledCalls,
       });
       const settings = threadSettings(options, model, {
         prompts,
@@ -379,6 +382,7 @@ export class CodexAppServerEngine extends AgentEngine {
           paths: os.paths,
           defaultShell: shellTool,
           outsideSandbox: options.workstation === true,
+          ruledCalls,
         }),
         shellTool,
         skills,

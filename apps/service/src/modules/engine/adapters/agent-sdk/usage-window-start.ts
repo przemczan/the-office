@@ -1,11 +1,7 @@
 import { query, type Options, type Query } from "@anthropic-ai/claude-agent-sdk";
 import type { UsageWindowStart } from "../../ports/agent-engine.js";
-import { EngineProcess } from "../claude-code/engine-process.js";
-import {
-  engineRead,
-  READ_EXIT_GRACE_MS,
-  type EngineReadLimits,
-} from "../claude-code/engine-read.js";
+import { EngineProcess } from "../shared/engine-process.js";
+import { engineRead, READ_EXIT_GRACE_MS, type EngineReadLimits } from "../shared/engine-read.js";
 import { WINDOW_START_MODEL, windowStartOf } from "../claude-code/usage-window-start.js";
 import { sdkUsageReadOptions, type SdkUsageRead } from "./usage-window-read.js";
 

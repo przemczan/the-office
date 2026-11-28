@@ -5,6 +5,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   isNotNull,
@@ -270,6 +271,24 @@ export class PostgresThreadRepository extends ThreadRepository {
     return rows.map(toMessage);
   }
 
+  async messagesAfter(
+    threadId: string,
+    messageId: string,
+  ): Promise<readonly Message[] | undefined> {
+    const inThread = eq(threadMessages.threadId, threadId);
+    const [from] = await this.database
+      .select({ position: threadMessages.position })
+      .from(threadMessages)
+      .where(and(inThread, eq(threadMessages.id, messageId)));
+    if (from === undefined) return undefined;
+    const rows = await this.database
+      .select()
+      .from(threadMessages)
+      .where(and(inThread, gt(threadMessages.position, from.position)))
+      .orderBy(asc(threadMessages.position));
+    return rows.map(toMessage);
+  }
+
   async loggedIn(range: LoggedMessagesRange): Promise<readonly LoggedMessage[]> {
     if (range.homes?.length === 0) return [];
     const rows = await this.database
@@ -305,20 +324,6 @@ export class PostgresThreadRepository extends ThreadRepository {
       .innerJoin(threads, eq(threads.id, decisions.threadId))
       .where(eq(decisions.id, id));
     return row && toDecision(row);
-  }
-
-  async holdingDecision<Result>(
-    id: string,
-    work: (decision: Decision | undefined) => Promise<Result>,
-  ): Promise<Result> {
-    // A lock on the Decision's id, not its row, so `work` can still update the row through
-    // `update`'s own transaction; the Decision is read after the lock, as the last holder left it.
-    return this.database.transaction(async (transaction) => {
-      await transaction.execute(
-        sql`select pg_advisory_xact_lock(hashtext(${`conversations.decision.${id}`}))`,
-      );
-      return work(await this.decision(id));
-    });
   }
 
   async decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]> {
@@ -946,6 +951,9 @@ type StoredCard = Omit<RoleCard, "authority"> & {
  * The change as it is stored: each Role card it holds, or change's fields with an Authority, carries
  * its Hard switches as well (`hardSwitchesOf`), so the release before Authority reads an open
  * Proposal as it reads it.
+ *
+ * ROLLBACK SHIM (Authority): drop the Hard switches written here with the Role card's own (People's
+ * `storedCardOf`).
  */
 function toStoredChange(change: Proposal["change"]): Proposal["change"] {
   switch (change.kind) {

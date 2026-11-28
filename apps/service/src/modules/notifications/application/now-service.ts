@@ -59,6 +59,7 @@ import {
   OfficeWideLimitChanged,
   TaskAddedToInitiative,
   TaskCreated,
+  TaskDiscarded,
   TaskLeftQueue,
   TaskMovedUpInQueue,
   TaskPaused,
@@ -96,17 +97,15 @@ import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeOffBoardTasks } from "../ports/office-off-board-tasks.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { OfficeUpdateAvailable } from "../ports/office-update-available.js";
-import { OpenDecisions } from "../ports/open-decisions.js";
-import { OpenProposals } from "../ports/open-proposals.js";
 import { PullRequestsWaiting } from "../ports/pull-requests-waiting.js";
 import { ResumePlans } from "../ports/resume-plans.js";
-import { ShapingReplies } from "../ports/shaping-replies.js";
 import { SkillUpdatesFound } from "../ports/skill-updates-found.js";
 import { StandInChoicesWaiting } from "../ports/stand-in-choices-waiting.js";
 import { StartQueue } from "../ports/start-queue.js";
 import { TaskOutcomeRepository } from "../ports/task-outcome-repository.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { UserActivityRepository } from "../ports/user-activity-repository.js";
+import { WaitingInConversations } from "../ports/waiting-in-conversations.js";
 
 /** The duty whose holder shapes each Initiative, by People's key. */
 const SHAPES_INITIATIVES = "shapes-initiatives";
@@ -140,6 +139,7 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   InitiativeCreated,
   InitiativeStateChanged,
   TaskCreated,
+  TaskDiscarded,
   TaskAddedToInitiative,
   TaskTakenOutOfInitiative,
   TaskMovedToProject,
@@ -191,7 +191,6 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly tasks: OfficeTasks,
     private readonly initiatives: OfficeInitiatives,
     private readonly people: KnownPeople,
-    private readonly decisions: OpenDecisions,
     private readonly stages: TaskStageProgress,
     private readonly deskLimit: DeskLimit,
     private readonly queue: StartQueue,
@@ -202,11 +201,10 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly fireAlarm: OfficeFireAlarm,
     private readonly resumePlans: ResumePlans,
     private readonly standInChoices: StandInChoicesWaiting,
-    private readonly proposals: OpenProposals,
     private readonly pullRequests: PullRequestsWaiting,
     private readonly skillUpdates: SkillUpdatesFound,
     private readonly officeUpdate: OfficeUpdateAvailable,
-    private readonly shapingReplies: ShapingReplies,
+    private readonly conversations: WaitingInConversations,
     private readonly offBoardTasks: OfficeOffBoardTasks,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
@@ -229,9 +227,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     const at = new Date();
     const day = officeDayOf(at);
     const waitingOnTasks = Promise.all([
-      this.decisions.listOpen(),
+      this.conversations.openDecisions(),
       this.queue.list(),
-      this.proposals.waitingOnTheUser(),
+      this.conversations.openProposals(),
     ]);
     const initiativesNow = this.initiatives.list();
     const tasksNow = waitingOnTasks.then(([decisions, queue, proposals]) =>
@@ -277,7 +275,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       this.skillUpdates.withUpdate(),
       this.officeUpdate.available(),
       initiativesNow.then((all) =>
-        this.shapingReplies.waitingForReply(
+        this.conversations.initiativeReplies(
           all.filter(({ state }) => state === "shaping").map(({ id }) => id),
         ),
       ),

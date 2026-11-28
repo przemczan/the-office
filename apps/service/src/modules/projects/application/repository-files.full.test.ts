@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../office-identity/index.fixtures.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { CommandLineGit } from "../adapters/git/command-line-git.js";
 import { GitProcess } from "../adapters/git/git-process.js";

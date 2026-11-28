@@ -12,7 +12,11 @@ import {
   type WrittenSkill,
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
-import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
+import {
+  readEvent,
+  type EventCacheUpdates,
+  type EventInvalidations,
+} from "./event-stream-provider.tsx";
 import { projectQueries } from "./projects.ts";
 
 const SKILLS = ["skills"] as const;
@@ -110,8 +114,9 @@ export const skillEventInvalidations: Readonly<
  */
 export const skillEventCacheUpdates: Readonly<Record<ExactEventType, EventCacheUpdates[string]>> = {
   "skill.used": (event, queryClient) => {
-    const used = skillWebEventSchema.parse(event);
-    if (used.type !== "skill.used") return;
+    // An event this page can't read, as after an Office update, has every skill read again.
+    const used = readEvent(skillWebEventSchema, event, queryClient, [SKILLS]);
+    if (used?.type !== "skill.used") return;
     const queryKey =
       used.skill.kind === "library"
         ? skillQueries.list().queryKey

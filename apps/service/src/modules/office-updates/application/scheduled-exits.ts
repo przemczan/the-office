@@ -28,6 +28,8 @@ export class ScheduledExits implements OnModuleInit {
   private readonly goAheads = new Map<ScheduledExitKind, GoAhead>();
   private readonly readyListeners: (() => void)[] = [];
   private goingAhead = false;
+  /** Handed over, the service to exit once work begun meanwhile has ended. */
+  private exitWaiting = false;
 
   constructor(
     private readonly hold: ScheduledExitHold,
@@ -36,7 +38,9 @@ export class ScheduledExits implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.events.subscribe(BusyWorkChanged, () => this.goAheadIfIdle());
+    this.events.subscribe(BusyWorkChanged, () =>
+      this.exitWaiting ? this.exitIfIdle() : this.goAheadIfIdle(),
+    );
   }
 
   /** Registers how a scheduled exit of `kind` goes ahead. */
@@ -70,6 +74,7 @@ export class ScheduledExits implements OnModuleInit {
   async cancel(): Promise<void> {
     this.hold.hold(undefined);
     this.goingAhead = false;
+    this.exitWaiting = false;
     await this.events.publish(new ScheduledExitCancelled());
   }
 
@@ -88,6 +93,18 @@ export class ScheduledExits implements OnModuleInit {
       this.logger.error(`The Office ${scheduled.kind} wasn't handed over: ${String(error)}`);
       return;
     }
-    if (gone === "exit") for (const listener of this.readyListeners) listener();
+    if (gone !== "exit") return;
+    this.exitWaiting = true;
+    this.exitIfIdle();
+  }
+
+  /**
+   * Exits once nothing is busy, checked again as the exit is handed over: work that began while
+   * the hand-over ran, such as a turn the hold didn't stop, ends first.
+   */
+  private exitIfIdle(): void {
+    if (!this.exitWaiting || this.busyWork.list().length > 0) return;
+    this.exitWaiting = false;
+    for (const listener of this.readyListeners) listener();
   }
 }

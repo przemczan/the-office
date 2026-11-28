@@ -20,7 +20,7 @@ import {
 } from "../../../engine/index.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
 import { OfficeInstructions } from "../../application/office-instructions.js";
-import { ThreadService } from "../../application/thread-service.js";
+import { SessionThreads } from "../../application/session-threads.js";
 
 /**
  * One of Conversations' Office settings actions as Conversations carries it out: `handle` for the
@@ -65,7 +65,7 @@ export class ConversationsSettingsOfficeActions implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly contextPolicy: ContextPolicySettingsService,
     private readonly officeInstructions: OfficeInstructions,
-    private readonly threads: ThreadService,
+    private readonly threads: SessionThreads,
   ) {
     this.handlers = new Map(
       [this.sizeThreshold(), this.officeInstructionsText(), this.stageContextLimits()].map(

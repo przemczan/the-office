@@ -136,7 +136,9 @@ export function signOutOfEngine(engineId: string): Promise<void> {
 /** Calls `onChanged` each time the engine's account changes, once it is being read again. */
 export function useEngineAccountChanged(engineId: string, onChanged: () => void): void {
   useOfficeEvent("engine.account-changed", (event) => {
-    if (engineWebEventSchema.parse(event).engineId === engineId) onChanged();
+    // An event this page can't read may be this engine's too.
+    const changed = engineWebEventSchema.safeParse(event);
+    if (!changed.success || changed.data.engineId === engineId) onChanged();
   });
 }
 
@@ -152,11 +154,14 @@ type ExactEventType = "engine.window-start-changed";
 export const engineEventInvalidations: Readonly<
   Record<Exclude<EngineWebEvent["type"], ExactEventType>, EventInvalidations[string]>
 > = {
-  "engine.account-changed": (event) => [
-    engineAccountKey(engineWebEventSchema.parse(event).engineId),
-    nowQueries.now().queryKey,
-    usageSettingsQuery().queryKey,
-  ],
+  "engine.account-changed": (event) => {
+    const changed = engineWebEventSchema.safeParse(event);
+    return [
+      changed.success ? engineAccountKey(changed.data.engineId) : ENGINE_SETTINGS,
+      nowQueries.now().queryKey,
+      usageSettingsQuery().queryKey,
+    ];
+  },
   "engine.models-listed": () => [roleCardQueries.options().queryKey],
 };
 

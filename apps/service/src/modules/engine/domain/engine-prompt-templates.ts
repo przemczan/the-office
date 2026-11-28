@@ -1,4 +1,4 @@
-import { promptTemplate, type PromptTemplate } from "../../prompt-templates/index.js";
+import { promptTemplate, type PromptTemplate } from "../../prompt-templates/index.domain.js";
 
 /** What a declined call means, as a decline tells the model nothing more (spec §5.4 Defaults). */
 export const DECLINED_CALLS =

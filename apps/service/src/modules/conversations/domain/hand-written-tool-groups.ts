@@ -3,7 +3,7 @@ import {
   isAuthorityGroup,
   type AuthorityGroup,
   type AuthorityInEffect,
-} from "../../people/index.js";
+} from "../../people/index.domain.js";
 import { offeredTools } from "./office-tool-ruling.js";
 
 /**

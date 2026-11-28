@@ -14,10 +14,11 @@ import {
 import { anOfficeToolCall } from "../../ports/office-tool.fixtures.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionMcpServer } from "../../ports/session-options.js";
-import { aPlainPng } from "../claude-code/png.fixtures.js";
+import { aPlainPng } from "../shared/png.fixtures.js";
 import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import type { ToolDecider } from "../office-rules/office-tool-call.js";
 import type { ListedSkill } from "../skills/listed-skills.js";
+import { RuledMcpCalls, UNRULED_MCP_CALL_REFUSAL } from "./ruled-mcp-calls.js";
 import { SessionMcpEndpoint } from "./session-mcp-endpoint.js";
 
 const SECRET = "ghp_a-server-value";
@@ -86,6 +87,7 @@ let folder: string;
 let skills: ListedSkill[];
 let endpoint: SessionMcpEndpoint;
 let mcpClient: EchoingMcpClient;
+let ruledCalls: RuledMcpCalls;
 let decide: ReturnType<typeof vi.fn<ToolDecider>>;
 const clients: Client[] = [];
 
@@ -106,6 +108,7 @@ beforeEach(async () => {
     },
   ];
   mcpClient = new EchoingMcpClient();
+  ruledCalls = new RuledMcpCalls();
   decide = vi.fn<ToolDecider>(() => Promise.resolve({ allowed: true }));
   endpoint = await SessionMcpEndpoint.open({
     officeTools: [noteTool, pictureTool],
@@ -114,6 +117,7 @@ beforeEach(async () => {
     decide,
     mcpServers: [GITHUB],
     connections: new McpServerConnections([GITHUB], mcpClient),
+    ruledCalls,
   });
 });
 
@@ -248,8 +252,9 @@ describe("SessionMcpEndpoint", () => {
     expect(unknown).toMatchObject({ content: [{ text: "Unknown skill: nope" }], isError: true });
   });
 
-  it("lists an MCP server's reviewed tools and forwards each call without judging it again", async () => {
+  it("lists an MCP server's reviewed tools and forwards a call the rules allowed without judging it again", async () => {
     const github = await connectedTo("github");
+    ruledCalls.allow("github", "list_issues", { state: "open" });
 
     const { tools } = await github.listTools();
     const answer = await github.callTool({ name: "list_issues", arguments: { state: "open" } });
@@ -265,6 +270,26 @@ describe("SessionMcpEndpoint", () => {
       content: [{ type: "text", text: 'list_issues: {"state":"open"}' }],
       isError: false,
     });
+    expect(mcpClient.calls).toEqual([
+      { server: "github", tool: "list_issues", input: { state: "open" } },
+    ]);
+    expect(decide).not.toHaveBeenCalled();
+  });
+
+  it("refuses a call the rules never ruled on, or one forwarded already, reaching no server", async () => {
+    const github = await connectedTo("github");
+    ruledCalls.allow("github", "list_issues", { state: "open" });
+
+    const other = await github.callTool({ name: "list_issues", arguments: { state: "closed" } });
+    const first = await github.callTool({ name: "list_issues", arguments: { state: "open" } });
+    const again = await github.callTool({ name: "list_issues", arguments: { state: "open" } });
+
+    expect(other).toMatchObject({
+      content: [{ type: "text", text: UNRULED_MCP_CALL_REFUSAL }],
+      isError: true,
+    });
+    expect(first).toMatchObject({ isError: false });
+    expect(again).toMatchObject({ isError: true });
     expect(mcpClient.calls).toEqual([
       { server: "github", tool: "list_issues", input: { state: "open" } },
     ]);

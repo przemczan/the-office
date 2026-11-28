@@ -1,8 +1,9 @@
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
+import { Logger } from "@nestjs/common";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
-import { EngineProcess, type EngineCommand } from "../claude-code/engine-process.js";
+import { EngineProcess, type EngineCommand } from "../shared/engine-process.js";
 import {
   CODEX_RESULTS,
   codexNotification,
@@ -12,6 +13,8 @@ import {
   type CodexRequests,
   type CodexServerRequest,
 } from "./codex-protocol.js";
+
+const logger = new Logger("CodexRpc");
 
 type RequestId = string | number;
 
@@ -149,7 +152,9 @@ export class CodexRpc {
     const { id, method, params, result, error } = message as Record<string, unknown>;
     if (typeof method === "string") {
       if (isRequestId(id)) {
-        void this.answer(id, method, params);
+        void this.answer(id, method, params).catch((failure: unknown) => {
+          logger.warn(`The answer to the app-server's ${method} wasn't sent.`, failure);
+        });
       } else {
         const notification = codexNotification(method, params);
         if (notification !== undefined) this.handlers.notification(notification);
@@ -224,19 +229,20 @@ export class CodexAppServer {
     this.input = child.stdin;
     this.rpc = new CodexRpc(child.stdin, child.stdout, handlers);
     this.exited = new Promise((resolve) => {
+      const exited = (exit: CodexExit): void => {
+        this.rpc.end(new Error(codexExitWords(exit)));
+        resolve(exit);
+      };
       child.once("error", (error) =>
-        resolve({
+        exited({
           code: null,
           signal: null,
           stderr: `${engineProcess.stderr}\n${error.message}`.trim(),
         }),
       );
       // After the output has closed too, so the last notifications are read first.
-      child.once("close", (code, signal) =>
-        resolve({ code, signal, stderr: engineProcess.stderr }),
-      );
+      child.once("close", (code, signal) => exited({ code, signal, stderr: engineProcess.stderr }));
     });
-    void this.exited.then((exit) => this.rpc.end(new Error(codexExitWords(exit))));
   }
 
   /** Starts the app-server; whether it runs shows at its first request's answer, or `exited`. */

@@ -103,53 +103,95 @@ export function readyEndpoints(frame: DeviceFrame): HelperEndpoints {
 /**
  * Reads frames from a byte stream however it is chunked: `push` each chunk as it comes and get
  * every frame it completes. A frame of an unknown type or over the maximum payload throws
- * `DeviceFrameRefused`, after which the stream can't be read on.
+ * `DeviceFrameRefused`, after which the stream can't be read on. The chunks are kept as they came
+ * until a frame is whole, so a large frame in many small chunks is copied once, not once a chunk;
+ * a chunk pushed is read later, so its bytes mustn't change after.
  */
 export class FrameReader {
-  private buffered: Uint8Array = new Uint8Array(0);
+  // The chunks not read yet from `head` on; the ones before it are read, dropped once a push ends.
+  private readonly chunks: Uint8Array[] = [];
+  private head = 0;
+  private bytes = 0;
+  // The header of the frame being read, once its bytes came, so a chunk short of its end is kept
+  // and nothing else.
+  private header:
+    | { readonly type: DeviceFrameType; readonly channel: number; readonly length: number }
+    | undefined;
 
   push(chunk: Uint8Array): DeviceFrame[] {
-    this.buffered = concat(this.buffered, chunk);
-    const frames: DeviceFrame[] = [];
-    let offset = 0;
-    while (this.buffered.byteLength - offset >= DEVICE_FRAME_HEADER_BYTES) {
-      const header = new DataView(
-        this.buffered.buffer,
-        this.buffered.byteOffset + offset,
-        DEVICE_FRAME_HEADER_BYTES,
-      );
-      const type = header.getUint8(0);
-      const channel = header.getUint32(1);
-      const length = header.getUint32(5);
-      if (!isFrameType(type)) throw new DeviceFrameRefused(`Unknown frame type ${type}.`);
-      if (length > DEVICE_FRAME_MAX_PAYLOAD_BYTES) {
-        throw new DeviceFrameRefused(oversizeWords(length));
-      }
-      const end = offset + DEVICE_FRAME_HEADER_BYTES + length;
-      if (end > this.buffered.byteLength) break;
-      frames.push({
-        type,
-        channel,
-        payload: this.buffered.slice(offset + DEVICE_FRAME_HEADER_BYTES, end),
-      });
-      offset = end;
+    if (chunk.byteLength > 0) {
+      this.chunks.push(chunk);
+      this.bytes += chunk.byteLength;
     }
-    this.buffered = this.buffered.slice(offset);
+    const frames: DeviceFrame[] = [];
+    for (;;) {
+      if (this.header === undefined) {
+        if (this.bytes < DEVICE_FRAME_HEADER_BYTES) break;
+        this.header = this.readHeader();
+      }
+      const { type, channel, length } = this.header;
+      if (this.bytes < length) break;
+      this.header = undefined;
+      frames.push({ type, channel, payload: this.take(length, new Uint8Array(length)) });
+    }
+    if (this.head > 0) {
+      this.chunks.splice(0, this.head);
+      this.head = 0;
+    }
     return frames;
   }
 
   /** Bytes of a frame not complete yet. */
   get pendingBytes(): number {
-    return this.buffered.byteLength;
+    return this.bytes + (this.header === undefined ? 0 : DEVICE_FRAME_HEADER_BYTES);
   }
-}
 
-function concat(first: Uint8Array, second: Uint8Array): Uint8Array {
-  if (first.byteLength === 0) return second;
-  const joined = new Uint8Array(first.byteLength + second.byteLength);
-  joined.set(first);
-  joined.set(second, first.byteLength);
-  return joined;
+  /** Takes the next frame's header, refusing an unknown type or a payload over the maximum. */
+  private readHeader(): { type: DeviceFrameType; channel: number; length: number } {
+    const bytes = this.peek(DEVICE_FRAME_HEADER_BYTES);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, DEVICE_FRAME_HEADER_BYTES);
+    const type = view.getUint8(0);
+    const channel = view.getUint32(1);
+    const length = view.getUint32(5);
+    if (!isFrameType(type)) throw new DeviceFrameRefused(`Unknown frame type ${type}.`);
+    if (length > DEVICE_FRAME_MAX_PAYLOAD_BYTES) {
+      throw new DeviceFrameRefused(oversizeWords(length));
+    }
+    this.take(DEVICE_FRAME_HEADER_BYTES);
+    return { type, channel, length };
+  }
+
+  /** The first `count` bytes, left in place: a view of the first chunk when it holds them all. */
+  private peek(count: number): Uint8Array {
+    const first = this.chunks[this.head];
+    if (first !== undefined && first.byteLength >= count) return first.subarray(0, count);
+    const joined = new Uint8Array(count);
+    let filled = 0;
+    for (let index = this.head; filled < count; index++) {
+      const chunk = this.chunks[index];
+      if (chunk === undefined) break;
+      const part = chunk.subarray(0, count - filled);
+      joined.set(part, filled);
+      filled += part.byteLength;
+    }
+    return joined;
+  }
+
+  /** Drops the first `count` bytes, copying them into `into` when given; answers `into`. */
+  private take(count: number, into?: Uint8Array): Uint8Array {
+    let taken = 0;
+    while (taken < count) {
+      const chunk = this.chunks[this.head];
+      if (chunk === undefined) break;
+      const part = chunk.subarray(0, count - taken);
+      into?.set(part, taken);
+      taken += part.byteLength;
+      if (part.byteLength === chunk.byteLength) this.head++;
+      else this.chunks[this.head] = chunk.subarray(part.byteLength);
+    }
+    this.bytes -= taken;
+    return into ?? new Uint8Array(0);
+  }
 }
 
 function oversizeWords(length: number): string {

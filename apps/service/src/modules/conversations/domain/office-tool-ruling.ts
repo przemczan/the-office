@@ -1,4 +1,4 @@
-import { canonicalJson, fingerprintOf } from "../../engine/index.js";
+import { canonicalJson, fingerprintOf } from "../../engine/index.domain.js";
 import {
   ASK_ME,
   type AuthorityGroup,
@@ -7,7 +7,7 @@ import {
   type AuthorityValue,
   type HardSwitchValue,
   heldToCap,
-} from "../../people/index.js";
+} from "../../people/index.domain.js";
 
 /** What the person's Authority makes of a call of an Office tool (spec 6 › Authority). */
 export type ToolRuling =

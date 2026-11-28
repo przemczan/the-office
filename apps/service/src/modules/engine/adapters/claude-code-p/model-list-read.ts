@@ -1,7 +1,7 @@
 import type { SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
-import type { EngineCommand } from "../claude-code/engine-process.js";
-import type { EngineReadLimits } from "../claude-code/engine-read.js";
+import type { EngineCommand } from "../shared/engine-process.js";
+import type { EngineReadLimits } from "../shared/engine-read.js";
 import { listedClaudeModels } from "../claude-code/listed-models.js";
 import { readOnStreamJson } from "./usage-window-read.js";
 

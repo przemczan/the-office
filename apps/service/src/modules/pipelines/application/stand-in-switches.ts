@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EngineSessions, type EngineModel } from "../../engine/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { TaskLocks } from "../../../platform/locks/task-locks.js";
+import { TaskLocks } from "../../work/index.js";
 import type { HoldingUser } from "../domain/stage-run.js";
 import { engineSwitched, type NamedEngine } from "../domain/stage-run-changes.js";
 import { StandInChoicesChanged } from "../domain/stage-run-events.js";

@@ -3,6 +3,7 @@ import type { ThreadRefusal } from "@the-office/contracts";
 import type { Response } from "express";
 import { ChatNotFound } from "../../domain/chat-not-found.js";
 import { DecisionNotFound } from "../../domain/decision-not-found.js";
+import { MessageNotFound } from "../../domain/message-not-found.js";
 import { ProposalNotFound } from "../../domain/proposal-not-found.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
 import { SubAgentOrProcessNotFound } from "../../domain/sub-agent-or-process-not-found.js";
@@ -14,6 +15,7 @@ type ConversationsError =
   | ThreadNotFound
   | ChatNotFound
   | DecisionNotFound
+  | MessageNotFound
   | ProposalRefused
   | ProposalNotFound
   | SubAgentOrProcessNotFound;
@@ -24,6 +26,7 @@ type ConversationsError =
   ThreadNotFound,
   ChatNotFound,
   DecisionNotFound,
+  MessageNotFound,
   ProposalRefused,
   ProposalNotFound,
   SubAgentOrProcessNotFound,

@@ -19,10 +19,10 @@ export interface KnownGapRoute {
   readonly route: WriteRoute;
   /**
    * The agent-parity analysis's mark for it: an Office tool does it by hand (`tool`), drafts it
-   * (`proposal`), covers some of it (`partial`) or nothing does (`gap`); `undecided` is one the
-   * analysis takes for the user's alone though no spec heading says so yet.
+   * (`proposal`), covers some of it (`partial`) or nothing does (`gap`). Every one is a tool
+   * wanted: a route the user's alone or needing no action belongs in its own list instead.
    */
-  readonly agent: "tool" | "proposal" | "partial" | "gap" | "undecided";
+  readonly agent: "tool" | "proposal" | "partial" | "gap";
   readonly note?: string;
 }
 
@@ -33,7 +33,6 @@ export interface WriteRouteRegister {
 }
 
 const THE_USERS_ALONE = "6-permissions-and-safety.md#the-users-alone";
-const NOT_YET_IN_SPEC = "the user's alone by the analysis; spec 6 doesn't say so yet";
 
 const USERS_ALONE: readonly UsersAloneRoute[] = [
   // Work: Tasks.
@@ -48,7 +47,9 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
 
   // Decisions, Proposals, Threads.
   { route: "POST /proposals/:id/apply", specHeading: THE_USERS_ALONE },
+  { route: "POST /proposals/:id/decline", specHeading: THE_USERS_ALONE },
   { route: "PUT /threads/:id/allow-changes", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /threads/:id/allow-changes", specHeading: THE_USERS_ALONE },
   { route: "POST /threads/:id/stop", specHeading: THE_USERS_ALONE },
   { route: "POST /chats/:roleKey/threads/delete", specHeading: THE_USERS_ALONE },
 
@@ -57,24 +58,74 @@ const USERS_ALONE: readonly UsersAloneRoute[] = [
   { route: "PUT /fire-alarm/lifts/:threadId", specHeading: THE_USERS_ALONE },
   { route: "DELETE /fire-alarm/lifts/:threadId", specHeading: THE_USERS_ALONE },
 
-  // Projects: running an Action.
+  // Projects: running an Action, merging a pull request.
   {
     route: "POST /projects/:id/actions/:key/runs",
     specHeading: THE_USERS_ALONE,
   },
+  { route: "POST /action-runs/:id/stop", specHeading: THE_USERS_ALONE },
+  { route: "POST /pull-requests/:id/merge", specHeading: THE_USERS_ALONE },
 
-  // Engine credentials: they sign The Office in somewhere.
+  // Connected devices: the browser's device picker, or a pairing code typed from the phone.
+  { route: "POST /tasks/:taskId/devices", specHeading: THE_USERS_ALONE },
+  { route: "POST /tasks/:taskId/devices/wireless", specHeading: THE_USERS_ALONE },
+  { route: "POST /projects/:projectId/devices", specHeading: THE_USERS_ALONE },
+  { route: "POST /project-devices/:id/pair", specHeading: THE_USERS_ALONE },
+
+  // Credentials: they sign The Office in somewhere, or decide whom it trusts.
   { route: "POST /settings/engines/:engineId/sign-in", specHeading: THE_USERS_ALONE },
   { route: "POST /settings/engines/:engineId/sign-in/code", specHeading: THE_USERS_ALONE },
   { route: "DELETE /settings/engines/:engineId/sign-in", specHeading: THE_USERS_ALONE },
   { route: "PUT /settings/engines/:engineId/token", specHeading: THE_USERS_ALONE },
   { route: "PUT /settings/engines/:engineId/api-key", specHeading: THE_USERS_ALONE },
+  { route: "POST /github/sign-in", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /github/sign-in", specHeading: THE_USERS_ALONE },
+  { route: "PUT /settings/google-client", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /settings/google-client", specHeading: THE_USERS_ALONE },
+  { route: "PUT /settings/openid-connect-provider", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /settings/openid-connect-provider", specHeading: THE_USERS_ALONE },
+  { route: "POST /office-identity/ssh-key/regenerate", specHeading: THE_USERS_ALONE },
+  { route: "POST /office-identity/known-hosts/scan", specHeading: THE_USERS_ALONE },
+  { route: "POST /office-identity/known-hosts", specHeading: THE_USERS_ALONE },
 
-  // The user's own account.
+  // Signing in and out, in every way: a person is never a user.
+  { route: "POST /sign-in/first-user", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-in/password", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-in/set-password", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-in/code", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-in/github", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-in/google", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-in/openid-connect", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-in/passkey", specHeading: THE_USERS_ALONE },
+  { route: "POST /sign-out", specHeading: THE_USERS_ALONE },
+
+  // Users and First-run setup: signing in guards The Office against people without an account.
+  { route: "POST /users", specHeading: THE_USERS_ALONE },
+  { route: "POST /users/:userId/one-time-password", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /users/:userId", specHeading: THE_USERS_ALONE },
+  { route: "POST /first-run-setup/close", specHeading: THE_USERS_ALONE },
+
+  // The user's own account, notification settings among it: each user's own.
+  { route: "PATCH /account", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/password", specHeading: THE_USERS_ALONE },
+  { route: "PUT /account/appearance", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/authenticator", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/authenticator/confirm", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /account/authenticator", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/recovery-codes", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/passkeys", specHeading: THE_USERS_ALONE },
+  { route: "PATCH /account/passkeys/:id", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /account/passkeys/:id", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/linked-identities/github", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/linked-identities/google", specHeading: THE_USERS_ALONE },
+  { route: "POST /account/linked-identities/openid-connect", specHeading: THE_USERS_ALONE },
   { route: "DELETE /account/linked-identities/github", specHeading: THE_USERS_ALONE },
   { route: "DELETE /account/linked-identities/google", specHeading: THE_USERS_ALONE },
   { route: "DELETE /account/linked-identities/openid-connect", specHeading: THE_USERS_ALONE },
-  { route: "DELETE /account/passkeys/:id", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /account/signed-in-devices/:id", specHeading: THE_USERS_ALONE },
+  { route: "PUT /account/notifications/timing", specHeading: THE_USERS_ALONE },
+  { route: "PUT /account/notifications/routing/:level", specHeading: THE_USERS_ALONE },
+  { route: "DELETE /account/notifications/routing/:level", specHeading: THE_USERS_ALONE },
 ];
 
 const NO_ACTION: readonly NoActionRoute[] = [
@@ -226,7 +277,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     agent: "partial",
     note: "answer_decision; an approval and the Bug Task's creation stay the user's (2.4.2)",
   },
-  { route: "POST /proposals/:id/decline", agent: "undecided", note: NOT_YET_IN_SPEC },
   { route: "POST /chats/:roleKey/threads", agent: "partial", note: "consult, post_link_card" },
   {
     route: "POST /tasks/:taskId/conversation/:roleKey/thread",
@@ -236,7 +286,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   { route: "POST /threads/:id/messages", agent: "partial", note: "consult" },
   { route: "PUT /threads/:id/title", agent: "gap" },
   { route: "PUT /threads/:id/context-override", agent: "gap" },
-  { route: "DELETE /threads/:id/allow-changes", agent: "undecided", note: NOT_YET_IN_SPEC },
 
   // Projects and their settings.
   { route: "POST /projects", agent: "proposal", note: "propose_project" },
@@ -245,16 +294,6 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
     route: "POST /projects/:id/environment-check",
     agent: "tool",
     note: "run_environment_check (hand-written)",
-  },
-  {
-    route: "POST /action-runs/:id/stop",
-    agent: "undecided",
-    note: "spec 2.15 says no Agent starts an Action, not who stops a run",
-  },
-  {
-    route: "POST /pull-requests/:id/merge",
-    agent: "undecided",
-    note: "the module template's recorded exception: merging is publishing",
   },
 
   // People and Role cards.
@@ -265,96 +304,14 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
   },
   { route: "DELETE /roles/:key/memory", agent: "gap" },
 
-  // Engines, Office settings, updates, telemetry, identity.
-  {
-    route: "POST /office-identity/ssh-key/regenerate",
-    agent: "gap",
-    note: "likely the user's alone",
-  },
-  { route: "POST /office-identity/known-hosts/scan", agent: "gap" },
-  { route: "POST /office-identity/known-hosts", agent: "gap" },
-  {
-    route: "POST /github/sign-in",
-    agent: "undecided",
-    note: "the Office identity's sign-in, in the user's browser",
-  },
-  { route: "DELETE /github/sign-in", agent: "undecided", note: NOT_YET_IN_SPEC },
-
   // Test instances, Connected devices.
   {
-    route: "POST /tasks/:taskId/devices",
-    agent: "undecided",
-    note: "the browser's device picker asks the user",
+    route: "POST /devices/:id/disconnect",
+    agent: "gap",
+    note: "wanted: an Agent gives back a device it lent, as any user disconnects one (2.13)",
   },
-  {
-    route: "POST /tasks/:taskId/devices/wireless",
-    agent: "undecided",
-    note: "the user types the pairing code",
-  },
-  { route: "POST /devices/:id/disconnect", agent: "undecided", note: NOT_YET_IN_SPEC },
-  { route: "POST /projects/:projectId/devices", agent: "gap" },
   { route: "PATCH /project-devices/:id", agent: "gap" },
   { route: "DELETE /project-devices/:id", agent: "gap" },
-  { route: "POST /project-devices/:id/pair", agent: "gap" },
-
-  // Notifications, users, the user's own account.
-  { route: "PUT /account/notifications/timing", agent: "undecided", note: "each user's own" },
-  {
-    route: "PUT /account/notifications/routing/:level",
-    agent: "undecided",
-    note: "each user's own",
-  },
-  {
-    route: "DELETE /account/notifications/routing/:level",
-    agent: "undecided",
-    note: "each user's own",
-  },
-  { route: "POST /sign-in/first-user", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-in/password", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-in/set-password", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-in/code", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-in/github", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-in/google", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-in/openid-connect", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-in/passkey", agent: "undecided", note: "a person is never a user" },
-  { route: "POST /sign-out", agent: "undecided", note: "a person is never a user" },
-  { route: "PATCH /account", agent: "undecided", note: "each user's own" },
-  { route: "POST /account/password", agent: "undecided", note: "each user's own" },
-  { route: "PUT /account/appearance", agent: "undecided", note: "each user's own" },
-  { route: "POST /account/authenticator", agent: "undecided", note: "each user's own" },
-  { route: "POST /account/authenticator/confirm", agent: "undecided", note: "each user's own" },
-  { route: "DELETE /account/authenticator", agent: "undecided", note: "each user's own" },
-  { route: "POST /account/recovery-codes", agent: "undecided", note: "each user's own" },
-  { route: "POST /account/passkeys", agent: "undecided", note: "each user's own" },
-  { route: "PATCH /account/passkeys/:id", agent: "undecided", note: "each user's own" },
-  { route: "POST /account/linked-identities/github", agent: "undecided", note: "each user's own" },
-  { route: "POST /account/linked-identities/google", agent: "undecided", note: "each user's own" },
-  {
-    route: "POST /account/linked-identities/openid-connect",
-    agent: "undecided",
-    note: "each user's own",
-  },
-  { route: "DELETE /account/signed-in-devices/:id", agent: "undecided", note: "each user's own" },
-  { route: "POST /users", agent: "undecided", note: "an Agent shouldn't make an account" },
-  {
-    route: "POST /users/:userId/one-time-password",
-    agent: "undecided",
-    note: "an Agent shouldn't make an account",
-  },
-  { route: "DELETE /users/:userId", agent: "undecided", note: NOT_YET_IN_SPEC },
-  { route: "POST /first-run-setup/close", agent: "undecided", note: NOT_YET_IN_SPEC },
-  { route: "PUT /settings/google-client", agent: "undecided", note: "holds a client secret" },
-  { route: "DELETE /settings/google-client", agent: "undecided", note: "holds a client secret" },
-  {
-    route: "PUT /settings/openid-connect-provider",
-    agent: "undecided",
-    note: "holds a client secret",
-  },
-  {
-    route: "DELETE /settings/openid-connect-provider",
-    agent: "undecided",
-    note: "holds a client secret",
-  },
 ];
 
 /**
@@ -362,8 +319,8 @@ const KNOWN_GAPS: readonly KnownGapRoute[] = [
  * seeded from the agent-parity analysis's table and grouped by its sections: the user's alone, with
  * the spec heading that says why; needing no action, with a one-line reason; or a known gap.
  * `knownGaps` only shrinks: a route leaves it when it becomes an Office action or gets a written
- * reason. `app.module.test.ts` fails for a route in none of these, and for an entry whose route is
- * gone.
+ * reason, and `write-routes.test.ts` fails when it holds more than its tracked count.
+ * `app.module.test.ts` fails for a route in none of these, and for an entry whose route is gone.
  */
 export const WRITE_ROUTE_REGISTER: WriteRouteRegister = {
   usersAlone: USERS_ALONE,

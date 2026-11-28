@@ -5,7 +5,7 @@ import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { officeUpdateQueries } from "../api/office-updates.ts";
-import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
+import { useEventStreamStatus, useWebAppUpdated } from "../api/event-stream-provider.tsx";
 import { roleQueries } from "../api/people.ts";
 import { ActivityFigure } from "./activity/activity-figure.tsx";
 import { tokensShort } from "./conversation/context-words.ts";
@@ -195,18 +195,21 @@ function AlarmFigure({ alarm }: { readonly alarm: FireAlarmOnNow }): ReactNode {
 }
 
 /**
- * Gathers what The Office tells the user into the slot: the web reconnecting, the Office's own
- * Notifications until they clear, an Office update or restart while one is scheduled, and the
- * desktop ask until the user answers, after which the browser keeps the answer.
+ * Gathers what The Office tells the user into the slot: the web reconnecting, The Office updated
+ * since the page opened until it is reloaded, the Office's own Notifications until they clear, an
+ * Office update or restart while one is scheduled, and the desktop ask until the user answers,
+ * after which the browser keeps the answer.
  */
 function OfficeMessagesSlot(): ReactNode {
   const reconnecting = useEventStreamStatus() === "reconnecting";
+  const updated = useWebAppUpdated();
   const notifications = useQuery(notificationQueries.open()).data ?? [];
   const roles = useQuery(roleQueries.list()).data;
   const scheduled = useQuery(officeUpdateQueries.officeUpdate()).data?.scheduled;
   const [permission, setPermission] = useState<DesktopPermission>(desktopPermission);
   const messages = officeMessages({
     reconnecting,
+    updated,
     notifications,
     scheduled: scheduled && { kind: scheduled.kind, waitingFor: scheduled.busy.length },
     desktopAsk: permission === "default",

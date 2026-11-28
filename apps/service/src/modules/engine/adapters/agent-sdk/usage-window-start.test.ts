@@ -9,7 +9,8 @@ import {
   fakeClaudeCodeP,
   fakeClaudeCodePRuns,
 } from "../claude-code-p/fake-claude-code-p.fixtures.js";
-import { WINDOW_START_MODEL, WINDOW_START_PROMPT } from "../claude-code/usage-window-start.js";
+import { WINDOW_START_MODEL } from "../claude-code/usage-window-start.js";
+import { WINDOW_START_PROMPT } from "../shared/usage-window-start.js";
 import { sdkWindowStartOptions, startUsageWindowOnSdk } from "./usage-window-start.js";
 
 function notStarted(): never {

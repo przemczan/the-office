@@ -34,7 +34,7 @@ import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { FireAlarmRepositoryForTests } from "../ports/work-ports.fixtures.js";
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 
 /**
  * Task 27's check on the Test Project: a Task whose only Stage is Quick fix's Implement, worked by

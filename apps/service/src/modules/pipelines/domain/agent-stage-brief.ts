@@ -4,7 +4,7 @@ import {
   renderedPart,
   type PromptTexts,
   type PromptValues,
-} from "../../prompt-templates/index.js";
+} from "../../prompt-templates/index.domain.js";
 import {
   EARLIER_STAGE_RESULT,
   STAGE_BRIEF,

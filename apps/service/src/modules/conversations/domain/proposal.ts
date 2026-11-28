@@ -7,7 +7,7 @@ import {
   type RoleCard,
   type SetUpDuty,
   type SetUpHire,
-} from "../../people/index.js";
+} from "../../people/index.domain.js";
 import type {
   NewProject,
   ProjectFeatureSwitches,

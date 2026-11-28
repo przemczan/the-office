@@ -1,4 +1,4 @@
-import { DUTIES, type DutyKey } from "../../people/index.js";
+import { DUTIES, type DutyKey } from "../../people/index.domain.js";
 import { problemOnStage, type StageProblem } from "./pipeline.js";
 import type { StageRun } from "./stage-run.js";
 import { stageWorker, type AgentStage, type Stage, type StageWorker } from "./stage.js";

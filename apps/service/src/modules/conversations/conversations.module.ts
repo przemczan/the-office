@@ -82,6 +82,7 @@ import { SubAgentAndProcessRepository } from "./ports/sub-agent-and-process-repo
 import { LinkCards } from "./application/link-cards.js";
 import { LiveView } from "./application/live-view.js";
 import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
+import { LiveSessions } from "./application/live-sessions.js";
 import { MentionedRecords } from "./application/mentioned-records.js";
 import { OfficeInstructions } from "./application/office-instructions.js";
 import { ProposalAppliers } from "./application/proposal-appliers.js";
@@ -108,6 +109,11 @@ import { ThreadSummaries } from "./application/thread-summaries.js";
 import { ThreadHistory } from "./application/thread-history.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
+import { SessionThreads } from "./application/session-threads.js";
+import { ThreadCards } from "./application/thread-cards.js";
+import { ThreadsAtWork } from "./application/threads-at-work.js";
+import { WaitingOnTheUser } from "./application/waiting-on-the-user.js";
+import { WorkThreads } from "./application/work-threads.js";
 import { WorkRecords } from "./application/work-records.js";
 import { MessageImages } from "./application/message-images.js";
 import { ThreadImages } from "./application/thread-images.js";
@@ -186,6 +192,11 @@ export class ConversationsModule implements NestModule {
         ContextPolicySettingsService,
         OfficeInstructions,
         ThreadService,
+        SessionThreads,
+        ThreadCards,
+        ThreadsAtWork,
+        WaitingOnTheUser,
+        WorkThreads,
         Briefs,
         TaskThreadSetups,
         InitiativeThreadSetups,
@@ -194,6 +205,7 @@ export class ConversationsModule implements NestModule {
         ThreadImages,
         { provide: MessageImageRules, useClass: ContractMessageImageRules },
         MentionedRecords,
+        LiveSessions,
         SessionMemory,
         SessionPlaces,
         CallChains,
@@ -260,6 +272,11 @@ export class ConversationsModule implements NestModule {
         InterruptedAnswers,
         SubAgentsAndProcesses,
         ThreadService,
+        SessionThreads,
+        ThreadCards,
+        ThreadsAtWork,
+        WaitingOnTheUser,
+        WorkThreads,
         TaskThreadSetups,
         InitiativeThreadSetups,
         WorkRecords,

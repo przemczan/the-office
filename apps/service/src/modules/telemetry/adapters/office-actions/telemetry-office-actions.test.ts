@@ -15,7 +15,7 @@ import { EventsModule } from "../../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { BundledGrafana } from "../../../../platform/telemetry/bundled-grafana/bundled-grafana.js";
 import { ScriptedBundledGrafana } from "../../../../platform/telemetry/bundled-grafana/scripted-bundled-grafana.js";
-import { TelemetryHttpModule } from "../../../../platform/telemetry/telemetry-http.module.js";
+import { TelemetrySettingModule } from "../../../../platform/telemetry/telemetry-setting.module.js";
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { anOfficeToolCall, RUN_EVERY_CALL } from "../../../engine/index.fixtures.js";
 import {
@@ -28,6 +28,7 @@ import { GrafanaCheck } from "../../application/grafana-check.js";
 import { GrafanaInUse } from "../../ports/grafana-in-use.js";
 import { StatsSource } from "../../ports/stats-source.js";
 import { TelemetryOfficeActionsController } from "../http/telemetry-office-actions.controller.js";
+import { TelemetrySettingsController } from "../http/telemetry-settings.controller.js";
 import { ScriptedStatsSource } from "../scripted/scripted-stats-source.js";
 import { TelemetryOfficeActions } from "./telemetry-office-actions.js";
 
@@ -41,8 +42,8 @@ const grafanaInUse = {
 };
 
 @Module({
-  imports: [TelemetryHttpModule, EngineModule],
-  controllers: [TelemetryOfficeActionsController],
+  imports: [TelemetrySettingModule, EngineModule],
+  controllers: [TelemetryOfficeActionsController, TelemetrySettingsController],
   providers: [
     GrafanaCheck,
     TelemetryOfficeActions,

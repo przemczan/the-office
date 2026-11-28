@@ -48,16 +48,14 @@ import {
   OfficeStatusCardsForTests,
   ResumePlansForTests,
   StandInChoicesWaitingForTests,
-  OpenProposalsForTests,
   PullRequestsWaitingForTests,
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
-  ShapingRepliesForTests,
+  WaitingInConversationsForTests,
   OfficeUsersForTests,
   OfficeOffBoardTasksForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
-  OpenDecisionsForTests,
   TaskStageProgressForTests,
 } from "../ports/notifications-ports.fixtures.js";
 
@@ -78,7 +76,6 @@ describe("NowService", () => {
           imports: [NotificationsPortsForTestsModule],
           officeTasks: OfficeTasksForTests,
           officeInitiatives: OfficeInitiativesForTests,
-          openDecisions: OpenDecisionsForTests,
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,
           startQueue: StartQueueForTests,
@@ -88,11 +85,10 @@ describe("NowService", () => {
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
           standInChoicesWaiting: StandInChoicesWaitingForTests,
-          openProposals: OpenProposalsForTests,
           pullRequestsWaiting: PullRequestsWaitingForTests,
           skillUpdatesFound: SkillUpdatesFoundForTests,
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
-          shapingReplies: ShapingRepliesForTests,
+          waitingInConversations: WaitingInConversationsForTests,
           officeUsers: OfficeUsersForTests,
           officeOffBoardTasks: OfficeOffBoardTasksForTests,
         }),
@@ -134,7 +130,7 @@ describe("NowService", () => {
         runs: [{ startedAt: new Date("2026-10-27T09:00:00Z"), endedAt: undefined }],
       },
     ]);
-    app.get(OpenDecisionsForTests).open = [
+    app.get(WaitingInConversationsForTests).decisions = [
       { id: decisionId, threadId: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
     ];
     app.get(DeskLimitForTests).limit = 4;
@@ -216,7 +212,7 @@ describe("NowService", () => {
         madeFor: "onboard",
       },
     ];
-    app.get(OpenDecisionsForTests).open = [
+    app.get(WaitingInConversationsForTests).decisions = [
       { id: decisionId, threadId: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
     ];
     app.get(StartQueueForTests).queued = [
@@ -284,8 +280,8 @@ describe("NowService", () => {
         resumesAt: undefined,
       },
     ];
-    const decisions = app.get(OpenDecisionsForTests);
-    decisions.open = [decision];
+    const waiting = app.get(WaitingInConversationsForTests);
+    waiting.decisions = [decision];
     await events.publish(decisionEvent(DecisionOpened, decision));
     await vi.waitFor(() =>
       expect(announced.at(-1)?.now.needsYou).toEqual([
@@ -293,7 +289,7 @@ describe("NowService", () => {
       ]),
     );
 
-    decisions.open = [];
+    waiting.decisions = [];
     await events.publish(decisionEvent(DecisionClosed, decision));
 
     await vi.waitFor(() => expect(announced.at(-1)?.now.needsYou).toEqual([]));
@@ -483,7 +479,7 @@ describe("NowService", () => {
         { id: randomUUID(), name: "Billing", state: "active", createdAt: new Date("2026-11-01") },
       ];
       initiatives.tasks.set(initiativeId, [{ projectId: "p2", state: "ready" }]);
-      app.get(OpenProposalsForTests).open = [
+      app.get(WaitingInConversationsForTests).proposals = [
         {
           id: proposalId,
           threadId: randomUUID(),
@@ -516,7 +512,7 @@ describe("NowService", () => {
         },
         foundAt: new Date("2026-11-20T09:04:00Z"),
       };
-      const replies = app.get(ShapingRepliesForTests);
+      const replies = app.get(WaitingInConversationsForTests);
       replies.replies = [
         {
           initiativeId,

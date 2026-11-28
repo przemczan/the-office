@@ -3,11 +3,8 @@ import { randomUUID } from "node:crypto";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
-import {
-  userCredentials,
-  type UserCredentials,
-} from "../../../../platform/git-identity/user-credentials.fixtures.js";
+import { officeIdentityForTests } from "../../../office-identity/index.fixtures.js";
+import { userCredentials, type UserCredentials } from "../../../office-identity/index.fixtures.js";
 import { GitCommandFailed, type GitVariables } from "../../ports/git.js";
 import { CommandLineGit } from "./command-line-git.js";
 import { exists, serviceVariables, WorktreeMaker } from "./command-line-git.fixtures.js";

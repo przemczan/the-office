@@ -1,4 +1,4 @@
-import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
+import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.domain.js";
 
 /** Which commands a Role's Agents may run, as their Role card says (spec §6). */
 export type RunPermission = "read-only-git" | "project-commands" | "anything";

@@ -29,6 +29,9 @@ export type ScriptedExecution = (execution: Execution) => Promise<{
   readonly endedBy?: ExecutionEnd["endedBy"];
 }>;
 
+/** A step a test has fail once. */
+type FailingStep = "up" | "build" | "exec" | "down" | "remove";
+
 /** What an execution held running ends with. */
 interface ExecutionResult {
   readonly output?: string;
@@ -52,7 +55,9 @@ export class ScriptedAttachedProcess implements AttachedProcess {
     readonly projectName: string,
     readonly attachment: Attachment,
   ) {
-    this.stdin.on("data", (chunk: Buffer) => void this.received.push(chunk));
+    this.stdin.on("data", (chunk: Buffer) => {
+      this.received.push(chunk);
+    });
     this.ended = new Promise((resolve) => {
       this.finish = resolve;
     });
@@ -133,8 +138,8 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     readonly end: (result: ExecutionResult) => void;
   }[] = [];
   private readonly followers: Follower[] = [];
-  /** The steps that fail next, by name ("up", "build", "exec"), each once. */
-  readonly failing = new Set<"up" | "build" | "exec">();
+  /** The steps that fail next, by name ("up", "build", "exec", "down", "remove"), each once. */
+  readonly failing = new Set<FailingStep>();
   private clock = 0;
 
   imageExists(image: string): Promise<boolean> {
@@ -221,6 +226,11 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     this.steps.push(
       `down ${projectName}${removal.builtImages === true ? " with built images" : ""}`,
     );
+    if (this.failing.delete("down")) {
+      return Promise.reject(
+        new ContainerRuntimeFailed(`The compose project ${projectName} couldn't be taken down.`),
+      );
+    }
     this.projects.delete(projectName);
     // Its containers are killed: what runs in them ends, and their logs with them.
     this.endHeld(projectName, { exitCode: KILLED_EXIT_CODE });
@@ -246,6 +256,11 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
 
   removeByLabel(labels: Labels): Promise<void> {
     this.steps.push(`remove ${JSON.stringify(labels)}`);
+    if (this.failing.delete("remove")) {
+      return Promise.reject(
+        new ContainerRuntimeFailed("The labelled resources couldn't be removed."),
+      );
+    }
     this.removeWhere((resource) => carries(resource.labels, labels));
     return Promise.resolve();
   }
@@ -361,7 +376,7 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     }
   }
 
-  private failOnce(step: "up" | "build" | "exec", message: string): void {
+  private failOnce(step: FailingStep, message: string): void {
     if (this.failing.delete(step)) throw new ContainerRuntimeFailed(message);
   }
 

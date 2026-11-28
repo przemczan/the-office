@@ -41,7 +41,7 @@ import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import { makeTaskStages } from "../domain/task-stages.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 
 /**
  * Task 12's check on the Test Project: a small real change, planned as in task 11's check, is

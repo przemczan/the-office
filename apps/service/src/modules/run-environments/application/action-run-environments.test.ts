@@ -190,6 +190,26 @@ describe("ActionRunEnvironments.run", () => {
     expect(runtime.executions).toEqual([]);
   });
 
+  it("refuses a Project's variable whose name a shell can't hold, building and running nothing", async () => {
+    const start = await aRun({
+      environment: {
+        set: [{ name: 'X"; id; "', value: "1" }],
+        unset: [],
+        prependPath: [],
+      },
+    });
+
+    const refusal = await testbed.actionRunEnvironments.run(start).catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(RunEnvironmentRefused);
+    expect((refusal as RunEnvironmentRefused).reasons).toEqual([
+      `The Project's variable "X\\"; id; \\"" can't reach a run environment: a name takes letters, digits and _, not starting with a digit. Rename it in the Project's Environment.`,
+    ]);
+    expect(runtime.builds).toEqual([]);
+    expect(runtime.upped).toEqual([]);
+    expect(runtime.executions).toEqual([]);
+  });
+
   it("gives a non-root Office's checkout to the checks' user, and back before it is removed", async () => {
     runtime = new ScriptedContainerRuntime();
     testbed = await runEnvironmentsTestbed(runtime, DEFAULT_RUN_ENVIRONMENT_OPTIONS, {

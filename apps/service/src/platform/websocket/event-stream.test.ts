@@ -1,4 +1,4 @@
-import type { INestApplication } from "@nestjs/common";
+import { Global, Module, type INestApplication } from "@nestjs/common";
 import { EVENTS_PATH } from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -13,6 +13,7 @@ import {
 import type { SignedIn } from "../http/signed-in-requests.js";
 import { Schedule } from "../schedule/schedule.js";
 import type { ManualSchedule } from "../schedule/schedule.fixtures.js";
+import { WebAppBuild } from "../web-app/web-app-build.js";
 import { EventStream, SIGNED_IN_CHECK_EVERY_MS, SIGNED_OUT } from "./event-stream.js";
 import { EventStreamModule } from "./event-stream.module.js";
 import { WebSocketRoutes } from "./websocket-routes.js";
@@ -213,6 +214,47 @@ describe("the event stream", () => {
     });
 
     expect(refusedWith).toBe(404);
+  });
+});
+
+describe("the web app's build", () => {
+  @Global()
+  @Module({
+    providers: [{ provide: WebAppBuild, useValue: new WebAppBuild("0123456789abcdef") }],
+    exports: [WebAppBuild],
+  })
+  class BuiltWebAppForTests {}
+
+  let built: INestApplication;
+  let builtPort: number;
+
+  beforeEach(async () => {
+    ({ app: built, port: builtPort } = await startTestApplication({
+      imports: [EventsModule, EventStreamModule, BuiltWebAppForTests],
+    }));
+  });
+
+  afterEach(async () => {
+    await built.close();
+  });
+
+  it("is named in each reply to a subscription without a scope, never in a Thread's", async () => {
+    const client = new WsClient(`ws://localhost:${builtPort}${EVENTS_PATH}`);
+    const replies: Message[] = [];
+    client.on("message", (data: Buffer) =>
+      replies.push(messageSchema.parse(JSON.parse(data.toString()))),
+    );
+    await new Promise((resolve) => client.once("open", resolve));
+
+    client.send(JSON.stringify({ type: "subscribe", events: ["lamp.lit"] }));
+    client.send(JSON.stringify({ type: "subscribe", events: ["lamp.lit"], threadId: THREAD_A }));
+    await expect.poll(() => replies.length).toBe(2);
+    client.close();
+
+    expect(replies).toEqual([
+      { type: "subscriptions", events: ["lamp.lit"], webAppBuild: "0123456789abcdef" },
+      { type: "subscriptions", events: ["lamp.lit"], threadId: THREAD_A },
+    ]);
   });
 });
 

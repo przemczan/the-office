@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { folderOf, nameOf } from "../../shell/repository-files/repository-files-words.ts";
-import { RepositoryTree } from "../../shell/repository-files/repository-tree.tsx";
+import { RepositoryTree } from "./repository-files/repository-tree.tsx";
 import { FilePreview } from "./file-preview.tsx";
 import { useOpenProject } from "./project-page.tsx";
 import "./files-section.css";

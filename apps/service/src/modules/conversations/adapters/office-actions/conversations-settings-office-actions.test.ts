@@ -12,7 +12,7 @@ import { anOfficeToolCall, RUN_EVERY_CALL } from "../../../engine/index.fixtures
 import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
 import { OfficeInstructions } from "../../application/office-instructions.js";
-import { ThreadService } from "../../application/thread-service.js";
+import { SessionThreads } from "../../application/session-threads.js";
 import { ConversationsSettings } from "../../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../../ports/conversations-settings.fixtures.js";
 import { OfficeInstructionsRepository } from "../../ports/office-instructions-repository.js";
@@ -43,7 +43,7 @@ beforeEach(async () => {
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       { provide: OfficeInstructionsRepository, useValue: repository },
       {
-        provide: ThreadService,
+        provide: SessionThreads,
         useValue: { askedByInSession: (id: string) => Promise.resolve(askedBy.get(id)) },
       },
     ],

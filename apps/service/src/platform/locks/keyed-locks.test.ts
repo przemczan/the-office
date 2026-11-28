@@ -42,4 +42,39 @@ describe("KeyedLocks", () => {
     await Promise.all([holder, callbackDone]);
     expect(order).toEqual(["holder", "callback"]);
   });
+
+  it("runs work holding every key, after work holding any of them, and holds them throughout", async () => {
+    const locks = new KeyedLocks();
+    const order: string[] = [];
+    let releaseB!: () => void;
+    const bReleased = new Promise<void>((resolve) => (releaseB = resolve));
+    const holdingB = locks.run("b", async () => {
+      await bReleased;
+      order.push("b");
+    });
+
+    const holdingAll = locks.runAll(["c", "b", "a", "b"], async () => {
+      order.push("all");
+      await locks.run("a", () => {
+        order.push("a inside");
+        return Promise.resolve();
+      });
+    });
+    const waitingForA = locks.run("a", () => {
+      order.push("a after");
+      return Promise.resolve();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(order).toEqual([]);
+    releaseB();
+    await Promise.all([holdingB, holdingAll, waitingForA]);
+
+    expect(order).toEqual(["b", "all", "a inside", "a after"]);
+  });
+
+  it("runs work at once with no key to hold", async () => {
+    const locks = new KeyedLocks();
+
+    await expect(locks.runAll([], () => Promise.resolve("ran"))).resolves.toBe("ran");
+  });
 });

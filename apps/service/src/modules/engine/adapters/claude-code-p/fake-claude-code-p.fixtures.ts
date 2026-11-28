@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import type { EngineCommand } from "../claude-code/engine-process.js";
+import type { EngineCommand } from "../shared/engine-process.js";
 
 /** When the stand-in's 5-hour window resets. */
 export const FAKE_FIVE_HOUR_RESET = "2027-01-15T10:00:00.000Z";

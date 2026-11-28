@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
+import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.domain.js";
 import type { StageDecision, StageOutcome } from "./stage-run.js";
 
 /**

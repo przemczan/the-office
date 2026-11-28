@@ -281,7 +281,7 @@ describe("PUT /api/projects/:id/environment", () => {
 
     expect(refused.status).toBe(422);
     expect(projectRefusalSchema.parse(await refused.json()).reasons).toEqual([
-      "A variable's name can't have \"=\" in it: A=B.",
+      "A variable's name takes letters, digits and _, not starting with a digit: A=B.",
       "The value of the Secret variable SHORT is shorter than 6 characters, so hiding it in output could hide ordinary text.",
       "TOKEN is both a plain and a Secret variable: make it one or the other.",
       'A folder put in front of PATH is a full path; "relative" is not.',

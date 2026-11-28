@@ -1,4 +1,6 @@
 import { Application, Culler, RenderTexture, Sprite, UPDATE_PRIORITY } from "pixi.js";
+// oxlint-disable-next-line import/no-unassigned-import -- it installs Pixi's renderer without eval, which the service's Content-Security-Policy allows none of
+import "pixi.js/unsafe-eval";
 import type { FigureBounds } from "./art/figures.ts";
 import { forgetPaintedArt } from "./art/pixel-grid.ts";
 import { NAMEPLATE_BELOW_FEET, figureAnchor } from "./figure-hit.ts";

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { RoleCards } from "../../people/index.js";
 import {
   AT,
   aThreadOfItsOwn,
@@ -27,10 +26,10 @@ import {
 import { aUserMessage } from "../domain/thread.fixtures.js";
 import { BEN_ITO } from "../domain/user.fixtures.js";
 import { ClosedConsultationProposals } from "./closed-consultation-proposals.js";
+import type { DecisionService } from "./decision-service.js";
 import type { ProposalAppliers } from "./proposal-appliers.js";
 import { ProposalService } from "./proposal-service.js";
-import type { ThreadRunner } from "./thread-runner.js";
-import { ThreadService } from "./thread-service.js";
+import { WaitingOnTheUser } from "./waiting-on-the-user.js";
 
 setUpEachTest();
 
@@ -64,8 +63,8 @@ function applyingProposals(): ProposalService {
   return new ProposalService(repository, appliers as unknown as ProposalAppliers, NO_EVENTS);
 }
 
-function threads(): ThreadService {
-  return new ThreadService(repository, {} as RoleCards, {} as ThreadRunner, NO_EVENTS);
+function waitingOnTheUser(): WaitingOnTheUser {
+  return new WaitingOnTheUser(repository, {} as DecisionService, proposals());
 }
 
 describe("ProposalService.waitingOnTheUser", () => {
@@ -358,7 +357,7 @@ function initiativeOf(thread: Thread): string {
   return thread.home.initiativeId;
 }
 
-describe("ThreadService.waitingForReply", () => {
+describe("WaitingOnTheUser.initiativeReplies", () => {
   it("lists an Initiative once its shaper answered, until the user replies or a Decision waits, in its newest Thread alone", async () => {
     const answered = await aShapingThread();
     await userWrites(answered, 1);
@@ -392,7 +391,7 @@ describe("ThreadService.waitingForReply", () => {
     const notAsked = await aShapingThread();
     await shaperAnswers(notAsked, 1);
 
-    const waiting = await threads().waitingForReply(
+    const waiting = await waitingOnTheUser().initiativeReplies(
       [answered, replied, asking, replaced, consulted].map(initiativeOf),
     );
 
@@ -404,6 +403,6 @@ describe("ThreadService.waitingForReply", () => {
         .map((reply) => ({ ...reply, roleKey: "shaper" }))
         .toSorted((one, other) => (one.threadId > other.threadId ? 1 : -1)),
     );
-    await expect(threads().waitingForReply([])).resolves.toEqual([]);
+    await expect(waitingOnTheUser().initiativeReplies([])).resolves.toEqual([]);
   });
 });

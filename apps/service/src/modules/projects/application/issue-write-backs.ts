@@ -16,7 +16,7 @@ import {
   type IssueWriteBackEntry,
 } from "../domain/issue-link.js";
 import type { Project } from "../domain/project.js";
-import { isFeatureOn } from "../domain/project-features.js";
+import { isFeatureOn, ISSUES_FEATURE } from "../domain/project-features.js";
 import type { CodeHost } from "../ports/code-host.js";
 import { IssueLinkRepository } from "../ports/issue-link-repository.js";
 import { ProjectRepository } from "../ports/project-repository.js";
@@ -216,7 +216,7 @@ export class IssueWriteBacks extends IssueWriteBack {
  * still kept on the link, which stays.
  */
 function writesBack(project: Project, setting: "commentOnStartAndDone" | "closeOnDrop"): boolean {
-  return isFeatureOn(project, "github-issues") && project.issueSettings[setting];
+  return isFeatureOn(project, ISSUES_FEATURE) && project.issueSettings[setting];
 }
 
 /** Does the write-back on the issue, by its action. */

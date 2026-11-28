@@ -1,5 +1,5 @@
 import type { ProviderOverride } from "../../../../../test/test-application.js";
-import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import { OfficeIdentity } from "../../../office-identity/index.js";
 import type { RemoteRef } from "../../domain/installed-source.js";
 import type { SourceFolder } from "../../domain/source-skills.js";
 import {

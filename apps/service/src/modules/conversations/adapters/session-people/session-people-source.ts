@@ -9,7 +9,7 @@ import {
   SessionPeople as SkillsSessionPeople,
   type SessionPeopleSource as SkillsSessionPeopleSource,
 } from "../../../skills/index.js";
-import { ThreadService } from "../../application/thread-service.js";
+import { SessionThreads } from "../../application/session-threads.js";
 
 /**
  * Gives People, Projects and Skills whose engine session an Office action's call comes from, and the user
@@ -23,7 +23,7 @@ export class SessionPeopleForModules
     private readonly people: PeopleSessionPeople,
     private readonly projects: ProjectsSessionPeople,
     private readonly skills: SkillsSessionPeople,
-    private readonly threads: ThreadService,
+    private readonly threads: SessionThreads,
   ) {}
 
   onModuleInit(): void {

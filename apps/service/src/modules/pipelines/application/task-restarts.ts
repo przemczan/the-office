@@ -1,8 +1,10 @@
 import { Injectable } from "@nestjs/common";
+import { TaskLocks } from "../../work/index.js";
 import { asFlow } from "../domain/flow.js";
 import { RestartRefused } from "../domain/restart-refused.js";
 import { runsOfLatestStart } from "../domain/start-over.js";
 import type { HoldingUser, StageRun } from "../domain/stage-run.js";
+import { keepRestart } from "../domain/stage-run-changes.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks, type RestartingPerson } from "../ports/started-tasks.js";
 import { TaskRecords } from "../ports/task-records.js";
@@ -29,6 +31,7 @@ export class TaskRestarts {
     private readonly tasks: StartedTasks,
     private readonly records: TaskRecords,
     private readonly stageGit: StageGit,
+    private readonly locks: TaskLocks,
   ) {}
 
   /**
@@ -41,7 +44,6 @@ export class TaskRestarts {
     byUser: HoldingUser,
     person?: RestartingPerson,
   ): Promise<void> {
-    const feedback = choice.feedback?.trim() || undefined;
     const by = { userId: byUser.userId, name: byUser.name };
     if (!(await this.taskStages.find(taskId))) {
       throw new RestartRefused([
@@ -49,8 +51,21 @@ export class TaskRestarts {
         "No Stage of the Task has run yet: Resume it instead.",
       ]);
     }
-    // Under the Task's lock, so no walk starts a run between the checks and the record.
-    const stageName = await this.taskStages.holding(taskId, async ({ stages }) => {
+    // Under the Task's lock, which Work's Start over and Reopen… take too, so neither resets the
+    // branch under the discard; and under its Stages' hold, so no walk starts a run between the
+    // checks and the record. Work's move takes the Task's lock again.
+    const stageName = await this.locks.run(taskId, () => this.recordRestart(taskId, choice, by));
+    await this.tasks.restart(taskId, { stageName, by, person });
+  }
+
+  /** Keeps the restart on the held run and discards its edits; the Stage's name it restarts from. */
+  private async recordRestart(
+    taskId: string,
+    choice: RestartChoice,
+    by: HoldingUser,
+  ): Promise<string> {
+    const feedback = choice.feedback?.trim() || undefined;
+    return this.taskStages.holding(taskId, async ({ stages }) => {
       const flow = asFlow(stages);
       const stage = flow.find(({ key }) => key === choice.stageKey);
       const runs = runsOfLatestStart(await this.runs.list(taskId));
@@ -61,7 +76,8 @@ export class TaskRestarts {
         ...heldRunProblems(held),
       ];
       if (problems.length > 0 || !stage || !held) throw new RestartRefused(problems);
-      if (!(await this.runs.saveRestart(held.id, { stageKey: stage.key, feedback, byUser: by }))) {
+      const restart = { stageKey: stage.key, feedback, byUser: by };
+      if (!(await this.runs.update(held.id, (run) => keepRestart(run, restart)))) {
         throw new RestartRefused(["The Task was restarted already."]);
       }
       // Pause kept the held run's edits; a restart discards them, as Stop does.
@@ -69,7 +85,6 @@ export class TaskRestarts {
       await this.stageGit.discardHeld({ run: held, earlierRuns: runs.slice(0, -1) }, task);
       return stage.name;
     });
-    await this.tasks.restart(taskId, { stageName, by, person });
   }
 }
 

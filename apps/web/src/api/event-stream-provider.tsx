@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import type { z } from "zod";
 import { EventStream, type EventStreamOptions, type EventStreamStatus } from "./event-stream.ts";
 
 /** For each event type the web receives, the queries an event of that type makes stale. */
@@ -23,6 +24,22 @@ export type EventInvalidations = Readonly<Record<string, (event: WebEvent) => re
 export type EventCacheUpdates = Readonly<
   Record<string, (event: WebEvent, queryClient: QueryClient) => void>
 >;
+
+/**
+ * For a cache update: the event as `schema` reads it, or undefined when this page can't read it,
+ * as after an Office update, with the queries it would have changed read again instead.
+ */
+export function readEvent<Schema extends z.ZodType>(
+  schema: Schema,
+  event: WebEvent,
+  queryClient: QueryClient,
+  changes: readonly QueryKey[],
+): z.infer<Schema> | undefined {
+  const read = schema.safeParse(event);
+  if (read.success) return read.data;
+  for (const queryKey of changes) void queryClient.invalidateQueries({ queryKey });
+  return undefined;
+}
 
 const EventStreamContext = createContext<EventStream | undefined>(undefined);
 
@@ -166,6 +183,18 @@ export function useEventStreamStatus(): EventStreamStatus {
   return useSyncExternalStore(eventStream.subscribe, eventStream.status);
 }
 
+/**
+ * Whether The Office was updated since this page opened: the service serves another build of the
+ * web app than the one this tab runs (`EventStream.webAppUpdated`).
+ */
+export function useWebAppUpdated(): boolean {
+  const eventStream = useContext(EventStreamContext);
+  if (eventStream === undefined) {
+    throw new Error("useWebAppUpdated needs an EventStreamProvider.");
+  }
+  return useSyncExternalStore(eventStream.subscribe, eventStream.webAppUpdated);
+}
+
 function createEventStream(
   queryClient: QueryClient,
   invalidations: EventInvalidations,
@@ -177,15 +206,31 @@ function createEventStream(
     ...connection,
     url: eventsUrl(window.location),
     eventTypes: [...Object.keys(invalidations), ...Object.keys(cacheUpdates)],
+    // Each part apart, so one that fails on the event leaves the others to take it.
     onEvent: (event) => {
-      cacheUpdates[event.type]?.(event, queryClient);
-      for (const queryKey of invalidations[event.type]?.(event) ?? []) {
-        void queryClient.invalidateQueries({ queryKey });
+      const cacheUpdate = cacheUpdates[event.type];
+      if (cacheUpdate) apart(event, () => cacheUpdate(event, queryClient));
+      const invalidation = invalidations[event.type];
+      if (invalidation) {
+        apart(event, () => {
+          for (const queryKey of invalidation(event)) {
+            void queryClient.invalidateQueries({ queryKey });
+          }
+        });
       }
-      for (const listener of listeners.get(event.type) ?? []) listener(event);
+      for (const listener of listeners.get(event.type) ?? []) apart(event, () => listener(event));
     },
     onSubscribed: () => void queryClient.invalidateQueries(),
   });
+}
+
+/** Runs one part's handling of an event, telling the console, never the caller, when it fails. */
+function apart(event: WebEvent, handle: () => void): void {
+  try {
+    handle();
+  } catch (error) {
+    console.error(`Handling the event ${event.type} failed.`, error);
+  }
 }
 
 function eventsUrl(location: Location): string {

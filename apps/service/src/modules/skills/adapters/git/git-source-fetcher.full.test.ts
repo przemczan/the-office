@@ -5,11 +5,8 @@ import { access, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
-import {
-  userCredentials,
-  type UserCredentials,
-} from "../../../../platform/git-identity/user-credentials.fixtures.js";
+import { officeIdentityForTests } from "../../../office-identity/index.fixtures.js";
+import { userCredentials, type UserCredentials } from "../../../office-identity/index.fixtures.js";
 import { pinnedVersionOf } from "../../domain/installed-source.js";
 import { SourceNotFetched } from "../../ports/source-fetcher.js";
 import { GitSourceFetcher } from "./git-source-fetcher.js";

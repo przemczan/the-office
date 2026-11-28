@@ -3,6 +3,7 @@ import type { Duplex } from "node:stream";
 import {
   Injectable,
   Logger,
+  Optional,
   type BeforeApplicationShutdown,
   type OnApplicationBootstrap,
 } from "@nestjs/common";
@@ -21,6 +22,7 @@ import { EventBus, type Unsubscribe } from "../events/event-bus.js";
 import { OfficeAddresses } from "../http/office-addresses.js";
 import { SignedInRequests, type SignedIn } from "../http/signed-in-requests.js";
 import { Schedule, type Wait } from "../schedule/schedule.js";
+import { WebAppBuild } from "../web-app/web-app-build.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 import { WebSocketRoutes, type WebSocketRouteHandler } from "./websocket-routes.js";
 
@@ -50,7 +52,9 @@ interface Subscriptions {
  * event's Thread, never to one without a scope; every other type goes to the subscriptions of its
  * type without a scope, and to those scoped to its `threadId` when it has one. An event forwarded
  * to one user (`WebEventForwarding.forwardToUser`) goes only to that user's clients. Only a signed-in
- * device connects (spec §2.10), and its clients close once it is signed out.
+ * device connects (spec §2.10), and its clients close once it is signed out. Each reply to a
+ * subscription without a scope names the build of the web app the service serves, so a tab opened
+ * on an earlier build offers to reload.
  */
 @Injectable()
 export class EventStream implements OnApplicationBootstrap, BeforeApplicationShutdown {
@@ -71,6 +75,7 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     private readonly signedInRequests: SignedInRequests,
     private readonly schedule: Schedule,
     private readonly webSocketRoutes: WebSocketRoutes,
+    @Optional() private readonly webAppBuild: WebAppBuild = WebAppBuild.NONE,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -118,7 +123,10 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
       refuseUpgrade(socket, "403 Forbidden");
       return;
     }
-    void this.upgradeSignedIn(request, socket, head, route);
+    void this.upgradeSignedIn(request, socket, head, route).catch((error: unknown) => {
+      this.logger.error(`A WebSocket wasn't opened: ${String(error)}`);
+      socket.destroy();
+    });
   };
 
   private async upgradeSignedIn(
@@ -193,7 +201,12 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
       else subscribed.delete(eventType);
     }
     if (threadId === undefined) {
-      sendTo(client, { type: "subscriptions", events: [...subscribed].toSorted() });
+      const { id: webAppBuild } = this.webAppBuild;
+      sendTo(client, {
+        type: "subscriptions",
+        events: [...subscribed].toSorted(),
+        ...(webAppBuild !== undefined && { webAppBuild }),
+      });
       return;
     }
     if (subscribed.size > 0) subscriptions.byThread.set(threadId, subscribed);

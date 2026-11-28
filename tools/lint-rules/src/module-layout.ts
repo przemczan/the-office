@@ -26,6 +26,12 @@ export const MODULE_ENTRY = "index";
 export const MODULE_TEST_ENTRY = "index.fixtures";
 
 /**
+ * What a module gives other modules' domain layers: the pure values and rules of its own domain,
+ * re-exported from `domain/` alone, so importing it loads no Nest module.
+ */
+export const MODULE_DOMAIN_ENTRY = "index.domain";
+
+/**
  * @param workspacePath - the file's path inside its workspace, with forward slashes, e.g.
  *   `src/modules/work/domain/task.ts`. A folder stands for its `index` file.
  */

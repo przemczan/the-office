@@ -29,6 +29,11 @@ import {
   type UsersApplication,
 } from "../../users-application.fixtures.js";
 import { passkeys } from "../postgres/passkeys.schema.js";
+import {
+  SIGN_IN_START_EVERY_MS,
+  SIGN_IN_STARTS_AT_ONCE,
+  TOO_MANY_SIGN_IN_STARTS,
+} from "./sign-in-starts.js";
 import { signedInDevices } from "../postgres/users.schema.js";
 
 const NOW = new Date("2026-11-13T09:00:00.000Z");
@@ -282,6 +287,44 @@ describe("a passkey sign-in refused", () => {
     expect(
       refusalOf(await finish(localhost, cookie, authenticator.signIn(options, localhost.origin))),
     ).toBe("passkey");
+  });
+});
+
+/** Starts a passkey sign-in at `page`, with these headers too. */
+function optionsFrom(page: PageAt, headers: Record<string, string> = {}): Promise<Answer> {
+  return sendFrom(
+    office.port,
+    { ...page, headers: { ...page.headers, ...headers } },
+    { method: "POST", path: "/api/sign-in/passkey/options" },
+  );
+}
+
+describe("passkey sign-ins started", () => {
+  it("are counted per address: 20 at once, then one every 3 seconds", async () => {
+    const statuses: number[] = [];
+    for (let started = 0; started < SIGN_IN_STARTS_AT_ONCE; started++) {
+      statuses.push((await optionsFrom(localhost)).status);
+    }
+
+    expect(statuses).toEqual(Array<number>(SIGN_IN_STARTS_AT_ONCE).fill(200));
+    const refused = await optionsFrom(localhost);
+    expect(refused).toMatchObject({ status: 429, body: { message: TOO_MANY_SIGN_IN_STARTS } });
+    await office.schedule.advanceBy(SIGN_IN_START_EVERY_MS);
+    expect((await optionsFrom(localhost)).status).toBe(200);
+  });
+
+  it("at the public address, count by the address its proxy says the browser has", async () => {
+    const publicAddress = atPublicAddress();
+    for (let started = 0; started < SIGN_IN_STARTS_AT_ONCE; started++) {
+      await optionsFrom(publicAddress, { "x-forwarded-for": "203.0.113.7" });
+    }
+
+    expect(
+      (await optionsFrom(publicAddress, { "x-forwarded-for": "198.51.100.1, 203.0.113.7" })).status,
+    ).toBe(429);
+    expect((await optionsFrom(publicAddress, { "x-forwarded-for": "203.0.113.8" })).status).toBe(
+      200,
+    );
   });
 });
 

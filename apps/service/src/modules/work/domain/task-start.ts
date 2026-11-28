@@ -1,4 +1,4 @@
-import { DUTIES } from "../../people/index.js";
+import { DUTIES } from "../../people/index.domain.js";
 import type { UsageAtStart } from "./cap-waits.js";
 import {
   onStandIns,

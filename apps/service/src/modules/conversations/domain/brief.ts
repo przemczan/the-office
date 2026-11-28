@@ -1,4 +1,4 @@
-import { flagField, renderedPart, type PromptTexts } from "../../prompt-templates/index.js";
+import { flagField, renderedPart, type PromptTexts } from "../../prompt-templates/index.domain.js";
 import {
   BRIEF_ANSWERED_DECISIONS,
   BRIEF_LATEST_EXCHANGES,

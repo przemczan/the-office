@@ -8,20 +8,26 @@ import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { QueueRepository, type HeldForRelease } from "../../ports/queue-repository.js";
 import { PostgresQueueRepository } from "./postgres-queue-repository.js";
 import { tasks } from "./work.schema.js";
+import type { Transaction } from "./work-rows.js";
 
 /**
  * The queue on the shared database, narrowed to the test's own Projects: every app with Work releases
  * the queue on its own events and weighs each queued Task by its own stand-ins, so without this one
  * file's release starts or refuses another file's queued Tasks, and another file's started Tasks take
- * this one's desks (apps/service/docs/testing.md).
+ * this one's desks (apps/service/docs/testing.md). The fire alarm is the app's own, as a test sets
+ * it: the stored one would hold every file's Starts.
  */
 export class OwnProjectsQueueRepository extends PostgresQueueRepository {
   constructor(
     private readonly ownDatabase: Database,
-    fireAlarm: FireAlarmRepository,
+    private readonly fireAlarm: FireAlarmRepository,
     private readonly ownProjectIds: () => readonly string[],
   ) {
-    super(ownDatabase, fireAlarm);
+    super(ownDatabase);
+  }
+
+  protected override async fireAlarmOn(_transaction: Transaction): Promise<boolean> {
+    return (await this.fireAlarm.read()).on;
   }
 
   override async list(): Promise<readonly QueuedTask[]> {

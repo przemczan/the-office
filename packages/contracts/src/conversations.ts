@@ -1270,6 +1270,14 @@ export type Message = z.infer<typeof messageSchema>;
 /** GET /threads/:id/messages: in the order they were logged. */
 export const messageListSchema = z.array(messageSchema);
 
+/**
+ * `?after=<message id>` of GET /threads/:id/messages: only the messages logged after that one, as a
+ * page holding the log up to it reads on; left out, the whole log. A message not in the Thread's
+ * log answers 404.
+ */
+export const threadMessagesQuerySchema = z.object({ after: z.uuid().optional() });
+export type ThreadMessagesQuery = z.infer<typeof threadMessagesQuerySchema>;
+
 /** What a refused Thread change answers: every reason, also joined into Nest's `message`. */
 export const threadRefusalSchema = z.object({
   statusCode: z.literal(422),
@@ -1461,7 +1469,16 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.renamed"), ...threadWebEventFields }),
   /** The user saw more of a chat Thread, in one tab: the others update what they show as answered. */
   webEventSchema.extend({ type: z.literal("thread.seen"), ...threadWebEventFields }),
-  webEventSchema.extend({ type: z.literal("thread.messages-logged"), ...threadWebEventFields }),
+  /**
+   * Messages joined the Thread's log, which a page reads on from the last message it holds
+   * (`GET /threads/:id/messages?after=`). `threadChanged` when the Thread changed with them (its
+   * title, its state or its session), so what shows it whole or as a row reads it again too.
+   */
+  webEventSchema.extend({
+    type: z.literal("thread.messages-logged"),
+    ...threadWebEventFields,
+    threadChanged: z.boolean(),
+  }),
   /** A chat Thread was deleted: every browser drops its row, its tab and an open Thread says so. */
   webEventSchema.extend({ type: z.literal("thread.deleted"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.turn-ended"), ...threadWebEventFields }),

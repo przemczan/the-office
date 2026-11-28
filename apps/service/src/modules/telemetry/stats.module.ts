@@ -1,7 +1,8 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
-import { TelemetryHttpModule } from "../../platform/telemetry/telemetry-http.module.js";
+import { TelemetrySettingModule } from "../../platform/telemetry/telemetry-setting.module.js";
 import { TelemetryOfficeActionsController } from "./adapters/http/telemetry-office-actions.controller.js";
+import { TelemetrySettingsController } from "./adapters/http/telemetry-settings.controller.js";
 import { TelemetryOfficeActions } from "./adapters/office-actions/telemetry-office-actions.js";
 import { StatsController } from "./adapters/http/stats.controller.js";
 import { SettingsGrafanaInUse } from "./adapters/platform/settings-grafana-in-use.js";
@@ -51,7 +52,7 @@ export interface StatsModuleOptions {
 
 /**
  * Stats (spec 2.11), owned by Telemetry: the basic stats, read from what other modules keep, the
- * full stats, read from the Grafana in use (Settings › Telemetry, `TelemetryHttpModule`), and
+ * full stats, read from the Grafana in use (Settings › Telemetry, `TelemetrySettingModule`, its routes `TelemetrySettingsController`), and
  * System health, read from the platform's Health readings and that Grafana, each through ports the
  * composition root binds. No module calls it, and it keeps no table.
  */
@@ -75,8 +76,8 @@ export class StatsModule {
   }: StatsModuleOptions): DynamicModule {
     return {
       module: StatsModule,
-      imports: [ScheduleModule, TelemetryHttpModule, ...imports],
-      controllers: [StatsController, TelemetryOfficeActionsController],
+      imports: [ScheduleModule, TelemetrySettingModule, ...imports],
+      controllers: [StatsController, TelemetryOfficeActionsController, TelemetrySettingsController],
       providers: [
         { provide: DayTokens, useExisting: dayTokens },
         { provide: EngineWindows, useExisting: engineWindows },

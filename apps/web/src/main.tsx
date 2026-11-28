@@ -1,3 +1,4 @@
+import "./zod-without-eval.ts";
 import "@the-office/ui/styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";

@@ -9,12 +9,16 @@ import {
   ConversationsModule,
   DecisionService,
   ProposalService,
+  SessionThreads,
   StageDecisions,
   StageThreadMessages,
   StageThreads,
   TaskTokens,
+  ThreadCards,
   ThreadRunner,
-  ThreadService,
+  ThreadsAtWork,
+  WaitingOnTheUser,
+  WorkThreads,
 } from "./modules/conversations/index.js";
 import {
   DayUsage,
@@ -103,13 +107,16 @@ import {
   WorkEngineLevelsModule,
   WorkModule,
 } from "./modules/work/index.js";
+import {
+  GitHubUserTokenModule,
+  OfficeIdentityHttpModule,
+} from "./modules/office-identity/index.js";
+import { WorkstationFigureModule } from "./modules/workstation/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EarlierRecordsModule } from "./platform/earlier-records/earlier-records.module.js";
 import { KnowledgeBaseModule } from "./platform/knowledge-base/knowledge-base.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
-import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
-import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { OfficeReachModule } from "./platform/office-reach/office-reach.module.js";
 import { OfficeTestInstanceModule } from "./platform/test-instance/office-test-instance.module.js";
@@ -118,12 +125,11 @@ import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
 import { SystemHealthRecorder } from "./platform/system-health/system-health-recorder.js";
 import { SystemHealthModule } from "./platform/system-health/system-health.module.js";
 import { SystemHealthMetricsModule } from "./platform/telemetry/system-health-metrics.module.js";
-import { TelemetryHttpModule } from "./platform/telemetry/telemetry-http.module.js";
+import { TelemetrySettingModule } from "./platform/telemetry/telemetry-setting.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
 import { EventStream } from "./platform/websocket/event-stream.js";
 import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
-import { WorkstationModule } from "./platform/workstation/workstation.module.js";
 
 // The Office's own git checkout, from this file in apps/service/src/ or dist/.
 const OFFICE_CHECKOUT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -183,12 +189,12 @@ export class AppModule {
       knownPeople: RoleCards,
       knownEngineCascade: EngineCascade,
       knownPipelines: PipelineLibrary,
-      sessionPeople: ThreadService,
-      ideaCards: ThreadService,
-      sessionTasks: ThreadService,
-      sessionInitiatives: ThreadService,
-      taskThreads: ThreadService,
-      initiativeThreads: ThreadService,
+      sessionPeople: SessionThreads,
+      ideaCards: ThreadCards,
+      sessionTasks: SessionThreads,
+      sessionInitiatives: SessionThreads,
+      taskThreads: WorkThreads,
+      initiativeThreads: WorkThreads,
       threadTurns: ConversationsThreadTurns,
       taskDecisions: DecisionService,
       proposalDrafts: ProposalService,
@@ -228,7 +234,7 @@ export class AppModule {
       taskUsage: TaskTokens,
       stageContextLimitDefaults: ContextPolicySettingsService,
       taskThreadSessions: ThreadRunner,
-      sessionPeople: ThreadService,
+      sessionPeople: SessionThreads,
       stageRoleEngines: PipelineRoleCapabilityChecks,
       roleEngineCascade: EngineCascade,
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
@@ -258,28 +264,26 @@ export class AppModule {
       ],
       officeTasks: TaskService,
       officeInitiatives: InitiativeService,
-      openDecisions: DecisionService,
       taskStageProgress: TaskStagesService,
       deskLimit: OfficeLimits,
       startQueue: QueueService,
       knownPeople: RoleCards,
       accountUsage: UsageWindowState,
-      officeStatusCards: ThreadService,
+      officeStatusCards: ThreadCards,
       officeFireAlarm: FireAlarmService,
       resumePlans: AlarmResumes,
       standInChoicesWaiting: StandInChoices,
-      openProposals: ProposalService,
       pullRequestsWaiting: PullRequestRecords,
       skillUpdatesFound: SkillLibrary,
       officeUpdateAvailable: OfficeUpdates,
-      shapingReplies: ThreadService,
+      waitingInConversations: WaitingOnTheUser,
       officeUsers: Users,
       officeOffBoardTasks: OffBoardTaskReader,
     });
     // Work's Tasks and the run environments their devices are relayed into.
     const devices = DevicesModule.register({
       imports: [work, projects, runEnvironments, conversations],
-      sessionPeople: ThreadService,
+      sessionPeople: SessionThreads,
     });
     // Initiatives' branches from Work, test targets and checkouts from Projects, Hosted instances
     // and install environments from Run environments, which take no run environment slot, and the
@@ -288,7 +292,7 @@ export class AppModule {
       imports: [work, projects, runEnvironments, devices, conversations],
       officePort: config.port,
       officeHost: config.host,
-      sessionPeople: ThreadService,
+      sessionPeople: SessionThreads,
     });
     // Action runs: Projects' Actions, checkouts and code host, Run environments' command runs,
     // Test instances' launches, Devices' Project devices held by a run and Work's Tasks,
@@ -364,7 +368,7 @@ export class AppModule {
           officeInitiatives: InitiativeService,
           projectNames: ProjectService,
           healthReadings: SystemHealthRecorder,
-          sessionsRunning: ThreadService,
+          sessionsRunning: ThreadsAtWork,
           stageRunsRunning: StageRunsRunningNow,
           browserConnections: EventStream,
           statsSource: GrafanaStatsSource,
@@ -372,12 +376,13 @@ export class AppModule {
         SystemHealthModule,
         SystemHealthMetricsModule,
         TelemetryModule,
-        TelemetryHttpModule,
+        TelemetrySettingModule,
         testInstances,
         users,
-        WebAppModule.register(webApp),
+        // Registering the GitHub App posts its manifest from the page to GitHub's website.
+        WebAppModule.register({ ...webApp, formTargets: [new URL(config.gitHub.webUrl).origin] }),
         work,
-        WorkstationModule,
+        WorkstationFigureModule,
       ],
     };
   }

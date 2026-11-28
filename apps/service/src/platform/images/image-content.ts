@@ -7,7 +7,8 @@ import type { ImageMediaType } from "./image-rules.js";
  * Nothing in an opened file may load or run: an SVG can hold a script, and its address sits on The
  * Office's own origin. `<img>` runs nothing anyway; this holds when the address itself is opened.
  */
-const IMAGE_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+const IMAGE_CONTENT_SECURITY_POLICY =
+  "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'";
 /** An image's bytes never change, as a new one gets a new id. */
 const IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 

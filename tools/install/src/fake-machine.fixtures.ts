@@ -2,7 +2,7 @@
 // (THE_OFFICE_INSTALL_ROOT), stubs on PATH for every system command the installer runs, each
 // logging its call and answering from a state folder, and GitHub Releases served from files.
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, sign, type KeyObject } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -50,6 +50,7 @@ const REAL_COMMANDS = [
   "mkdir",
   "mktemp",
   "mv",
+  "openssl",
   "readlink",
   "rm",
   "rmdir",
@@ -78,13 +79,21 @@ export interface FakeMachine {
   path(systemPath: string): string;
   /** Runs install.sh's main with `args`, as root unless `uid` says otherwise. */
   install(args?: readonly string[], environment?: NodeJS.ProcessEnv): BashResult;
+  /** From here on, install runs a copy of install.sh pinning `key` as its RELEASE_SIGNING_KEY. */
+  pinReleaseKey(key: string): void;
   /** Runs a copy of install.sh stamped as tools/release/prepare.sh does, piped into bash. */
   installStamped(version: string): BashResult;
   /** The commands the stubs were called with since the last `clearCalls`, one line each. */
   calls(): string[];
   clearCalls(): void;
-  /** Publishes a release on the fake GitHub, its tarball holding a setup-token.js that answers. */
-  publishRelease(version: string, options?: { readonly checksum?: string }): void;
+  /**
+   * Publishes a release on the fake GitHub, its tarball holding a setup-token.js that answers, and
+   * each `.sha256` signed into its `.sha256.sig` with `signWith`, when given.
+   */
+  publishRelease(
+    version: string,
+    options?: { readonly checksum?: string; readonly signWith?: KeyObject },
+  ): void;
   /** The release GitHub's releases/latest leads to. */
   setLatest(version: string): void;
   /** A state flag the stubs read, such as `first-user` or `docker-info-fails`. */
@@ -147,11 +156,19 @@ export function fakeMachine(osRelease: OsRelease = DEBIAN_13): FakeMachine {
     return { status: result.status, stdout: result.stdout, stderr: result.stderr };
   }
 
+  let script = INSTALL_SCRIPT;
   const machine: FakeMachine = {
     root,
     path: (systemPath) => join(root, systemPath),
     install(args = [], environment = {}) {
-      return runBash([INSTALL_SCRIPT, ...args], undefined, environment);
+      return runBash([script, ...args], undefined, environment);
+    },
+    pinReleaseKey(key) {
+      const unpinned = "readonly RELEASE_SIGNING_KEY=''";
+      const text = readFileSync(INSTALL_SCRIPT, "utf8");
+      if (!text.includes(unpinned)) throw new Error(`install.sh holds no ${unpinned}.`);
+      script = join(base, "install.sh");
+      writeFileSync(script, text.replace(unpinned, `readonly RELEASE_SIGNING_KEY='${key}'`));
     },
     installStamped(version) {
       const stamped = readFileSync(INSTALL_SCRIPT, "utf8")
@@ -192,6 +209,10 @@ export function fakeMachine(osRelease: OsRelease = DEBIAN_13): FakeMachine {
         const sha256 =
           options.checksum ?? createHash("sha256").update(readFileSync(tarball)).digest("hex");
         writeFileSync(`${tarball}.sha256`, `${sha256}  ${name}\n`);
+        if (options.signWith) {
+          const signature = sign(null, readFileSync(`${tarball}.sha256`), options.signWith);
+          writeFileSync(`${tarball}.sha256.sig`, signature);
+        }
       }
     },
     setLatest: (version) => writeFileSync(join(state, "latest"), version),

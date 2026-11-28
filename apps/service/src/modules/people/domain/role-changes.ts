@@ -6,7 +6,7 @@ import {
   type Engine,
   type EngineKind,
   type EngineModel,
-} from "../../engine/index.js";
+} from "../../engine/index.domain.js";
 import { authorityMovedOver, instructionsMovedOver } from "./authority-move-over.js";
 import { authorityInEffect, PROPOSAL } from "./authority.js";
 import { jobSettingsOfDutiesMissingOn } from "./duty-jobs.js";

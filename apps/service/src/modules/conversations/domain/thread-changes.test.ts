@@ -86,8 +86,23 @@ describe("the Thread's log", () => {
     expect(logged).toEqual({
       thread,
       logged: messages,
-      event: new MessagesLogged(thread, messages, AT),
+      event: new MessagesLogged(thread, messages, AT, false),
     });
+  });
+
+  it("says the Thread changed besides its log when it took its title, or the caller changed it", () => {
+    const untitled = aThread({ title: undefined });
+    const answering = { ...untitled, title: "Deploys", state: "answering" as const };
+
+    expect(logMessages(untitled, [aUserMessage(untitled, "Deploys")], AT)?.event).toMatchObject({
+      threadChanged: true,
+    });
+    expect(
+      logMessages(answering, [aUserMessage(answering, "And the build.")], AT, {
+        ...answering,
+        state: "waiting",
+      })?.event,
+    ).toMatchObject({ threadChanged: true });
   });
 });
 

@@ -24,7 +24,9 @@ export class CookieSignedInRequests extends SignedInRequests {
     const device = await this.signedInDevices.signedInOf(token);
     if (device === undefined) return undefined;
     const user = await this.accounts.of(device.userId);
-    return user && { userId: user.id, name: user.name, signedInDeviceId: device.id };
+    // A removed user's devices sign in nothing, whatever is left of them.
+    if (user === undefined || user.removedAt !== undefined) return undefined;
+    return { userId: user.id, name: user.name, signedInDeviceId: device.id };
   }
 
   onSignedOut(listener: (signedInDeviceIds: readonly string[]) => void): Unsubscribe {

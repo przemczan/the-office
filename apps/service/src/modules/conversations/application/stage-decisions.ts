@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
-import type { Recommendation } from "../domain/decision.js";
+import type { Decision, Recommendation } from "../domain/decision.js";
 import { stageAnswerOf, type StageAnswer } from "../domain/stage-answer.js";
 import { openDecision } from "../domain/thread-changes.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -22,6 +22,11 @@ export interface StageQuestion {
 
 /** A Decision a Task's Pipeline puts to the user, or first to a Consultant, as The Office. */
 export interface StageDecisionRequest {
+  /**
+   * The Decision's id, chosen by the Pipeline so that opening it again opens none twice; left out
+   * for a new one.
+   */
+  readonly id?: string;
   readonly taskId: string;
   /** The Stage Thread it is asked in; undefined puts it in the Task's newest Thread. */
   readonly threadId: string | undefined;
@@ -56,16 +61,20 @@ export class StageDecisions {
 
   /**
    * Opens the Decision, put to the Consultant asked for when one who can be consulted fills that
-   * Role, otherwise to the user (spec §2.2: a missing person falls back to the user).
+   * Role, otherwise to the user (spec §2.2: a missing person falls back to the user). One with the
+   * given id opened already, as the Pipeline asks again after The Office stopped before it kept the
+   * Decision, stays as it is: its Consultation starts if it hadn't.
    */
   async open({
+    id = randomUUID(),
     taskId,
     threadId,
     draft,
     putTo,
   }: StageDecisionRequest): Promise<OpenedStageDecision> {
+    const opened = await this.repository.decision(id);
+    if (opened) return this.openedAlready(opened);
     const thread = await this.threadFor(taskId, threadId);
-    const id = randomUUID();
     const consultant = await this.consultantFor(putTo);
     const { question, context, options, recommendation } = draft;
     const { thread: asking, event } = await this.repository.update(thread, (latest) =>
@@ -92,6 +101,12 @@ export class StageDecisions {
   async answerOf(id: string): Promise<StageAnswer | undefined> {
     const decision = await this.repository.decision(id);
     return decision && stageAnswerOf(decision);
+  }
+
+  private async openedAlready(decision: Decision): Promise<OpenedStageDecision> {
+    const asker = await this.repository.find(decision.threadId);
+    if (asker) await this.consultations.openFor(asker);
+    return { id: decision.id, putTo: decision.putTo };
   }
 
   private async consultantFor(roleKey: string | undefined): Promise<string | undefined> {

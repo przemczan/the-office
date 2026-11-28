@@ -837,6 +837,77 @@ test.describe("losing the service", { tag: "@full" }, () => {
   });
 });
 
+test("the pages break none of their Content Security Policy, zod's eval check included", async ({
+  page,
+}) => {
+  const violations: string[] = [];
+  page.on("console", (message) => {
+    if (message.text().includes("Content Security Policy")) violations.push(message.text());
+  });
+  await page.addInitScript(() =>
+    document.addEventListener("securitypolicyviolation", (event) =>
+      console.error(`Content Security Policy: ${event.violatedDirective} ${event.blockedURI}`),
+    ),
+  );
+
+  await page.goto("/work");
+
+  await expect(page.getByRole("status", { name: "Status strip" })).toContainText("Tokens today");
+  expect(violations).toEqual([]);
+});
+
+test.describe("an Office update while a tab is open", { tag: "@full" }, () => {
+  test.use({ colorScheme: "light" });
+
+  test("the tab says so once it reconnects to the new build, and a reload runs the new one", async ({
+    page,
+  }) => {
+    // The event stream stands for the service: after the "update" it names another build.
+    let updated = false;
+    const streams: WebSocketRoute[] = [];
+    await page.routeWebSocket(/\/api\/events$/, (stream) => {
+      const server = stream.connectToServer();
+      server.onMessage((message) => {
+        const reply = typeof message === "string" ? (JSON.parse(message) as unknown) : undefined;
+        if (!updated || !isUnscopedSubscriptions(reply)) return void stream.send(message);
+        stream.send(JSON.stringify({ ...reply, webAppBuild: `${reply.webAppBuild}-next` }));
+      });
+      streams.push(stream);
+    });
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+    await expect(strip).toContainText("Tokens today");
+    await expect(strip).not.toContainText("The Office was updated");
+
+    updated = true;
+    for (const stream of streams.splice(0)) await stream.close();
+
+    await expect(strip).toContainText("The Office was updated");
+    await strip
+      .getByRole("button", { name: /^Office Notifications: The Office was updated/ })
+      .click();
+    await page.getByRole("button", { name: "Reload the page" }).click();
+    await expect(strip).toContainText("Tokens today");
+    await expect(strip).not.toContainText("The Office was updated");
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+});
+
+/** A reply to a subscription without a scope that names the web app's build. */
+function isUnscopedSubscriptions(
+  message: unknown,
+): message is { readonly type: "subscriptions"; readonly webAppBuild: string } {
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    "type" in message &&
+    message.type === "subscriptions" &&
+    !("threadId" in message) &&
+    "webAppBuild" in message &&
+    typeof message.webAppBuild === "string"
+  );
+}
+
 /** A Notification in The Office's voice, as the service raises it. */
 function notification(fields: Partial<Notification> & Pick<Notification, "line">): Notification {
   return {

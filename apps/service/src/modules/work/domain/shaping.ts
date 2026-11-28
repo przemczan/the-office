@@ -1,4 +1,4 @@
-import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import { READ_ONLY_SHELL_RULE } from "../../engine/index.domain.js";
 import type { PromptTexts } from "../../prompt-templates/index.js";
 import { authorWords } from "./author.js";
 import { pipelineIn, type Initiative } from "./initiative.js";

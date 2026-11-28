@@ -1,7 +1,7 @@
 import { isBuiltIn } from "./caretaker.js";
 import { DUTIES, type DutyKey } from "./duties.js";
 import { CTO, DEVELOPER, DEVOPS, OFFICE_MANAGER, PLANNER, REVIEWER } from "./known-roles.js";
-import { effortsTakenBy, ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.js";
+import { effortsTakenBy, ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.domain.js";
 import type { Effort, PersonEngineSettings, RoleCard } from "./role-card.js";
 
 /**

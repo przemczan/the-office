@@ -4,6 +4,7 @@ import { ScryptPasswordHashing } from "./adapters/crypto/scrypt-password-hashing
 import { AccountController } from "./adapters/http/account.controller.js";
 import { FirstRunSetupController } from "./adapters/http/first-run-setup.controller.js";
 import { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
+import { SignInStarts } from "./adapters/http/sign-in-starts.js";
 import { PasskeySignInController } from "./adapters/http/passkey-sign-in.controller.js";
 import { PasskeysController } from "./adapters/http/passkeys.controller.js";
 import { SignInController } from "./adapters/http/sign-in.controller.js";
@@ -136,6 +137,7 @@ export class UsersModule {
           useFactory: (...bound: IdentityProvider[]) => new IdentityProviders(bound),
           inject: [...identityProviders],
         },
+        SignInStarts,
         Accounts,
         AuthenticatorCodes,
         Authenticators,

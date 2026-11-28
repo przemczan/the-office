@@ -49,6 +49,7 @@ import { defaultPipelineFor, type TaskKind } from "../domain/kind-default-pipeli
 import type { IssueSettingsChange, IssueUser } from "../domain/issue-settings.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
+import { ISSUES_FEATURE } from "../domain/project-features.js";
 import { sameDefault, sameStandIns, type ProjectEngineChange } from "../domain/project-engine.js";
 import { OutputMask } from "../domain/output-mask.js";
 import {
@@ -433,7 +434,7 @@ export class ProjectService {
     by: IssueUser,
   ): Promise<Project> {
     return this.update(id, (project) => {
-      ensureFeatureOn(project, "github-issues");
+      ensureFeatureOn(project, ISSUES_FEATURE);
       return changeIssueSettings(project, settings, by);
     });
   }

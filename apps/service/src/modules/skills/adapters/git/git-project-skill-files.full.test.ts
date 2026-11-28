@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../../office-identity/index.fixtures.js";
 import { GitProjectSkillFiles } from "./git-project-skill-files.js";
 import {
   createProjectCheckout,

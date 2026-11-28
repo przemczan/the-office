@@ -3,7 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { IssueLinkChanged } from "../domain/issue-link-events.js";
 import type { Project } from "../domain/project.js";
-import { isFeatureOn } from "../domain/project-features.js";
+import { isFeatureOn, ISSUES_FEATURE } from "../domain/project-features.js";
 import { IssueLinkRepository } from "../ports/issue-link-repository.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { IssueImport } from "./issue-import.js";
@@ -64,7 +64,7 @@ export class IssueWatch implements OnApplicationBootstrap {
 
   private async checkProject(project: Project): Promise<void> {
     // Switched off: nothing imported, read or written back; its links stay for when it is on again.
-    if (!isFeatureOn(project, "github-issues")) return;
+    if (!isFeatureOn(project, ISSUES_FEATURE)) return;
     const onHost = await this.hosts.of(project);
     if (onHost === undefined) return;
     // Signed out, or the token can't be renewed now: nothing to ask, and nothing to say.

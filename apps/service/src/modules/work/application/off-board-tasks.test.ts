@@ -8,11 +8,13 @@ import {
   projectOffBoardTasksSchema,
   type OffBoardTaskStart,
 } from "@the-office/contracts";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { anOfficeToolCall, RUN_EVERY_CALL } from "../../engine/index.fixtures.js";
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import type { OffBoardTaskStart as Start } from "../domain/off-board-task.js";
+import { TaskCreated, TaskDiscarded } from "../domain/task-events.js";
+import { TaskRefused } from "../domain/task-refused.js";
 import { ANN_LEE } from "../domain/work.fixtures.js";
 import {
   KnownPeopleForTests,
@@ -28,6 +30,7 @@ import {
 } from "../work-application.fixtures.js";
 import { OffBoardTasks } from "./off-board-tasks.js";
 import { OnboardingService } from "./onboarding-service.js";
+import { StartService } from "./start-service.js";
 import { TaskService } from "./task-service.js";
 
 const ONBOARDS_PROJECTS = "onboards-projects";
@@ -48,6 +51,7 @@ afterAll(async () => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   const people = work.app.get(KnownPeopleForTests);
   people.taskLimits.clear();
   people.hold(ONBOARDS_PROJECTS, "devops");
@@ -143,6 +147,27 @@ describe("OffBoardTasks.start", () => {
       reasons: [expect.stringContaining("Nobody holds")],
     });
     expect(await work.app.get(TaskRepository).madeFor("onboard", projectId)).toEqual([]);
+  });
+
+  it("takes the Task and its worktree away again when Start refuses it after it was made, and says so", async () => {
+    const projectId = aProject();
+    vi.spyOn(work.app.get(StartService), "start").mockRejectedValueOnce(
+      new TaskRefused(["The fire alarm is on."]),
+    );
+    work.published.length = 0;
+
+    const start = await offBoardTasks().start("onboard", projectId, ANN_LEE);
+
+    expect(start).toEqual({ outcome: "refused", reasons: ["The fire alarm is on."] });
+    expect(await work.app.get(TaskRepository).madeFor("onboard", projectId)).toEqual([]);
+    const created = work.published.find((event) => event instanceof TaskCreated);
+    if (!(created instanceof TaskCreated)) throw new Error("No TaskCreated was told.");
+    const discarded = work.published.at(-1);
+    expect(discarded).toBeInstanceOf(TaskDiscarded);
+    expect(discarded).toMatchObject({ taskId: created.task.id, projectId });
+    expect(work.app.get(ProjectWorktreesForTests).opened).not.toContain(
+      `${projectId}/${created.task.id}`,
+    );
   });
 
   it("makes nothing when the worktree can't be made", async () => {

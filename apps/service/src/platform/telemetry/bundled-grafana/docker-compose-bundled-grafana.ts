@@ -1,5 +1,6 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { Logger } from "@nestjs/common";
 import { currentOperatingSystem } from "../../os/current-operating-system.js";
 import { startProgram } from "../../os/program.js";
 import {
@@ -22,6 +23,8 @@ export const UP_TIMEOUT_MS = (UP_WAIT_SECONDS + 60) * 1000;
 export const STOP_TIMEOUT_MS = 90_000;
 /** A listing or an inspection. */
 export const READ_TIMEOUT_MS = 30_000;
+
+const logger = new Logger("DockerComposeBundledGrafana");
 
 const DOCKER = "docker";
 const ERROR_TAIL_CHARACTERS = 2000;
@@ -274,7 +277,10 @@ export async function runDockerProgram(call: DockerCall): Promise<DockerOutcome>
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    if (child.pid !== undefined) void processTrees.end(child.pid);
+    if (child.pid === undefined) return;
+    void processTrees.end(child.pid).catch((error: unknown) => {
+      logger.warn(`Docker, which ran out of time, wasn't ended: ${String(error)}`);
+    });
   }, call.timeoutMs);
   const ended = await new Promise<{ exitCode: number | undefined; notStarted?: Error }>(
     (resolve) => {

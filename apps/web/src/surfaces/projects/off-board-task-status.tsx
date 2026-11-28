@@ -7,7 +7,7 @@ import { answerDecision } from "../../api/conversations.ts";
 import { OFF_BOARD_TASKS } from "../../api/off-board-tasks.ts";
 import { resumeTask, startTask } from "../../api/work.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
-import { queuePlaceWords } from "../../shell/off-board-task-words.ts";
+import { queuePlaceWords } from "./off-board-task-words.ts";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { durationWords, momentWords } from "../../shell/time.ts";

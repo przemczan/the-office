@@ -58,6 +58,9 @@ jobs:
         if: ${{ !inputs.dry_run }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The release key's private half, which prepare.sh signs each .sha256 with once its public
+          # half is pinned (docs/releasing.md, "Signing a release"); unset, signing stays off.
+          RELEASE_SIGNING_PRIVATE_KEY: ${{ secrets.RELEASE_SIGNING_PRIVATE_KEY }}
         run: tools/release/semantic-release/node_modules/.bin/semantic-release
 
       - name: "Dry run: npm run verify in the run environment"
@@ -65,6 +68,8 @@ jobs:
         run: bash tools/release/verify.sh
       - name: "Dry run: build and check the tarballs and the amd64 image"
         if: ${{ inputs.dry_run }}
+        env:
+          RELEASE_SIGNING_PRIVATE_KEY: ${{ secrets.RELEASE_SIGNING_PRIVATE_KEY }}
         run: bash tools/release/prepare.sh "0.0.0-dry-run.${GITHUB_SHA::7}" --no-push
       - name: "Dry run: keep the tarballs"
         if: ${{ inputs.dry_run }}
@@ -74,6 +79,7 @@ jobs:
           path: |
             dist/release/*.tar.gz
             dist/release/*.sha256
+            dist/release/*.sha256.sig
             dist/release/install.sh
             dist/release/docker-compose.yml
             dist/release/the-office.env

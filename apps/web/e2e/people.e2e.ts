@@ -2275,8 +2275,8 @@ test(
         .click();
       // Mark Ready joins the menu once the Task's readiness has loaded, so it is waited for first.
       const cardMenu = page.getByRole("menu");
-      await expect(cardMenu.getByRole("button", { name: "Mark Ready" })).toBeVisible();
-      await cardMenu.getByRole("button", { name: "Edit Stages for this Task" }).click();
+      await expect(cardMenu.getByRole("menuitem", { name: "Mark Ready" })).toBeVisible();
+      await cardMenu.getByRole("menuitem", { name: "Edit Stages for this Task" }).click();
       await onFlow("Implement").click();
       const brief = implement.getByLabel("Brief");
       await brief.scrollIntoViewIfNeeded();

@@ -53,9 +53,30 @@ describe("environmentProblems", () => {
       }),
     ).toEqual([
       "Give each variable a name.",
-      "A variable's name can't have \"=\" in it: A=B.",
+      "A variable's name takes letters, digits and _, not starting with a digit: A=B.",
       "CI is set more than once.",
       "A variable's name can't have \"=\" in it: X=Y.",
+    ]);
+  });
+
+  it("sets only a name a shell can hold, and removes one as The Office's environment names it", () => {
+    expect(
+      environmentProblems({
+        set: [
+          { name: "_PRIVATE_1", value: "", secret: false },
+          { name: "MY-VAR", value: "", secret: false },
+          { name: "1ST", value: "", secret: false },
+          { name: 'X"; touch /tmp/owned; "', value: "", secret: false },
+          { name: "NPM TOKEN", value: "npm_ab", secret: true },
+        ],
+        unset: ["ProgramFiles(x86)"],
+        prependPath: [],
+      }),
+    ).toEqual([
+      "A variable's name takes letters, digits and _, not starting with a digit: MY-VAR.",
+      "A variable's name takes letters, digits and _, not starting with a digit: 1ST.",
+      'A variable\'s name takes letters, digits and _, not starting with a digit: X"; touch /tmp/owned; ".',
+      "A variable's name takes letters, digits and _, not starting with a digit: NPM TOKEN.",
     ]);
   });
 });

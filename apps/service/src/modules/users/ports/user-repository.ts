@@ -1,6 +1,12 @@
 import type { FirstRunSetupState } from "../domain/first-run-setup.js";
 import type { User } from "../domain/user.js";
 
+/** A user just removed, and the ids of the signed-in devices that signed out with them. */
+export interface RemovedUser {
+  readonly user: User;
+  readonly signedOutDeviceIds: readonly string[];
+}
+
 /** Where users are kept, removed ones too. */
 export abstract class UserRepository {
   /**
@@ -45,12 +51,14 @@ export abstract class UserRepository {
   abstract update(id: string, change: (user: User) => User | undefined): Promise<User | undefined>;
 
   /**
-   * Saves `remove`'s answer for the user, with every user not removed held until it is saved, so
-   * two removals at once see each other's. `remove` gets the user and the ids of the users not
-   * removed, and throws to refuse. Undefined when the user isn't one of those.
+   * Saves `remove`'s answer for the user and forgets their signed-in devices in the same
+   * transaction, with every user not removed held until it is saved, so two removals at once see
+   * each other's, and a device signed in meanwhile is either forgotten too or refused. `remove`
+   * gets the user and the ids of the users not removed, and throws to refuse. Undefined when the
+   * user isn't one of those.
    */
   abstract removeAmongActive(
     id: string,
     remove: (user: User, activeUserIds: readonly string[]) => User,
-  ): Promise<User | undefined>;
+  ): Promise<RemovedUser | undefined>;
 }

@@ -25,7 +25,7 @@ import { Publishing } from "./publishing.js";
 import { Resolving } from "./resolving.js";
 import { Worktrees } from "./worktrees.js";
 import { TaskBasesForTests } from "./task-bases.fixtures.js";
-import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../office-identity/index.fixtures.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
 // Real git on a temporary repository whose main tracks its origin's, which is a bare repository.

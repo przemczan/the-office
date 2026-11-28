@@ -916,12 +916,11 @@ export class StageDecisionsForTests extends StageDecisions {
   readonly consultants = new Set<string>();
 
   open(request: StageDecisionRequest): Promise<OpenedStageDecision> {
-    const id = randomUUID();
-    this.opened.set(id, request);
+    const id = request.id ?? randomUUID();
+    const opened = this.opened.get(id) ?? request;
+    this.opened.set(id, opened);
     const putTo =
-      request.putTo !== undefined && this.consultants.has(request.putTo)
-        ? request.putTo
-        : undefined;
+      opened.putTo !== undefined && this.consultants.has(opened.putTo) ? opened.putTo : undefined;
     return Promise.resolve({ id, putTo });
   }
 

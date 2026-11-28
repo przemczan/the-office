@@ -1,5 +1,5 @@
 import { ManualSchedule } from "../schedule/schedule.fixtures.js";
-import { FakeWorkstation } from "../workstation/workstation.controller.fixtures.js";
+import { FakeWorkstation } from "../workstation/workstation.fixtures.js";
 import { OfficeProcess, type EventLoopDelay } from "./office-process.js";
 import { HEALTH_READING_INTERVAL_MS, SystemHealthRecorder } from "./system-health-recorder.js";
 

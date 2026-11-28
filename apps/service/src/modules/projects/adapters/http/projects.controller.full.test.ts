@@ -15,7 +15,7 @@ import {
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
-import { OfficeKnownHosts } from "../../../../platform/git-identity/office-known-hosts.js";
+import { OfficeKnownHosts } from "../../../office-identity/index.js";
 import { FIRST_CLAUDE_CODE_ENGINE, SkillCalled } from "../../../engine/index.js";
 import { McpServerLibrary } from "../../../mcp-servers/index.js";
 import { SessionSkills } from "../../../skills/index.js";

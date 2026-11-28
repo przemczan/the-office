@@ -1,5 +1,5 @@
 import { officeActionBody, officeActionPath, type OfficeAction } from "@the-office/contracts";
-import type { z } from "zod";
+import { ZodError, type z } from "zod";
 
 /** Where the service answers, on the page's own origin. */
 const API_PATH = "/api";
@@ -47,12 +47,28 @@ export class RefusedAs<Refusal> extends ApiError {
 }
 
 /**
- * Whether a failed query is tried again: not when the service refused it, since asking again gets
- * the same answer, and at most three times otherwise.
+ * The service answered, but not as this page's contract reads it: The Office was most likely
+ * updated since the page opened. The message says so in plain words; `cause` holds what the
+ * contract found.
+ */
+export class UnreadableAnswer extends Error {
+  constructor(cause: ZodError) {
+    super(
+      "The Office answered in a way this page can't read, as after an update. Reload the page.",
+      { cause },
+    );
+    this.name = "UnreadableAnswer";
+  }
+}
+
+/**
+ * Whether a failed query is tried again: not when the service refused it, nor when this page can't
+ * read its answer, since asking again gets the same answer; at most three times otherwise.
  */
 export function shouldRetry(failureCount: number, error: Error): boolean {
   const refused = error instanceof ApiError && error.status >= 400 && error.status < 500;
-  return !refused && failureCount < 3;
+  const unreadable = error instanceof UnreadableAnswer || error instanceof ZodError;
+  return !refused && !unreadable && failureCount < 3;
 }
 
 /**
@@ -177,7 +193,7 @@ export async function sendToApiRefusedAs<
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (response.ok) return schema.parse(await response.json());
+  if (response.ok) return readAs(schema, await response.json());
   throw await refusedAs(response, refusalSchema);
 }
 
@@ -225,7 +241,14 @@ async function answerOf<Schema extends z.ZodType>(
   schema: Schema,
 ): Promise<z.infer<Schema>> {
   if (!response.ok) throw await refusalOf(response);
-  return schema.parse(await response.json());
+  return readAs(schema, await response.json());
+}
+
+/** The body as the contract reads it, or `UnreadableAnswer` when it doesn't. */
+function readAs<Schema extends z.ZodType>(schema: Schema, body: unknown): z.infer<Schema> {
+  const read = schema.safeParse(body);
+  if (!read.success) throw new UnreadableAnswer(read.error);
+  return read.data;
 }
 
 /**

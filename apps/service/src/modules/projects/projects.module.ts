@@ -8,7 +8,7 @@ import {
   type Type,
 } from "@nestjs/common";
 import { IMAGE_UPLOAD_BYTES } from "@the-office/contracts";
-import { GitIdentityModule } from "../../platform/git-identity/git-identity.module.js";
+import { GitIdentityModule } from "../office-identity/index.js";
 import { uploadBody } from "../../platform/http/upload-body.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { ImageFolder } from "../../platform/images/image-folder.js";

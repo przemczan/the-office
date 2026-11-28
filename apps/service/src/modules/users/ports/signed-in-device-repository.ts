@@ -2,12 +2,16 @@ import type { SignedInDevice } from "../domain/signed-in-device.js";
 
 /** Where signed-in devices are kept, each by its token's hash. */
 export abstract class SignedInDeviceRepository {
-  abstract add(device: SignedInDevice): Promise<void>;
+  /**
+   * Adds the device while its user isn't removed, holding the user until it is saved, so a removal
+   * at the same time either finds it or is found; says whether it was added.
+   */
+  abstract add(device: SignedInDevice): Promise<boolean>;
 
   /** The device with this token's hash, while its user isn't removed. */
   abstract findByTokenHash(tokenHash: string): Promise<SignedInDevice | undefined>;
 
-  /** The devices of these ids that are still kept. */
+  /** The devices of these ids that are still kept, of users not removed. */
   abstract findAll(ids: readonly string[]): Promise<readonly SignedInDevice[]>;
 
   /** The user's devices, the most recently used first. */

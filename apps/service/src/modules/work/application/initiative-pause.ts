@@ -1,12 +1,15 @@
 import type { Author } from "../domain/author.js";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { TaskLocks } from "./task-locks.js";
 import type { Initiative } from "../domain/initiative.js";
 import { pauseInitiative, resumeInitiative } from "../domain/initiative-pause.js";
 import { TaskResumed } from "../domain/task-events.js";
 import { stopsEveryWalk } from "../domain/fire-alarm.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
+import { TaskRepository } from "../ports/task-repository.js";
+import { holdingTheInitiativesTasks } from "./initiative-task-locks.js";
 import { TaskService } from "./task-service.js";
 
 /** What Pause or Resume the Initiative did: the Initiative, and the Tasks it paused or resumed. */
@@ -27,14 +30,24 @@ export class InitiativePause {
     private readonly initiatives: InitiativeRepository,
     private readonly fireAlarm: FireAlarmRepository,
     private readonly tasks: TaskService,
+    private readonly taskRepository: TaskRepository,
+    private readonly taskLocks: TaskLocks,
     private readonly events: EventBus,
   ) {}
 
-  /** Refused with the reason (InitiativeRefused) unless the Initiative is active and not paused. */
+  /**
+   * Refused with the reason (InitiativeRefused) unless the Initiative is active and not paused.
+   * Under the lock of each of its Tasks, so no Start over or Reopen… of one is under way.
+   */
   async pause(id: string, by: Author): Promise<InitiativePauseOutcome> {
-    const { initiative, event, taskChanges } = await this.initiatives.updateWithTasks(
+    const { initiative, event, taskChanges } = await holdingTheInitiativesTasks(
+      this.taskLocks,
+      this.taskRepository,
       id,
-      (held, tasks) => pauseInitiative(held, tasks, new Date(), by),
+      () =>
+        this.initiatives.updateWithTasks(id, (held, tasks) =>
+          pauseInitiative(held, tasks, new Date(), by),
+        ),
     );
     if (event) await this.events.publish(event);
     for (const { event: paused } of taskChanges) await this.events.publish(paused);

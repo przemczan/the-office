@@ -1,4 +1,4 @@
-import { RUN_PROJECT_COMMAND_TOOL } from "../../engine/index.js";
+import { RUN_PROJECT_COMMAND_TOOL } from "../../engine/index.domain.js";
 import type { Task } from "./task.js";
 import { TITLE_LENGTH } from "./title.js";
 import type { TaskChange } from "./task-changes.js";

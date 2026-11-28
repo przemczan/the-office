@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../office-identity/index.fixtures.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { CommandLineGit } from "../adapters/git/command-line-git.js";
 import { RepositoryLocks } from "../adapters/git/repository-locks.js";

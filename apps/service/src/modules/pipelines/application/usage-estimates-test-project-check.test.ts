@@ -35,7 +35,7 @@ import {
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 import { UsageWindowSamples, UsageWindowState } from "../../engine/index.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";

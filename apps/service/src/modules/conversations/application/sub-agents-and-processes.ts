@@ -186,6 +186,7 @@ export class SessionFollowing {
     private readonly stops: SessionStops,
   ) {
     // A resumed session goes on with what it started before.
+    // oxlint-disable-next-line office/caught-voided-calls -- a turn logs its own failure
     void this.inTurn(async () => {
       for (const item of await this.repository.ofSession(session.sessionId)) {
         if (item.kind === "sub-agent") {
@@ -238,6 +239,7 @@ export class SessionFollowing {
     });
   }
 
+  /** Runs `work` after the turns before it; never rejects, as a failure is logged here. */
   private inTurn(work: () => Promise<void>): Promise<void> {
     const turn = this.queue.then(work).catch((error: unknown) => {
       // A failure to keep one event loses only that event; the session reads on.
@@ -412,6 +414,7 @@ export class SessionFollowing {
     if (lines.holding) {
       const timer = setTimeout(() => {
         this.heldLineTimers.delete(callId);
+        // oxlint-disable-next-line office/caught-voided-calls -- a turn logs its own failure
         void this.inTurn(() => this.keepHeldLine(callId));
       }, HELD_LINE_MS);
       timer.unref();

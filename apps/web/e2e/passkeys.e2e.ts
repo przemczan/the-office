@@ -84,7 +84,7 @@ test("a user adds a passkey with a name, renames it, signs in with it alone and 
   await expect(row).toHaveCount(1);
 
   const menu = await openUserMenu(page, E2E_USER.name);
-  await menu.getByRole("button", { name: "Sign out" }).click();
+  await menu.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await screenshotScenario(page, "sign-in-with-a-passkey");
 

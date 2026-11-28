@@ -18,7 +18,7 @@ import {
   sendToApi,
   sendToApiWithNoAnswer,
 } from "./api-client.ts";
-import type { EventCacheUpdates } from "./event-stream-provider.tsx";
+import { readEvent, type EventCacheUpdates } from "./event-stream-provider.tsx";
 
 export const nowQueries = {
   /** Now and the status strip, kept current by `now.changed`. */
@@ -105,27 +105,31 @@ export function reportActivity(activity: UserActivityReport): Promise<void> {
  */
 export const notificationEventCacheUpdates: EventCacheUpdates = {
   "now.changed": (event, queryClient) => {
-    const changed = notificationsWebEventSchema.parse(event);
-    if (changed.type !== "now.changed") return;
-    queryClient.setQueryData(nowQueries.now().queryKey, changed.now);
-    void queryClient.invalidateQueries({ queryKey: nowQueries.sinceYouLeft().queryKey });
+    const now = nowQueries.now().queryKey;
+    const sinceYouLeft = nowQueries.sinceYouLeft().queryKey;
+    const changed = readEvent(notificationsWebEventSchema, event, queryClient, [now, sinceYouLeft]);
+    if (changed?.type !== "now.changed") return;
+    queryClient.setQueryData(now, changed.now);
+    void queryClient.invalidateQueries({ queryKey: sinceYouLeft });
   },
   "notification.raised": (event, queryClient) => {
-    const raised = notificationsWebEventSchema.parse(event);
-    if (raised.type !== "notification.raised") return;
+    const open = notificationQueries.open().queryKey;
+    const raised = readEvent(notificationsWebEventSchema, event, queryClient, [open]);
+    if (raised?.type !== "notification.raised") return;
     // Collapsed Outcomes take the place of the Outcome, or the collapse, shown before them.
     const { notification, replaces } = raised;
-    queryClient.setQueryData(notificationQueries.open().queryKey, (open: Notification[] = []) =>
-      open.some(({ id }) => id === notification.id)
-        ? open
-        : [...open.filter(({ id }) => !replaces.includes(id)), notification],
+    queryClient.setQueryData(open, (shown: Notification[] = []) =>
+      shown.some(({ id }) => id === notification.id)
+        ? shown
+        : [...shown.filter(({ id }) => !replaces.includes(id)), notification],
     );
   },
   "notifications.cleared": (event, queryClient) => {
-    const cleared = notificationsWebEventSchema.parse(event);
-    if (cleared.type !== "notifications.cleared") return;
-    queryClient.setQueryData(notificationQueries.open().queryKey, (open: Notification[] = []) =>
-      open.filter(({ id }) => !cleared.notificationIds.includes(id)),
+    const open = notificationQueries.open().queryKey;
+    const cleared = readEvent(notificationsWebEventSchema, event, queryClient, [open]);
+    if (cleared?.type !== "notifications.cleared") return;
+    queryClient.setQueryData(open, (shown: Notification[] = []) =>
+      shown.filter(({ id }) => !cleared.notificationIds.includes(id)),
     );
   },
 };

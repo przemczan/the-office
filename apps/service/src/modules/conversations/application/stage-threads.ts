@@ -44,14 +44,12 @@ import type {
   Message,
   MessageDelivery,
   MessageDraft,
-  MessageImage,
   StageWorkClosing,
 } from "../domain/message.js";
 import { handWrittenGroupOf } from "../domain/hand-written-tool-groups.js";
 import { offeredTools } from "../domain/office-tool-ruling.js";
 import { SessionMemory } from "./session-memory.js";
 import {
-  messageFromUser,
   openingMessage,
   withLeftOutServers,
   STAGE_AUTHORITY_OFFICE_TOOLS,
@@ -76,7 +74,6 @@ import {
   type TokenTotals,
 } from "../domain/thread.js";
 import {
-  bargeIn,
   beginStageWork,
   chooseOverride,
   countRunningTurn,
@@ -94,16 +91,19 @@ import {
   type ThreadChange,
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
-import { ThreadRefused } from "../domain/thread-refused.js";
 import { SwitchFailed } from "../domain/switch-failed.js";
-import type { UserRef } from "../domain/user.js";
 import {
   undeliveredSince,
   waitingMessageIds,
   workWithUndelivered,
 } from "../domain/undelivered-messages.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
-import { BargeIns } from "./barge-ins.js";
+import {
+  LiveSessions,
+  OpeningStopped,
+  type SessionOpening,
+  type SessionOwner,
+} from "./live-sessions.js";
 import { ThreadImages, type MessageImageContent } from "./thread-images.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
 import { SessionStartWatch } from "./session-start-watch.js";
@@ -318,8 +318,6 @@ export interface StageThread {
 @Injectable()
 export class StageThreads {
   private readonly logger = new Logger(StageThreads.name);
-  /** The user's messages into each Stage Thread whose Stage's session is at work. */
-  private readonly bargeIns = new Map<string, BargeIns>();
 
   constructor(
     private readonly repository: ThreadRepository,
@@ -340,6 +338,7 @@ export class StageThreads {
     private readonly images: ThreadImages,
     private readonly engineModels: EngineModels,
     private readonly promptTemplates: PromptTemplates,
+    private readonly lives: LiveSessions,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -486,37 +485,6 @@ export class StageThreads {
   }
 
   /**
-   * The user writes into a Stage Thread while its Stage runs (barge-in, spec §2.4): the message is
-   * logged waiting, with the user who wrote it, and marked delivered once a turn of the person's
-   * has taken it; the person reads who wrote it unless the same user wrote the one before in this
-   * Stage's session. Refused once the Stage's session has ended.
-   */
-  async bargeIn(
-    threadId: string,
-    text: string,
-    writtenBy: UserRef,
-    images: readonly MessageImage[] = [],
-  ): Promise<Thread> {
-    if (text.trim() === "" && images.length === 0) {
-      throw new ThreadRefused(["Write a message first."]);
-    }
-    const bargeIns = this.bargeIns.get(threadId);
-    if (!bargeIns) throw new ThreadRefused([STAGE_ENDING]);
-    const contents = await this.images.contents(images);
-    const id = randomUUID();
-    const thread = await this.change(threadId, (latest) =>
-      bargeIn(latest, { id, text, writtenBy, at: new Date(), images }),
-    );
-    const said = {
-      id,
-      text: messageFromUser(text, writtenBy, bargeIns.writerBefore(writtenBy)),
-      ...(contents.length > 0 && { images: contents }),
-    };
-    if (!bargeIns.take(said)) await this.mark(threadId, [said.id], "not-delivered");
-    return thread;
-  }
-
-  /**
    * Ends the Stage's work in a Thread whose session The Office lost as it stopped, found as it
    * starts again (spec §2.4): the user's messages still waiting to land never will, so they are
    * marked not delivered and go with the Stage's next run as after a Stop, and the Thread closes
@@ -612,7 +580,7 @@ export class StageThreads {
       start,
       previous.id,
       undefined,
-      () => this.reopen(session, reopening, applying, start),
+      (opening) => this.reopen(session, reopening, applying, start, opening),
     );
     await this.sayModelGaveWay(previous.id, role.card.name, applying);
     const work = { id: randomUUID(), text: request.work };
@@ -759,8 +727,9 @@ export class StageThreads {
     const person = { ...role, officeInstructions: office.text };
     let canInterrupt = false;
     const start = this.startWatch(threadId, session, role.card.name, "start");
-    const opened = await this.opening(start, threadId, session.id, async () => {
+    const opened = await this.opening(start, threadId, session, async (opening) => {
       canInterrupt = (await this.engine.capabilitiesOf(applying.engineId)).interrupt;
+      opening.check();
       start.at("preparing skills");
       const skills = await this.sessionSkills.prepare({
         sessionId: session.id,
@@ -772,6 +741,7 @@ export class StageThreads {
           projectSkillsOff: request.projectSkillsOff,
         },
       });
+      opening.check();
       start.at("preparing MCP servers");
       const servers = await this.sessionMcpServers.prepare({
         sessionId: session.id,
@@ -779,8 +749,9 @@ export class StageThreads {
         projectId: request.projectId,
         workingFolder: request.folder,
       });
+      opening.check();
       start.at("starting on the engine");
-      return this.engine.start({
+      const started = await this.engine.start({
         id: session.id,
         settings: this.settingsOf(
           prompts,
@@ -799,6 +770,8 @@ export class StageThreads {
           ...(first.images.length > 0 && { images: first.images }),
         },
       });
+      await this.lives.run(opening, started);
+      return started;
     });
     return {
       opened,
@@ -856,28 +829,36 @@ export class StageThreads {
   }
 
   /**
-   * Opens the session, or logs why it didn't open and the Thread waits: a new session that never
-   * ran gives way to none, and its skills go.
+   * Opens the session as one opening of the Thread's (`LiveSessions`), or logs why it didn't open
+   * and the Thread waits: a new session that never ran gives way to none, and its skills go, its
+   * engine files too when it was stopped as the engine started it.
    */
   private async opening<Opened>(
     start: SessionStartWatch,
     threadId: string,
-    newSessionId: string | undefined,
-    open: () => Promise<Opened>,
+    newSession: ThreadSession | undefined,
+    open: (opening: SessionOpening) => Promise<Opened>,
   ): Promise<Opened> {
+    const opening = this.lives.beginOpening(threadId, OWNER);
     try {
-      const opened = await open();
+      const opened = await open(opening);
       start.at("waiting for the engine's first event");
       return opened;
     } catch (error) {
-      start.failed(error);
-      const unopened =
-        newSessionId === undefined ? undefined : { sessionId: newSessionId, previous: undefined };
+      const stopped = error instanceof OpeningStopped;
+      if (stopped) start.ended();
+      else start.failed(error);
+      const unopened = newSession && { sessionId: newSession.id, previous: undefined };
       await this.change(threadId, (latest) =>
         failAnswer(latest, messageOf(error), new Date(), unopened),
       );
-      if (newSessionId) await this.forget(newSessionId);
+      if (newSession) {
+        if (stopped) await this.forgetEngineFiles(newSession);
+        await this.forget(newSession.id);
+      }
       throw error;
+    } finally {
+      this.lives.settle(opening);
     }
   }
 
@@ -890,14 +871,18 @@ export class StageThreads {
     { threadId, request, person, effort }: Reopening,
     applying: EngineModel,
     start: SessionStartWatch,
+    opening: SessionOpening,
   ): Promise<Reopened> {
     const canInterrupt = (await this.engine.capabilitiesOf(session.engineId)).interrupt;
     // Loaded again, as a Stand-in switch resumes a session long after the Stage opened it.
     const prompts = await this.promptTemplates.textsOf(SESSION_INSTRUCTION_TEMPLATES);
+    opening.check();
     start.at("preparing skills");
     const skills = await this.sessionSkills.rebuild(session.id);
+    opening.check();
     start.at("preparing MCP servers");
     const servers = await this.sessionMcpServers.rebuild(session.id, request.folder);
+    opening.check();
     start.at("starting on the engine");
     const opened = await this.engine.resume(
       session.id,
@@ -913,6 +898,7 @@ export class StageThreads {
         servers.servers,
       ),
     );
+    await this.lives.run(opening, opened);
     return { opened, canInterrupt, leftOut: servers.leftOut };
   }
 
@@ -1039,9 +1025,9 @@ export class StageThreads {
     let reading = this.read(session, followed(session.id), start);
     let events = reading.turnEvents[Symbol.asyncIterator]();
     const logger = { roleKey, folder, handingOver: false, mask };
-    const bargeIns = new BargeIns((message) => session.send(message, "next"));
-    this.bargeIns.set(threadId, bargeIns);
-    let turnRunning = true;
+    // Each to the session running then, which `LiveSessions` holds as the Stage swaps it.
+    const bargeIns = this.lives.answerBegins(threadId, true);
+    const turnBegan = (): void => this.lives.turnBegan(threadId, session);
     const effectiveLimits = (): StageContextLimits | undefined =>
       limits && stageLimitsWithin(limits, window, DEFAULT_CONTEXT_POLICY_SETTINGS.handOverAtShare);
     const sendOffice = (text: string, priority: "next" | "later"): void => {
@@ -1091,7 +1077,7 @@ export class StageThreads {
         const next = await events.next();
         if (next.done) {
           if (!endedAtHardLimit) throw new Error("The session ended before the Stage's turn did.");
-          turnRunning = false;
+          this.lives.turnEnded(threadId, session);
           return {
             output: undefined,
             problem: "The session passed its hard context limit and ended.",
@@ -1126,12 +1112,12 @@ export class StageThreads {
               await limitMessage("hard", effectiveLimits()?.hard ?? latestContext),
               "later",
             );
-            turnRunning = true;
+            turnBegan();
             bargeIns.turnStarted();
             continue;
           }
           if (!stillToLand && !(completed && officeMessageId)) {
-            turnRunning = false;
+            this.lives.turnEnded(threadId, session);
             officeMessageId = undefined;
             return { ...turn, tokens: addTokens(earlierTokens, turn.tokens) };
           }
@@ -1161,9 +1147,7 @@ export class StageThreads {
       const ending = session;
       const ended = reading.finished;
       closing ??= (async () => {
-        await ending.end().catch((error: unknown) => {
-          this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
-        });
+        await this.lives.endSession(threadId, ending);
         await ended;
       })();
       return closing;
@@ -1171,8 +1155,7 @@ export class StageThreads {
     let sessionEnded: Promise<void> | undefined;
     const endSession = (): Promise<void> => {
       sessionEnded ??= (async () => {
-        this.bargeIns.delete(threadId);
-        await this.mark(threadId, bargeIns.end(), "not-delivered");
+        await this.mark(threadId, this.lives.closeBargeIns(threadId), "not-delivered");
         if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "not-delivered");
         carrying = undefined;
         await closeSession();
@@ -1203,9 +1186,12 @@ export class StageThreads {
         throw failed(error);
       }
       const watch = this.startWatch(threadId, moved, personName, "resume");
+      const switching = this.lives.beginOpening(threadId, OWNER);
       let reopened: Reopened;
       try {
-        reopened = await this.reopen(moved, reopening, standIn, watch);
+        reopened = await this.reopen(moved, reopening, standIn, watch, switching);
+        // Between turns, as it was: the next message The Office sends starts one.
+        this.lives.turnEnded(threadId, reopened.opened);
         watch.at("waiting for the engine's first event");
       } catch (error) {
         watch.failed(error);
@@ -1220,6 +1206,8 @@ export class StageThreads {
           },
         ]);
         throw failed(error);
+      } finally {
+        this.lives.settle(switching);
       }
       session = reopened.opened;
       closing = undefined;
@@ -1299,7 +1287,6 @@ export class StageThreads {
       officeMessageId = undefined;
       stoppingAtHardLimit = false;
       endedAtHardLimit = false;
-      turnRunning = true;
       // What the ended session never took goes into the fresh one's first turn.
       bargeIns.sessionReplaced();
       bargeIns.turnStarted();
@@ -1325,12 +1312,12 @@ export class StageThreads {
         await this.log(threadId, [{ kind: "failure", reason: why }]);
         session.send({ id: randomUUID(), text: withLeftOutServers(text, leftOut) }, "later");
         leftOut = [];
-        turnRunning = true;
+        turnBegan();
         bargeIns.turnStarted();
         return nextTurn();
       },
       interrupt: async () => {
-        if (!turnRunning || sessionEnded) return;
+        if (this.lives.phaseOf(threadId) !== "running" || sessionEnded) return;
         if (!canInterrupt) return endSession();
         await session.interrupt().catch(async (error: unknown) => {
           this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
@@ -1372,6 +1359,7 @@ export class StageThreads {
         turnEvents.fail(error);
       } finally {
         start.ended();
+        this.lives.sessionEnded(followed.threadId, session);
         await following.end();
       }
     })();
@@ -1428,6 +1416,13 @@ export class StageThreads {
     };
   }
 
+  /** Removes the session's files in its engine's folder; a failure there only warns. */
+  private async forgetEngineFiles({ id, engineId }: ThreadSession): Promise<void> {
+    await this.engine.forgetSession(id, engineId).catch((error: unknown) => {
+      this.logger.warn(`Session ${id}'s engine files stay: ${messageOf(error)}`);
+    });
+  }
+
   /**
    * A session that won't be resumed: its skills folder and its MCP servers' record go, and a
    * failure there only warns.
@@ -1478,7 +1473,7 @@ export class StageThreads {
     const thread = await this.repository.find(threadId);
     const failed = (cause: unknown) => new SwitchFailed(threadId, from, standIn.engineId, cause);
     if (!thread?.session) throw failed(new Error(`Thread ${threadId} has no session.`));
-    if (thread.state === "answering" || this.bargeIns.has(threadId)) {
+    if (thread.state === "answering" || this.lives.phaseOf(threadId) !== undefined) {
       throw failed(new Error("Its session is answering."));
     }
     if (thread.session.engineId !== from) {
@@ -1619,7 +1614,8 @@ const BACKGROUND_EVENT_KINDS: ReadonlySet<SessionEvent["kind"]> = new Set([
   "process-ended",
 ]);
 
-const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
+/** Whose sessions `StageThreads` runs, as `LiveSessions` keeps them. */
+const OWNER: SessionOwner = "stage-threads";
 
 /**
  * What a Stage's engine calls carry (spec §5.2): ids on the span, which the `office.engine.call`

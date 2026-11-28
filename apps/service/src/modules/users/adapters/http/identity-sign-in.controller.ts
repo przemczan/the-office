@@ -26,26 +26,30 @@ import {
 import { redirectSignIn } from "./sign-in-answers.js";
 import { cookieValueOf } from "./sign-in-cookie.js";
 import { pageAddressOf, signInRequestOf } from "./sign-in-request.js";
+import { SignInStarts } from "./sign-in-starts.js";
 import { textOrUndefined } from "../../../../platform/http/query-text.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
+import { OpenWithoutSignIn } from "../../../../platform/http/sign-in-guard.js";
 
 /** The sign-in page, outside the shell. */
 const SIGN_IN_PATH = "/sign-in";
 
 /**
  * Continue with GitHub, Google and the OpenID Connect provider (spec §2.10), under `/sign-in`,
- * which the guard leaves open: each sign-in's start, with a trip cookie, and the one callback each
- * provider sends the browser back to, for signing in and for linking alike, which redirects on
- * every outcome.
+ * which the guard leaves open: each sign-in's start, with a trip cookie and counted per address
+ * (`SignInStarts`), and the one callback each provider sends the browser back to, for signing in
+ * and for linking alike, which redirects on every outcome.
  * Each provider has its own explicit routes, so none shadows `/sign-in/password`.
  */
 @Controller("sign-in")
+@OpenWithoutSignIn()
 @UseFilters(UserRefusalsFilter)
 export class IdentitySignInController {
   constructor(
     private readonly identitySignIns: IdentitySignIns,
     private readonly signedInRequests: CookieSignedInRequests,
     private readonly officeAddresses: OfficeAddresses,
+    private readonly signInStarts: SignInStarts,
   ) {}
 
   @Post("github")
@@ -117,6 +121,7 @@ export class IdentitySignInController {
     request: Request,
     response: Response,
   ): Promise<IdentityAuthorization> {
+    this.signInStarts.take(request);
     const page = pageAddressOf(request, this.officeAddresses);
     const { authorizeUrl, nonce } = await this.identitySignIns.start(
       provider,

@@ -1,15 +1,22 @@
 import { BadRequestException, PayloadTooLargeException } from "@nestjs/common";
 import express, { type NextFunction, type Request, type Response } from "express";
+import { signedInOfRequest } from "./signed-in-requests.js";
 
 type Middleware = (request: Request, response: Response, next: NextFunction) => void;
 
 /**
  * Middleware that reads an upload's body as its bytes, which Nest's own parsers leave alone, and
- * answers one over `limitBytes` in the UI's words. Apply it to the upload routes only.
+ * answers one over `limitBytes` in the UI's words. Apply it to the upload routes only. It runs
+ * before the sign-in guard, so it reads nothing a signed-in device didn't send: the guard then
+ * answers 401.
  */
 export function uploadBody(limitBytes: number): Middleware {
   const readRaw = express.raw({ type: "application/octet-stream", limit: limitBytes });
   return (request, response, next) => {
+    if (signedInOfRequest(request) === undefined) {
+      next();
+      return;
+    }
     readRaw(request, response, (error?: unknown) => {
       if ((error as { type?: string } | undefined)?.type === "entity.too.large") {
         next(

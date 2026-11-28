@@ -1,3 +1,4 @@
+import { outranks } from "./stage-interruption.js";
 import { engineSwitchWords } from "./stage-history-words.js";
 import { StageRunEngineSwitched, StageRunEnded, StageRunStarted } from "./stage-run-events.js";
 import {
@@ -6,13 +7,27 @@ import {
   type CarriedFailure,
   type ChosenRoute,
   type EngineSwitch,
+  type GateAction,
+  type HoldingUser,
   type Restarted,
   type SentBack,
   type StageInterruption,
   type StageOutcome,
   type StageRun,
+  type StageRunDecision,
   type StageRunStandIn,
+  type StartedOver,
+  type TaskRestart,
 } from "./stage-run.js";
+import { walkAnswerOf, type DecisionAnswer } from "./walk-decisions.js";
+
+/**
+ * A change of a Stage run, applied to the run as stored (`StageRunRepository.update`): the run as
+ * the change leaves it, with whatever else the change tells, such as the event that announces it.
+ */
+export interface StageRunChange {
+  readonly run: StageRun;
+}
 
 export interface NewStageRun {
   readonly id: string;
@@ -82,7 +97,10 @@ export function heldRunChoice(
   return held === undefined || held === "stop" ? undefined : last.choice;
 }
 
-/** A run that has already ended is a fault of the caller: each run ends once. */
+/**
+ * The run ends with `outcome`; a run that saved no changed files, such as a Gate's, changed none.
+ * A run that has already ended is a fault of the caller: each run ends once.
+ */
 export function endStageRun(
   run: StageRun,
   outcome: StageOutcome,
@@ -90,24 +108,101 @@ export function endStageRun(
 ): { readonly run: StageRun; readonly event: StageRunEnded } {
   if (run.outcome) throw new Error(`Stage run ${run.id} has already ended ${run.outcome.status}.`);
   return {
-    run: { ...run, ...heldAtTheEnd(run, outcome), outcome, endedAt, waitingSince: undefined },
+    run: {
+      ...run,
+      ...heldAtTheEnd(run, outcome),
+      changedFiles: run.changedFiles ?? [],
+      outcome,
+      endedAt,
+      waitingSince: undefined,
+    },
     event: new StageRunEnded(run.taskId, run.id, run.stageKey, outcome.status),
   };
 }
 
 /**
- * What an interrupted run honoured as it ended, kept with its end unless it records what was asked
- * already: the walk records a Pause or a Stop as it is asked, yet a run a Stop interrupts at once
- * can end before that record is saved.
+ * What the run records as held by once it ended: the stronger of what was asked of it while it ran
+ * and what it honoured as it ended, with the user who asked for that one. The walk records a Pause
+ * or a Stop as it is asked, yet a run a Stop interrupts at once can end before that record is
+ * saved, and a Stop that comes after a Pause the run honoured already still holds it as a Stop.
  */
 function heldAtTheEnd(
   run: StageRun,
   outcome: StageOutcome,
 ): Pick<StageRun, "heldBy" | "heldByUser"> {
-  if (run.heldBy || outcome.status !== "failed" || !isAsked(outcome.interrupted)) {
+  if (
+    outcome.status !== "failed" ||
+    !isAsked(outcome.interrupted) ||
+    !outranks(outcome.interrupted, run.heldBy)
+  ) {
     return { heldBy: run.heldBy, heldByUser: run.heldByUser };
   }
   return { heldBy: outcome.interrupted, heldByUser: outcome.heldByUser };
+}
+
+/**
+ * Records that the user, the fire alarm or a used-up usage window asked `interruption` of the
+ * running run, `heldByUser` naming the user who asked for a Pause or a Stop, so a start after a
+ * crash honours it. Nothing once the run has ended, or when what was asked already asks as much.
+ */
+export function holdStageRun(
+  run: StageRun,
+  interruption: AskedInterruption,
+  heldByUser: HoldingUser | undefined,
+): StageRunChange | undefined {
+  if (run.outcome || !outranks(interruption, run.heldBy)) return undefined;
+  return { run: { ...run, heldBy: interruption, heldByUser } };
+}
+
+/** Keeps the Decision on the run, so the walk waits on its answer; nothing when it keeps it already. */
+export function keepDecision(
+  run: StageRun,
+  decision: StageRunDecision,
+): StageRunChange | undefined {
+  if (run.decisions.some(({ id }) => id === decision.id)) return undefined;
+  return { run: { ...run, decisions: [...run.decisions, decision] } };
+}
+
+/**
+ * Keeps the given answers on the run's Decisions that are still open, as the walk replays them;
+ * nothing when none of them is. One answered already is left as it is.
+ */
+export function keepAnswers(
+  run: StageRun,
+  answers: ReadonlyMap<string, DecisionAnswer>,
+): StageRunChange | undefined {
+  let kept = false;
+  const decisions = run.decisions.map((decision) => {
+    const answer = answers.get(decision.id);
+    if (decision.answer || !answer) return decision;
+    kept = true;
+    return { ...decision, answer: walkAnswerOf(decision, answer) };
+  });
+  return kept ? { run: { ...run, decisions } } : undefined;
+}
+
+/** Keeps what the user did at the Gate's run; nothing once it keeps an action, as each takes one. */
+export function keepGateAction(run: StageRun, gateAction: GateAction): StageRunChange | undefined {
+  if (run.gateAction) return undefined;
+  return { run: { ...run, gateAction } };
+}
+
+/**
+ * Keeps the user's Restart from… on the held run; nothing while it hasn't ended, or once it keeps
+ * one, as each held run takes one.
+ */
+export function keepRestart(run: StageRun, restart: TaskRestart): StageRunChange | undefined {
+  if (!run.outcome || run.restart) return undefined;
+  return { run: { ...run, restart } };
+}
+
+/** Keeps the Start over on the last run before it; nothing once it keeps one. */
+export function keepStartedOver(
+  run: StageRun,
+  startedOver: StartedOver,
+): StageRunChange | undefined {
+  if (run.startedOver) return undefined;
+  return { run: { ...run, startedOver } };
 }
 
 /** Whether something was asked of the run, rather than The Office restarting under it. */

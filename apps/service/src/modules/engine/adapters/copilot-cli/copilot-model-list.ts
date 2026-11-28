@@ -1,5 +1,5 @@
 import { CopilotClient, RuntimeConnection } from "@microsoft/copilot-sdk";
-import { engineRead, type EngineReadLimits } from "../claude-code/engine-read.js";
+import { engineRead, type EngineReadLimits } from "../shared/engine-read.js";
 
 /** A model the runtime lists for the account, as far as The Office reads it. */
 export interface CopilotListedModel {

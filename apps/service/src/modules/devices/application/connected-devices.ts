@@ -444,7 +444,11 @@ export class ConnectedDevices implements OnModuleInit, BeforeApplicationShutdown
       throw error;
     }
     await this.events.publish(event);
-    const letGo = (): void => void this.letGo(device.id);
+    const letGo = (): void => {
+      void this.letGo(device.id).catch((error: unknown) => {
+        this.logger.warn(`The hold ${device.id} wasn't let go of as its request ended.`, error);
+      });
+    };
     request.signal?.addEventListener("abort", letGo, { once: true });
     // Aborted while the record was kept: no event comes for that any more.
     if (wasAborted(request.signal)) letGo();
@@ -657,8 +661,16 @@ export class ConnectedDevices implements OnModuleInit, BeforeApplicationShutdown
         return;
       }
       this.relays.set(id, { link });
-      link.onClosed((close) => void this.relayClosed(id, link, close));
-      link.onChannelsClosed(() => void this.connectionsClosed(id));
+      link.onClosed((close) => {
+        void this.relayClosed(id, link, close).catch((error: unknown) => {
+          this.logger.error(`The device ${id} wasn't ended as its relay closed.`, error);
+        });
+      });
+      link.onChannelsClosed(() => {
+        void this.connectionsClosed(id).catch((error: unknown) => {
+          this.logger.error(`The device ${id}'s closed adb connections weren't followed.`, error);
+        });
+      });
       link.sendState(device.state, device.endpoint);
       await this.startHelper(device);
     });
@@ -823,7 +835,12 @@ export class ConnectedDevices implements OnModuleInit, BeforeApplicationShutdown
           ended: (why) => {
             // Weighed as it ends: a stop forgets the environment before its containers stop.
             const running = environment.isRunning();
-            void this.helperEnded(device, relay, why, running);
+            void this.helperEnded(device, relay, why, running).catch((error: unknown) => {
+              this.logger.error(
+                `The device ${device.id} wasn't changed as its helper ended.`,
+                error,
+              );
+            });
           },
           settingsChanged: (baudRate) =>
             this.relayedChange(device.id, relay, (current) => deviceBaudRateSet(current, baudRate)),
@@ -1064,11 +1081,15 @@ export class ConnectedDevices implements OnModuleInit, BeforeApplicationShutdown
       this.relays.delete(id);
       relay?.link.closeAsEnded(changed?.device.problem ?? "The device was disconnected.");
       if (changed !== undefined && phone !== undefined && place !== undefined) {
-        void this.androidUsb.disconnected(phone, place);
+        void this.androidUsb.disconnected(phone, place).catch((error: unknown) => {
+          this.logger.warn(`adb didn't let go of the device ${id}.`, error);
+        });
       }
       // Nothing when the run environment isn't running, as it attaches nothing.
       if (changed !== undefined && wirelessPhone !== undefined && place !== undefined) {
-        void this.wireless.disconnected(wirelessPhone, place);
+        void this.wireless.disconnected(wirelessPhone, place).catch((error: unknown) => {
+          this.logger.warn(`adb didn't let go of the device ${id}.`, error);
+        });
       }
       const ended = changed?.device ?? (await this.repository.find(id));
       if (ended === undefined || !isOpen(ended)) this.holds.delete(id);

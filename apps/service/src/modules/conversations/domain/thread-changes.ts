@@ -258,11 +258,14 @@ export function renameThread(
 /**
  * Adds `messages` to the Thread's log, in order. An untitled Thread takes its title from the
  * user's first message; a title the user gave stays. Undefined when there is nothing to log.
+ * `before` is the Thread as stored, when the caller changed it along with the log (its state or its
+ * session), so the event tells whether the Thread changed besides its log.
  */
 export function logMessages(
   thread: Thread,
   messages: readonly Message[],
   loggedAt: Date,
+  before: Thread = thread,
 ): ThreadChange<MessagesLogged> | undefined {
   if (messages.length === 0) return undefined;
   const stray = messages.find((message) => message.threadId !== thread.id);
@@ -271,8 +274,14 @@ export function logMessages(
   return {
     thread: titled,
     logged: messages,
-    event: new MessagesLogged(titled, messages, loggedAt),
+    event: new MessagesLogged(titled, messages, loggedAt, !sameThread(before, titled)),
   };
+}
+
+/** Whether every field of the two is the same value, as nothing but the log changed. */
+function sameThread(one: Thread, other: Thread): boolean {
+  const fields = new Set([...Object.keys(one), ...Object.keys(other)]);
+  return [...fields].every((field) => one[field as keyof Thread] === other[field as keyof Thread]);
 }
 
 function titleOf(messages: readonly Message[]): string | undefined {
@@ -969,6 +978,7 @@ export function restartStageSession(
     { ...settleRunningTurn(thread), session: newSession },
     [restarted],
     restartedAt,
+    thread,
   );
   if (!logged) throw new Error("A restart always logs its line.");
   return logged;
@@ -1009,7 +1019,7 @@ export function endStageWork(
     state: "waiting",
     answeringSince: undefined,
   };
-  if (messages.length > 0) return logMessages(waiting, messages, endedAt);
+  if (messages.length > 0) return logMessages(waiting, messages, endedAt, thread);
   if (thread.state === "waiting") return undefined;
   return { thread: waiting, logged: [], event: new TurnEnded(waiting, endedAt) };
 }
@@ -1030,7 +1040,7 @@ function begin(
     override: undefined,
     session: newSession ?? thread.session,
   };
-  const logged = logMessages(answering, messages, at);
+  const logged = logMessages(answering, messages, at, thread);
   if (!logged) throw new Error("Starting an answer always logs a message.");
   return logged;
 }
@@ -1341,7 +1351,7 @@ export function stopAnswer(
   return {
     thread: waiting,
     logged: [line],
-    event: new MessagesLogged(waiting, [line], stoppedAt),
+    event: new MessagesLogged(waiting, [line], stoppedAt, true),
   };
 }
 
@@ -1380,7 +1390,7 @@ export function failAnswer(
   return {
     thread: waiting,
     logged: [failure],
-    event: new MessagesLogged(waiting, [failure], failedAt),
+    event: new MessagesLogged(waiting, [failure], failedAt, true),
   };
 }
 

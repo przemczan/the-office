@@ -105,7 +105,7 @@ describe("GET /api/attachments/:id/content", () => {
     );
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("content-security-policy")).toBe(
-      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'",
+      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'self'",
     );
     expect(await response.text()).toBe("<h1>Design</h1>");
     expect((await contentOf(withCharset)).headers.get("content-type")).toBe(
@@ -125,7 +125,7 @@ describe("GET /api/attachments/:id/content", () => {
       `inline; filename="themes.css"; filename*=UTF-8''themes.css`,
     );
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(response.headers.get("content-security-policy")).toBeNull();
+    expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
     expect(await response.text()).toBe(":root { --accent: red; }");
     expect((await contentOf(script)).headers.get("content-type")).toBe("text/plain; charset=utf-8");
   });

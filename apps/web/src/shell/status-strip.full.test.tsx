@@ -27,7 +27,11 @@ globalThis.ResizeObserver = class {
 // The queries tell the strip of each change at once, not on a later tick, so each step renders.
 notifyManager.setScheduler((notify) => notify());
 
-vi.mock("../api/event-stream-provider.tsx", () => ({ useEventStreamStatus: () => "connected" }));
+const stream = vi.hoisted(() => ({ webAppUpdated: false }));
+vi.mock("../api/event-stream-provider.tsx", () => ({
+  useEventStreamStatus: () => "connected",
+  useWebAppUpdated: () => stream.webAppUpdated,
+}));
 vi.mock("@tanstack/react-router", () => ({
   Link: () => null,
   useNavigate: () => () => undefined,
@@ -65,6 +69,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stream.webAppUpdated = false;
   act(() => root.unmount());
   queryClient.clear();
   vi.unstubAllGlobals();
@@ -159,6 +164,21 @@ it("shows the newest of several Office Notifications and +N, and lists them all 
 
   act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
   expect(list()).toBeNull();
+});
+
+it("says first that The Office was updated since the page opened, and offers to reload it", () => {
+  stream.webAppUpdated = true;
+  renderWith([]);
+
+  expect(slot()?.querySelector(".shell-strip-slot-short")?.textContent).toBe(
+    "The Office was updated",
+  );
+  expect(slot()?.querySelector(".shell-strip-slot-count")?.textContent).toBe("+1");
+  act(() => slot()?.click());
+  const reload = [...(list()?.querySelectorAll("button") ?? [])].find(({ textContent }) =>
+    textContent?.includes("Reload the page"),
+  );
+  expect(reload).toBeDefined();
 });
 
 it("follows the open Office Notifications as they clear, and is gone with none", () => {

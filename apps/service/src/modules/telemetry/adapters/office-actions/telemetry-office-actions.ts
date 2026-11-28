@@ -167,6 +167,7 @@ export class TelemetryOfficeActions implements OnModuleInit {
           kept = checked.choice;
           return checked.choice;
         });
+        // oxlint-disable-next-line office/caught-voided-calls -- a start never rejects
         if (kept?.kind === "bundled-grafana") void this.bundledGrafana.start();
         return kept;
       },
@@ -251,6 +252,7 @@ export class TelemetryOfficeActions implements OnModuleInit {
             reasons: [BUNDLED_GRAFANA_NOT_CHOSEN],
           });
         }
+        // oxlint-disable-next-line office/caught-voided-calls -- a start never rejects
         void this.bundledGrafana.start();
         return this.view.of(saved);
       },

@@ -16,6 +16,7 @@ import {
 } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
+import { retriedTransaction } from "../../../../platform/database/retried-transaction.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Initiative } from "../../domain/initiative.js";
 import {
@@ -177,7 +178,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     ) => InitiativeTasksChange<Event> | undefined,
   ): Promise<InitiativeTasksUpdate<Event>> {
     return forgettingReads(() =>
-      this.database.transaction(async (transaction) => {
+      retriedTransaction(this.database, async (transaction) => {
         // The Initiative first and its Tasks after, the one order any hold of both takes.
         const initiative = await heldInitiative(transaction, id);
         const changed = change(initiative, await heldTasksOf(transaction, id));
@@ -199,7 +200,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     ) => readonly TaskChange<TaskStateChanged>[],
   ): Promise<readonly TaskChange<TaskStateChanged>[]> {
     return forgettingReads(() =>
-      this.database.transaction(async (transaction) => {
+      retriedTransaction(this.database, async (transaction) => {
         const initiative = await heldInitiative(transaction, id);
         const taskChanges = change(initiative, await heldTasksOf(transaction, id));
         for (const taskChange of taskChanges) {
@@ -244,7 +245,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     ) => InitiativeTaskAdded,
   ): Promise<InitiativeTaskAdded> {
     return forgettingReads(() =>
-      this.database.transaction(async (transaction) => {
+      retriedTransaction(this.database, async (transaction) => {
         // The manual order, the Initiative, the dependencies, then its Tasks: the order every other
         // hold takes. Its Tasks are held as the Publishing Task the new one blocks is saved whole.
         await holdManualOrder(transaction);
@@ -331,7 +332,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     ) => Promise<InitiativeMembershipChange<Event> | undefined>,
   ): Promise<InitiativeMembershipChange<Event> | undefined> {
     return forgettingReads(() =>
-      this.database.transaction(async (transaction) => {
+      retriedTransaction(this.database, async (transaction) => {
         // The Initiative, the dependencies, its Tasks, then the Task: the order every other hold takes.
         const initiative = await heldInitiative(transaction, id);
         const everyTask = await everyTaskHoldingDependencies(transaction);

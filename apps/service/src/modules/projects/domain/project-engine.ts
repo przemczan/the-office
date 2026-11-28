@@ -6,7 +6,7 @@ import {
   type Engine,
   type EngineKind,
   type EngineTypeOffers,
-} from "../../engine/index.js";
+} from "../../engine/index.domain.js";
 import type {
   ModelEffort,
   ProjectEngine,

@@ -190,6 +190,28 @@ describe("launching an Install on a device test instance", () => {
     expect(testbed.repository.rows.size).toBe(0);
   });
 
+  it("checks its device only once the launch ahead of it is in, one launch at a time", async () => {
+    buildMakes({ [APK]: "apk" });
+    const kept = gate();
+    const add = testbed.repository.add.bind(testbed.repository);
+    vi.spyOn(testbed.repository, "add").mockImplementationOnce(async (instance) => {
+      await kept.promise;
+      await add(instance);
+    });
+    const checkFree = vi.spyOn(testbed.devices, "checkFree");
+    const ahead = launchInstall();
+    await until(() => checkFree.mock.calls.length === 1);
+
+    const behind = launchInstall().catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(checkFree).toHaveBeenCalledTimes(1);
+    kept.open();
+    await ahead;
+    await behind;
+    expect(checkFree.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("is refused when its Build to install target is gone, naming it", async () => {
     testbed.project.targets = testbed.project.targets.filter(({ key }) => key !== BUILD_TARGET.key);
 

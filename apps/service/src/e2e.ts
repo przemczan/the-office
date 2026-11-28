@@ -190,8 +190,7 @@ await launch(
     const { ScriptedStatsSource, StatsSource } = await import("./modules/telemetry/index.js");
     const { Schedule } = await import("./platform/schedule/schedule.js");
     const { TimerSchedule } = await import("./platform/schedule/timer-schedule.js");
-    const { HostKeyScanner } = await import("./platform/git-identity/host-key-scanner.js");
-    const { hostKeyOf } = await import("./platform/git-identity/host-keys.js");
+    const { HostKeyScanner, hostKeyOf } = await import("./modules/office-identity/index.js");
     const { OfficeLogger } = await import("./platform/telemetry/office-logger.js");
     const { BundledGrafana } =
       await import("./platform/telemetry/bundled-grafana/bundled-grafana.js");
@@ -248,7 +247,9 @@ await launch(
     // a phone that pairs, connects and is a Pixel 9 would; any other attached program never ends.
     const { ScriptedAdb } = await import("./modules/devices/index.js");
     const adb = new ScriptedAdb();
-    containerRuntime.onAttach = (process) => void adb.answer(process);
+    containerRuntime.onAttach = (process) => {
+      adb.answer(process);
+    };
     const moduleRef = await Test.createTestingModule({ imports: [appModule] })
       .overrideModule(EngineModule)
       .useModule(

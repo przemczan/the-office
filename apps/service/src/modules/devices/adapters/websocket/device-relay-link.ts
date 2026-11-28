@@ -1,4 +1,5 @@
 import { finished } from "node:stream/promises";
+import { Logger } from "@nestjs/common";
 import {
   BROWSER_CONTROL_FRAME_TYPES,
   controlPayload,
@@ -25,6 +26,8 @@ import type {
   RelayClose,
   RelayLink,
 } from "../../ports/relay-link.js";
+
+const logger = new Logger("DeviceRelayLink");
 
 /** What the relay needs of `ws`'s WebSocket, so a test can stand in for it. */
 export interface RelaySocket {
@@ -176,7 +179,9 @@ export class DeviceRelayLink implements RelayLink {
     };
     this.helper = helper;
     process.stdout.on("data", (chunk: Buffer) => this.fromHelper(helper, chunk));
-    void this.untilEnded(helper, (why) => listener.ended(why));
+    void this.untilEnded(helper, (why) => listener.ended(why)).catch((error: unknown) => {
+      logger.error("The end of the Office device helper wasn't handed on.", error);
+    });
     return opening.promise;
   }
 

@@ -34,6 +34,13 @@ export interface DeviceRelaySink {
   pong(id: number): void;
   /** The device can't be reached any more: the relay ends, the device as error with `problem`. */
   fail(problem: string): void;
+  /**
+   * Resolves once the relay has room for more of the device's bytes: at once while the socket's
+   * unsent bytes are under the high-water mark, else once they fall under the low one, or the
+   * relay ends. A transport awaits it before reading the device again, so a slow network holds
+   * the device back instead of the tab's memory growing.
+   */
+  writable(): Promise<void>;
 }
 
 /** A device attached to a relay: what the run environment does on each channel reaches it here. */
@@ -165,6 +172,11 @@ const SOCKET_CONNECTING = 0;
 const SOCKET_OPEN = 1;
 const NORMAL_CLOSE = 1000;
 const UNSUPPORTED_DATA_CLOSE = 1003;
+/** The unsent bytes over which the device is held back, and under which it reads again. */
+export const RELAY_HIGH_WATER_BYTES = 1024 * 1024;
+export const RELAY_LOW_WATER_BYTES = 256 * 1024;
+/** A browser's socket tells no drain, so its unsent bytes are read again this often meanwhile. */
+const RELAY_DRAIN_POLL_MS = 20;
 
 /**
  * Opens the device's relay and attaches the device to it: OPEN, DATA, CLOSE and the control frames
@@ -183,12 +195,42 @@ export function openDeviceRelay(
   const reader = new FrameReader();
   const listeners = new Set<(state: DeviceRelayState) => void>();
   const waiting: (Uint8Array<ArrayBuffer> | string)[] = [];
+  let waitingBytes = 0;
   let closeWhenSent = false;
   let ended = false;
+  // Transports waiting for room, and the poll that lets them go once there is.
+  const roomWaiters: (() => void)[] = [];
+  let roomPoll: ReturnType<typeof setTimeout> | undefined;
+
+  const unsentBytes = (): number => socket.bufferedAmount + waitingBytes;
+  const letWaitersGo = (): void => {
+    clearTimeout(roomPoll);
+    roomPoll = undefined;
+    for (const resolve of roomWaiters.splice(0)) resolve();
+  };
+  const pollForRoom = (): void => {
+    roomPoll ??= setTimeout(() => {
+      roomPoll = undefined;
+      if (ended || unsentBytes() <= RELAY_LOW_WATER_BYTES) letWaitersGo();
+      else pollForRoom();
+    }, RELAY_DRAIN_POLL_MS);
+  };
+  const writable = (): Promise<void> => {
+    if (ended || (roomWaiters.length === 0 && unsentBytes() <= RELAY_HIGH_WATER_BYTES)) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      roomWaiters.push(resolve);
+      pollForRoom();
+    });
+  };
 
   const sendNow = (message: Uint8Array<ArrayBuffer> | string): void => {
     if (socket.readyState === SOCKET_OPEN) socket.send(message);
-    else if (socket.readyState === SOCKET_CONNECTING) waiting.push(message);
+    else if (socket.readyState === SOCKET_CONNECTING) {
+      waiting.push(message);
+      waitingBytes += typeof message === "string" ? message.length : message.byteLength;
+    }
   };
   const sendFrame = (type: DeviceFrameType, channel: number, payload: Uint8Array): void => {
     // A frame of its own buffer, as the socket sends only an ArrayBuffer's bytes.
@@ -218,6 +260,7 @@ export function openDeviceRelay(
       },
       fail: (problem) =>
         endWith({ type: "error", problem: problem.slice(0, DEVICE_RELAY_PROBLEM_MAX_LENGTH) }),
+      writable,
     });
   } catch (error) {
     // A device that can't be attached leaves no socket open behind it.
@@ -229,6 +272,7 @@ export function openDeviceRelay(
 
   socket.addEventListener("open", () => {
     for (const message of waiting.splice(0)) socket.send(message);
+    waitingBytes = 0;
     if (closeWhenSent) socket.close(NORMAL_CLOSE);
   });
   socket.addEventListener("message", ({ data }: MessageEvent<unknown>) => {
@@ -248,6 +292,7 @@ export function openDeviceRelay(
   socket.addEventListener("close", ({ code }: CloseEvent) => {
     if (ended) return;
     ended = true;
+    letWaitersGo();
     stopHearingUnplugged();
     transport.end();
     tell({ type: "ended", code });

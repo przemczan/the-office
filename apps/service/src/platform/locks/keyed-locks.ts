@@ -29,6 +29,19 @@ export class KeyedLocks {
   }
 
   /**
+   * Runs `work` holding the lock of every key, taken one at a time in sorted order, so two runs
+   * whose keys overlap never wait for each other in a circle.
+   */
+  runAll<Result>(keys: readonly string[], work: () => Promise<Result>): Promise<Result> {
+    const sorted = [...new Set(keys)].toSorted();
+    const holding = sorted.reduceRight<() => Promise<Result>>(
+      (inner, key) => () => this.run(key, inner),
+      work,
+    );
+    return holding();
+  }
+
+  /**
    * Runs `work` as `run` does, but as work holding no lock: for a callback that work holding the
    * lock set up and that fires later, which would otherwise inherit the held keys through its
    * async context and skip the queue.

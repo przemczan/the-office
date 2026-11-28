@@ -106,7 +106,7 @@ describe("reading an image", () => {
     expect(headers.get("content-type")).toBe("image/svg+xml");
     expect(headers.get("x-content-type-options")).toBe("nosniff");
     expect(headers.get("content-security-policy")).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'",
     );
   });
 });

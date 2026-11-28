@@ -170,6 +170,7 @@ export class RepositoryClones implements BeforeApplicationShutdown {
       await this.git.clone({
         url,
         folder: path,
+        // oxlint-disable-next-line office/caught-voided-calls -- telling of progress never rejects
         onProgress: (progress) => void this.progress(running, progress),
         signal: running.stop.signal,
       });

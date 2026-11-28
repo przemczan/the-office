@@ -1,5 +1,5 @@
 // An Office update of a direct install (docs/running-the-office.md): the launcher downloads the
-// released version's tarball, verifies it, unpacks it beside the other releases, switches `current`
+// released version's tarball, verifies it (its signature too, once a release key is pinned), unpacks it beside the other releases, switches `current`
 // to it and starts it, and goes back to the version it came from when the new one doesn't come up.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -19,6 +19,7 @@ import { basename, join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
+import { RELEASE_SIGNING_KEY, SIGNATURE_SUFFIX, verifySignature } from "./release-signing.ts";
 import { HEALTH_TIMEOUT_MS, waitUntilHealthy, type HealthWait } from "./service-health.ts";
 import { stopService, type RunningService } from "./service-process.ts";
 import {
@@ -38,6 +39,27 @@ export const CURRENT_LINK = "current";
 /** The stamp at a release's root, as tools/release writes it. */
 export const RELEASE_STAMP_FILE = "office-release.json";
 
+/** How long a release's download may take, all its files, and the most its tarball may hold. */
+export interface DownloadLimits {
+  readonly timeoutMs: number;
+  readonly tarballMaxBytes: number;
+}
+
+/**
+ * The service is already stopped while the launcher downloads, so a stalled or endless download
+ * is given up rather than keeping The Office down; the cap is well above a tarball's size.
+ */
+export const DOWNLOAD_LIMITS: DownloadLimits = {
+  timeoutMs: 15 * 60_000,
+  tarballMaxBytes: 2 * 1024 ** 3,
+};
+
+/** The most a `.sha256` or its signature may hold: a line, or 64 bytes. */
+const SMALL_FILE_MAX_BYTES = 64 * 1024;
+
+/** How a URL is downloaded: fetch, unless a test serves the release itself. */
+export type Download = (url: string, init: { readonly signal: AbortSignal }) => Promise<Response>;
+
 /** A direct install's layout, as the launcher found it. */
 export interface ReleaseInstall {
   /** The folder holding `releases/` and `current`, such as `/opt/the-office`. */
@@ -53,8 +75,10 @@ export interface ReleaseUpdateOptions extends ReleaseInstall {
   /** Where the new version answers /api/health; it throws when that can't be told. */
   readonly healthUrl: () => string;
   readonly health?: HealthWait;
-  /** How a URL is downloaded; fetch, unless a test serves the release itself. */
-  readonly download?: (url: string) => Promise<Response>;
+  readonly download?: Download;
+  readonly downloadLimits?: DownloadLimits;
+  /** The release key the tarball's `.sha256` is signed with; RELEASE_SIGNING_KEY unless a test's. */
+  readonly signingKey?: string;
 }
 
 export interface ReleaseUpdateOutcome {
@@ -130,18 +154,50 @@ export async function runReleaseUpdate(
 
 /** Download, verify, unpack and switch: nothing changes until the switch, the last of them. */
 async function install(
-  { installRoot, updateFolder, download = fetch }: ReleaseUpdateOptions,
+  {
+    installRoot,
+    updateFolder,
+    download = fetch,
+    downloadLimits = DOWNLOAD_LIMITS,
+    signingKey = RELEASE_SIGNING_KEY,
+  }: ReleaseUpdateOptions,
   { version, tarballUrl, checksumUrl }: ReleaseRequest,
   log: UpdateLog,
 ): Promise<void> {
   const downloads = join(updateFolder, DOWNLOADS_FOLDER);
   const tarball = join(downloads, fileNameOf(tarballUrl));
   const checksum = join(downloads, fileNameOf(checksumUrl));
+  const signatureUrl = `${checksumUrl}${SIGNATURE_SUFFIX}`;
+  const signature = join(downloads, fileNameOf(signatureUrl));
   await attempt(log, "download", tarballUrl, async () => {
     mkdirSync(downloads, { recursive: true });
-    await downloadTo(download, tarballUrl, tarball);
-    await downloadTo(download, checksumUrl, checksum);
+    const deadline = AbortSignal.timeout(downloadLimits.timeoutMs);
+    // The small files first, so a release missing one fails before its tarball is fetched.
+    const files = [
+      { url: checksumUrl, path: checksum, maxBytes: SMALL_FILE_MAX_BYTES },
+      ...(signingKey
+        ? [{ url: signatureUrl, path: signature, maxBytes: SMALL_FILE_MAX_BYTES }]
+        : []),
+      { url: tarballUrl, path: tarball, maxBytes: downloadLimits.tarballMaxBytes },
+    ];
+    try {
+      for (const { url, path, maxBytes } of files) {
+        await downloadTo(download, url, path, maxBytes, deadline);
+      }
+    } catch (error) {
+      if (!deadline.aborted) throw error;
+      throw new Error(`The download wasn't done within ${downloadLimits.timeoutMs / 1000} s.`, {
+        cause: error,
+      });
+    }
   });
+  if (signingKey) {
+    await attempt(log, "verify", `${basename(checksum)} is signed by the release key`, () =>
+      verifySignature(readFileSync(checksum), readFileSync(signature), signingKey),
+    );
+  } else {
+    log.write("No release key is pinned, so the release's signature isn't checked.");
+  }
   await attempt(log, "verify", basename(tarball), () => verifyChecksum(tarball, checksum));
   const releases = join(installRoot, RELEASES_FOLDER);
   const unpacking = join(releases, `.unpack-${version}`);
@@ -185,18 +241,32 @@ function fileNameOf(url: string): string {
   return name;
 }
 
+/** Downloads `url` into `path`, refusing more than `maxBytes` and giving up at `deadline`. */
 async function downloadTo(
-  download: (url: string) => Promise<Response>,
+  download: Download,
   url: string,
   path: string,
+  maxBytes: number,
+  deadline: AbortSignal,
 ): Promise<void> {
-  const response = await download(url);
+  const response = await download(url, { signal: deadline });
   if (!response.ok || !response.body) {
     throw new Error(`${url} answered ${response.status} ${response.statusText}.`);
   }
+  const tooLarge = () => new Error(`${url} holds more than ${maxBytes} bytes.`);
+  if (Number(response.headers.get("content-length")) > maxBytes) throw tooLarge();
+  let received = 0;
   await pipeline(
     Readable.fromWeb(response.body as ReadableStream<Uint8Array>),
+    async function* (chunks: AsyncIterable<Buffer>) {
+      for await (const chunk of chunks) {
+        received += chunk.length;
+        if (received > maxBytes) throw tooLarge();
+        yield chunk;
+      }
+    },
     createWriteStream(path),
+    { signal: deadline },
   );
 }
 

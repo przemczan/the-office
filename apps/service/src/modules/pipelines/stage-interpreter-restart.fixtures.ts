@@ -50,7 +50,7 @@ export function close(pipelines: PipelinesApplication): Promise<void> {
 export async function startUp(
   pipelines: PipelinesApplication,
   taskId: string,
-  state: "in-progress" | "paused",
+  state: "in-progress" | "waiting-on-you" | "paused",
 ): Promise<void> {
   pipelines.tasks.put(taskId, { state, pipelineId: "for-tests" });
   const interpreter = pipelines.app.get(StageInterpreter, { strict: false });
@@ -94,7 +94,9 @@ export async function aRunLeftRunning(
   for (let number = 0; number < restartsBefore; number += 1) {
     const restarted = startRun(number);
     await runs.saveNew(restarted);
-    await runs.saveEnded(endStageRun(restarted, interruptedOutcome("restart", []), new Date()).run);
+    await runs.update(restarted.id, (held) =>
+      endStageRun(held, interruptedOutcome("restart", []), new Date()),
+    );
   }
   const run = startRun(restartsBefore);
   await runs.saveNew(run);

@@ -1,11 +1,11 @@
 import {
   RUN_PROJECT_COMMAND_TOOL,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
-} from "../../engine/index.js";
+} from "../../engine/index.domain.js";
 import {
   CHANGE_PROJECT_SETTINGS_TOOL,
   RUN_ENVIRONMENT_CHECK_TOOL,
-} from "../../conversations/index.js";
+} from "../../conversations/index.domain.js";
 import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
 import {

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 import {
@@ -9,7 +9,6 @@ import {
 import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
 import {
   LABEL,
-  officeLabels,
   pairingLabels,
   pairingOverrideOf,
   pairingProjectNameOf,
@@ -21,6 +20,7 @@ import {
   type ComposeProject,
 } from "../ports/container-runtime.js";
 import { RunEnvironmentSettings } from "../ports/run-environment-settings.js";
+import { ComposeProjectLifecycle } from "./compose-project-lifecycle.js";
 import { readDefinitionIn } from "./definition-files.js";
 import { HostCores } from "./host-cores.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
@@ -72,6 +72,7 @@ export class PairingEnvironments {
   private readonly logger = new Logger(PairingEnvironments.name);
   /** The Project devices with a pairing environment started and not yet removed. */
   private readonly started = new Set<string>();
+  private readonly lifecycle: ComposeProjectLifecycle;
 
   constructor(
     private readonly runtime: ContainerRuntime,
@@ -79,7 +80,9 @@ export class PairingEnvironments {
     private readonly folders: RunEnvironmentFolders,
     private readonly settings: RunEnvironmentSettings,
     private readonly hostCores: HostCores,
-  ) {}
+  ) {
+    this.lifecycle = new ComposeProjectLifecycle(runtime, folders.instance, this.logger);
+  }
 
   /** Reads the definition, makes the image, and starts it; refused (RunEnvironmentRefused) in words, removing what it made. */
   async start(start: PairingEnvironmentStart): Promise<PairingEnvironment> {
@@ -104,15 +107,22 @@ export class PairingEnvironments {
     }
   }
 
-  /** Removes every pairing environment of this Office left behind, by its labels (the startup sweep). */
+  /**
+   * The startup sweep: removes every pairing environment of this Office left behind, by its labels
+   * or its files, but those started since.
+   */
   async sweep(): Promise<void> {
-    const resources = await this.runtime.listByLabel(officeLabels(this.folders.instance));
-    const ids = new Set(resources.map(({ labels }) => labels[LABEL.pairing] ?? ""));
-    ids.delete("");
-    for (const deviceId of ids) {
-      if (DEVICE_ID.test(deviceId)) await this.removeNow(deviceId);
-    }
-    await rm(this.folders.pairings, { recursive: true, force: true });
+    const ids = new Set([
+      ...(await this.lifecycle.labelled(LABEL.pairing)),
+      ...(await this.lifecycle.withFiles(this.folders.pairings)),
+    ]);
+    await this.lifecycle.eachOf(
+      ids,
+      (deviceId) => `The pairing environment of the device ${deviceId}`,
+      async (deviceId) => {
+        if (DEVICE_ID.test(deviceId) && !this.started.has(deviceId)) await this.removeNow(deviceId);
+      },
+    );
   }
 
   private async startedProject(
@@ -224,20 +234,15 @@ export class PairingEnvironments {
    * carries its label, and its files; never throws, a failure only logged.
    */
   private async removeNow(deviceId: string): Promise<void> {
-    const projectName = pairingProjectNameOf(this.folders.instance, deviceId);
     try {
-      // With the images compose built for its other services, as a Test instance's.
-      await this.runtime.down(projectName, { builtImages: true });
-    } catch (error) {
-      // What down left is removed by its label next.
-      this.logger.warn(
-        `The pairing environment of the device ${deviceId} didn't come down.`,
-        error,
-      );
-    }
-    try {
-      await this.runtime.removeByLabel(pairingLabels(this.folders.instance, deviceId));
-      await rm(this.folders.pairingFolder(deviceId), { recursive: true, force: true });
+      await this.lifecycle.remove({
+        name: pairingProjectNameOf(this.folders.instance, deviceId),
+        labels: pairingLabels(this.folders.instance, deviceId),
+        folder: this.folders.pairingFolder(deviceId),
+        // With the images compose built for its other services, as a Test instance's.
+        removal: { builtImages: true },
+        what: `The pairing environment of the device ${deviceId}`,
+      });
     } catch (error) {
       this.logger.warn(
         `The pairing environment of the device ${deviceId} wasn't wholly removed.`,

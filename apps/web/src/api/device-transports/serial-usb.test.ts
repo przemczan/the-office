@@ -169,6 +169,7 @@ function attached(device: RequestedDevice, log: string[]): DeviceTransport {
     open: (channel) => log.push(`sink open ${channel}`),
     pong: (id) => log.push(`pong ${id}`),
     fail: (problem) => log.push(`fail ${problem}`),
+    writable: () => Promise.resolve(),
   };
   return device.attach(sink);
 }

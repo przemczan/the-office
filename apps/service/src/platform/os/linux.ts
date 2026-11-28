@@ -21,6 +21,26 @@ const LINUX_PATH_LIMITS: PathLimits = {
   measure: (text) => Buffer.byteLength(text, "utf8"),
 };
 
+/**
+ * What a program needs from the environment on Linux: PATH, the user and their home, the temporary
+ * folder, the locale, the per-user runtime folder (a rootless Docker's socket) and what a
+ * credential helper reaches its store by (the session's D-Bus, gpg's and pass's folders).
+ */
+const LINUX_SYSTEM_VARIABLES: readonly string[] = [
+  "PATH",
+  "HOME",
+  "USER",
+  "LOGNAME",
+  "TMPDIR",
+  "LANG",
+  "LC_ALL",
+  "XDG_RUNTIME_DIR",
+  "XDG_CONFIG_HOME",
+  "DBUS_SESSION_BUS_ADDRESS",
+  "GNUPGHOME",
+  "PASSWORD_STORE_DIR",
+];
+
 export function linux({
   variables,
   homeDirectory,
@@ -70,6 +90,7 @@ export function linux({
     sshPrograms: { ssh: "ssh", keygen: "ssh-keygen", keyscan: "ssh-keyscan" },
     hasLoadAverage: true,
     sameVariableName: (one, other) => one === other,
+    systemVariableNames: LINUX_SYSTEM_VARIABLES,
     printFileCommand: (file) => printFileCommand(shQuoted, file),
     localSocketPath: (name) => posix.join(variables["TMPDIR"] || "/tmp", `${name}.sock`),
     nodeScriptHookCommand: (script, args) =>

@@ -37,21 +37,37 @@ export abstract class SignedInRequests {
   abstract signedOutAmong(signedInDeviceIds: readonly string[]): Promise<readonly string[]>;
 }
 
-const signedInRequests = new WeakMap<IncomingMessage, SignedIn>();
+/** What `identifySignedIn` found of a request: who signed it in, or that nobody could be checked. */
+type SignInCheck = SignedIn | typeof UNCHECKED;
 
-/** Kept by the guard for the request it let through, for `@SignedIn()`. */
+const UNCHECKED = "unchecked";
+
+const checkedRequests = new WeakMap<IncomingMessage, SignInCheck>();
+
+/** Kept by `identifySignedIn` for a request a signed-in device sent, for the guard and `@SignedIn()`. */
 export function rememberSignedIn(request: IncomingMessage, signedIn: SignedIn): void {
-  signedInRequests.set(request, signedIn);
+  checkedRequests.set(request, signedIn);
 }
 
-/** Who the guard found signed the request in; undefined on the routes it leaves open. */
+/** Kept by `identifySignedIn` when who signed the request in couldn't be checked. */
+export function rememberSignInUnchecked(request: IncomingMessage): void {
+  checkedRequests.set(request, UNCHECKED);
+}
+
+/** Who signed the request in; undefined when nobody did, or it couldn't be checked. */
 export function signedInOfRequest(request: IncomingMessage): SignedIn | undefined {
-  return signedInRequests.get(request);
+  const checked = checkedRequests.get(request);
+  return checked === UNCHECKED ? undefined : checked;
+}
+
+/** Whether who signed the request in couldn't be checked, such as with the database down. */
+export function isSignInUnchecked(request: IncomingMessage): boolean {
+  return checkedRequests.get(request) === UNCHECKED;
 }
 
 /**
- * The user and signed-in device behind a request, as a controller's parameter. Only on a route the
- * guard checks: on one it leaves open (`/api/sign-in/**`) nobody is known, and this answers 401.
+ * The user and signed-in device behind a request, as a controller's parameter. On a route open
+ * without sign-in (`@OpenWithoutSignIn()`) a request may come from nobody, and this answers 401.
  */
 export const SignedIn = createParamDecorator((_: unknown, context: ExecutionContext): SignedIn => {
   const signedIn = signedInOfRequest(context.switchToHttp().getRequest<IncomingMessage>());

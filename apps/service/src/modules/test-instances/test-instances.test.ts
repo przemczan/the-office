@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   ScriptedContainerRuntime,
   type RunEnvironmentsTestbed,
@@ -571,7 +572,7 @@ describe("when an instance stops", () => {
     await mkdir(testbed.officeData.testInstanceFolder(building.id), { recursive: true });
     // As the last run left them: the rows, the runtime's resources and the checkouts.
     const restarted = testInstancesTestbed(
-      environments.hostedServices,
+      (await restartedTestbed(environments, runtime)).hostedServices,
       join(environments.folder, "office-data"),
     );
     await restarted.repository.add(running);

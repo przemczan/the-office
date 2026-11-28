@@ -391,6 +391,7 @@ export class BranchCleanup implements OnModuleInit, OnModuleDestroy {
       );
     });
     this.running.add(running);
+    // oxlint-disable-next-line office/caught-voided-calls -- running never rejects
     void running.finally(() => this.running.delete(running));
   }
 }

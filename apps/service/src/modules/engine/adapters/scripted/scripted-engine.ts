@@ -4,7 +4,7 @@ import type { McpClient } from "../../../../platform/mcp/mcp-client.js";
 import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
-import { EngineProcess } from "../claude-code/engine-process.js";
+import { EngineProcess } from "../shared/engine-process.js";
 import { McpServerConnections, type McpToolAnswer } from "../mcp-servers/mcp-server-connections.js";
 import { callAsRun } from "../office-rules/foreground-sub-agents.js";
 import { mcpToolOf } from "../office-rules/office-tool-names.js";
@@ -22,7 +22,6 @@ import {
   type UsageWindowStart,
   type OfficeToolLoading,
 } from "../../ports/agent-engine.js";
-import { WINDOW_START_MODEL } from "../claude-code/usage-window-start.js";
 import type {
   ContextUsage,
   EngineSession,
@@ -59,10 +58,13 @@ const EVERY_CAPABILITY: EngineCapabilities = {
   startsUsageWindow: true,
 };
 
-/** What `startUsageWindow` answers unless a test sets another answer. */
+/**
+ * What `startUsageWindow` answers unless a test sets another answer: a Claude Code engine's, on
+ * the model its window start runs on.
+ */
 export const DEFAULT_WINDOW_START: UsageWindowStart = {
   tokens: { input: 10, output: 2, cacheRead: 0, cacheCreation: 0 },
-  model: WINDOW_START_MODEL,
+  model: "claude-haiku-5-5",
 };
 
 /** A session `carrySession` carried over, by the ids of the engines it went from and to. */

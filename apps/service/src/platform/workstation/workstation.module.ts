@@ -1,12 +1,12 @@
 import { Module } from "@nestjs/common";
 import { NodeWorkstation, Workstation } from "./workstation.js";
-import { WorkstationController } from "./workstation.controller.js";
-import { WorkstationLoadReader } from "./workstation-load-reader.js";
 
+/**
+ * The workstation's CPU and memory, read from Node's `os`: for the System health recorder and the
+ * Workstation module's Workstation figure.
+ */
 @Module({
-  controllers: [WorkstationController],
-  providers: [{ provide: Workstation, useClass: NodeWorkstation }, WorkstationLoadReader],
-  // For the System health recorder, which reads the workstation too.
+  providers: [{ provide: Workstation, useClass: NodeWorkstation }],
   exports: [Workstation],
 })
 export class WorkstationModule {}

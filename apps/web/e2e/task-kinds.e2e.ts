@@ -214,7 +214,7 @@ test(
       .getByRole("article", { name: duplicate.title })
       .getByRole("button", { name: `More for ${duplicate.title}` })
       .click();
-    await page.getByRole("menu").getByRole("button", { name: "Drop…" }).click();
+    await page.getByRole("menu").getByRole("menuitem", { name: "Drop…" }).click();
     const dialog = page.getByRole("dialog", { name: `Drop ${duplicate.title}?` });
     const drop = dialog.getByRole("button", { name: "Drop the Task" });
     await dialog.getByRole("radio", { name: "Duplicate" }).check();

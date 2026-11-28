@@ -11,7 +11,7 @@ import { IssueLinkRepository } from "../ports/issue-link-repository.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
-import { isFeatureOn } from "../domain/project-features.js";
+import { isFeatureOn, ISSUES_FEATURE } from "../domain/project-features.js";
 import { IssueTasks } from "./issue-tasks.js";
 import { ensureFeatureOn } from "./project-features.js";
 import { ProjectIssueHosts, type ProjectIssueHost } from "./project-issue-hosts.js";
@@ -111,7 +111,7 @@ export class IssueImport {
    */
   async importLabelled(project: Project, { remoteUrl, host }: ProjectIssueHost): Promise<number> {
     // The watch passes such a Project over already; kept here too, so no caller imports past it.
-    if (!isFeatureOn(project, "github-issues")) return 0;
+    if (!isFeatureOn(project, ISSUES_FEATURE)) return 0;
     const { autoImportLabel, autoImportLabelSetBy } = project.issueSettings;
     if (autoImportLabel === null || autoImportLabelSetBy === null) return 0;
     const [issues, linked] = await Promise.all([
@@ -237,7 +237,7 @@ export class IssueImport {
   private async project(projectId: string): Promise<Project> {
     const project = await this.projects.find(projectId);
     if (!project) throw new ProjectNotFound(projectId);
-    ensureFeatureOn(project, "github-issues");
+    ensureFeatureOn(project, ISSUES_FEATURE);
     return project;
   }
 }

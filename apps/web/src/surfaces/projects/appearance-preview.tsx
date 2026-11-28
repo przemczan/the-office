@@ -3,7 +3,7 @@ import { Badge, PALETTES, SegmentedControl, useAppearance } from "@the-office/ui
 import { useState, type ReactNode } from "react";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { IMAGE_PALETTES } from "../../shell/project-image.ts";
-import { ProjectLogo } from "../../shell/project-logo.tsx";
+import { ProjectLogo } from "./project-logo.tsx";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 import { ProjectItemLine } from "./project-item-line.tsx";

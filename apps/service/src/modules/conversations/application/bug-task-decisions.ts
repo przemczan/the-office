@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import {
   bugTaskAnswerProblems,
   bugTaskDraft,
@@ -35,6 +36,13 @@ export type BugTaskProposal = Omit<ProposedBugTask, "projectId"> & {
  */
 @Injectable()
 export class BugTaskDecisions {
+  /**
+   * Each bug-task Decision's answers, one at a time within the service: no database connection or
+   * transaction is held while its Task is created and its answer recorded, each saved and then
+   * published as any write is.
+   */
+  private readonly answering = new KeyedLocks();
+
   constructor(
     private readonly repository: ThreadRepository,
     private readonly decisions: DecisionService,
@@ -86,8 +94,9 @@ export class BugTaskDecisions {
     if (!decision) throw new DecisionNotFound(id);
     if (!isBugTask(decision)) return this.decisions.answer(id, answer, answerer);
     // Every answer of it is held, so Don't create it or Fix now can't land while its Task is being
-    // created.
-    return this.repository.holdingDecision(id, async (held) => {
+    // created; it is read again once held, as the answer before left it.
+    return this.answering.run(id, async () => {
+      const held = await this.repository.decision(id);
       if (!held) throw new DecisionNotFound(id);
       if (answer.kind !== "submitted" || !createsTheBugTask(answer)) {
         return this.decisions.answer(id, answer, answerer);

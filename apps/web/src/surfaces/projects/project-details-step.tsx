@@ -16,7 +16,7 @@ import {
   RUN_ENVIRONMENT_ANSWER_LABELS,
   RUN_ENVIRONMENT_QUESTION,
   RUN_ENVIRONMENT_QUESTION_HINT,
-} from "../../shell/run-environment-words.ts";
+} from "./run-environment-words.ts";
 import { WHERE_IT_IS_OPTIONS, type ProjectSource } from "./add-project-source.ts";
 import { MarkPicker } from "./mark-picker.tsx";
 

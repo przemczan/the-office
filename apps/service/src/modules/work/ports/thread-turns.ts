@@ -1,7 +1,7 @@
 /**
  * Whether the person in a Thread is working now, which Conversations keeps in memory: Plan the
  * Initiative and Plan with… open no new planning Thread while the latest one has a turn running.
- * The composition root binds it to Work's adapter over Conversations' ThreadService.
+ * The composition root binds it to Work's adapter over Conversations' ThreadsAtWork.
  */
 export abstract class ThreadTurns {
   /**

@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 import { EngineReadTimedOut } from "../../ports/agent-engine.js";
-import { WINDOW_START_MODEL, WINDOW_START_PROMPT } from "../claude-code/usage-window-start.js";
+import { WINDOW_START_MODEL } from "../claude-code/usage-window-start.js";
+import { WINDOW_START_PROMPT } from "../shared/usage-window-start.js";
 import { fakeClaudeCodeP, fakeClaudeCodePRuns } from "./fake-claude-code-p.fixtures.js";
 import {
   claudeCodePWindowStartArguments,

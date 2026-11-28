@@ -435,6 +435,83 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
     });
   });
 
+  describe.each(platform.dialects)(
+    "commands writing where Edit and Write may not, in %s",
+    (dialect) => {
+      const protectedReason =
+        "Refused by The Office: .git, .claude and .mcp.json are The Office's to change; Agents never write there.";
+
+      it.each([
+        "cat /tmp/hooks.json > .claude/settings.json",
+        "echo '{}' >> .mcp.json",
+        "npm test 2> .git/info/exclude",
+        "cd .claude && echo '{}' > settings.local.json",
+        "cp /tmp/settings.json .claude/settings.json",
+        "cp /tmp/settings.json --target-directory=.claude",
+        "mv settings.json packages/web/.claude/",
+        "tee .claude/settings.json",
+        "rm -rf .git",
+        "sed -i 's/a/b/' .claude/settings.json",
+        "sed -i.bak 's/a/b/' .mcp.json",
+        "perl -pi -e 's/a/b/' .claude/settings.json",
+        "dd if=/tmp/x of=.claude/settings.json",
+        "touch .claude/settings.local.json && npm test",
+        `tee '${join(platform.worktree, ".claude", "settings.json")}'`,
+        ...(dialect === "powershell"
+          ? [
+              raw`Set-Content -Path .claude\settings.json -Value '{}'`,
+              raw`Copy-Item C:\temp\x.json -Destination:.claude\settings.json`,
+              raw`ni .mcp.json`,
+              raw`Remove-Item -Recurse .git`,
+            ]
+          : []),
+      ])("refuses %s", (commandLine) => {
+        expect(decide(command(dialect, commandLine))).toEqual({
+          allowed: false,
+          reason: protectedReason,
+        });
+      });
+
+      it("refuses writing .gemini/settings.json anywhere, and .devcontainer/, with Edit's reasons", () => {
+        expect(decide(command(dialect, "echo '{}' > web/.gemini/settings.json"))).toEqual(
+          decide({ kind: "edit", paths: ["web/.gemini/settings.json"] }),
+        );
+        for (const commandLine of [
+          "sed -i 's/18/22/' .devcontainer/Dockerfile",
+          "cat compose.yaml > .devcontainer/compose.yaml",
+          "mkdir -p .devcontainer",
+        ]) {
+          expect(decide(command(dialect, commandLine))).toEqual(
+            decide({ kind: "edit", paths: [".devcontainer/devcontainer.json"] }),
+          );
+        }
+      });
+
+      it.each([
+        "cat .claude/settings.json",
+        "grep -rn hooks .claude",
+        "sed -n 1,20p .claude/settings.json",
+        "ls -la .git .devcontainer",
+        "echo '{}' > .gemini/commands.json",
+        "touch .gitignore .github/x.yml",
+        "rsync -a --exclude=.git src/ out/",
+        "npm test > /dev/null",
+        "cp src/a.ts src/b.ts",
+      ])("allows %s", (commandLine) => {
+        expect(decide(command(dialect, commandLine))).toEqual({ allowed: true });
+      });
+
+      it("leaves the Caretaker reaching the workstation free to write them", () => {
+        const caretaker = rulesOn(platform, { workstation: true });
+        expect(
+          caretaker.decide(
+            command(dialect, `echo x > '${join(platform.worktree, ".claude", "settings.json")}'`),
+          ),
+        ).toEqual({ allowed: true });
+      });
+    },
+  );
+
   describe("the permission profile", () => {
     const reviewer = rulesOn(platform, {
       profile: {

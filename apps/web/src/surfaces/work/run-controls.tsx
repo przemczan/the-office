@@ -6,8 +6,8 @@ import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { pauseTask, resumeTask, stopTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { RestartTaskDialog } from "../../shell/work/restart-task-dialog.tsx";
-import { StartOverDialog } from "../../shell/work/start-over-dialog.tsx";
+import { RestartTaskDialog } from "./restart-task-dialog.tsx";
+import { StartOverDialog } from "./start-over-dialog.tsx";
 import type { RecordAction } from "./record-actions.tsx";
 import { latestRunOf, resumeWords } from "./resume-words.ts";
 

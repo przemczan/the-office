@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { attachmentQueries } from "../../api/work.ts";
 import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
-import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
+import { AddAttachmentDialog } from "./add-attachment-dialog.tsx";
 import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
 import {
   attachmentRounds,

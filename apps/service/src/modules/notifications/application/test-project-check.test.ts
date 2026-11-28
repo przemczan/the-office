@@ -37,7 +37,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
 import type { ReceivedNotification } from "../domain/notification.js";
 import { NowChanged } from "../domain/now-events.js";
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 
 /**
  * Task 16's check on the Test Project: a day's loop seen from Now and as Notifications. The Planner

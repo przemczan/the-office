@@ -1,4 +1,4 @@
-import { access, readFile, rm } from "node:fs/promises";
+import { access, mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OutputMask } from "../../projects/index.js";
@@ -16,6 +16,7 @@ import {
 } from "../domain/run-environment.js";
 import type { HostedServiceStart } from "./hosted-services.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   taskIn,
   writeFiles,
@@ -195,6 +196,41 @@ describe("HostedServices.start", () => {
     expect(runtime.steps).toContain(`port ${projectName} postgres 5432`);
     await vi.waitFor(() =>
       expect(ended).toHaveBeenCalledExactlyOnceWith("The service postgres ended."),
+    );
+  });
+
+  it("tells onEnded why when the logs of a devcontainer service that is the app can't be followed", async () => {
+    const ended = vi.fn<(reason: string) => void>();
+    let failLogs!: (error: Error) => void;
+    vi.spyOn(runtime, "followLogs").mockImplementation(
+      () => new Promise<void>((_, reject) => (failLogs = reject)),
+    );
+    const start = await launch({
+      entryPoint: { kind: "devcontainer-service", service: "postgres" },
+      containerPort: 5432,
+    });
+
+    await testbed.hostedServices.start(start, ended);
+    failLogs(new Error("docker compose logs ended with exit code 1."));
+
+    await vi.waitFor(() =>
+      expect(ended).toHaveBeenCalledExactlyOnceWith(
+        "The service postgres's logs couldn't be followed. docker compose logs ended with exit code 1.",
+      ),
+    );
+  });
+
+  it("runs the entry point on when the services' logs can't be followed, telling no end", async () => {
+    const ended = vi.fn<(reason: string) => void>();
+    vi.spyOn(runtime, "followLogs").mockRejectedValue(new Error("The log file can't be written."));
+
+    await testbed.hostedServices.start(await launch(), ended);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(ended).not.toHaveBeenCalled();
+    runtime.endExecs(projectName, 2);
+    await vi.waitFor(() =>
+      expect(ended).toHaveBeenCalledExactlyOnceWith("The entry point ended with the exit code 2."),
     );
   });
 
@@ -562,8 +598,14 @@ describe("HostedServices on a non-root Office", () => {
     const start = await launch();
     await testbed.hostedServices.start(start, () => undefined);
     runtime.executions.length = 0;
+    const restarted = await restartedTestbed(
+      testbed,
+      runtime,
+      { ...DEFAULT_RUN_ENVIRONMENT_OPTIONS, runEnvironmentsAtOnce: 1 },
+      OWNER,
+    );
 
-    await testbed.hostedServices.sweep();
+    await restarted.hostedServices.sweep();
 
     expect(runtime.executions).toEqual([
       expect.objectContaining({ user: "0:0", script: handBackScript(start.checkout, OWNER) }),
@@ -608,6 +650,39 @@ describe("HostedServices.sweep", () => {
       `down ${hostedProjectNameOf(instance, "left")} with built images`,
       `remove ${JSON.stringify({ ...ours, "office.test-instance": "left" })}`,
     ]);
+  });
+
+  it("leaves an instance started since the service started running", async () => {
+    await testbed.hostedServices.start(await launch(), () => undefined);
+    runtime.steps.length = 0;
+
+    await testbed.hostedServices.sweep();
+
+    expect(runtime.steps).toEqual([]);
+    expect(runtime.projects.get(projectName)?.state).toBe("running");
+    expect(await exists(testbed.folders.testInstanceFolder(INSTANCE_ID))).toBe(true);
+  });
+
+  it("goes on to the other instances when one isn't removed, and removes the files left alone", async () => {
+    const instance = testbed.folders.instance;
+    const ours = { "office.managed": "true", "office.instance": instance };
+    for (const id of ["stuck", "left"]) {
+      runtime.leave({
+        kind: "volume",
+        id: `${id}_data`,
+        labels: { ...ours, "office.test-instance": id },
+      });
+    }
+    await mkdir(testbed.folders.testInstanceFolder("only-files"), { recursive: true });
+    runtime.failing.add("remove");
+
+    await testbed.hostedServices.sweep();
+
+    expect(runtime.resources.map(({ id }) => id)).toEqual(["stuck_data"]);
+    expect(runtime.steps).toContain(
+      `down ${hostedProjectNameOf(instance, "only-files")} with built images`,
+    );
+    expect(await exists(testbed.folders.testInstanceFolder("only-files"))).toBe(false);
   });
 });
 

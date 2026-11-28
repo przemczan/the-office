@@ -3,11 +3,12 @@ import { notificationLineOf } from "./notification-words.ts";
 
 /**
  * What The Office tells the user in the status strip's one slot: that the web lost the service,
- * one of its own Notifications, an Office update or restart waiting to run, or the ask for desktop
- * Notifications.
+ * that The Office was updated since the page opened, one of its own Notifications, an Office update
+ * or restart waiting to run, or the ask for desktop Notifications.
  */
 export type OfficeMessage =
   | { readonly kind: "reconnecting" }
+  | { readonly kind: "updated" }
   | { readonly kind: "notification"; readonly notification: Notification }
   | { readonly kind: "update-scheduled"; readonly waitingFor: number }
   | { readonly kind: "restart-scheduled"; readonly waitingFor: number }
@@ -15,6 +16,8 @@ export type OfficeMessage =
 
 export interface OfficeMessageSources {
   readonly reconnecting: boolean;
+  /** The service serves a newer build of the web app than the one this page runs. */
+  readonly updated: boolean;
   /** Every open Notification, oldest first as they are listed; only the Office's own are messages. */
   readonly notifications: readonly Notification[];
   /** A scheduled Office update or restart and how many things it waits for; undefined while none is. */
@@ -32,17 +35,20 @@ export interface OfficeMessageList {
 }
 
 /**
- * Reconnecting first, then the Office's open Notifications newest first, then a scheduled update
- * or restart, then the desktop ask; none when there is nothing to tell, and the slot is gone.
+ * Reconnecting first, then The Office updated since the page opened, then the Office's open
+ * Notifications newest first, then a scheduled update or restart, then the desktop ask; none when
+ * there is nothing to tell, and the slot is gone.
  */
 export function officeMessages({
   reconnecting,
+  updated,
   notifications,
   scheduled,
   desktopAsk,
 }: OfficeMessageSources): OfficeMessageList | undefined {
   const all: OfficeMessage[] = [
     ...(reconnecting ? [{ kind: "reconnecting" } as const] : []),
+    ...(updated ? [{ kind: "updated" } as const] : []),
     ...notifications
       .filter(({ kind }) => kind.startsWith("office."))
       .toReversed()
@@ -97,6 +103,14 @@ export function officeMessageWords(
         detail: "Figures may be out of date",
         tone: "warning",
         icon: "wifi-off",
+      };
+    case "updated":
+      return {
+        shortLine: "The Office was updated",
+        line: "The Office was updated since this page opened. Reload the page to use the new version.",
+        detail: "Reload to use it",
+        tone: "info",
+        icon: "refresh-cw",
       };
     case "notification": {
       const { notification } = message;

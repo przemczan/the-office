@@ -1,4 +1,4 @@
-import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
+import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.domain.js";
 import { RESOLVE_TEST_KEY } from "./publish-stages.js";
 import type { Stage } from "./stage.js";
 import type { StageRun } from "./stage-run.js";

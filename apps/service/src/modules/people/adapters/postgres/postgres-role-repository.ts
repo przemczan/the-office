@@ -32,6 +32,10 @@ type RoleCardVersionRow = typeof roleCardVersions.$inferSelect;
 /**
  * The earlier fields a new hire's card keeps, as the release before would have saved it: no Role
  * override and its default effort.
+ *
+ * ROLLBACK SHIM (engine settings): written only for a rollback to the release before "feat(people): each person has a model and effort for every engine type, replacing the Role override". Drop
+ * it, with `EarlierEngineFields`'s writes, in the first release after the one that ships that
+ * change, whose rollback lands on a release that reads `engineSettings`.
  */
 const HIRED_EARLIER: Required<EarlierEngineFields> = { roleOverride: null, effort: "high" };
 
@@ -396,9 +400,14 @@ function storedCardOf(
   return {
     ...rest,
     ...(!engineSettingsMissing && { engineSettings }),
+    // ROLLBACK SHIM (Authority): `hardSwitches` is written beside `authority` only for a rollback
+    // to the release before "feat(people): Role cards get one authority setting per Office tool area or group". Drop the write in the first release after the one that ships
+    // that change; the read of a card that has Hard switches alone stays until every kept card has
+    // `authority`.
     ...(authorityMissing
       ? { hardSwitches: authorityMissing }
       : { authority, hardSwitches: hardSwitchesOf(key, authority) }),
+    // ROLLBACK SHIM (engine settings): see `HIRED_EARLIER`.
     ...earlier,
   };
 }

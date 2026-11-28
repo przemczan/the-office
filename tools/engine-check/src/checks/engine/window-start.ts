@@ -18,8 +18,9 @@ import { filesUnder, newFiles, processRunning } from "../observations.ts";
 /** The account's config folder the check runs on, the engine's default. */
 const CONFIG_FOLDER = join(homedir(), ".claude");
 /**
- * The start's model and prompt, kept as the service's `WINDOW_START_MODEL` and
- * `WINDOW_START_PROMPT` (apps/service/src/modules/engine/adapters/claude-code/usage-window-start.ts).
+ * The start's model and prompt, kept as the service's `WINDOW_START_MODEL`
+ * (apps/service/src/modules/engine/adapters/claude-code/usage-window-start.ts) and
+ * `WINDOW_START_PROMPT` (apps/service/src/modules/engine/adapters/shared/usage-window-start.ts).
  */
 const WINDOW_START_MODEL = "claude-haiku-5-5";
 const WINDOW_START_PROMPT = "Reply with OK.";

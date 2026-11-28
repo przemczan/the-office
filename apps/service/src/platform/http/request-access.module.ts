@@ -1,5 +1,7 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
 import { OfficeAddresses } from "./office-addresses.js";
+import { SignInGuard } from "./sign-in-guard.js";
 import { SignedInRequests } from "./signed-in-requests.js";
 
 export interface RequestAccessOptions {
@@ -12,7 +14,8 @@ export interface RequestAccessOptions {
 
 /**
  * Binds who may reach The Office in the composition root: the addresses it answers at and the
- * signed-in devices it answers. Global, so `configureHttp` and the WebSocket find them.
+ * signed-in devices it answers, global, so `configureHttp` and the WebSocket find them, and the
+ * sign-in guard on every route (`SignInGuard`).
  */
 @Module({})
 export class RequestAccessModule {
@@ -28,6 +31,7 @@ export class RequestAccessModule {
       providers: [
         { provide: OfficeAddresses, useValue: new OfficeAddresses(publicAddress) },
         { provide: SignedInRequests, useExisting: signedInRequests },
+        { provide: APP_GUARD, useClass: SignInGuard },
       ],
       exports: [OfficeAddresses, SignedInRequests],
     };

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
+import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { TaskResumed } from "../../work/index.js";
 import { GateRefused } from "../domain/gate-refused.js";
 import type { Stage } from "../domain/stage.js";
@@ -239,6 +241,31 @@ describe("A Gate", () => {
     await pipelines.app.get(EventBus).publish(new TaskResumed(taskId));
     await walked(taskId);
     expect((await statusesOf(taskId)).at(-1)).toEqual(["ship", "done"]);
+  });
+
+  it("walks on a moment later from an action kept when moving the Task on failed", async () => {
+    pipelines = await startPipelinesApplication([agentDone]);
+    const taskId = await walkStages(pipelines, [draft, look, ship]);
+    const { tasks } = pipelines;
+    const changeState = tasks.changeState.bind(tasks);
+    tasks.changeState = async (id, state, dropReason) => {
+      if (state !== "in-progress") return changeState(id, state, dropReason);
+      tasks.changeState = changeState;
+      throw new Error("The database is out of reach.");
+    };
+
+    await gates().continue(taskId, ANN);
+    await walked(taskId);
+    expect((await tasks.read(taskId)).state).toBe("waiting-on-you");
+    await expect(gates().continue(taskId, ANN)).rejects.toThrow(GateRefused);
+
+    const schedule = pipelines.app.get(Schedule, { strict: false });
+    if (!(schedule instanceof ManualSchedule)) throw new Error("The schedule isn't the test's.");
+    await schedule.advanceBy(60_000);
+    await walked(taskId);
+
+    expect((await statusesOf(taskId)).at(-1)).toEqual(["ship", "done"]);
+    expect((await tasks.read(taskId)).state).toBe("done");
   });
 
   it("asks about the Definition of Done after Continue at the last Stage, and takes no second action", async () => {

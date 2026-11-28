@@ -47,10 +47,10 @@ test("before signing in only the sign-in page shows, with no WebSocket; signing 
     .poll(() => sockets.map((socket) => new URL(socket.url()).pathname))
     .toEqual(["/api/events"]);
   const menu = await openUserMenu(page, E2E_USER.name);
-  await expect(menu.getByRole("button", { name: "Account" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Account" })).toBeVisible();
   await screenshotScenario(page, "user-menu");
 
-  await menu.getByRole("button", { name: "Sign out" }).click();
+  await menu.getByRole("menuitem", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("form", { name: "Sign in with a password" })).toBeVisible();

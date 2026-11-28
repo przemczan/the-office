@@ -76,6 +76,7 @@ import { SwitchFailed } from "../domain/switch-failed.js";
 import { TaskTokens } from "./task-tokens.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
+import { LiveSessions } from "./live-sessions.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { WorkRecords } from "./work-records.js";
@@ -244,6 +245,7 @@ async function startOn(
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      LiveSessions,
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
@@ -978,7 +980,7 @@ describe("Stop", () => {
     const ada = aPerson("Ada");
     const since = new Date();
     const left = await stageThreads.open(aStage({ roleKey: ada }));
-    await stageThreads.bargeIn(left.threadId, "Rename it on the list instead.", ANN_LEE);
+    await app.get(ThreadRunner).send(left.threadId, "Rename it on the list instead.", ANN_LEE);
     const failure =
       "The Office restarted during this Stage. The Stage had left no uncommitted edits.";
 
@@ -1031,8 +1033,9 @@ describe("Stop", () => {
     const request = aStage({ roleKey: ada });
     const left = await stageThreads.open(request);
     const image = await messageImages.keep({ kind: "task", taskId: request.taskId }, "mock-up.png");
-    const sent = { attachmentId: image.attachmentId, name: "mock-up.png", mediaType: "image/png" };
-    await stageThreads.bargeIn(left.threadId, "Like this.", ANN_LEE, [sent]);
+    await app.get(ThreadRunner).send(left.threadId, "Like this.", ANN_LEE, {
+      images: [image.attachmentId],
+    });
     await stageThreads.endLeftRunning(left.threadId, { kind: "failure", reason: "Lost." }, since);
     await left.endSession();
 
@@ -1094,6 +1097,26 @@ describe("StageDecisions", () => {
     ]);
     // The session ended with the Stage; nothing started another.
     expect(engine.sessions).toHaveLength(1);
+  });
+
+  it("opens one with an id once, however often the Pipeline opens it", async () => {
+    await startWith(started(...aTurn({ status: "needs_decision" })));
+    const request = aStage({ roleKey: aPerson("Ada") });
+    const { stageThread } = await aStageRun(request);
+    const id = randomUUID();
+    const opening = { id, taskId: request.taskId, threadId: stageThread.threadId, draft };
+
+    const first = await app.get(StageDecisions).open(opening);
+    const again = await app.get(StageDecisions).open(opening);
+
+    expect([first, again]).toEqual([
+      { id, putTo: undefined },
+      { id, putTo: undefined },
+    ]);
+    const log = drafts(await repository.messages(stageThread.threadId));
+    expect(log.filter(({ kind }) => kind === "decision")).toEqual([
+      { kind: "decision", roleKey: undefined, decisionId: id },
+    ]);
   });
 });
 

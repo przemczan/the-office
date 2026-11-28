@@ -7,7 +7,11 @@ import {
   type SimpleCommand,
 } from "../../domain/shell-commands.js";
 import type { ToolDecider } from "../office-rules/office-tool-call.js";
-import { mcpToolName, portToolName } from "../office-rules/office-tool-names.js";
+import {
+  mcpToolName,
+  OFFICE_TOOL_SERVER,
+  portToolName,
+} from "../office-rules/office-tool-names.js";
 import {
   COMMAND_APPROVAL,
   FILE_CHANGE_APPROVAL,
@@ -21,6 +25,7 @@ import {
   type CodexServerRequest,
   type CodexThreadItem,
 } from "./codex-protocol.js";
+import type { RuledMcpCalls } from "./ruled-mcp-calls.js";
 
 /** The shell tool a command is judged as, as Claude Code names it (spec §6). */
 export type ShellTool = "Bash" | "PowerShell";
@@ -58,6 +63,8 @@ export interface CodexApprovalParts {
    * reaching the workstation (spec §6); every other keeps its commands in the worktree.
    */
   readonly outsideSandbox: boolean;
+  /** Where an allowed call of a Role's MCP server is noted, for the session's endpoint to forward. */
+  readonly ruledCalls: RuledMcpCalls;
 }
 
 /** What a decline says when a command asks to run outside the sandbox. */
@@ -167,7 +174,13 @@ export class CodexApprovals {
     // An Office tool as `mcp__office__<tool>`, allowed by rule; a server's by its setting.
     const engineName = mcpToolName(params.serverName, call.tool);
     const decision = await this.parts.decide(engineName, call.input);
-    if (decision.allowed) return { result: elicitationAnswer("accept") };
+    if (decision.allowed) {
+      // An Office tool is judged again as it runs; a server's call is forwarded once for this.
+      if (params.serverName !== OFFICE_TOOL_SERVER) {
+        this.parts.ruledCalls.allow(params.serverName, call.tool, call.input);
+      }
+      return { result: elicitationAnswer("accept") };
+    }
     return {
       result: elicitationAnswer("decline"),
       refusal: {

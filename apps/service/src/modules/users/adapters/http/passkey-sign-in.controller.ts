@@ -20,18 +20,23 @@ import { ceremonyAnswerOf } from "./passkey-messages.js";
 import { answerSignIn } from "./sign-in-answers.js";
 import { cookieValueOf } from "./sign-in-cookie.js";
 import { pageAddressOf, signInRequestOf } from "./sign-in-request.js";
+import { SignInStarts } from "./sign-in-starts.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
+import { OpenWithoutSignIn } from "../../../../platform/http/sign-in-guard.js";
 
 /**
  * Signing in with a passkey (spec §2.10), under `/sign-in`, which the guard leaves open: options
- * with a ceremony cookie, then the passkey's answer, which the cookie ties to this browser.
+ * with a ceremony cookie, counted per address (`SignInStarts`), then the passkey's answer, which
+ * the cookie ties to this browser.
  */
 @Controller("sign-in/passkey")
+@OpenWithoutSignIn()
 @UseFilters(UserRefusalsFilter)
 export class PasskeySignInController {
   constructor(
     private readonly passkeySignIn: PasskeySignIn,
     private readonly officeAddresses: OfficeAddresses,
+    private readonly signInStarts: SignInStarts,
   ) {}
 
   @Post("options")
@@ -40,6 +45,7 @@ export class PasskeySignInController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<PasskeyRequestOptions> {
+    this.signInStarts.take(request);
     const page = pageAddressOf(request, this.officeAddresses);
     const { ceremonyKey, options } = await this.passkeySignIn.start(page);
     response.setHeader("Set-Cookie", passkeyCeremonyCookie(ceremonyKey, page.secure));

@@ -34,7 +34,7 @@ import {
   type SessionOptions,
   type SessionSkills,
 } from "../../ports/session-options.js";
-import { EngineProcess } from "../claude-code/engine-process.js";
+import { EngineProcess } from "../shared/engine-process.js";
 import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { CLAUDE_CODE_OFFICE_TOOL_LOADING } from "../claude-code/office-tool-deferral.js";
@@ -50,7 +50,7 @@ import {
   type StartCheckRequests,
 } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
-import { serviceVariables } from "../claude-code/engine-read.js";
+import { serviceVariables } from "../shared/engine-read.js";
 import { sessionEnvironment } from "../claude-code/session-settings.js";
 import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import {
@@ -72,7 +72,7 @@ import {
   requireUsageWindows,
   WINDOW_START_PROMPT,
   windowStartWhat,
-} from "../claude-code/usage-window-start.js";
+} from "../shared/usage-window-start.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import {
   officeToolCall,

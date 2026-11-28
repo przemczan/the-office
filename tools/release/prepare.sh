@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # `prepare.sh <version> [--no-push]`, the Release workflow's prepare step (docs/releasing.md):
-# packs both tarballs, stamps install.sh with the version and GITHUB_REPOSITORY, writes the Compose
+# packs both tarballs, signs their .sha256 once a release key is pinned, stamps install.sh with the version and GITHUB_REPOSITORY, writes the Compose
 # install's assets, checks the x64 tarball and the amd64 image against a throwaway Postgres and the
 # Compose install with that image, then pushes the image for both platforms as $IMAGE:<version>.
 # --no-push, for the Dry run, stops after the checks.
@@ -30,6 +30,25 @@ for arch in x64 arm64; do
   npm run pack-release -- --version "$version" --arch "$arch"
 done
 (cd dist/release && sha256sum --check ./*.sha256)
+echo "::endgroup::"
+
+echo "::group::Sign each tarball's .sha256"
+# The release key's public half, pinned in install.sh and the launcher (docs/releasing.md, "Signing
+# a release"); its private half comes from the RELEASE_SIGNING_PRIVATE_KEY secret, as PEM, and is
+# never written to disk.
+release_key=$(sed -n "s/^readonly RELEASE_SIGNING_KEY='\(.*\)'\$/\1/p" tools/install/install.sh)
+if [[ -z $release_key ]]; then
+  echo "No release key is pinned in tools/install/install.sh, so signing is off: no .sig is made."
+else
+  : "${RELEASE_SIGNING_PRIVATE_KEY:?A release key is pinned: set RELEASE_SIGNING_PRIVATE_KEY to its private half.}"
+  for checksum in dist/release/*.sha256; do
+    openssl pkeyutl -sign -rawin -in "$checksum" -out "$checksum.sig" \
+      -inkey <(printf '%s\n' "$RELEASE_SIGNING_PRIVATE_KEY")
+    # A secret that isn't the pinned key's private half fails here, before anything is published.
+    openssl pkeyutl -verify -pubin -rawin -in "$checksum" -sigfile "$checksum.sig" \
+      -inkey <(printf -- '-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n' "$release_key")
+  done
+fi
 echo "::endgroup::"
 
 echo "::group::Stamp install.sh with $version"

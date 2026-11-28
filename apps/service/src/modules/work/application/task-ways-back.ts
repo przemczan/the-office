@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { TaskLocks } from "./task-locks.js";
 import type { Author } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import { isInitiativePaused } from "../domain/initiative-pause.js";
@@ -39,9 +40,11 @@ export interface TaskWaysBackAnswer extends WaysBack {
 /**
  * The user's Start over and Reopen… of a Task, and the ways back offered on it (spec 2.1.3, "Work
  * moves forward"; spec 2.4.5). Restart from… is Pipelines', which moves the Task through
- * `TaskService.restart`. Each is refused first by Work's rules and then by Pipelines'
- * (`StartOverWork.refusals`) before Pipelines starts the walk over and resets the branch, and only
- * then is the Task's move saved, judged again as it is held; its events are published after.
+ * `TaskService.restart`. Each runs under the Task's lock (`TaskLocks`), which Resume and Restart
+ * from… take too, so no walk starts between the judging and the save: refused first by Work's rules
+ * and then by Pipelines' (`StartOverWork.refusals`) before Pipelines starts the walk over and resets
+ * the branch, and only then is the Task's move saved, judged again as it is held. Its events are
+ * published once the lock is let go, so the walk they start holds none of it.
  */
 @Injectable()
 export class TaskWaysBack {
@@ -50,6 +53,7 @@ export class TaskWaysBack {
     private readonly repository: TaskRepository,
     private readonly initiatives: InitiativeRepository,
     private readonly startOvers: TaskStartOvers,
+    private readonly taskLocks: TaskLocks,
     private readonly events: EventBus,
   ) {}
 
@@ -81,16 +85,18 @@ export class TaskWaysBack {
    */
   async startOver(id: string, resetBranch: boolean, by: Author): Promise<Task> {
     const { user, person } = wayBackTakenBy(by);
-    const task = await this.tasks.read(id);
     const work = this.startOvers.registered;
-    refuse(startOverProblems(task, await this.tasks.wayBackHolds(task)));
-    refuse((await work.refusals(id)).map(startOverRefusalWords));
-    const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
-    const startingOver: StartingOver = { resetBranch, resetTo, keptRef, user, person };
-    // The alarm holds no Start over (a Ready Task doesn't walk); its Initiative is read as held.
-    const { task: changed, event } = await this.change(task, (held, initiativePaused) =>
-      startTaskOver(held, { initiativePaused, alarmHoldsResume: false }, startingOver),
-    );
+    const { task: changed, event } = await this.taskLocks.run(id, async () => {
+      const task = await this.tasks.read(id);
+      refuse(startOverProblems(task, await this.tasks.wayBackHolds(task)));
+      refuse((await work.refusals(id)).map(startOverRefusalWords));
+      const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
+      const startingOver: StartingOver = { resetBranch, resetTo, keptRef, user, person };
+      // The alarm holds no Start over (a Ready Task doesn't walk); its Initiative is read as held.
+      return this.change(task, (held, initiativePaused) =>
+        startTaskOver(held, { initiativePaused, alarmHoldsResume: false }, startingOver),
+      );
+    });
     await this.publish(event);
     return changed;
   }
@@ -103,28 +109,28 @@ export class TaskWaysBack {
    */
   async reopen(id: string, to: ReopenTo, resetBranch: boolean, by: Author): Promise<Task> {
     const { user, person } = wayBackTakenBy(by);
-    const task = await this.tasks.read(id);
     const work = this.startOvers.registered;
-    refuse(reopenProblems(task, to, await this.reopenGrounds(task)));
-    const hadStarted = await work.hadStarted(id);
-    let startedOver: StartingOver | undefined;
-    if (hadStarted) {
-      refuse(await work.refusals(id));
-      const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
-      startedOver = { resetBranch, resetTo, keptRef, user, person };
-    }
-    const reopening = { user, person, at: new Date(), startedOver };
-    const { task: reopened, event } =
-      task.initiativeId === undefined
-        ? await this.repository.update(id, (held) =>
+    const { task: reopened, event } = await this.taskLocks.run(id, async () => {
+      const task = await this.tasks.read(id);
+      refuse(reopenProblems(task, to, await this.reopenGrounds(task)));
+      let startedOver: StartingOver | undefined;
+      if (await work.hadStarted(id)) {
+        refuse(await work.refusals(id));
+        const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
+        startedOver = { resetBranch, resetTo, keptRef, user, person };
+      }
+      const reopening = { user, person, at: new Date(), startedOver };
+      return task.initiativeId === undefined
+        ? this.repository.update(id, (held) =>
             reopenTask(held, to, { initiative: undefined, initiativeTasks: [] }, reopening),
           )
-        : await this.initiatives.changeTask(
+        : this.initiatives.changeTask(
             task.initiativeId,
             id,
             (initiative: Initiative, held, tasks) =>
               reopenTask(held, to, { initiative, initiativeTasks: tasks }, reopening),
           );
+    });
     await this.publish(event);
     if (event && reopened.initiativeId !== undefined) {
       await this.tasks.blockPublishingTaskIn(reopened.initiativeId, reopened.projectId, id);

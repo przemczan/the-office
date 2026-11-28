@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../../office-identity/index.fixtures.js";
 import { GitCommandFailed } from "../../ports/git.js";
 import { CommandLineGit } from "./command-line-git.js";
 import { exists, serviceVariables, WorktreeMaker } from "./command-line-git.fixtures.js";

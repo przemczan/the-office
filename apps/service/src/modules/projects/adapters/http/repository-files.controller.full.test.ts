@@ -25,7 +25,8 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0
 const BINARY = Buffer.from([0x01, 0x02, 0x00, 0x03, 0xff]);
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>';
 const HTML = "<!doctype html><script>alert(1)</script>";
-const CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+const CONTENT_SECURITY_POLICY =
+  "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'";
 
 let repository: TemporaryRepository;
 let app: INestApplication;

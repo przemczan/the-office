@@ -74,7 +74,7 @@ describe("GET /projects/:id/commits/:commit/file", REAL_GIT_TEST, () => {
     expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("content-security-policy")).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'",
     );
     expect(await response.text()).toBe("export {};\n");
   });

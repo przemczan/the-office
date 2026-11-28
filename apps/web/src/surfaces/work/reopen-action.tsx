@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Task } from "@the-office/contracts";
 import { useState } from "react";
 import { taskQueries } from "../../api/work.ts";
-import { ReopenTaskDialog } from "../../shell/work/reopen-task-dialog.tsx";
+import { ReopenTaskDialog } from "./reopen-task-dialog.tsx";
 import type { RecordAction } from "./record-actions.tsx";
 import { offeredOrWhy } from "./run-controls.tsx";
 

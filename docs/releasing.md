@@ -8,7 +8,7 @@ An **Office release** is a version of The Office cut from `main`: the tag `v<ver
 
 - **The tag `v<version>`** on `main`'s commit. Nothing is committed back: no changelog file, no version bump in `package.json`.
 - **A GitHub Release** whose notes list the subjects of the `feat`, `fix`, `perf` and `refactor` commits since the last `v*` tag, under Features, Fixes, Performance and Refactoring, with breaking changes on top. Other types (`docs`, `test`, `build`, `ci`, `chore`, `style`) aren't listed.
-- **Two tarballs**, `the-office-<version>-linux-x64.tar.gz` and `the-office-<version>-linux-arm64.tar.gz`, each with a `.sha256` that `sha256sum -c` checks.
+- **Two tarballs**, `the-office-<version>-linux-x64.tar.gz` and `the-office-<version>-linux-arm64.tar.gz`, each with a `.sha256` that `sha256sum -c` checks, and, once a release key is pinned, that `.sha256`'s signature, `<tarball>.sha256.sig` ([Signing a release](#signing-a-release)).
 - **The image** `ghcr.io/<owner>/the-office:<version>` and `:latest`, for `linux/amd64` and `linux/arm64`.
 - **`install.sh`**, the Debian/Ubuntu installer ([tools/install/install.sh](../tools/install/install.sh)), stamped with the release's version and repository (`GITHUB_REPOSITORY`), so `curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sudo bash` installs the newest release ([spec §5.1](spec/5.1-shape.md#defaults), "Installing on Debian/Ubuntu"). The prepare step replaces its `@OFFICE_VERSION@` and `@OFFICE_REPOSITORY@` and fails if a placeholder is left; the Dry run keeps it with the tarballs.
 
@@ -28,8 +28,8 @@ In GitHub, **Actions › Release › Run workflow** on `main`. It:
 
 1. takes the next version from the Conventional Commits since the last `v*` tag (AGENTS.md, "Commits and releases"): a breaking change raises the major, a `feat` the minor, a `fix`, `perf` or `refactor` the patch. **With none of those since the last tag, nothing is released**: the run ends green with no tag, release or image;
 2. runs `npm ci && npm run verify` in the run environment, the `checks` service of [.devcontainer/compose.yaml](../.devcontainer/compose.yaml), on a copy of the checkout ([tools/release/verify.sh](../tools/release/verify.sh)). A failure ends the run there: no tag, no release, no image;
-3. builds, packs both tarballs, stamps `install.sh`, writes the Compose install's files, starts the x64 tarball against a throwaway Postgres with the [service start check](../tools/service-start-check/src/main.ts), builds the amd64 image and checks it ([tools/release/image-check.sh](../tools/release/image-check.sh)), brings the Compose install up with that image ([tools/release/compose-check.sh](../tools/release/compose-check.sh)), then pushes `:<version>` for both platforms ([tools/release/prepare.sh](../tools/release/prepare.sh));
-4. pushes the tag, moves `:latest` to the version ([tools/release/publish-image.sh](../tools/release/publish-image.sh)) and makes the GitHub Release with the tarballs, their checksums, `install.sh`, `docker-compose.yml` and `the-office.env`.
+3. builds, packs both tarballs, signs their `.sha256` once a release key is pinned, stamps `install.sh`, writes the Compose install's files, starts the x64 tarball against a throwaway Postgres with the [service start check](../tools/service-start-check/src/main.ts), builds the amd64 image and checks it ([tools/release/image-check.sh](../tools/release/image-check.sh)), brings the Compose install up with that image ([tools/release/compose-check.sh](../tools/release/compose-check.sh)), then pushes `:<version>` for both platforms ([tools/release/prepare.sh](../tools/release/prepare.sh));
+4. pushes the tag, moves `:latest` to the version ([tools/release/publish-image.sh](../tools/release/publish-image.sh)) and makes the GitHub Release with the tarballs, their checksums and signatures, `install.sh`, `docker-compose.yml` and `the-office.env`.
 
 The image check starts the image as an install would and asserts: `/api/health` answers `{"database":"up","testInstance":false}` and `/` serves the web app; the first start's logs hold the setup token, and `docker exec <container> npm run setup-token -- --quiet` prints a new one; the service doesn't run as root; `git`, `ssh`, `docker`, `docker compose`, `docker buildx` and Claude Code answer `--version`; `docker stop` ends it with exit status 143.
 
@@ -37,7 +37,24 @@ The Compose check brings the install up from the stamped `docker-compose.yml` an
 
 **The Dry run** (tick "Dry run" when running it) does steps 2 and 3 for the version `0.0.0-dry-run.<short commit>` without pushing the image, and keeps the two tarballs, `install.sh` and the Compose install's files as the run's artifact for a week. It makes no tag, no release and pushes nothing. Run one before a release whenever the release tooling, the Dockerfile or the build changed.
 
-The run needs nothing set up: it signs in to GHCR and GitHub with the workflow's own `GITHUB_TOKEN`. semantic-release and its plugins are pinned in [tools/release/semantic-release/](../tools/release/semantic-release/package.json), installed apart from the workspaces; the workflow's actions are pinned by commit.
+The run needs nothing set up while signing is off: it signs in to GHCR and GitHub with the workflow's own `GITHUB_TOKEN`. semantic-release and its plugins are pinned in [tools/release/semantic-release/](../tools/release/semantic-release/package.json), installed apart from the workspaces; the workflow's actions are pinned by commit.
+
+## Signing a release
+
+A `.sha256` from the same release only shows the tarball arrived whole: whoever can upload the release's assets can upload both. The release key closes that: the Release workflow signs each `.sha256`, and the installer and the launcher's update check the signature against a public key pinned in their own code, which a new release can't change for the copy already installed.
+
+- **Off until a key is pinned.** With `RELEASE_SIGNING_KEY` empty in [tools/install/install.sh](../tools/install/install.sh) and [tools/office-launcher/src/release-signing.ts](../tools/office-launcher/src/release-signing.ts), as it is now, no `.sig` is made, downloaded or checked; the install log and the update's `log.txt` say "No release key is pinned".
+- **The key:** Ed25519. The `.sig` is the raw 64-byte signature of the `.sha256` file's bytes (`openssl pkeyutl -sign -rawin`); the tarball is then checked against the signed `.sha256` as before.
+- **Pinned in both** `install.sh` and `release-signing.ts`, as base64 of the public key's DER SubjectPublicKeyInfo; `tools/install`'s tests check the two are the same.
+- **The private half** is the repository's Actions secret `RELEASE_SIGNING_PRIVATE_KEY`, as PEM. `prepare.sh` signs with it without writing it to disk, checks each signature against the pinned key, and fails when a key is pinned but the secret is missing or isn't its private half, before anything is pushed.
+- **Turning it on**, once, on a trusted machine:
+  1. `openssl genpkey -algorithm ed25519 -out release-key.pem`; keep the file offline.
+  2. Set the secret: `gh secret set RELEASE_SIGNING_PRIVATE_KEY < release-key.pem`.
+  3. Pin `openssl pkey -in release-key.pem -pubout -outform DER | base64 -w0` in both files, in one commit.
+  4. Run a Dry run: its artifact holds the `.sig` files.
+- **What it covers:** an update is checked by the launcher already running, against the key its release pins, so the update to the first release that pins a key is unchecked and every update after it is checked. `install.sh` checks the tarball against the key it carries itself, which comes from the same release when the one-liner fetches it there.
+- **Changing the key** isn't supported: `prepare.sh` signs with the private half of the one key it pins, so an install running a release that pins the old key refuses every update signed with a new one, until `install.sh` installs a newer release over it.
+- **The Compose install's image** isn't covered: Docker pulls it by tag from GHCR.
 
 ## The tarball
 

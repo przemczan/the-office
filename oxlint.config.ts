@@ -29,8 +29,9 @@ export default defineConfig({
     "office/operating-system-branches": "error",
     "office/web-layers": "error",
     "import/no-cycle": "error",
-    // A stylesheet is imported for what it adds to the page.
-    "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],
+    // A stylesheet is imported for what it adds to the page; the web app's zod setting, for what it
+    // sets before any schema is made.
+    "import/no-unassigned-import": ["error", { allow: ["**/*.css", "**/zod-without-eval.ts"] }],
     // JSX compiles with the automatic runtime, which needs no React in scope.
     "react/react-in-jsx-scope": "off",
   },
@@ -39,6 +40,15 @@ export default defineConfig({
       // Nest declares modules as decorated classes, empty or with static factory methods.
       files: ["apps/service/**"],
       rules: { "typescript/no-extraneous-class": ["error", { allowWithDecorator: true }] },
+    },
+    {
+      // An unhandled rejection would end the service with every Agent at work; a test fails on one.
+      files: ["apps/service/src/**"],
+      rules: { "office/caught-voided-calls": "error" },
+    },
+    {
+      files: ["apps/service/src/**/*.test.ts", "apps/service/src/**/*.fixtures.ts"],
+      rules: { "office/caught-voided-calls": "off" },
     },
     designSystemAdherence({
       configFile: inRepository("./design-system/_adherence.oxlintrc.json"),

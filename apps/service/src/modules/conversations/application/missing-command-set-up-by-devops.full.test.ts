@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 import {
   EngineModule,
   ScriptedEngine,

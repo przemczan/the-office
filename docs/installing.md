@@ -18,7 +18,7 @@ Commands below use the defaults: port `4310`, the data folder `/var/lib/the-offi
 - **In an LXC guest** (Proxmox): Docker needs nesting turned on. On the Proxmox host run `pct set <id> --features nesting=1,keyctl=1` and restart the guest before you install.
 - **Network:** outbound HTTPS to `github.com` (the release), `deb.nodesource.com` (Node), `download.docker.com` (Docker) and `apt.postgresql.org` with `www.postgresql.org` (PostgreSQL and its signing key), and to whatever your Projects and engines reach.
 - **What it installs**, only where missing:
-  - `git`, the ssh client, `curl`, `gnupg` and `ca-certificates`;
+  - `git`, the ssh client, `curl`, `gnupg`, `openssl` and `ca-certificates`;
   - Node 22 (22.18 or later) from NodeSource;
   - Docker Engine with Compose and buildx, from Docker's repository, held at the versions in [container-runtime.md](container-runtime.md#what-is-installed). A Docker already there is kept; one lacking Compose or buildx stops the installer;
   - PostgreSQL 18 from the PostgreSQL apt repository (PGDG), as the machine's own database server, not in a container.
@@ -53,6 +53,8 @@ It asks three things at the terminal, even when piped, with the default in brack
 | Office data folder | `/var/lib/the-office` | Where The Office keeps its worktrees, clones, sessions and files. It can't be changed once installed. |
 
 Then it shows the answers and the version and asks `Continue? [Y/n]`. Answering no changes nothing.
+
+**What it checks before installing:** the tarball against its `.sha256`, and, once The Office pins a release key, that `.sha256`'s signature by it ([releasing.md](releasing.md#signing-a-release)). No key is pinned yet, so the signature isn't checked: the tarball is as trusted as the GitHub Release it comes from, and so is the script piped into `sudo bash`. To read the script before it runs, download it first (`curl -fsSLO …/install.sh`), then `sudo bash install.sh`.
 
 ### Options
 
@@ -299,7 +301,7 @@ docker compose up -d
 The Office checks for newer releases every day and lists them, with their notes, in Settings › Updates; **Check for updates** looks at once. A check installs nothing.
 
 1. **Update** schedules the update. New Starts wait in the queue, and the update waits until nothing is busy: no Agent mid-turn, no Script Stage, Publish, clone or environment check running. Settings › Updates lists what it waits for, and **Cancel** calls it off.
-2. Then The Office installs the newest release and restarts on it: on a direct install its launcher downloads and checks the release, switches `/opt/the-office/current` to it and restarts; on a Compose install the Office updater pulls the new image, sets `OFFICE_VERSION` in `.env` and recreates the `office` container.
+2. Then The Office installs the newest release and restarts on it: on a direct install its launcher downloads and checks the release (its checksum, and its signature once a release key is pinned), giving up after 15 minutes, switches `/opt/the-office/current` to it and restarts; on a Compose install the Office updater pulls the new image, sets `OFFICE_VERSION` in `.env` and recreates the `office` container.
 3. It waits for the new version to report healthy. If it doesn't, it goes back to the previous version on its own.
 4. A Notification says how it went, and Settings › Updates keeps the update's log.
 

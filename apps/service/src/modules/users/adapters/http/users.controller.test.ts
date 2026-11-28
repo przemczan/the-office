@@ -15,7 +15,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { freshTestDatabase, type FreshTestDatabase } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { SIGNED_OUT } from "../../../../platform/websocket/event-stream.js";
+import { SignedInDevices } from "../../application/signed-in-devices.js";
 import { Users } from "../../application/users.js";
+import { UserIdNotFound } from "../../domain/user-refused.js";
 import { A_PASSWORD, addUser, type UserForTests } from "../../index.fixtures.js";
 import {
   send,
@@ -24,7 +26,7 @@ import {
   type Answer,
   type UsersApplication,
 } from "../../users-application.fixtures.js";
-import { users } from "../postgres/users.schema.js";
+import { signedInDevices, users } from "../postgres/users.schema.js";
 
 const NOW = new Date("2026-11-13T09:00:00.000Z");
 const SECOND = 1000;
@@ -299,6 +301,44 @@ describe("removing a user", () => {
     });
     expect(again.status).toBe(201);
     expect((await remove(grace.id)).status).toBe(404);
+  });
+
+  it("forgets their devices with the removal, and refuses a sign-in that found them before it", async () => {
+    const grace = await addUser(office.app, { name: "Grace Hopper" });
+    await signIn(grace.email, grace.password);
+
+    expect((await remove(grace.id)).status).toBe(204);
+
+    const database = office.app.get<Database>(DATABASE);
+    const devicesOf = (): Promise<unknown[]> =>
+      database.select().from(signedInDevices).where(eq(signedInDevices.userId, grace.id));
+    expect(await devicesOf()).toEqual([]);
+    // A sign-in that checked her password before the removal saves its device only after it.
+    await expect(
+      office.app
+        .get(SignedInDevices)
+        .signIn(grace.id, { userAgent: undefined, addressKind: "localhost" }),
+    ).rejects.toBeInstanceOf(UserIdNotFound);
+    expect(await devicesOf()).toEqual([]);
+  });
+
+  it("signs nothing in with a device left of a removed user", async () => {
+    const grace = await addUser(office.app, { name: "Grace Hopper" });
+    const laptop = setCookieOf(await signIn(grace.email, grace.password)).cookie;
+    const account = (): Promise<number> =>
+      send(office.port, { path: "/api/account", headers: { cookie: laptop } }).then(
+        ({ status }) => status,
+      );
+    expect(await account()).toBe(200);
+
+    // Removed with her device left, as no removal through The Office leaves it.
+    await office.app
+      .get<Database>(DATABASE)
+      .update(users)
+      .set({ removedAt: NOW })
+      .where(eq(users.id, grace.id));
+
+    expect(await account()).toBe(401);
   });
 
   it("refuses removing yourself", async () => {

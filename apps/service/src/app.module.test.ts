@@ -21,7 +21,7 @@ import { AppModule } from "./app.module.js";
 import {
   StageDecisions as ConversationsStageDecisions,
   TaskTokens,
-  ThreadService,
+  ThreadsAtWork,
 } from "./modules/conversations/index.js";
 import {
   EngineModule,
@@ -46,8 +46,8 @@ import {
   StageRunsRunning,
 } from "./modules/telemetry/index.js";
 import { ownProjectsQueue } from "./modules/work/index.fixtures.js";
-import { OfficeIdentity } from "./platform/git-identity/office-identity.js";
-import { GITHUB_SITE } from "./platform/git-identity/github-site.js";
+import { OfficeIdentity } from "./modules/office-identity/index.js";
+import { GITHUB_SITE } from "./platform/config/github-site.js";
 import { SIGN_IN_FIRST } from "./platform/http/signed-in-requests.js";
 import { SystemHealthRecorder } from "./platform/system-health/system-health-recorder.js";
 import { EventStream } from "./platform/websocket/event-stream.js";
@@ -101,7 +101,7 @@ it("binds Pipelines' Task usage to Conversations' Task tokens", () => {
 
 it.each([
   ["Health readings", HealthReadings, SystemHealthRecorder],
-  ["sessions running", SessionsRunning, ThreadService],
+  ["sessions running", SessionsRunning, ThreadsAtWork],
   ["Stage runs running", StageRunsRunning, StageRunsRunningNow],
   ["browser connections", BrowserConnections, EventStream],
 ] as const)("binds System health's %s to the one service that knows them", (_, port, service) => {
@@ -123,7 +123,12 @@ it("binds the Office identity's GitHub user token to the one GitHub module's acc
 
   const needs = await app.get(OfficeIdentity, { strict: false }).needsOf("https://github.com/a/b");
 
-  expect(needs).toEqual({ kind: "github-https", missing: [] });
+  expect(needs).toEqual({
+    kind: "signed-in-https",
+    site: "GitHub",
+    signIn: "Sign in with GitHub",
+    missing: [],
+  });
 });
 
 const WRITE_METHODS: ReadonlyMap<RequestMethod, WriteRouteMethod> = new Map([

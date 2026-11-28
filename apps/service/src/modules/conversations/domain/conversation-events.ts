@@ -48,12 +48,16 @@ export class ThreadDeleted extends DomainEvent {
   }
 }
 
-/** Messages joined the Thread's log; the first of the user's also titles an untitled Thread. */
+/**
+ * Messages joined the Thread's log; the first of the user's also titles an untitled Thread.
+ * `threadChanged` when the Thread changed besides its log, as its title, state or session did.
+ */
 export class MessagesLogged extends DomainEvent {
   constructor(
     readonly thread: Thread,
     readonly messages: readonly Message[],
     loggedAt: Date,
+    readonly threadChanged: boolean,
   ) {
     super(loggedAt);
   }

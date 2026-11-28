@@ -3,7 +3,7 @@ import { z } from "zod";
 import { SKILL_TOOL } from "../../domain/skill-calls.js";
 import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 import type { JsonSchema, SessionMcpServer } from "../../ports/session-options.js";
-import { officeToolAnswer, textAnswer } from "../claude-code/office-tools.js";
+import { officeToolAnswer, textAnswer } from "../shared/office-tools.js";
 import type { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import type { ToolDecider } from "../office-rules/office-tool-call.js";
 import { mcpToolName, OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";

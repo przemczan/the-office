@@ -17,7 +17,7 @@
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run maps:check && npm run build && npm run test && npm run test:e2e && npm run service-start-check",
     "verify:full": "npm run typecheck && npm run lint && npm run format:check && npm run maps:check && npm run build && npm run test:full && npm run test:e2e:full && npm run service-start-check",
     "typecheck": "tsc -p . && npm run typecheck --workspaces --if-present",
-    "lint": "oxlint",
+    "lint": "oxlint && node tools/lint-rules/src/shell-consumers-check.ts",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
     "maps": "node tools/module-maps/src/main.ts",

@@ -15,6 +15,7 @@ import {
   startOversOf,
   workLeftTheWorkstation,
 } from "../domain/start-over.js";
+import { keepStartedOver } from "../domain/stage-run-changes.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskRecords } from "../ports/task-records.js";
 import { StageGit } from "./stage-git.js";
@@ -74,7 +75,8 @@ export class TaskStartOverWork implements StartOverWork, OnModuleInit {
     // A Task with no run since its latest Start over has no walk to leave behind.
     const last = runsOfLatestStart(allRuns).at(-1);
     if (last) {
-      await this.runs.saveStartedOver(last.id, startOverRecord(number, by, new Date(), reset));
+      const startedOver = startOverRecord(number, by, new Date(), reset);
+      await this.runs.update(last.id, (run) => keepStartedOver(run, startedOver));
     }
     return { resetTo: reset?.resetTo, keptRef: reset?.keptRef };
   }

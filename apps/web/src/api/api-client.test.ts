@@ -1,7 +1,7 @@
 import { healthReportSchema } from "@the-office/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
-import { ApiError, getFromApi, sendToApi, shouldRetry } from "./api-client.ts";
+import { ApiError, getFromApi, sendToApi, shouldRetry, UnreadableAnswer } from "./api-client.ts";
 
 function answer(status: number, body: unknown): void {
   vi.stubGlobal(
@@ -25,10 +25,19 @@ describe("getFromApi", () => {
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe("/api/health");
   });
 
-  it("refuses an answer that breaks the contract", async () => {
+  it("refuses an answer that breaks the contract, in plain words, keeping what the contract found", async () => {
     answer(200, { database: "sideways" });
 
-    await expect(getFromApi("/health", healthReportSchema)).rejects.toBeInstanceOf(ZodError);
+    const failure = await getFromApi("/health", healthReportSchema).catch(
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(UnreadableAnswer);
+    expect(failure).toMatchObject({
+      message:
+        "The Office answered in a way this page can't read, as after an update. Reload the page.",
+    });
+    expect((failure as UnreadableAnswer).cause).toBeInstanceOf(ZodError);
   });
 
   it("fails with what the service said when it refuses", async () => {
@@ -69,6 +78,14 @@ describe("sendToApi", () => {
 describe("shouldRetry", () => {
   it("doesn't ask again what the service refused", () => {
     expect(shouldRetry(0, new ApiError(404, 'There is no Project "x".'))).toBe(false);
+  });
+
+  it("doesn't ask again for an answer this page can't read", () => {
+    const zodError = healthReportSchema.safeParse({ database: "sideways" }).error;
+    if (zodError === undefined) throw new Error("The answer should break the contract.");
+
+    expect(shouldRetry(0, new UnreadableAnswer(zodError))).toBe(false);
+    expect(shouldRetry(0, zodError)).toBe(false);
   });
 
   it("tries a failure on the way or in the service three times", () => {

@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
+import { Schedule } from "../../../platform/schedule/schedule.js";
+import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import {
   AN_INTERRUPTED_SESSION,
   aDoneResult,
@@ -7,8 +9,12 @@ import {
   answerLastDecision,
   runsOf,
   walkStages,
+  type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { PLANNED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
+import { keepAnswers } from "../domain/stage-run-changes.js";
+import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { StageInterpreter } from "./stage-interpreter.js";
 import {
   implement,
   review,
@@ -180,3 +186,119 @@ describe("Shutting down between Stages", () => {
     expect((await after.tasks.read(taskId)).state).toBe("done");
   });
 });
+
+/** A Task Waiting on you on the Decision asked at the third restart in a row, and its id. */
+async function aTaskAsking(
+  pipelines: PipelinesApplication,
+): Promise<{ readonly taskId: string; readonly decisionId: string }> {
+  const taskId = await aRunLeftRunning(pipelines, [implement, review], randomUUID(), 2);
+  await startUp(pipelines, taskId, "in-progress");
+  const decisionId = pipelines.decisions.on(taskId).at(-1)?.id;
+  if (!decisionId) throw new Error("The walk asked nothing.");
+  expect((await pipelines.tasks.read(taskId)).state).toBe("waiting-on-you");
+  return { taskId, decisionId };
+}
+
+describe("Starting with a Task Waiting on you", () => {
+  it("walks on from an answer its run kept as The Office stopped before the walk went on", async () => {
+    const before = await start();
+    const { taskId, decisionId } = await aTaskAsking(before);
+    const [, , asking] = await runsOf(before, taskId);
+    if (!asking) throw new Error("The run asking is missing.");
+    await before.app
+      .get(StageRunRepository, { strict: false })
+      .update(asking.id, (run) => keepAnswers(run, new Map([[decisionId, RUN_AGAIN]])));
+    await close(before);
+
+    const after = await start([anAgentSession(aDoneResult()), anAgentSession(aDoneResult())]);
+    await startUp(after, taskId, "waiting-on-you");
+
+    expect(after.tasks.changes.map(({ state }) => state)).toEqual(["in-progress", "done"]);
+    expect(after.decisions.on(taskId)).toEqual([]);
+  });
+
+  it("walks on from an answer given in Conversations that no run kept before The Office stopped", async () => {
+    const before = await start();
+    const { taskId, decisionId } = await aTaskAsking(before);
+    await close(before);
+
+    const after = await start([anAgentSession(aDoneResult()), anAgentSession(aDoneResult())]);
+    after.decisions.answers.set(decisionId, RUN_AGAIN);
+    await startUp(after, taskId, "waiting-on-you");
+
+    expect((await after.tasks.read(taskId)).state).toBe("done");
+    const decisions = (await runsOf(after, taskId)).flatMap((run) => run.decisions);
+    expect(decisions).toEqual([
+      expect.objectContaining({
+        id: decisionId,
+        answer: expect.objectContaining({ kind: "one-more-round" }),
+      }),
+    ]);
+  });
+
+  it("keeps waiting while nothing it waits on is answered", async () => {
+    const before = await start();
+    const { taskId } = await aTaskAsking(before);
+    await close(before);
+
+    const after = await start();
+    await startUp(after, taskId, "waiting-on-you");
+
+    expect(after.tasks.changes).toEqual([]);
+    expect((await after.tasks.read(taskId)).state).toBe("waiting-on-you");
+  });
+});
+
+describe("Taking an answer", () => {
+  it("walks on a moment later when moving the Task on failed after the answer was kept", async () => {
+    const pipelines = await start([anAgentSession(aDoneResult()), anAgentSession(aDoneResult())]);
+    const taskId = await aRunLeftRunning(pipelines, [implement, review], randomUUID(), 2);
+    await startUp(pipelines, taskId, "in-progress");
+    failingOnceToGoOn(pipelines);
+
+    await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+
+    expect((await pipelines.tasks.read(taskId)).state).toBe("waiting-on-you");
+    const schedule = pipelines.app.get(Schedule, { strict: false });
+    if (!(schedule instanceof ManualSchedule)) throw new Error("The schedule isn't the test's.");
+    await schedule.advanceBy(60_000);
+    await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
+
+    expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+  });
+
+  it("opens the walk's Decision once when The Office stopped before its run kept it, and takes the answer given to it", async () => {
+    const pipelines = await start([anAgentSession(aDoneResult()), anAgentSession(aDoneResult())]);
+    const taskId = await aRunLeftRunning(pipelines, [implement, review], randomUUID(), 2);
+    const openDecision = pipelines.decisions.open.bind(pipelines.decisions);
+    pipelines.decisions.open = async (request) => {
+      pipelines.decisions.open = openDecision;
+      await openDecision(request);
+      throw new Error("The Office stopped.");
+    };
+
+    await startUp(pipelines, taskId, "in-progress");
+    const [first] = pipelines.decisions.on(taskId);
+    if (!first) throw new Error("The walk asked nothing.");
+    expect((await runsOf(pipelines, taskId)).flatMap((run) => run.decisions)).toEqual([]);
+    pipelines.decisions.answers.set(first.id, RUN_AGAIN);
+    const interpreter = pipelines.app.get(StageInterpreter, { strict: false });
+    interpreter.walkInBackground(taskId);
+    await interpreter.walked(taskId);
+
+    expect(pipelines.decisions.on(taskId)).toEqual([first]);
+    expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+  });
+});
+
+const RUN_AGAIN = { kind: "option", option: 0 } as const;
+
+/** The next move of a Task to In progress fails, as the database out of reach for a moment. */
+function failingOnceToGoOn({ tasks }: PipelinesApplication): void {
+  const changeState = tasks.changeState.bind(tasks);
+  tasks.changeState = async (taskId, state, dropReason) => {
+    if (state !== "in-progress") return changeState(taskId, state, dropReason);
+    tasks.changeState = changeState;
+    throw new Error("The database is out of reach.");
+  };
+}

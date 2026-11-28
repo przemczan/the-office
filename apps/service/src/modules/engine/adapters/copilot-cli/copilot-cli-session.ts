@@ -230,6 +230,7 @@ export class CopilotCliSession implements EngineSession {
     this.settleTurnEndWaiters();
     const runtime = this.runtime;
     this.runtime = undefined;
+    // oxlint-disable-next-line office/caught-voided-calls -- abandoning never rejects
     void this.abandon(runtime);
   }
 

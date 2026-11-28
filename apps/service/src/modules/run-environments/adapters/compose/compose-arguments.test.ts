@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { linux } from "../../../../platform/os/linux.js";
+import { windows } from "../../../../platform/os/windows.js";
 import { NO_MASK } from "../scripted/scripted-container-runtime.js";
 import {
   attachArguments,
   buildArguments,
   execArguments,
+  runtimeEnvironmentOf,
   userIdsArguments,
   userIdsFrom,
 } from "./compose-command-line.js";
@@ -121,5 +124,69 @@ describe("buildArguments", () => {
     expect(argv).toContain("--secret");
     expect(argv[argv.indexOf("--secret") + 1]).toBe("id=OFFICE_VARIABLE_0,env=OFFICE_VARIABLE_0");
     expect(argv.join(" ")).not.toContain("npm_s3cret");
+  });
+});
+
+describe("runtimeEnvironmentOf", () => {
+  /** The Office's own environment, its credentials beside what the CLI needs. */
+  const SERVICE_ENVIRONMENT = {
+    DATABASE_URL: "postgres://office:s3cret@localhost:5432/the_office",
+    OFFICE_DATA_DIR: "/srv/office",
+    ANTHROPIC_API_KEY: "sk-ant-s3cret",
+    GH_TOKEN: "ghp_s3cret",
+    COMPOSE_FILE: "/elsewhere/compose.yaml",
+    COMPOSE_PROJECT_NAME: "elsewhere",
+    DOCKER_HOST: "unix:///run/user/1000/docker.sock",
+    DOCKER_CONFIG: "/home/office/.docker",
+    HTTPS_PROXY: "http://proxy:3128",
+    unset: undefined,
+  };
+
+  it("gives the CLI what Linux needs and its own settings, none of the service's other variables", () => {
+    const operatingSystem = linux({ variables: {}, homeDirectory: "/home/office", userId: 1000 });
+
+    expect(
+      runtimeEnvironmentOf(
+        {
+          ...SERVICE_ENVIRONMENT,
+          PATH: "/usr/bin:/bin",
+          HOME: "/home/office",
+          XDG_RUNTIME_DIR: "/run/user/1000",
+        },
+        operatingSystem,
+      ),
+    ).toEqual({
+      PATH: "/usr/bin:/bin",
+      HOME: "/home/office",
+      XDG_RUNTIME_DIR: "/run/user/1000",
+      DOCKER_HOST: "unix:///run/user/1000/docker.sock",
+      DOCKER_CONFIG: "/home/office/.docker",
+      HTTPS_PROXY: "http://proxy:3128",
+    });
+  });
+
+  it("finds Windows' variables whatever their case, as Windows names them", () => {
+    const operatingSystem = windows({ variables: {}, homeDirectory: "C:\\Users\\office" });
+
+    expect(
+      runtimeEnvironmentOf(
+        {
+          ...SERVICE_ENVIRONMENT,
+          Path: "C:\\Windows\\System32",
+          SYSTEMROOT: "C:\\Windows",
+          https_proxy: "http://proxy:3128",
+          USERPROFILE: "C:\\Users\\office",
+        },
+        operatingSystem,
+      ),
+    ).toEqual({
+      Path: "C:\\Windows\\System32",
+      SYSTEMROOT: "C:\\Windows",
+      https_proxy: "http://proxy:3128",
+      USERPROFILE: "C:\\Users\\office",
+      DOCKER_HOST: "unix:///run/user/1000/docker.sock",
+      DOCKER_CONFIG: "/home/office/.docker",
+      HTTPS_PROXY: "http://proxy:3128",
+    });
   });
 });

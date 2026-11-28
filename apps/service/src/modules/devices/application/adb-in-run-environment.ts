@@ -178,7 +178,9 @@ export class AdbInRunEnvironment {
     const process = await place.attach({ arguments: programArguments });
     if (process === undefined) return undefined;
     const output: Buffer[] = [];
-    process.stdout.on("data", (chunk: Buffer) => void output.push(chunk));
+    process.stdout.on("data", (chunk: Buffer) => {
+      output.push(chunk);
+    });
     const timeout = this.schedule.once(
       "adb-step-timeout",
       new Date(this.schedule.now().getTime() + ADB_STEP_TIMEOUT_MS),

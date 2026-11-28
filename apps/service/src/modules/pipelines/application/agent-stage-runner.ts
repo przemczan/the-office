@@ -56,7 +56,12 @@ import {
   type StageRun,
   type StandInChoice,
 } from "../domain/stage-run.js";
-import { engineSwitched, type NamedEngine } from "../domain/stage-run-changes.js";
+import {
+  engineSwitched,
+  holdStageRun,
+  keepDecision,
+  type NamedEngine,
+} from "../domain/stage-run-changes.js";
 import {
   correctionMessage,
   RESULT_CORRECTION,
@@ -973,7 +978,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   ): Promise<ResultReading> {
     if (interruption.requested === undefined) {
       interruption.request("usage-window");
-      await this.runs.saveHeldBy(run.id, "usage-window", undefined);
+      await this.runs.update(run.id, (held) => holdStageRun(held, "usage-window", undefined));
       await this.startedTasks.pauseForUsageWindow(run.taskId, {
         engineId: thread.engine,
         engineName,
@@ -1032,7 +1037,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
    * takes its answer, and the Stage runs again with the answer (spec §9).
    */
   private async keep({ run }: StageWork<"agent">, asked: AskedDecision): Promise<void> {
-    await this.runs.saveDecisions(run.id, [...run.decisions, agentDecision(asked)]);
+    await this.runs.update(run.id, (held) => keepDecision(held, agentDecision(asked)));
   }
 }
 

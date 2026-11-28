@@ -17,6 +17,7 @@ import {
   SessionEndpoints,
   type EndpointSession,
 } from "../claude-code-p/session-endpoints.js";
+import { OpenWithoutSignIn } from "../../../../platform/http/sign-in-guard.js";
 
 /** What a hook call must hold; the session's hook reads only these fields. */
 const hookCallSchema = z.looseObject({ hook_event_name: z.string() });
@@ -34,6 +35,7 @@ const NO_SESSION = "No open Claude Code -p session has this token.";
  * §5.4 Defaults): the hook the Office rules answer.
  */
 @Controller(SESSION_ENDPOINTS_ROUTE)
+@OpenWithoutSignIn()
 export class SessionEndpointsController {
   constructor(private readonly endpoints: SessionEndpoints) {}
 

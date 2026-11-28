@@ -54,6 +54,12 @@ export interface OperatingSystem {
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
   /**
+   * The variables of The Office's own environment that a program started with an environment of
+   * its own still needs here: where programs are, the user's name, home and temporary folder and,
+   * on Windows, the system's own folders. Never a credential.
+   */
+  readonly systemVariableNames: readonly string[];
+  /**
    * A command line that prints the file's text, for the shell Claude Code runs its helper commands
    * in (sh on Linux, Git Bash on Windows): a Claude Code engine's `apiKeyHelper`, which names its
    * key file and never holds the key.

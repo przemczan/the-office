@@ -7,6 +7,7 @@ import {
 import { keyShapeProblem } from "./project.js";
 import {
   repeatedNameProblems,
+  VARIABLE_NAME,
   variableNameProblem,
   variableValueProblems,
   type ProjectVariable,
@@ -550,7 +551,7 @@ function portVariableProblems(
   target: RunTargetFields<TestTargetSecret> & HostedFields<"hosted">,
 ): string[] {
   const name = target.portVariable;
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+  if (!VARIABLE_NAME.test(name)) {
     return [
       `Its port variable must be a variable's name: letters, digits and _, not starting with a digit, such as ${DEFAULT_PORT_VARIABLE}.`,
     ];

@@ -44,11 +44,16 @@ export {
   type TaskThreadSource,
 } from "./application/task-thread-setups.js";
 export { ThreadRunner } from "./application/thread-runner.js";
+export { SessionThreads } from "./application/session-threads.js";
+export { ThreadCards } from "./application/thread-cards.js";
+export { ThreadsAtWork } from "./application/threads-at-work.js";
+export { ThreadService } from "./application/thread-service.js";
+export { WaitingOnTheUser, type InitiativeReply } from "./application/waiting-on-the-user.js";
 export {
-  ThreadService,
+  WorkThreads,
   type InitiativeThreadOpening,
   type TaskThreadStarting,
-} from "./application/thread-service.js";
+} from "./application/work-threads.js";
 export {
   WorkRecords,
   type ProjectWork,
@@ -96,6 +101,7 @@ export {
   LIST_STAGE_TEMPLATES_TOOL,
   PROPOSE_PROJECT_TOOL,
   PERSON_READING_OFFICE_TOOLS,
+  READ_REPOSITORY_TOOL,
   READ_STAGE_HISTORY_TOOL,
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,

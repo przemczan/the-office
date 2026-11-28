@@ -89,11 +89,8 @@ function closeOnShutdownSignal(app: INestApplication, telemetry: StartedTelemetr
   const close = (signal: NodeJS.Signals): void => {
     // A second signal during the shutdown ends the process at once.
     for (const each of SHUTDOWN_SIGNALS) process.removeListener(each, close);
-    void app
-      .close()
-      .finally(() => telemetry.shutdown())
-      // With no listener left, the signal ends the process as it would have unhandled.
-      .finally(() => process.kill(process.pid, signal));
+    // With no listener left, the signal ends the process as it would have unhandled.
+    closeThen(app, telemetry, () => process.kill(process.pid, signal));
   };
   for (const signal of SHUTDOWN_SIGNALS) process.on(signal, close);
 }
@@ -105,10 +102,31 @@ function closeOnShutdownSignal(app: INestApplication, telemetry: StartedTelemetr
  */
 function closeForScheduledExit(app: INestApplication, telemetry: StartedTelemetry): void {
   app.get(ScheduledExits).onReadyToExit(() => {
-    void app
-      .close()
-      .finally(() => telemetry.shutdown())
-      .finally(() => process.exit(SCHEDULED_EXIT_CODE));
+    closeThen(app, telemetry, () => process.exit(SCHEDULED_EXIT_CODE));
+  });
+}
+
+/** Closes the service, then telemetry, then ends the process with `end`, however they closed. */
+function closeThen(app: INestApplication, telemetry: StartedTelemetry, end: () => void): void {
+  void app
+    .close()
+    .catch((error: unknown) => {
+      logger.error(`The Office didn't close cleanly: ${String(error)}`);
+    })
+    .then(() => telemetry.shutdown())
+    .then(end, end);
+}
+
+/**
+ * Logs a rejected promise that nothing handled, with telemetry as every Logger record, and keeps
+ * the service running: Node would otherwise end it, and with it every Agent at work.
+ */
+function logUnhandledRejections(): void {
+  process.on("unhandledRejection", (reason: unknown) => {
+    logger.error(
+      "A rejected promise was not handled.",
+      reason instanceof Error ? (reason.stack ?? reason.message) : String(reason),
+    );
   });
 }
 
@@ -245,6 +263,7 @@ export async function runOffice(
 ): Promise<void> {
   // Before anything logs, so a start failure is exported too; Nest and every Logger use it.
   Logger.overrideLogger(new OfficeLogger());
+  logUnhandledRejections();
   try {
     await start(telemetry, webApp, create, officeCheckout);
   } catch (error) {

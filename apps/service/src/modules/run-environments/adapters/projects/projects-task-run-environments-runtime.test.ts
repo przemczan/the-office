@@ -9,6 +9,7 @@ import {
   type TaskRunEnvironmentCommand,
 } from "../../../projects/index.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   writeFiles,
   type RunEnvironmentsTestbed,
@@ -91,8 +92,8 @@ describe.skipIf(missing !== undefined)(
     afterAll(async () => {
       delete process.env[HOST_ONLY];
       // Everything carries this test's own Office label, so nothing of another Office is touched.
-      testbed.knownTasks.tasks = [];
-      await testbed.environments.sweep();
+      // As after a restart, with no open Task: everything this test's Office made goes.
+      await (await restartedTestbed(testbed, runtime)).environments.sweep();
       for (const { name } of await runtime.listImages(officeLabels(testbed.folders.instance))) {
         await runtime.removeImage(name);
       }
@@ -262,8 +263,8 @@ describe.skipIf(missing !== undefined)(
     }, REAL_RUNTIME_TEST.timeout);
 
     afterAll(async () => {
-      testbed.knownTasks.tasks = [];
-      await testbed.environments.sweep();
+      // As after a restart, with no open Task: everything this test's Office made goes.
+      await (await restartedTestbed(testbed, runtime)).environments.sweep();
       for (const { name } of await runtime.listImages(officeLabels(testbed.folders.instance))) {
         await runtime.removeImage(name);
       }

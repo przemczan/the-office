@@ -47,7 +47,7 @@ export interface TestInstancesModuleOptions {
    * calls `TestInstanceProxy.start()`, so a test app opens no Proxy port.
    */
   readonly officeHost: string;
-  /** Conversations' `ThreadService`, which knows the person at work in an engine session. */
+  /** Conversations' `SessionThreads`, which knows the person at work in an engine session. */
   readonly sessionPeople: Type<SessionPeople>;
 }
 

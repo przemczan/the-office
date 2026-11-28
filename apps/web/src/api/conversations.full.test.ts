@@ -1,4 +1,9 @@
-import { QueryClient, type InfiniteData, type QueryKey } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryObserver,
+  type InfiniteData,
+  type QueryKey,
+} from "@tanstack/react-query";
 import type {
   Message,
   TaskThreadPage,
@@ -6,11 +11,12 @@ import type {
   ThreadWebEvent,
   TokenTotals,
 } from "@the-office/contracts";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   threadEventCacheUpdates,
   threadEventInvalidations,
   threadQueries,
+  withLaterMessages,
 } from "./conversations.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { PERSON_TASKS, TASKS } from "./work.ts";
@@ -208,7 +214,7 @@ const AT = "2026-10-26T09:05:00.000Z";
 describe("a Thread's event", () => {
   it("on a Task refreshes that Thread, its Task's lists and who works, never another Task or a chat", async () => {
     const stale = await staleAfter({
-      type: "thread.messages-logged",
+      type: "thread.turn-ended",
       occurredAt: AT,
       threadId: running.id,
       home: running.home,
@@ -282,5 +288,107 @@ describe("a Thread's event", () => {
 
     expect(stale).toContain("otherTaskConversation");
     expect(stale).toContain("chatActivity");
+  });
+});
+
+const SAID: Message = {
+  id: "6f5e4d3c-2b1a-4098-8776-5544332211aa",
+  at: AT,
+  kind: "person",
+  roleKey: "developer",
+  text: "Reading the export.",
+};
+const LATER: Message = { ...SAID, id: "7a6b5c4d-3e2f-4109-8a7b-6c5d4e3f2a1b", text: "Done." };
+
+/** A tab showing the running Thread's log, which holds `log`, and the service's answer to a read. */
+function showingLog(log: Message[], answer: readonly Message[]): QueryClient {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn<typeof fetch>(async () => Response.json(answer)),
+  );
+  const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  for (const queryKey of Object.values(cached)) {
+    queryClient.setQueryData<unknown>(queryKey as QueryKey, {});
+  }
+  queryClient.setQueryData(threadQueries.messages(running.id).queryKey, log);
+  new QueryObserver(queryClient, threadQueries.messages(running.id)).subscribe(() => undefined);
+  return queryClient;
+}
+
+function logged(queryClient: QueryClient, threadChanged: boolean): void {
+  const event: ThreadWebEvent = {
+    type: "thread.messages-logged",
+    occurredAt: AT,
+    threadId: running.id,
+    home: running.home,
+    threadChanged,
+  };
+  threadEventCacheUpdates["thread.messages-logged"](event, queryClient);
+}
+
+function staleIn(queryClient: QueryClient): Cached[] {
+  return (Object.keys(cached) as Cached[]).filter(
+    (name) => queryClient.getQueryState(cached[name] as QueryKey)?.isInvalidated,
+  );
+}
+
+describe("messages logged", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads on from the last message held, adding what came after it, and refreshes nothing else", async () => {
+    const queryClient = showingLog([SAID], [LATER]);
+
+    logged(queryClient, false);
+
+    await vi.waitFor(() =>
+      expect(queryClient.getQueryData(threadQueries.messages(running.id).queryKey)).toEqual([
+        SAID,
+        LATER,
+      ]),
+    );
+    expect(vi.mocked(fetch).mock.calls.map(([path]) => path)).toEqual([
+      `/api/threads/${running.id}/messages?after=${SAID.id}`,
+    ]);
+    expect(staleIn(queryClient)).toEqual([]);
+  });
+
+  it("refreshes the Thread and what shows it as a row once it changed besides its log, never its log", async () => {
+    const queryClient = showingLog([SAID], [LATER]);
+
+    logged(queryClient, true);
+
+    await vi.waitFor(() =>
+      expect(queryClient.getQueryData(threadQueries.messages(running.id).queryKey)).toHaveLength(2),
+    );
+    expect(staleIn(queryClient).toSorted()).toEqual(
+      (
+        [
+          "thread",
+          "subAgentsAndProcesses",
+          "taskThreads",
+          "taskConversation",
+          "developersTaskThreads",
+          "testersTaskThreads",
+          "peopleWorking",
+        ] satisfies Cached[]
+      ).toSorted(),
+    );
+  });
+
+  it("reads the whole log again when it holds none to read on from", () => {
+    const queryClient = showingLog([], [SAID]);
+
+    logged(queryClient, false);
+
+    expect(staleIn(queryClient)).toEqual(["messages"]);
+  });
+
+  it("adds only what the log left out, as two reads on from one message overlap", () => {
+    const log = [SAID, LATER];
+
+    expect(withLaterMessages(log, [LATER])).toBe(log);
+    expect(withLaterMessages([SAID], [LATER, LATER])).toEqual([SAID, LATER]);
   });
 });

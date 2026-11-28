@@ -7,9 +7,11 @@ import {
   FrameReader,
   type DeviceFrame,
 } from "@the-office/contracts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   openDeviceRelay,
+  RELAY_HIGH_WATER_BYTES,
+  RELAY_LOW_WATER_BYTES,
   type DeviceRelaySink,
   type DeviceRelayState,
   type DeviceTransport,
@@ -22,6 +24,8 @@ const DEVICE_ID = "00000000-0000-4000-8000-0000000000d1";
 class FakeSocket extends EventTarget {
   readyState = 0;
   binaryType = "blob";
+  /** The bytes the socket hasn't sent yet, as the test sets them. */
+  bufferedAmount = 0;
   readonly sent: (string | Uint8Array)[] = [];
   closedWith: number | undefined;
 
@@ -302,5 +306,55 @@ describe("a device's relay", () => {
 
     expect(socket.closedWith).toBe(1003);
     expect(loopback.heard).toEqual(["ended"]);
+  });
+
+  it("holds the transport back while the socket's unsent bytes are over the high-water mark", async () => {
+    vi.useFakeTimers();
+    try {
+      let sink: DeviceRelaySink | undefined;
+      const { socket } = opened({
+        ...loopbackDevice().device,
+        attach: (relay) => {
+          sink = relay;
+          return { opened: () => {}, received: () => {}, closed: () => {}, end: () => {} };
+        },
+      });
+      let roomTold = 0;
+      const room = () => sink?.writable().then(() => roomTold++);
+
+      await room();
+      expect(roomTold).toBe(1);
+
+      socket.bufferedAmount = RELAY_HIGH_WATER_BYTES + 1;
+      void room();
+      await vi.advanceTimersByTimeAsync(100);
+      // Under the high-water mark but over the low one, it still waits.
+      socket.bufferedAmount = RELAY_LOW_WATER_BYTES + 1;
+      await vi.advanceTimersByTimeAsync(100);
+      expect(roomTold).toBe(1);
+
+      socket.bufferedAmount = RELAY_LOW_WATER_BYTES;
+      await vi.advanceTimersByTimeAsync(100);
+      expect(roomTold).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets a transport waiting for room go when the relay ends", async () => {
+    let sink: DeviceRelaySink | undefined;
+    const { socket } = opened({
+      ...loopbackDevice().device,
+      attach: (relay) => {
+        sink = relay;
+        return { opened: () => {}, received: () => {}, closed: () => {}, end: () => {} };
+      },
+    });
+    socket.bufferedAmount = RELAY_HIGH_WATER_BYTES + 1;
+    const waiting = sink?.writable();
+
+    socket.close(1000);
+
+    await expect(waiting).resolves.toBeUndefined();
   });
 });

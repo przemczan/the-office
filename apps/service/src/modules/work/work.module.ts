@@ -14,7 +14,7 @@ import {
   type Type,
 } from "@nestjs/common";
 import { uploadBody } from "../../platform/http/upload-body.js";
-import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
+import { TaskLocksModule } from "./task-locks.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../busy-work/index.js";
 import { EngineModule } from "../engine/index.js";
@@ -199,7 +199,7 @@ export interface WorkModuleOptions {
   readonly initiativeThreads: Type<InitiativeThreads>;
   /**
    * Whether a Thread has a turn running: ConversationsThreadTurns, Work's adapter over
-   * Conversations' ThreadService, made here for Work alone.
+   * Conversations' ThreadsAtWork, made here for Work alone.
    */
   readonly threadTurns: Type<ThreadTurns>;
   readonly taskDecisions: Type<TaskDecisions>;

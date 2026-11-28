@@ -25,6 +25,7 @@ const DOWN = notification("n3", "office.down.engine", "Claude is down: refused."
 
 const NOTHING = {
   reconnecting: false,
+  updated: false,
   notifications: [],
   scheduled: undefined,
   desktopAsk: false,
@@ -36,9 +37,10 @@ describe("officeMessages", () => {
     expect(officeMessages({ ...NOTHING, notifications: [DONE] })).toBeUndefined();
   });
 
-  it("orders reconnecting, the Office's Notifications newest first, the update, then the ask", () => {
+  it("orders reconnecting, The Office updated, its Notifications newest first, the update, then the ask", () => {
     const messages = officeMessages({
       reconnecting: true,
+      updated: true,
       notifications: [RESET, DONE, DOWN],
       scheduled: { kind: "update", waitingFor: 2 },
       desktopAsk: true,
@@ -46,13 +48,14 @@ describe("officeMessages", () => {
 
     expect(messages?.all.map(officeMessageKey)).toEqual([
       "reconnecting",
+      "updated",
       "n3",
       "n1",
       "update-scheduled",
       "desktop-ask",
     ]);
     expect(messages?.first).toEqual({ kind: "reconnecting" });
-    expect(messages?.more).toBe(4);
+    expect(messages?.more).toBe(5);
   });
 
   it("counts no more than the first when it is alone", () => {
@@ -85,6 +88,14 @@ describe("officeMessageWords", () => {
     expect(officeMessageWords({ kind: "notification", notification: older })).toMatchObject({
       shortLine: "We've used 91% of it.",
       tone: "warning",
+    });
+  });
+
+  it("says The Office was updated since the page opened, for a reload", () => {
+    expect(officeMessageWords({ kind: "updated" })).toMatchObject({
+      shortLine: "The Office was updated",
+      line: "The Office was updated since this page opened. Reload the page to use the new version.",
+      tone: "info",
     });
   });
 

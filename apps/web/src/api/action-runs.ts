@@ -104,9 +104,9 @@ export const actionRunEventInvalidations: Readonly<
   Record<ActionRunWebEvent["type"], EventInvalidations[string]>
 > = {
   [ACTION_RUN_CHANGED]: (event) => {
-    const parsed = actionRunWebEventSchema.parse(event);
-    if (parsed.type !== ACTION_RUN_CHANGED) return [ACTION_RUNS];
-    return [actionRunQueries.ofProject(parsed.projectId).queryKey];
+    const parsed = actionRunWebEventSchema.safeParse(event);
+    if (!parsed.success || parsed.data.type !== ACTION_RUN_CHANGED) return [ACTION_RUNS];
+    return [actionRunQueries.ofProject(parsed.data.projectId).queryKey];
   },
   "action-settings.changed": () => [SETTINGS],
 };

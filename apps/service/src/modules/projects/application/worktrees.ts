@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
+import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
 import type { CommandRun } from "../domain/command-run.js";
@@ -112,6 +113,12 @@ export class Worktrees {
   private readonly operatingSystem = currentOperatingSystem();
   /** The throwaway worktrees added and not yet removed, which no other add removes. */
   private readonly throwawaysInUse = new Set<string>();
+  /**
+   * Per worktree path, one making it at a time and one install at a time, apart so a read that
+   * opens the worktree never waits for an install there.
+   */
+  private readonly adding = new KeyedLocks();
+  private readonly installing = new KeyedLocks();
 
   constructor(
     private readonly git: Git,
@@ -271,7 +278,9 @@ export class Worktrees {
       path: this.pathOf(project, taskId),
       branch: await this.branchOf(project, taskId),
     };
-    if (!(await exists(worktree.path))) await this.add(project, taskId, worktree);
+    await this.adding.run(worktree.path, async () => {
+      if (!(await exists(worktree.path))) await this.add(project, taskId, worktree);
+    });
     await ensureScreenshotsFolder(worktree.path);
     return worktree;
   }
@@ -642,14 +651,17 @@ export class Worktrees {
     install: () => Promise<CommandRun>,
   ): Promise<Installation> {
     if (!isCommandSet(project.installCommand)) return { kind: "up-to-date" };
-    const record = await this.git.worktreeRecordPath(worktreePath, INSTALL_RECORD);
-    const fingerprint = await installFingerprint(project, worktreePath, environment, place);
-    if ((await readFile(record, "utf8").catch(() => undefined)) === fingerprint) {
-      return { kind: "up-to-date" };
-    }
-    const run = await install();
-    if (run.outcome === "passed") await writeFile(record, fingerprint);
-    return { kind: "ran", run };
+    // One at a time: a second caller reads the record the first wrote, rather than installing too.
+    return this.installing.run(worktreePath, async () => {
+      const record = await this.git.worktreeRecordPath(worktreePath, INSTALL_RECORD);
+      const fingerprint = await installFingerprint(project, worktreePath, environment, place);
+      if ((await readFile(record, "utf8").catch(() => undefined)) === fingerprint) {
+        return { kind: "up-to-date" };
+      }
+      const run = await install();
+      if (run.outcome === "passed") await writeFile(record, fingerprint);
+      return { kind: "ran", run };
+    });
   }
 
   /** Git on a Project runs with the Project's variables, as its hooks and filters run its tools. */

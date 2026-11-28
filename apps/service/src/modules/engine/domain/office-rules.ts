@@ -14,6 +14,7 @@ import {
   type ShellDialect,
   type SimpleCommand,
 } from "./shell-commands.js";
+import { writtenPaths } from "./written-paths.js";
 
 /**
  * Whether a tool call may run; a refusal says why, in words the Agent reads (spec §6). A call
@@ -144,6 +145,15 @@ export class OfficeRules {
         `Refused by The Office: ${path} is outside the worktree; edit only inside ${workingFolder}.`,
       );
     }
+    return this.protectedPathRefusal(resolved);
+  }
+
+  /**
+   * Why Agents never write at `resolved`, a path inside the worktree, whatever writes it (Edit and
+   * Write, or a command): a protected path, or the run environment definition.
+   */
+  private protectedPathRefusal(resolved: string): string | undefined {
+    const { paths, workingFolder } = this.rules;
     const names = paths.names(resolved).slice(paths.names(workingFolder).length);
     if (names.some((name) => PROTECTED_NAMES.has(name))) {
       return this.advised(
@@ -160,6 +170,38 @@ export class OfficeRules {
           `Refused by The Office: ${RUN_ENVIRONMENT_DEFINITION_FOLDER}/ is written only with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}, which checks the run environment definition first; only Roles with the Run environment capability have it, in an Agent Stage or a Consultation on a Task.`,
         )
       : undefined;
+  }
+
+  /**
+   * A command writing a protected path or the run environment definition, as Edit and Write may
+   * not: a redirect's target, or a word of a program that writes the files it names
+   * (`writtenPaths`), wherever along `directories` it runs. A program that writes by its own code,
+   * such as `node -e`, isn't read: the rules guard against an Agent's mistakes (spec §6).
+   */
+  private protectedWriteRefusal(
+    command: SimpleCommand,
+    dialect: ShellDialect,
+    directories: readonly string[],
+  ): string | undefined {
+    const { paths, workingFolder } = this.rules;
+    const written = [
+      ...command.redirects
+        .filter(({ target, writes }) => writes && !NULL_DEVICES.has(target.toLowerCase()))
+        .map(({ target }) => target),
+      ...writtenPaths(programWords(command, dialect)),
+    ];
+    for (const word of written) {
+      const expanded = this.secrets.expand(word);
+      // A variable the session doesn't set, or a substitution: where it writes is not read.
+      if (UNREAD_PARTS.test(expanded)) continue;
+      for (const directory of directories) {
+        const resolved = paths.resolve(directory, expanded);
+        if (!paths.isWithin(resolved, workingFolder)) continue;
+        const refusal = this.protectedPathRefusal(resolved);
+        if (refusal !== undefined) return refusal;
+      }
+    }
+    return undefined;
   }
 
   private secretRefusal(word: string, directory?: string): string | undefined {
@@ -260,6 +302,8 @@ export class OfficeRules {
     if (this.rules.workstation) return undefined;
     const outsideWrite = this.outsideWriteRefusal(command, directories);
     if (outsideWrite !== undefined) return outsideWrite;
+    const protectedWrite = this.protectedWriteRefusal(command, dialect, directories);
+    if (protectedWrite !== undefined) return protectedWrite;
     const program = programWords(command, dialect);
     const runtime = containerRuntimeReach(program, [
       ...command.words,

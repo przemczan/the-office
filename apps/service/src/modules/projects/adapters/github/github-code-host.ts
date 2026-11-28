@@ -47,6 +47,7 @@ import {
 @Injectable()
 export class GitHubCodeHost extends CodeHost {
   readonly name = "GitHub";
+  readonly signInWords = "Sign in with GitHub in Settings › Office identity";
 
   constructor(
     private readonly gitHub: GitHubPullRequests,

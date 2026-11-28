@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 import {
@@ -14,7 +14,7 @@ import {
   commandBeforeScript,
   commandVariables,
   LABEL,
-  officeLabels,
+  projectVariableNameProblems,
   type CommandEnvironment,
   type InstallVariable,
 } from "../domain/run-environment.js";
@@ -27,6 +27,7 @@ import {
 } from "../ports/container-runtime.js";
 import { RunEnvironmentSettings } from "../ports/run-environment-settings.js";
 import { CheckoutHandOver } from "./checkout-hand-over.js";
+import { ComposeProjectLifecycle } from "./compose-project-lifecycle.js";
 import { readDefinitionIn } from "./definition-files.js";
 import { HostCores } from "./host-cores.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
@@ -144,6 +145,7 @@ export class ActionRunEnvironments {
   /** Each run's `onEnvironment` use not yet released, which its removal releases first. */
   private readonly releases = new Map<string, () => Promise<void>>();
   private readonly handOver: CheckoutHandOver;
+  private readonly lifecycle: ComposeProjectLifecycle;
 
   constructor(
     private readonly runtime: ContainerRuntime,
@@ -154,6 +156,7 @@ export class ActionRunEnvironments {
     serviceOwner: ServiceOwner,
   ) {
     this.handOver = new CheckoutHandOver(runtime, serviceOwner, this.logger);
+    this.lifecycle = new ComposeProjectLifecycle(runtime, folders.instance, this.logger);
   }
 
   /**
@@ -210,6 +213,7 @@ export class ActionRunEnvironments {
     const next = previous.catch(() => undefined).then(() => this.removeNow(runId));
     const settled = next.catch(() => undefined);
     this.removals.set(runId, settled);
+    // oxlint-disable-next-line office/caught-voided-calls -- settled never rejects
     void settled.finally(() => {
       if (this.removals.get(runId) === settled) this.removals.delete(runId);
     });
@@ -218,22 +222,21 @@ export class ActionRunEnvironments {
 
   /**
    * As The Office starts: removes every Action run's compose project of this Office the runtime
-   * still holds and their files, whatever their id, but those of runs started since.
+   * still holds and their files, whatever their id, but those of runs started since; one run's
+   * failure is only logged, the others removed all the same.
    */
   async sweep(): Promise<void> {
-    const resources = await this.runtime.listByLabel(officeLabels(this.folders.instance));
-    const folders = await readdir(this.folders.actionRuns).catch((error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") return [];
-      throw error;
-    });
     const ids = new Set([
-      ...resources.map(({ labels }) => labels[LABEL.actionRun] ?? ""),
-      ...folders,
+      ...(await this.lifecycle.labelled(LABEL.actionRun)),
+      ...(await this.lifecycle.withFiles(this.folders.actionRuns)),
     ]);
-    ids.delete("");
-    for (const runId of ids) {
-      if (!this.running.has(runId)) await this.stop(runId);
-    }
+    await this.lifecycle.eachOf(
+      ids,
+      (runId) => `The Action run ${runId}`,
+      async (runId) => {
+        if (!this.running.has(runId)) await this.stop(runId);
+      },
+    );
   }
 
   private async ran(
@@ -241,6 +244,8 @@ export class ActionRunEnvironments {
     stopping: AbortSignal,
     live: () => boolean,
   ): Promise<ActionRunEnd> {
+    const problems = projectVariableNameProblems(start.environment.set.map(({ name }) => name));
+    if (problems.length > 0) throw new RunEnvironmentRefused(problems, start.logFile);
     const definition = await this.definitionIn(start.checkout, start.logFile);
     refuseWhenStopped(stopping, start.logFile);
 
@@ -395,7 +400,6 @@ export class ActionRunEnvironments {
   }
 
   private async removeNow(runId: string): Promise<void> {
-    const projectName = actionRunProjectNameOf(this.folders.instance, runId);
     // Its use ends first, while the environment still runs.
     const release = this.releases.get(runId);
     this.releases.delete(runId);
@@ -410,14 +414,13 @@ export class ActionRunEnvironments {
       }
     }
     await this.handOver.back(this.handBackFileOf(runId), `the Action run ${runId}`);
-    try {
-      await this.runtime.down(projectName, { builtImages: true });
-    } catch (error) {
-      // What down left is removed by its label next.
-      this.logger.warn(`The Action run ${runId} didn't come down.`, error);
-    }
-    await this.runtime.removeByLabel(actionRunLabels(this.folders.instance, runId));
-    await rm(this.folders.actionRunFolder(runId), { recursive: true, force: true });
+    await this.lifecycle.remove({
+      name: actionRunProjectNameOf(this.folders.instance, runId),
+      labels: actionRunLabels(this.folders.instance, runId),
+      folder: this.folders.actionRunFolder(runId),
+      removal: { builtImages: true },
+      what: `The Action run ${runId}`,
+    });
   }
 }
 

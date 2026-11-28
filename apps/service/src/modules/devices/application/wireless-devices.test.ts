@@ -4,6 +4,7 @@ import { Logger } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectFeaturesChanged, ProjectRunEnvironmentChanged } from "../../projects/index.js";
 import {
+  IDLE_STOP_MS,
   NO_MASK,
   runEnvironmentsTestbed,
   ScriptedContainerRuntime,
@@ -46,9 +47,9 @@ function start(of: TaskInWorktree = task): Promise<void> {
   );
 }
 
-/** Stops the Task's run environment, as the startup sweep stops an open Task's. */
+/** Stops the Task's run environment, as it stops once idle. */
 function stop(): Promise<void> {
-  return testbed.environments.environments.sweep();
+  return testbed.environments.schedule.advanceBy(IDLE_STOP_MS);
 }
 
 async function until(id: string, expected: object): Promise<void> {

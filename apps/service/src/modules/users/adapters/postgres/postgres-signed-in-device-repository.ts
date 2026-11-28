@@ -13,8 +13,19 @@ export class PostgresSignedInDeviceRepository extends SignedInDeviceRepository {
     super();
   }
 
-  async add(device: SignedInDevice): Promise<void> {
-    await this.database.insert(signedInDevices).values(toRow(device));
+  add(device: SignedInDevice): Promise<boolean> {
+    return this.database.transaction(async (transaction) => {
+      // Shared until the device is saved: a removal holding the user waits for it, then signs it
+      // out; one that held them first is read here once it is done, and refuses the device.
+      const [user] = await transaction
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, device.userId), isNull(users.removedAt)))
+        .for("share");
+      if (user === undefined) return false;
+      await transaction.insert(signedInDevices).values(toRow(device));
+      return true;
+    });
   }
 
   async findByTokenHash(tokenHash: string): Promise<SignedInDevice | undefined> {
@@ -30,10 +41,11 @@ export class PostgresSignedInDeviceRepository extends SignedInDeviceRepository {
   async findAll(ids: readonly string[]): Promise<readonly SignedInDevice[]> {
     if (ids.length === 0) return [];
     const rows = await this.database
-      .select()
+      .select({ device: signedInDevices })
       .from(signedInDevices)
-      .where(inArray(signedInDevices.id, [...ids]));
-    return rows.map(toSignedInDevice);
+      .innerJoin(users, eq(users.id, signedInDevices.userId))
+      .where(and(inArray(signedInDevices.id, [...ids]), isNull(users.removedAt)));
+    return rows.map((row) => toSignedInDevice(row.device));
   }
 
   async listOf(userId: string): Promise<readonly SignedInDevice[]> {

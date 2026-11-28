@@ -20,7 +20,7 @@ import {
   type TokenUsage,
   type TurnOutcome,
 } from "../../ports/session-events.js";
-import { unseenImageLine } from "../openai-compatible-api/user-content.js";
+import { unseenImageLine } from "../shared/unseen-image-line.js";
 import type { ListedSkill } from "../skills/listed-skills.js";
 import { skillCommandText } from "../skills/skill-loading.js";
 import { missingOutputError, OUTPUT_REMINDERS } from "../structured-output/structured-output.js";

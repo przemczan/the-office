@@ -19,6 +19,11 @@ export interface Import {
   readonly importerPath: string;
   readonly importerWorkspace: Workspace | undefined;
   readonly target: ImportTarget;
+  /**
+   * Whether the import loads nothing at run time: `import type`, `export type` or an
+   * `import("…")` type. `import { type A }` still loads the file under `verbatimModuleSyntax`.
+   */
+  readonly typeOnly: boolean;
 }
 
 export type ImportTarget =
@@ -43,10 +48,13 @@ export function checkImports(context: Context, check: ImportCheck): Visitor {
   const importerPath = repositoryPath(repository, path.resolve(context.filename));
   const importerWorkspace = workspaceAt(repository, importerPath);
 
-  const checkSource = (source: ReportedNode & { readonly value: unknown }): void => {
+  const checkSource = (
+    source: ReportedNode & { readonly value: unknown },
+    typeOnly: boolean,
+  ): void => {
     if (typeof source.value !== "string") return;
     const target = targetOf(source.value);
-    const violation = target && check({ importerPath, importerWorkspace, target });
+    const violation = target && check({ importerPath, importerWorkspace, target, typeOnly });
     if (violation) context.report({ node: source, message: violation });
   };
 
@@ -63,11 +71,12 @@ export function checkImports(context: Context, check: ImportCheck): Visitor {
   };
 
   return {
-    ImportDeclaration: (node) => checkSource(node.source),
-    ExportNamedDeclaration: (node) => node.source && checkSource(node.source),
-    ExportAllDeclaration: (node) => checkSource(node.source),
-    ImportExpression: (node) => node.source.type === "Literal" && checkSource(node.source),
-    TSImportType: (node) => checkSource(node.source),
+    ImportDeclaration: (node) => checkSource(node.source, node.importKind === "type"),
+    ExportNamedDeclaration: (node) =>
+      node.source && checkSource(node.source, node.exportKind === "type"),
+    ExportAllDeclaration: (node) => checkSource(node.source, node.exportKind === "type"),
+    ImportExpression: (node) => node.source.type === "Literal" && checkSource(node.source, false),
+    TSImportType: (node) => checkSource(node.source, true),
   };
 }
 

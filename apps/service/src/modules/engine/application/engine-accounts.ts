@@ -128,6 +128,7 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
     this.events.subscribe(EngineRemoved, ({ engineId, kind }) => {
       this.engineModels.recordApiKeySignIn(engineId, false);
       // Not awaited: the removal is done, and its sessions may run for minutes yet.
+      // oxlint-disable-next-line office/caught-voided-calls -- the removal logs its own failure
       if (KINDS_WITH_A_FOLDER.has(kind)) void this.removeFolderAfterSessions(engineId, kind);
     });
   }

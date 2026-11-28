@@ -1,4 +1,4 @@
-import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
+import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.domain.js";
 import type { StageOutcome, StageRun } from "./stage-run.js";
 import type { AcceptedIssue } from "./walk-decisions.js";
 

@@ -1047,11 +1047,11 @@ test(
       .getByRole("button", { name: /^Dropped 1/ })
       .click();
     await page.getByRole("button", { name: `More for Map tiles ${word}` }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("menu").getByRole("menuitem", { name: "Archive" }).click();
     await expect(page.getByText(`Map tiles ${word} is archived.`)).toBeVisible();
 
     await card.getByRole("button", { name: `More for ${name}` }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("menu").getByRole("menuitem", { name: "Archive" }).click();
     await expect(page.getByText(`${name} is archived.`)).toBeVisible();
     await expect(card).toHaveCount(0);
     await expect(page.getByText(`2 archived Initiatives match “${word}” too.`)).toBeVisible();
@@ -1223,7 +1223,7 @@ test(
       .getByRole("button", { name: `More for ${task.title}` })
       .click();
     const menu = page.getByRole("menu");
-    await expect(menu.getByRole("button")).toHaveText([
+    await expect(menu.getByRole("menuitem")).toHaveText([
       "Feature",
       "Bug",
       "Chore",
@@ -1510,14 +1510,14 @@ test(
 
     const raised = page.getByRole("article", { name: "Raise me" });
     await raised.getByRole("button", { name: "More for Raise me" }).click();
-    await page.getByRole("menu").getByRole("button", { name: "High" }).click();
+    await page.getByRole("menu").getByRole("menuitem", { name: "High" }).click();
     await expect(raised.getByText("High priority")).toBeAttached();
 
     await page
       .getByRole("article", { name: "Drop me" })
       .getByRole("button", { name: "More for Drop me" })
       .click();
-    await page.getByRole("menu").getByRole("button", { name: "Drop…" }).click();
+    await page.getByRole("menu").getByRole("menuitem", { name: "Drop…" }).click();
     await page.getByRole("button", { name: "Drop the Task" }).click();
     await expect(
       column(page, "Done")
@@ -1542,7 +1542,7 @@ test(
     await page.goto("/work");
 
     await card.getByRole("button", { name: `More for ${task.title}` }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("menu").getByRole("menuitem", { name: "Archive" }).click();
     await expect(page.getByText(`${task.title} is archived.`)).toBeVisible();
     await expect(card).toHaveCount(0);
 
@@ -1643,7 +1643,10 @@ test(
 
     await page.goto(`/tasks/${task.id}`);
     await page.getByRole("button", { name: "More for Pair the barcode scanner" }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
+    await page
+      .getByRole("menu")
+      .getByRole("menuitem", { name: "Move to another Project…" })
+      .click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("radiogroup").locator("label").filter({ hasText: to.name }).click();
     await expect(dialog).toContainText(`It has no Pipeline in ${to.name} until one is chosen`);
@@ -1667,7 +1670,10 @@ test(
 
     await page.goto(`/tasks/${old.id}`);
     await page.getByRole("button", { name: "More for Older than the history" }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
+    await page
+      .getByRole("menu")
+      .getByRole("menuitem", { name: "Move to another Project…" })
+      .click();
     await expect(dialog).toContainText("The Task is older than the state changes The Office keeps");
     await expect(dialog.getByRole("button", { name: "Move", exact: true })).toHaveCount(0);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task-refused.png") });
@@ -4492,7 +4498,7 @@ test(
 
       await page.goto(`/tasks/${task.id}`);
       await page.getByRole("button", { name: `More for ${task.title}` }).click();
-      await page.getByRole("menu").getByRole("button", { name: "Delete branch…" }).click();
+      await page.getByRole("menu").getByRole("menuitem", { name: "Delete branch…" }).click();
       const dialog = page.getByRole("dialog", { name: `Delete ${branch}?` });
       await expect(dialog.getByText("Everything on it is in main.")).toBeVisible();
       await expect(dialog.getByText(branch, { exact: true })).toBeVisible();
@@ -4506,7 +4512,7 @@ test(
       expect(hasRef(own.remote, `refs/heads/${branch}`)).toBe(false);
       await page.getByRole("button", { name: `More for ${task.title}` }).click();
       await expect(
-        page.getByRole("menu").getByRole("button", { name: "Delete branch…" }),
+        page.getByRole("menu").getByRole("menuitem", { name: "Delete branch…" }),
       ).toHaveCount(0);
       await page.keyboard.press("Escape");
 

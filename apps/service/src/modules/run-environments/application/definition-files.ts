@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
+import { resolvedInside } from "../../../platform/files/resolved-inside.js";
 import {
   DEFINITION_FILE,
   DEFINITION_FOLDER,
@@ -15,9 +16,12 @@ import {
 import type { ImageInputs, KeyedFile } from "../domain/run-environment-image.js";
 import type { ImageSource } from "../domain/run-environment.js";
 
-/** Reads and validates the Run environment definition in a worktree or checkout. */
+/**
+ * Reads and validates the Run environment definition in a worktree or checkout, a file that leads
+ * out of it read as not there.
+ */
 export async function readDefinitionIn(folder: string): Promise<Reading<RunEnvironmentDefinition>> {
-  return (await readDefinitionWith((path) => textOf(join(folder, path)))).reading;
+  return (await readDefinitionWith((path) => textIn(folder, path))).reading;
 }
 
 /**
@@ -62,7 +66,7 @@ export async function writeDefinitionIn(
   }
   if (files.length === 0) problems.push("Give at least one file to write.");
   const { reading } = await readDefinitionWith((path) =>
-    given.has(path) ? Promise.resolve(given.get(path)) : textOf(join(worktree, path)),
+    given.has(path) ? Promise.resolve(given.get(path)) : textIn(worktree, path),
   );
   problems.push(...reading.problems);
   if (reading.value === undefined || problems.length > 0) return { written: false, problems };
@@ -91,11 +95,23 @@ export async function imageInputsOf(task: ImageSource): Promise<ImageInputs> {
   };
 }
 
+/** The file by its path in the worktree, with no content unless it is one of the worktree's own. */
 async function keyedFile(worktree: string, path: string): Promise<KeyedFile> {
+  const source = await ownFileIn(worktree, path);
   return {
     path: relative(worktree, path).split(sep).join("/"),
-    content: await readFile(path).catch(() => undefined),
+    content: source === undefined ? undefined : await readFile(source).catch(() => undefined),
   };
+}
+
+/**
+ * Where the file at `path` in the folder really is, once its links are followed; none when it isn't
+ * there or leads out of the folder (spec §5.5, "Install inputs"), as a link an Agent made to one
+ * of this computer's files would, so it is read as if it weren't there.
+ */
+export async function ownFileIn(folder: string, path: string): Promise<string | undefined> {
+  const resolved = await resolvedInside(folder, path);
+  return resolved.state === "inside" ? resolved.path : undefined;
 }
 
 /** Every file in the folder and its subfolders, as absolute paths. */
@@ -106,6 +122,8 @@ async function filesIn(folder: string): Promise<string[]> {
     .map((entry) => join(entry.parentPath, entry.name));
 }
 
-async function textOf(path: string): Promise<string | undefined> {
-  return readFile(path, "utf8").catch(() => undefined);
+/** The text of the folder's own file at `path`, from its root; none when it isn't one of its own. */
+async function textIn(folder: string, path: string): Promise<string | undefined> {
+  const source = await ownFileIn(folder, join(folder, path));
+  return source === undefined ? undefined : readFile(source, "utf8").catch(() => undefined);
 }

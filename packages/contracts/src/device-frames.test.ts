@@ -67,6 +67,38 @@ describe("FrameReader", () => {
     ]);
   });
 
+  it("reads a large frame byte by byte in linear time, its payload a copy of its own", () => {
+    const payload = new Uint8Array(256 * 1024).map((_, index) => index % 251);
+    const bytes = encodeFrame({ type: DEVICE_FRAME_TYPES.data, channel: 2, payload });
+    const reader = new FrameReader();
+    const frames = [];
+    const started = performance.now();
+
+    for (let offset = 0; offset < bytes.byteLength; offset++) {
+      frames.push(...reader.push(bytes.subarray(offset, offset + 1)));
+    }
+
+    // Joined anew at each chunk, this copied some 34 GB; kept as a chunk list, 256 KiB once.
+    expect(performance.now() - started).toBeLessThan(5_000);
+    expect(frames).toHaveLength(1);
+    expect(frames[0]?.payload).toEqual(payload);
+    expect(frames[0]?.payload.byteOffset).toBe(0);
+    expect(frames[0]?.payload.buffer).not.toBe(bytes.buffer);
+    expect(reader.pendingBytes).toBe(0);
+  });
+
+  it("reads a header split across chunks after a frame that ended mid-chunk", () => {
+    const first = encodeFrame(data(1, [1, 2]));
+    const second = encodeFrame(data(3, [9, 8, 7]));
+    const stream = new Uint8Array([...first, ...second]);
+    const reader = new FrameReader();
+
+    expect(reader.push(stream.subarray(0, first.byteLength + 2))).toEqual([data(1, [1, 2])]);
+    expect(reader.pendingBytes).toBe(2);
+    expect(reader.push(stream.subarray(first.byteLength + 2, first.byteLength + 5))).toEqual([]);
+    expect(reader.push(stream.subarray(first.byteLength + 5))).toEqual([data(3, [9, 8, 7])]);
+  });
+
   it("refuses a header announcing a payload over the maximum before it arrives", () => {
     const header = new Uint8Array(DEVICE_FRAME_HEADER_BYTES);
     const view = new DataView(header.buffer);

@@ -613,6 +613,21 @@ export function pairingOverrideOf(
   return { services, ...networksAndVolumesOf(definition, labels) };
 }
 
+/**
+ * Why the Project's variables can't reach a run environment: one set under a name a shell can't
+ * hold, saved before Projects refused such a name, would break the script that exports it under
+ * that name (`commandScript`) and the install's mount of it (`installDockerfile`), so nothing runs.
+ */
+export function projectVariableNameProblems(names: readonly string[]): string[] {
+  return names.flatMap((name) =>
+    VARIABLE_NAME.test(name)
+      ? []
+      : [
+          `The Project's variable ${JSON.stringify(name)} can't reach a run environment: a name takes letters, digits and _, not starting with a digit. Rename it in the Project's Environment.`,
+        ],
+  );
+}
+
 function variableNameProblems(names: readonly string[]): string[] {
   return names.flatMap((name) =>
     VARIABLE_NAME.test(name)

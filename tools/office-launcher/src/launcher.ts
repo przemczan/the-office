@@ -1,7 +1,12 @@
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { runOfficeUpdate, type Command, type UpdateCommands } from "./office-update.ts";
-import { runReleaseUpdate, type ReleaseInstall } from "./release-update.ts";
+import {
+  runReleaseUpdate,
+  type Download,
+  type DownloadLimits,
+  type ReleaseInstall,
+} from "./release-update.ts";
 import { healthUrlOf, type HealthWait } from "./service-health.ts";
 import { runningService, stopService, type RunningService } from "./service-process.ts";
 import { failure, takeRequest, type UpdateResult } from "./update-folder.ts";
@@ -39,7 +44,9 @@ export type LauncherInstall =
       readonly mode: "release";
       readonly updateFolder: string;
       readonly health?: HealthWait;
-      readonly download?: (url: string) => Promise<Response>;
+      readonly download?: Download;
+      readonly downloadLimits?: DownloadLimits;
+      readonly signingKey?: string;
     })
   /** A copy that can't update itself: the service gets no update folder, so it refuses Update. */
   | { readonly mode: "not-installed" };

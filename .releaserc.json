@@ -31,6 +31,7 @@
         "assets": [
           { "path": "dist/release/*.tar.gz" },
           { "path": "dist/release/*.sha256" },
+          { "path": "dist/release/*.sha256.sig" },
           { "path": "dist/release/install.sh" },
           { "path": "dist/release/docker-compose.yml" },
           { "path": "dist/release/the-office.env" }

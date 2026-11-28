@@ -7,10 +7,11 @@ import {
 } from "@the-office/contracts";
 
 /**
- * Connecting while the first attempt is under way; reconnecting after an attempt failed or a
- * connection was lost, such as when the service restarts.
+ * Stopped before it starts, once stopped and once the service signed this device out; connecting
+ * while the first attempt is under way; reconnecting after an attempt failed or a connection was
+ * lost, such as when the service restarts.
  */
-export type EventStreamStatus = "connecting" | "connected" | "reconnecting";
+export type EventStreamStatus = "stopped" | "connecting" | "connected" | "reconnecting";
 
 export interface EventStreamOptions {
   readonly url: string;
@@ -65,7 +66,10 @@ export class EventStream {
   /** The socket whose subscription the service confirmed, so its later replies change nothing. */
   private subscribedSocket: WebSocket | undefined;
   private running = false;
-  private currentStatus: EventStreamStatus = "connecting";
+  private currentStatus: EventStreamStatus = "stopped";
+  /** The web app's build the service named first in this tab, the one the tab runs. */
+  private firstWebAppBuild: string | undefined;
+  private webAppReplaced = false;
   private readonly listeners = new Set<() => void>();
   private readonly threadSubscriptions = new Set<ThreadSubscription>();
   /**
@@ -79,6 +83,8 @@ export class EventStream {
   start(): void {
     if (this.running) return;
     this.running = true;
+    this.failedAttempts = 0;
+    this.setStatus("connecting");
     this.connect();
   }
 
@@ -87,12 +93,22 @@ export class EventStream {
     clearTimeout(this.reconnectTimer);
     const socket = this.socket;
     this.socket = undefined;
+    this.setStatus("stopped");
     socket?.close();
   }
 
   readonly status = (): EventStreamStatus => this.currentStatus;
 
-  /** Calls `onChange` when the status changes, until the returned function is called. */
+  /**
+   * The service now serves another build of the web app than the one it named first in this tab:
+   * The Office was updated since the page opened, and the page runs the build before.
+   */
+  readonly webAppUpdated = (): boolean => this.webAppReplaced;
+
+  /**
+   * Calls `onChange` when the status or `webAppUpdated` changes, until the returned function is
+   * called.
+   */
   readonly subscribe = (onChange: () => void): (() => void) => {
     this.listeners.add(onChange);
     return () => this.listeners.delete(onChange);
@@ -124,8 +140,15 @@ export class EventStream {
     };
   }
 
+  /**
+   * The socket to send on now: only an open one, as sending on one still connecting throws. A
+   * subscription made meanwhile is sent once it opens (`opened`), with every other one held.
+   */
   private connectedSocket(): WebSocket | undefined {
-    return this.currentStatus === "connected" ? this.socket : undefined;
+    const socket = this.socket;
+    return this.currentStatus === "connected" && socket?.readyState === WebSocket.OPEN
+      ? socket
+      : undefined;
   }
 
   private threadEventTypes(threadId: string): Set<string> {
@@ -179,7 +202,10 @@ export class EventStream {
     else if (message?.type === "subscriptions" || message?.type === "refused") {
       const putsInPlace = this.awaitingReplies.shift() ?? [];
       if (message.type === "refused") return;
-      if (message.threadId === undefined) this.subscribed(socket);
+      if (message.threadId === undefined) {
+        this.heardWebAppBuild(message.webAppBuild);
+        this.subscribed(socket);
+      }
       for (const subscription of putsInPlace) {
         if (this.threadSubscriptions.has(subscription)) subscription.onSubscribed?.();
       }
@@ -197,6 +223,17 @@ export class EventStream {
     }
   }
 
+  /** A service serving the web app's source, as `npm run dev` does, names no build. */
+  private heardWebAppBuild(build: string | undefined): void {
+    if (build === undefined || this.webAppReplaced) return;
+    if (this.firstWebAppBuild === undefined) {
+      this.firstWebAppBuild = build;
+    } else if (build !== this.firstWebAppBuild) {
+      this.webAppReplaced = true;
+      this.tellListeners();
+    }
+  }
+
   private subscribed(socket: WebSocket): void {
     if (socket === this.subscribedSocket) return;
     this.subscribedSocket = socket;
@@ -208,6 +245,7 @@ export class EventStream {
     this.socket = undefined;
     if (code === SIGNED_OUT_CLOSE_CODE) {
       this.running = false;
+      this.setStatus("stopped");
       this.options.onSignedOut?.();
       return;
     }
@@ -221,6 +259,10 @@ export class EventStream {
   private setStatus(status: EventStreamStatus): void {
     if (status === this.currentStatus) return;
     this.currentStatus = status;
+    this.tellListeners();
+  }
+
+  private tellListeners(): void {
     for (const listener of this.listeners) listener();
   }
 }

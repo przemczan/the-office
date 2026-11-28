@@ -13,14 +13,13 @@ import {
   type Profile,
   type User,
 } from "../domain/user.js";
-import { UserChanged, UserCreated, UserRemoved } from "../domain/user-events.js";
+import { SignedOut, UserChanged, UserCreated, UserRemoved } from "../domain/user-events.js";
 import { UserIdNotFound, UserRefused } from "../domain/user-refused.js";
 import { AuthenticatorRepository } from "../ports/authenticator-repository.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { newOneTimePassword } from "./one-time-passwords.js";
 import { PendingSignIns } from "./pending-sign-ins.js";
-import { SignedInDevices } from "./signed-in-devices.js";
 
 /** A user just added, with their one-time password, which is shown this once and kept nowhere. */
 export interface AddedUser {
@@ -38,7 +37,6 @@ export class Users {
   constructor(
     private readonly users: UserRepository,
     private readonly passwordHashing: PasswordHashing,
-    private readonly signedInDevices: SignedInDevices,
     private readonly pendingSignIns: PendingSignIns,
     private readonly authenticators: AuthenticatorRepository,
     private readonly schedule: Schedule,
@@ -85,9 +83,10 @@ export class Users {
   }
 
   /**
-   * Removes the user, `by` the signed-in user: signs out all their devices, ends their pending
-   * sign-ins and removes their authenticator and recovery codes, and leaves their name on what
-   * they did. Throws UserRefused when `by` is the user, and UserIdNotFound for no such user.
+   * Removes the user, `by` the signed-in user: signs out all their devices in the same
+   * transaction, so none signed in meanwhile is left, ends their pending sign-ins and removes their
+   * authenticator and recovery codes, and leaves their name on what they did. Throws UserRefused
+   * when `by` is the user, and UserIdNotFound for no such user.
    */
   async remove(userId: string, by: string): Promise<void> {
     const removedAt = this.schedule.now();
@@ -97,7 +96,10 @@ export class Users {
       return removed(user, removedAt);
     });
     if (removedUser === undefined) throw new UserIdNotFound();
-    await this.signedInDevices.signOutAll(userId);
+    const { signedOutDeviceIds } = removedUser;
+    if (signedOutDeviceIds.length > 0) {
+      await this.eventBus.publish(new SignedOut(userId, signedOutDeviceIds));
+    }
     await this.pendingSignIns.endAllOf(userId);
     await this.authenticators.remove(userId);
     await this.eventBus.publish(new UserRemoved(userId, removedAt));

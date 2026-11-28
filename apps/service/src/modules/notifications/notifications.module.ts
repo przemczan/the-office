@@ -29,17 +29,15 @@ import { OfficeOffBoardTasks } from "./ports/office-off-board-tasks.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
 import { OfficeUpdateAvailable } from "./ports/office-update-available.js";
 import { OfficeUsers } from "./ports/office-users.js";
-import { OpenDecisions } from "./ports/open-decisions.js";
-import { OpenProposals } from "./ports/open-proposals.js";
 import { PullRequestsWaiting } from "./ports/pull-requests-waiting.js";
 import { PhonePush } from "./ports/phone-push.js";
 import { ResumePlans } from "./ports/resume-plans.js";
-import { ShapingReplies } from "./ports/shaping-replies.js";
 import { SkillUpdatesFound } from "./ports/skill-updates-found.js";
 import { StandInChoicesWaiting } from "./ports/stand-in-choices-waiting.js";
 import { DayFiguresModule } from "./day-figures.module.js";
 import { TaskStageProgress } from "./ports/task-stage-progress.js";
 import { UserActivityRepository } from "./ports/user-activity-repository.js";
+import { WaitingInConversations } from "./ports/waiting-in-conversations.js";
 
 export interface NotificationsModuleOptions {
   /**
@@ -50,7 +48,6 @@ export interface NotificationsModuleOptions {
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly officeTasks: Type<OfficeTasks>;
   readonly officeInitiatives: Type<OfficeInitiatives>;
-  readonly openDecisions: Type<OpenDecisions>;
   readonly taskStageProgress: Type<TaskStageProgress>;
   readonly deskLimit: Type<DeskLimit>;
   readonly startQueue: Type<StartQueue>;
@@ -60,11 +57,10 @@ export interface NotificationsModuleOptions {
   readonly officeFireAlarm: Type<OfficeFireAlarm>;
   readonly resumePlans: Type<ResumePlans>;
   readonly standInChoicesWaiting: Type<StandInChoicesWaiting>;
-  readonly openProposals: Type<OpenProposals>;
   readonly pullRequestsWaiting: Type<PullRequestsWaiting>;
   readonly skillUpdatesFound: Type<SkillUpdatesFound>;
   readonly officeUpdateAvailable: Type<OfficeUpdateAvailable>;
-  readonly shapingReplies: Type<ShapingReplies>;
+  readonly waitingInConversations: Type<WaitingInConversations>;
   readonly officeUsers: Type<OfficeUsers>;
   readonly officeOffBoardTasks: Type<OfficeOffBoardTasks>;
 }
@@ -80,7 +76,6 @@ export class NotificationsModule {
     imports,
     officeTasks,
     officeInitiatives,
-    openDecisions,
     taskStageProgress,
     deskLimit,
     startQueue,
@@ -90,11 +85,10 @@ export class NotificationsModule {
     officeFireAlarm,
     resumePlans,
     standInChoicesWaiting,
-    openProposals,
     pullRequestsWaiting,
     skillUpdatesFound,
     officeUpdateAvailable,
-    shapingReplies,
+    waitingInConversations,
     officeUsers,
     officeOffBoardTasks,
   }: NotificationsModuleOptions): DynamicModule {
@@ -111,7 +105,6 @@ export class NotificationsModule {
         { provide: PhonePush, useClass: RecordingPhonePush },
         { provide: OfficeTasks, useExisting: officeTasks },
         { provide: OfficeInitiatives, useExisting: officeInitiatives },
-        { provide: OpenDecisions, useExisting: openDecisions },
         { provide: TaskStageProgress, useExisting: taskStageProgress },
         { provide: DeskLimit, useExisting: deskLimit },
         { provide: StartQueue, useExisting: startQueue },
@@ -121,11 +114,10 @@ export class NotificationsModule {
         { provide: OfficeFireAlarm, useExisting: officeFireAlarm },
         { provide: ResumePlans, useExisting: resumePlans },
         { provide: StandInChoicesWaiting, useExisting: standInChoicesWaiting },
-        { provide: OpenProposals, useExisting: openProposals },
         { provide: PullRequestsWaiting, useExisting: pullRequestsWaiting },
         { provide: SkillUpdatesFound, useExisting: skillUpdatesFound },
         { provide: OfficeUpdateAvailable, useExisting: officeUpdateAvailable },
-        { provide: ShapingReplies, useExisting: shapingReplies },
+        { provide: WaitingInConversations, useExisting: waitingInConversations },
         { provide: OfficeUsers, useExisting: officeUsers },
         { provide: OfficeOffBoardTasks, useExisting: officeOffBoardTasks },
         NowService,

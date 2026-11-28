@@ -46,13 +46,14 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 ## The log
 
 - Rows: an avatar on the left, the name and the time over what was said, one author's neighbouring messages as one turn; the user's own avatar is gray and named "You" (another user by their name); a person's is their Avatar or initials.
-- A turn's text is Markdown: sanitised, raw HTML shown as text, headings kept out of the page's outline, a link to a Task, Initiative, Decision or Idea drawn as its chip, a link to another page of the app opened in place; every fenced code block and every quote has **Copy** (labels "Copy the code" and "Copy the quote") in its corner, and copying shows a toast; a selection copies as Markdown ([2.4.4](../2.4.4-messages.md#copy)).
+- A turn's text is Markdown: sanitised, raw HTML shown as text, an image shown only from The Office itself (another site's as a link by its alt text, [6](../6-permissions-and-safety.md#the-web-apps-pages)), headings kept out of the page's outline, a link to a Task, Initiative, Decision or Idea drawn as its chip, a link to another page of the app opened in place; every fenced code block and every quote has **Copy** (labels "Copy the code" and "Copy the quote") in its corner, and copying shows a toast; a selection copies as Markdown ([2.4.4](../2.4.4-messages.md#copy)).
 - A user's message may show, under its text: its images as thumbnails (each opens the viewer, which steps through them; one whose content no longer loads reads "Image removed"), the line "With <chip> open" for the Open page it carried, and its delivery mark.
 - Delivery marks: **Lands at the next safe point** (waiting, clock icon), **Delivered** (check), **Not delivered: the Stage ended first** (in a Stage Thread) or **Not delivered: <name> finished first**.
 - A message that sent a Handover note from a Link card reads "You · Handover note from <person>".
 - A message that is a skill command shows the mark "Skill command", the skill's name and its input.
 - A new day opens with a day line once what shows spans more than one day.
 - The log follows its end: each new message, or the person starting to answer, scrolls to it; a reader who scrolls up (more than 40px from the end) stays there as the log grows, but for what they send themselves.
+- New messages are read on from the last one the log holds (`GET /threads/:id/messages?after=<message id>`), never the whole log again; the Thread, its Sub-agents and Processes and the lists showing it are read again only when it changed besides its log (its title, state or session), and a chat Thread's row and its chat's activity with every message.
 - A Decision's link opens the log at its card once, centred.
 - Tool calls: a lone call shows whole (tool name and summary); neighbouring calls fold under "N tool calls · <latest tool and summary>", opening to every call. They show only while Details is on.
 - While the person answers: a row "<name> is working" with three dots; with Details off it adds the latest tool call, opening to the call whole.

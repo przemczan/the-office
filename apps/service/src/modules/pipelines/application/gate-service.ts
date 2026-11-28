@@ -6,6 +6,7 @@ import { gateActionProblems, waitingGateRun } from "../domain/gate.js";
 import { GateRefused } from "../domain/gate-refused.js";
 import type { TaskProgress } from "../domain/stage-progress.js";
 import type { GateAction, GateDropReason, GatePerson, HoldingUser } from "../domain/stage-run.js";
+import { keepGateAction } from "../domain/stage-run-changes.js";
 import { GateContinued, GateDropped, SentBackFromGate } from "../domain/stage-run-events.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
@@ -91,7 +92,7 @@ export class GateService {
     const problems = gateActionProblems(stages, runs, action);
     const gate = waitingGateRun(stages, runs);
     if (problems.length > 0 || !gate) throw new GateRefused(problems);
-    if (!(await this.runs.saveGateAction(gate.id, action))) {
+    if (!(await this.runs.update(gate.id, (run) => keepGateAction(run, action)))) {
       throw new GateRefused(["The Gate was already passed: the Task has gone on."]);
     }
     await this.events.publish(gateEvent(taskId, gate.stageKey, action));

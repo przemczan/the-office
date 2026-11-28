@@ -1,4 +1,3 @@
-import type { UserRef } from "../domain/user.js";
 import type { MessageImageContent } from "./thread-images.js";
 
 /** A message to the person, by the id the turn that takes it names it by. */
@@ -29,24 +28,12 @@ export class BargeIns {
   private readonly held: BargeInMessage[] = [];
   /** The messages sent and not yet taken, by id: those the caller sent itself without a message. */
   private readonly sent = new Map<string, BargeInMessage | undefined>();
-  private latestWriter: UserRef | undefined;
 
   /** `turnRunning` is false when the session that takes the messages hasn't started its turn yet. */
   constructor(
     private readonly sendNext: (message: BargeInMessage) => void,
     private turnRunning = true,
   ) {}
-
-  /**
-   * Who wrote the message before `writer`'s in this session, undefined for its first, so a session
-   * that started on a Brief, not on a user's message, learns who writes; `writer` is kept as the
-   * latest.
-   */
-  writerBefore(writer: UserRef): UserRef | undefined {
-    const before = this.latestWriter;
-    this.latestWriter = writer;
-    return before;
-  }
 
   /** False once the session has ended: the message can't reach the person. */
   take(message: BargeInMessage): boolean {

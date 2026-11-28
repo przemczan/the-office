@@ -5,6 +5,7 @@ import { PromptTemplates } from "../../prompt-templates/index.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EngineModels, EngineReferenceLock, type EngineId } from "../../engine/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { TaskLocks } from "./task-locks.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
 import type { Author } from "../domain/author.js";
 import type { Idea } from "../domain/idea.js";
@@ -98,6 +99,7 @@ import { RecordEdits } from "../ports/record-edits.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
 import { publishDependencyChanges } from "./dependency-events.js";
+import { holdingTheInitiativesTasks } from "./initiative-task-locks.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 import { engineOverrideProblems } from "./engine-override-choice.js";
 import { pipelineChoiceIn } from "./pipeline-choice.js";
@@ -167,6 +169,7 @@ export class InitiativeService implements OnModuleInit {
     private readonly engineModels: EngineModels,
     private readonly engineReferences: EngineReferenceLock,
     private readonly edits: RecordEdits,
+    private readonly taskLocks: TaskLocks,
   ) {}
 
   onModuleInit(): void {
@@ -612,9 +615,9 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * Drops it, and every one of its Tasks not yet Done or Dropped with it. Each Task's
-   * TaskStateChanged is published as its own Drop's is, so the queue lets a queued one go and a
-   * started one's run stops.
+   * Drops it, and every one of its Tasks not yet Done or Dropped with it, under each Task's lock as
+   * a Task's own Drop is. Each Task's TaskStateChanged is published as its own Drop's is, so the
+   * queue lets a queued one go and a started one's run stops.
    */
   async drop(id: string, by: Author): Promise<Initiative> {
     return this.updateWithTasks(id, (initiative, tasks) =>
@@ -1030,6 +1033,7 @@ export class InitiativeService implements OnModuleInit {
     return initiative;
   }
 
+  /** A change of the Initiative with its Tasks, under each Task's lock, published once let go. */
   private async updateWithTasks<Event extends DomainEvent>(
     id: string,
     change: (
@@ -1037,7 +1041,12 @@ export class InitiativeService implements OnModuleInit {
       tasks: readonly Task[],
     ) => InitiativeTasksChange<Event> | undefined,
   ): Promise<Initiative> {
-    const { initiative, event, taskChanges } = await this.repository.updateWithTasks(id, change);
+    const { initiative, event, taskChanges } = await holdingTheInitiativesTasks(
+      this.taskLocks,
+      this.tasks,
+      id,
+      () => this.repository.updateWithTasks(id, change),
+    );
     if (event) await this.events.publish(event);
     for (const taskChange of taskChanges) await this.events.publish(taskChange.event);
     return initiative;

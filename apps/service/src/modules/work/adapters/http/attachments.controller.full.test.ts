@@ -117,7 +117,7 @@ describe("GET /api/attachments/:id/content", () => {
     expect(response.headers.get("content-disposition")).toBe(
       `attachment; filename="Za____ _raport_.zip"; filename*=UTF-8''Za%C5%BC%C3%B3%C5%82%C4%87%20%22raport%22.zip`,
     );
-    expect(response.headers.get("content-security-policy")).toBeNull();
+    expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
   });
 
   it("refuses to serve a link, which opens at its address", async () => {

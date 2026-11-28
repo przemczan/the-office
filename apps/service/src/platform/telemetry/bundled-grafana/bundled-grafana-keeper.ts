@@ -62,7 +62,8 @@ export class BundledGrafanaKeeper {
 
   /**
    * Starts the bundled Grafana, stopping an earlier one that holds its ports first, and answers
-   * once it runs or failed; a start asked for while one runs joins it.
+   * once it runs or failed, never rejecting, as a failure shows on the card; a start asked for
+   * while one runs joins it.
    */
   start(): Promise<void> {
     if (this.activity.kind === "starting") return this.activity.started;

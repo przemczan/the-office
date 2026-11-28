@@ -10,7 +10,7 @@ import { Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { changeFeatures, changeRunEnvironment, projectQueries } from "../../api/projects.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { settingChosenWords } from "../../shell/run-environment-words.ts";
+import { settingChosenWords } from "./run-environment-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { FEATURE_NEEDS, FEATURE_ROWS, needsWords } from "./feature-words.ts";
 import { ProjectBlock } from "./project-block.tsx";

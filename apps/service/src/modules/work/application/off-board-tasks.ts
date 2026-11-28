@@ -19,7 +19,7 @@ import {
 } from "../domain/run-environment-set-up.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
-import type { TaskCreated } from "../domain/task-events.js";
+import { TaskDiscarded, type TaskCreated } from "../domain/task-events.js";
 import type { MadeTaskSetting } from "../domain/task-made-for.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { startReasons } from "../domain/task-start.js";
@@ -55,7 +55,8 @@ const MADE: Record<
  * on its Pipeline in a worktree of its own, goes through Start at once, so it starts, or is queued
  * with its place when the limits leave no room. A refused Start makes nothing: every refusal is
  * weighed before the Task is kept, and one met after (a worktree that couldn't be made, or a
- * refusal that came up meanwhile) takes it away again. At most one of each kind is open per
+ * refusal that came up meanwhile) takes it away again, with its worktree once it has one, and
+ * `TaskDiscarded` tells whatever `TaskCreated` told. At most one of each kind is open per
  * Project, by a per-Project lock and a partial unique index; asking while one is answers it.
  */
 @Injectable()
@@ -127,7 +128,7 @@ export class OffBoardTasks {
     try {
       await this.starting.start(task.id, { onOverlap: "start-anyway" }, by);
     } catch (error) {
-      if (error instanceof TaskRefused) await this.discard(task);
+      if (error instanceof TaskRefused) await this.discardAnnounced(task);
       throw error;
     }
     return (await this.tasks.find(task.id)) ?? task;
@@ -174,13 +175,30 @@ export class OffBoardTasks {
     if (refusals.length > 0) throw new TaskRefused([...refusals]);
   }
 
-  /** Takes away a Task just made whose start was refused, so nothing is left of it. */
-  private async discard(task: Task): Promise<void> {
+  /** Takes away a Task just made whose start was refused, so nothing is left of it; whether it did. */
+  private async discard(task: Task): Promise<boolean> {
     const discarded = await this.tasks.discardNeverStarted(task.id).catch((error: unknown) => {
       this.logger.error(`The refused ${task.title} Task ${task.id} wasn't taken away.`, error);
       return false;
     });
     if (!discarded) this.logger.warn(`The refused ${task.title} Task ${task.id} is left Ready.`);
+    return discarded;
+  }
+
+  /**
+   * Takes away a Task whose `TaskCreated` was told and whose worktree was made, as its Start was
+   * refused after all: the worktree goes too, and `TaskDiscarded` is told. A Task left Ready keeps
+   * its worktree, as a later Start works in it.
+   */
+  private async discardAnnounced(task: Task): Promise<void> {
+    if (!(await this.discard(task))) return;
+    await this.worktrees.removeWorktree(task.projectId, task.id).catch((error: unknown) => {
+      this.logger.error(
+        `The refused ${task.title} Task ${task.id}'s worktree wasn't removed.`,
+        error,
+      );
+    });
+    await this.events.publish(new TaskDiscarded(task.id, task.projectId));
   }
 
   private async read(task: Task): Promise<OffBoardTask> {

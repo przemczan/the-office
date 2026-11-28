@@ -1,12 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { UsageWindowStart } from "../../ports/agent-engine.js";
-import { EngineProcess, type EngineCommand } from "../claude-code/engine-process.js";
-import {
-  engineRead,
-  READ_EXIT_GRACE_MS,
-  type EngineReadLimits,
-} from "../claude-code/engine-read.js";
+import { EngineProcess, type EngineCommand } from "../shared/engine-process.js";
+import { engineRead, READ_EXIT_GRACE_MS, type EngineReadLimits } from "../shared/engine-read.js";
 import { userMessage } from "../claude-code/stream-events.js";
 import { WINDOW_START_MODEL, windowStartOf } from "../claude-code/usage-window-start.js";
 import { StreamJson } from "./stream-json.js";

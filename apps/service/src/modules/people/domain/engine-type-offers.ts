@@ -4,7 +4,7 @@ import {
   offeredModels,
   type Engine,
   type EngineKind,
-} from "../../engine/index.js";
+} from "../../engine/index.domain.js";
 import type { Effort, EngineTypesOffered } from "./role-card.js";
 
 /** Every engine type, in the order the user reads them. */

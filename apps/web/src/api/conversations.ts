@@ -31,6 +31,7 @@ import {
   type DecisionFormAnswer,
   type FireAlarmLifts,
   type Home,
+  type Message,
   type MessageImage,
   type NewMessage,
   type OfficeInstructions,
@@ -58,7 +59,11 @@ import {
 } from "./api-client.ts";
 import { rememberDeletedThreads } from "./deleted-threads.ts";
 import { changeRows, pagedQueryOptions, rowsOf } from "./pages.ts";
-import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
+import {
+  readEvent,
+  type EventCacheUpdates,
+  type EventInvalidations,
+} from "./event-stream-provider.tsx";
 import { FIRE_ALARM, PERSON_TASKS, TASKS } from "./work.ts";
 
 const THREADS = ["threads"] as const;
@@ -395,7 +400,8 @@ export function deleteChatThreads(roleKey: string, threadIds: readonly string[])
 }
 
 /** The Conversations events that carry what changed, which `threadEventCacheUpdates` applies. */
-type CarryingEventType = "thread.tokens-counted" | "thread.context-read" | "thread.deleted";
+type CarryingEventType =
+  "thread.tokens-counted" | "thread.context-read" | "thread.deleted" | "thread.messages-logged";
 
 /**
  * A session's Sub-agents and Processes (spec 2.9): each event carries the item or the new part,
@@ -431,7 +437,6 @@ export const threadEventInvalidations: Readonly<
   "thread.started": () => [THREADS, PERSON_TASKS],
   "thread.renamed": (event) => [...threadAndListsOf(event), PERSON_TASKS],
   "thread.seen": (event) => threadAndListsOf(event),
-  "thread.messages-logged": (event) => threadAndListsOf(event, { stateMayChange: true }),
   "thread.turn-ended": (event) => threadAndListsOf(event, { stateMayChange: true }),
   "thread.delivery-marked": (event) => threadAndListsOf(event, { stateMayChange: true }),
   "thread.override-chosen": (event) => threadAndListsOf(event),
@@ -474,39 +479,62 @@ function threadAndListsOf(
   event: WebEvent,
   { stateMayChange = false }: { readonly stateMayChange?: boolean } = {},
 ): QueryKey[] {
-  const named = threadWebEventSchema.parse(event);
-  if (!("threadId" in named)) throw new Error(`${named.type} names no Thread.`);
-  const { threadId, home } = named;
-  const thread = [...THREADS, threadId];
+  // An event this page can't read, as after an Office update, may name any Thread.
+  const named = threadWebEventSchema.safeParse(event);
+  if (!named.success) return [THREADS];
+  if (!("threadId" in named.data)) throw new Error(`${named.data.type} names no Thread.`);
+  const { threadId, home } = named.data;
+  return [[...THREADS, threadId], ...listsShowing(home, stateMayChange)];
+}
+
+/** The lists showing a Thread of `home` as a row, as `threadAndListsOf` names them. */
+function listsShowing(home: Home, stateMayChange: boolean): QueryKey[] {
   switch (home.kind) {
     case "chat":
-      return [
-        thread,
-        threadQueries.inChat(home.roleKey).queryKey,
-        threadQueries.chatActivity().queryKey,
-      ];
+      return [threadQueries.inChat(home.roleKey).queryKey, threadQueries.chatActivity().queryKey];
     case "task":
       return [
-        thread,
         threadQueries.onTask(home.taskId).queryKey,
         [...THREADS, "on-tasks"],
         ...(stateMayChange ? [threadQueries.peopleWorking().queryKey] : []),
       ];
     case "initiative":
-      return [thread, threadQueries.onInitiative(home.initiativeId).queryKey];
+      return [threadQueries.onInitiative(home.initiativeId).queryKey];
   }
 }
 
 /**
  * A running turn's tokens and context readings change just that Thread, wherever it is cached, and
- * with it its Task's total, refetching no log: a long turn counts many times.
+ * with it its Task's total, refetching no log: a long turn counts many times. Messages logged,
+ * many times a minute in a running Stage, are read on from the last one held (`readLogOn`); the
+ * Thread and the lists showing it are read again only when it changed besides its log, or for a
+ * chat's, whose row and activity move with each message. An event this page can't read, as after
+ * an Office update, has every Thread read again.
  */
 export const threadEventCacheUpdates: Readonly<
   Record<CarryingEventType, EventCacheUpdates[string]>
 > = {
+  "thread.messages-logged": (event, queryClient) => {
+    const logged = readEvent(threadWebEventSchema, event, queryClient, [THREADS]);
+    if (logged?.type !== "thread.messages-logged") return;
+    const { threadId, home, threadChanged } = logged;
+    void readLogOn(queryClient, threadId);
+    if (!threadChanged && home.kind !== "chat") return;
+    void queryClient.invalidateQueries({
+      queryKey: threadQueries.one(threadId).queryKey,
+      exact: true,
+    });
+    // A fresh session takes the old one's Sub-agents and Processes away.
+    if (threadChanged) {
+      void queryClient.invalidateQueries(threadQueries.subAgentsAndProcesses(threadId));
+    }
+    for (const queryKey of listsShowing(home, true)) {
+      void queryClient.invalidateQueries({ queryKey });
+    }
+  },
   "thread.tokens-counted": (event, queryClient) => {
-    const counted = threadWebEventSchema.parse(event);
-    if (counted.type !== "thread.tokens-counted") return;
+    const counted = readEvent(threadWebEventSchema, event, queryClient, [THREADS]);
+    if (counted?.type !== "thread.tokens-counted") return;
     const { tokens } = counted;
     changeThread(queryClient, counted.threadId, counted.home, {
       thread: (thread) => ({ ...thread, tokens }),
@@ -514,13 +542,13 @@ export const threadEventCacheUpdates: Readonly<
     });
   },
   "thread.deleted": (event, queryClient) => {
-    const deleted = threadWebEventSchema.parse(event);
-    if (deleted.type !== "thread.deleted" || deleted.home.kind !== "chat") return;
+    const deleted = readEvent(threadWebEventSchema, event, queryClient, [THREADS]);
+    if (deleted?.type !== "thread.deleted" || deleted.home.kind !== "chat") return;
     dropDeletedThreads(queryClient, deleted.home.roleKey, [deleted.threadId]);
   },
   "thread.context-read": (event, queryClient) => {
-    const read = threadWebEventSchema.parse(event);
-    if (read.type !== "thread.context-read") return;
+    const read = readEvent(threadWebEventSchema, event, queryClient, [THREADS]);
+    if (read?.type !== "thread.context-read") return;
     const { contextTokens, contextWindow } = read;
     changeThread(queryClient, read.threadId, read.home, {
       thread: (thread) => ({
@@ -531,6 +559,44 @@ export const threadEventCacheUpdates: Readonly<
     });
   },
 };
+
+/**
+ * Reads on the Thread's log from the last message the cache holds, adding what was logged after it,
+ * rather than the whole log again. A log nobody shows now is only marked stale, as an invalidation
+ * would; one not read yet, empty, being read whole already, or whose read on failed is read whole.
+ */
+async function readLogOn(queryClient: QueryClient, threadId: string): Promise<void> {
+  const { queryKey } = threadQueries.messages(threadId);
+  const query = queryClient.getQueryCache().find<Message[]>({ queryKey, exact: true });
+  const last = query?.state.data?.at(-1);
+  const readWhole = (): Promise<void> => queryClient.invalidateQueries({ queryKey, exact: true });
+  if (!query || last === undefined || query.getObserversCount() === 0) return readWhole();
+  if (query.state.fetchStatus === "fetching") return readWhole();
+  try {
+    const later = await getFromApi(
+      `${threadPath(threadId)}/messages?after=${encodeURIComponent(last.id)}`,
+      messageListSchema,
+    );
+    queryClient.setQueryData(queryKey, (log) => log && withLaterMessages(log, later));
+  } catch {
+    await readWhole();
+  }
+}
+
+/**
+ * The log with the messages read after one of its own added at its end, those it has already left
+ * out: two reads on from the same message overlap, and the later of them may answer first.
+ */
+export function withLaterMessages(log: Message[], later: readonly Message[]): Message[] {
+  const held = new Set(log.map(({ id }) => id));
+  const added: Message[] = [];
+  for (const message of later) {
+    if (held.has(message.id)) continue;
+    held.add(message.id);
+    added.push(message);
+  }
+  return added.length === 0 ? log : [...log, ...added];
+}
 
 /**
  * A chat Thread deleted (by this browser, another or another user): the row leaves its chat's pages,

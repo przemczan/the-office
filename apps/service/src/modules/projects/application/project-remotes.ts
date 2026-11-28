@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { OfficeIdentity } from "../../../platform/git-identity/office-identity.js";
-import type { RemoteNeeds } from "../../../platform/git-identity/remote-needs.js";
+import { OfficeIdentity, type RemoteNeeds } from "../../office-identity/index.js";
 import type { Project } from "../domain/project.js";
 import { Git, GitCommandFailed } from "../ports/git.js";
 
@@ -80,9 +79,9 @@ export class ProjectRemotes {
 /** Decided from what the identity has, not from git's words, which follow the Project's locale. */
 function fetchFailureReason(needs: RemoteNeeds): string | undefined {
   switch (needs.kind) {
-    case "github-https":
+    case "signed-in-https":
       return needs.missing.length > 0
-        ? `GitHub over https takes Sign in with GitHub, in ${SETTINGS}, for a private repository.`
+        ? `${needs.site} over https takes ${needs.signIn}, in ${SETTINGS}, for a private repository.`
         : undefined;
     case "ssh":
       return sshFailureReason(needs.host, needs.missing);
@@ -95,12 +94,12 @@ function fetchFailureReason(needs: RemoteNeeds): string | undefined {
   }
 }
 
-/** A push needs more than a fetch: GitHub's sign-in even for a public repository. */
+/** A push needs more than a fetch: the host's sign-in even for a public repository. */
 function pushFailureReason(needs: RemoteNeeds): string | undefined {
   switch (needs.kind) {
-    case "github-https":
+    case "signed-in-https":
       return needs.missing.length > 0
-        ? `Pushing to GitHub over https takes Sign in with GitHub, in ${SETTINGS}.`
+        ? `Pushing to ${needs.site} over https takes ${needs.signIn}, in ${SETTINGS}.`
         : undefined;
     case "anonymous-https":
       return `${needs.host} is reached anonymously over https, so The Office can't push there.`;

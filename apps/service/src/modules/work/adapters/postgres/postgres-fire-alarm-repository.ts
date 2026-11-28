@@ -10,6 +10,7 @@ import {
 } from "../../domain/fire-alarm.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { fireAlarm } from "./fire-alarm.schema.js";
+import type { Transaction } from "./work-rows.js";
 
 type FireAlarmRow = typeof fireAlarm.$inferSelect;
 
@@ -45,6 +46,15 @@ export class PostgresFireAlarmRepository extends FireAlarmRepository {
       .returning({ id: fireAlarm.id });
     return turnedOff.length > 0;
   }
+}
+
+/**
+ * The alarm as `transaction` reads it, held from a sounding or an all clear until the transaction
+ * ends: for the hold of Starts, which reads it on its own connection rather than another of the pool.
+ */
+export async function heldFireAlarm(transaction: Transaction): Promise<FireAlarm> {
+  const [row] = await transaction.select().from(fireAlarm).limit(1).for("share");
+  return alarmOf(row);
 }
 
 function alarmOf(row: FireAlarmRow | undefined): FireAlarm {

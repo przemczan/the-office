@@ -27,7 +27,7 @@ import {
   restoreIdea,
   useEveryTask,
 } from "../../api/work.ts";
-import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
+import { AddAttachmentDialog } from "./add-attachment-dialog.tsx";
 import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
 import { oneRound } from "../../shell/attachments/attachment-rounds.ts";
 import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
@@ -38,11 +38,11 @@ import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useSignedInUserId } from "../../shell/use-user-name.ts";
-import { EditIdeaDialog } from "../../shell/work/edit-idea-dialog.tsx";
+import { EditIdeaDialog } from "./edit-idea-dialog.tsx";
 import { ShapeIdeaDialog, type IdeaShapeChoice } from "../../shell/work/shape-idea-dialog.tsx";
 import { KindGlyph } from "../../shell/work/task-state-badge.tsx";
 import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
-import { useShaper } from "../../shell/work/use-shaper.ts";
+import { useShaper } from "./use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName, projectIdsOfIdea } from "../../shell/work/work-words.ts";
 import { IdeaHistory } from "./history-block.tsx";

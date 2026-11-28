@@ -43,7 +43,9 @@ export class AllowChanges {
 
   /**
    * Allows changes in the Caretaker's Thread. Refused in any other Thread, and while the Caretaker
-   * is answering, whose session runs under the rules it started with.
+   * is answering, whose session runs under the rules it started with: the check and the switch are
+   * one, so no answer begins between them. It stops no answer: only the session waiting for the
+   * next message ends, and an answer that read the switch off as it began goes on reading only.
    */
   async allow(threadId: string, by: UserRef): Promise<Thread> {
     const thread = await this.threads.read(threadId);
@@ -51,18 +53,18 @@ export class AllowChanges {
       throw new ThreadRefused(["Only the Caretaker's chat has Allow changes."]);
     }
     if (await this.changesAllowed.isAllowed(threadId)) return thread;
-    if (thread.state === "answering") {
+    if (!(await this.changesAllowed.allowUnlessAnswering(threadId, new Date()))) {
       throw new ThreadRefused(["Wait for the answer to finish, then Allow changes."]);
     }
-    await this.changesAllowed.allow(threadId, new Date());
-    await this.runner.stopAnswering(threadId, STOPPED_BY_SWITCHING_OFF);
+    await this.runner.endIdleSession(threadId);
     await this.threads.log(threadId, [{ kind: "changes-allowed", allowed: true, by }]);
     return this.threads.read(threadId);
   }
 
   /**
-   * Switches changes off in the Thread: its session ends at once, an answer under way too, and the
-   * Caretaker only reads again. Nothing when they weren't allowed.
+   * Switches changes off in the Thread: its session ends at once, an answer under way too, one
+   * whose session is still opening included, and the Caretaker only reads again. Nothing when they
+   * weren't allowed.
    */
   async switchOff(threadId: string, by: UserRef): Promise<Thread> {
     const thread = await this.threads.read(threadId);

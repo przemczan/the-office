@@ -57,7 +57,13 @@ readonly DOCKER_KEY_FINGERPRINT=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 readonly PGDG_KEY_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 readonly NODESOURCE_KEY_FINGERPRINT=6F71F525282841EEDAF851B42F59B5F99B1BE0B4
 
-readonly BASE_PACKAGES="ca-certificates curl gnupg git openssh-client"
+readonly BASE_PACKAGES="ca-certificates curl gnupg git openssh-client openssl"
+
+# The release key's public half, which signs each tarball's .sha256 (docs/releasing.md, "Signing a
+# release"): Ed25519, as base64 of its DER SubjectPublicKeyInfo. tools/office-launcher's
+# release-signing.ts pins the same key, and the tests check the two match. Empty, signing is off:
+# no signature is downloaded or checked.
+readonly RELEASE_SIGNING_KEY=''
 
 # How long the start may take to report the database up; the tests shorten it.
 readonly HEALTH_TIMEOUT_SECONDS=${THE_OFFICE_INSTALL_HEALTH_SECONDS:-180}
@@ -800,6 +806,14 @@ version_to_install() {
   fi
 }
 
+# signed_by_release_key <file> <signature>: whether <signature> is RELEASE_SIGNING_KEY's Ed25519
+# signature of <file>.
+signed_by_release_key() {
+  local key=$WORK_DIR/release-key.pem
+  printf -- '-----BEGIN PUBLIC KEY-----\n%s\n-----END PUBLIC KEY-----\n' "$RELEASE_SIGNING_KEY" >"$key"
+  openssl pkeyutl -verify -pubin -inkey "$key" -rawin -in "$1" -sigfile "$2" >>"$LOG" 2>&1
+}
+
 install_release() {
   local version
   version=$(version_to_install)
@@ -814,6 +828,13 @@ install_release() {
   mkdir -p "$download"
   run curl -fsSL -o "$download/$name" "$(asset_url "$(repository)" "$version" "$name")"
   run curl -fsSL -o "$download/$name.sha256" "$(asset_url "$(repository)" "$version" "$name.sha256")"
+  if [[ -n $RELEASE_SIGNING_KEY ]]; then
+    run curl -fsSL -o "$download/$name.sha256.sig" "$(asset_url "$(repository)" "$version" "$name.sha256.sig")"
+    signed_by_release_key "$download/$name.sha256" "$download/$name.sha256.sig" ||
+      die "$name.sha256 isn't signed by The Office's release key."
+  else
+    echo "No release key is pinned, so $name.sha256's signature isn't checked." >>"$LOG"
+  fi
   [[ $(awk '{ print $2 }' "$download/$name.sha256") == "$name" ]] || die "$name.sha256 doesn't name $name."
   (cd "$download" && sha256sum --check --quiet "$name.sha256" >>"$LOG" 2>&1) || die "$name doesn't match its sha256."
 

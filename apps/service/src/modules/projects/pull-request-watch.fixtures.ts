@@ -6,7 +6,7 @@ import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventsModule } from "../../platform/events/events.module.js";
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../engine/index.js";
-import { officeIdentityForTests } from "../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../office-identity/index.fixtures.js";
 import { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { GitHubModule, type GitHubUrls } from "../github/index.js";

@@ -28,15 +28,13 @@ import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OfficeUpdateAvailable } from "./office-update-available.js";
 import { OfficeUsers } from "./office-users.js";
-import { OpenDecisions } from "./open-decisions.js";
-import { OpenProposals } from "./open-proposals.js";
 import { PullRequestsWaiting } from "./pull-requests-waiting.js";
 import { ResumePlans } from "./resume-plans.js";
-import { ShapingReplies } from "./shaping-replies.js";
 import { SkillUpdatesFound } from "./skill-updates-found.js";
 import { StandInChoicesWaiting } from "./stand-in-choices-waiting.js";
 import { StartQueue } from "./start-queue.js";
 import { TaskStageProgress } from "./task-stage-progress.js";
+import { WaitingInConversations } from "./waiting-in-conversations.js";
 
 const STARTED_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
 
@@ -79,14 +77,6 @@ export class OfficeInitiativesForTests extends OfficeInitiatives {
 
   async tasksByInitiative(): Promise<ReadonlyMap<string, readonly InitiativeTask[]>> {
     return this.tasks;
-  }
-}
-
-export class OpenDecisionsForTests extends OpenDecisions {
-  open: OpenDecision[] = [];
-
-  async listOpen(): Promise<readonly OpenDecision[]> {
-    return this.open;
   }
 }
 
@@ -163,15 +153,6 @@ export class StandInChoicesWaitingForTests extends StandInChoicesWaiting {
   }
 }
 
-/** The open Proposals, as a test sets them; none unless set. */
-export class OpenProposalsForTests extends OpenProposals {
-  open: OpenProposal[] = [];
-
-  async waitingOnTheUser(): Promise<readonly OpenProposal[]> {
-    return this.open;
-  }
-}
-
 /** The pull requests needing attention, as a test sets them; none unless set. */
 export class PullRequestsWaitingForTests extends PullRequestsWaiting {
   pullRequests: PullRequestNeedingAttention[] = [];
@@ -199,13 +180,26 @@ export class OfficeUpdateAvailableForTests extends OfficeUpdateAvailable {
   }
 }
 
-/** The shapers' answers waiting on the user's reply, as a test sets them; none unless set. */
-export class ShapingRepliesForTests extends ShapingReplies {
+/**
+ * What waits on the user in Conversations, as a test sets it: the open Decisions, the open
+ * Proposals and the shapers' answers waiting on the user's reply; none unless set.
+ */
+export class WaitingInConversationsForTests extends WaitingInConversations {
+  decisions: OpenDecision[] = [];
+  proposals: OpenProposal[] = [];
   replies: ShapingReply[] = [];
-  /** The Initiatives each read asked about, in order. */
+  /** The Initiatives each read of the replies asked about, in order. */
   readonly asked: (readonly string[])[] = [];
 
-  async waitingForReply(initiativeIds: readonly string[]): Promise<readonly ShapingReply[]> {
+  async openDecisions(): Promise<readonly OpenDecision[]> {
+    return this.decisions;
+  }
+
+  async openProposals(): Promise<readonly OpenProposal[]> {
+    return this.proposals;
+  }
+
+  async initiativeReplies(initiativeIds: readonly string[]): Promise<readonly ShapingReply[]> {
     this.asked.push(initiativeIds);
     return this.replies.filter(({ initiativeId }) => initiativeIds.includes(initiativeId));
   }
@@ -233,7 +227,7 @@ export class OfficeUsersForTests extends OfficeUsers {
 const PORTS = [
   OfficeTasksForTests,
   OfficeInitiativesForTests,
-  OpenDecisionsForTests,
+  WaitingInConversationsForTests,
   TaskStageProgressForTests,
   DeskLimitForTests,
   StartQueueForTests,
@@ -243,11 +237,9 @@ const PORTS = [
   OfficeFireAlarmForTests,
   ResumePlansForTests,
   StandInChoicesWaitingForTests,
-  OpenProposalsForTests,
   PullRequestsWaitingForTests,
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
-  ShapingRepliesForTests,
   OfficeUsersForTests,
   OfficeOffBoardTasksForTests,
   OfficeToolRegistry,

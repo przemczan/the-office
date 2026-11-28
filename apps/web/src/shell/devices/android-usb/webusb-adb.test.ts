@@ -169,6 +169,7 @@ function recordingSink(): {
       open: (channel) => told.push(`open ${channel}`),
       pong: (id) => told.push(`pong ${id}`),
       fail: (problem) => told.push(`fail ${problem}`),
+      writable: () => Promise.resolve(),
     },
   };
 }

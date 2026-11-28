@@ -1,4 +1,4 @@
-import { promptTemplate } from "../../prompt-templates/index.js";
+import { promptTemplate } from "../../prompt-templates/index.domain.js";
 
 /** What a refused turn may have left, as both the held run's section and the sent-again message say. */
 const REFUSED_HALF_DONE =

@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { JSONRPCMessage, RequestId } from "@modelcontextprotocol/sdk/types.js";
 import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
-import { officeToolAnswer, textAnswer } from "../claude-code/office-tools.js";
+import { officeToolAnswer, textAnswer } from "../shared/office-tools.js";
 import type { ToolDecider } from "../office-rules/office-tool-call.js";
 import { OFFICE_TOOL_PREFIX, OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 

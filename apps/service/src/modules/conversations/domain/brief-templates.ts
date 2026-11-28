@@ -1,4 +1,4 @@
-import { promptTemplate } from "../../prompt-templates/index.js";
+import { promptTemplate } from "../../prompt-templates/index.domain.js";
 
 const MEMORY_VARIABLE = {
   memory: {

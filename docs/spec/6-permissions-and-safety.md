@@ -1,6 +1,6 @@
 # 6 Permissions and safety
 
-Covers: threat models, stored hashes, the two layers, language servers, Authority (Hard switches, MCP tools), the trust anchor, the user's alone (stopping a person's answer, deleting a chat Thread), tool areas, Project settings by Agents, no bypass, refusals, default profiles, what a record made in a Thread links to, reading records, a person's Office tools, Consultations' permissions and their one exception (the run environment definition), chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules, Authority by role.
+Covers: threat models, the web app's pages (security headers, Content-Security-Policy), stored hashes, the two layers, language servers, Authority (Hard switches, MCP tools), the trust anchor, the user's alone (stopping a person's answer, deleting a chat Thread, declining a Proposal, connecting and pairing devices), tool areas, Project settings by Agents, no bypass, refusals, default profiles, what a record made in a Thread links to, reading records, a person's Office tools, Consultations' permissions and their one exception (the run environment definition), chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules, Authority by role.
 
 ## Threat model
 
@@ -17,6 +17,16 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - It protects against a copy of the database, which holds no password, sign-in token or recovery code, only their hashes, so it signs nobody in.
 - It leaves out processes on the host, which can read The Office's data and run the recovery command anyway, and a hostile reverse proxy, which sees every request.
 - On a local network over plain HTTP a password and a cookie cross the network unencrypted, which the user accepts by using that address on a trusted network; the public address is HTTPS.
+
+## The web app's pages
+
+- Every response of The Office's port says `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`, so no browser guesses a file's type and no address of The Office goes to another site.
+- No other site may frame The Office: every response says `frame-ancestors 'none'`, unless it has a Content-Security-Policy of its own.
+- An HTML Attachment's preview may be framed by The Office's own pages alone ([2.1.2](2.1.2-ideas-and-attachments.md)).
+- The built web app's pages run only The Office's own scripts and the inline one it was built with, by its hash, and no `eval`.
+- They load images only from The Office itself, `data:` and `blob:`, and send requests and WebSockets only to its own origin.
+- They allow no plugins, no `<base>` and no form posting elsewhere, but to GitHub's website (`OFFICE_GITHUB_URL`), which registering the GitHub App posts its manifest to ([Settings](screens/settings.md)).
+- Markdown shows an image only from The Office itself; any other shows as a link by its alt text, so opening a text never has the browser reach another site.
 
 ## Only hashes are stored
 
@@ -128,6 +138,9 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - **Stopping a person's answer in a Thread:** an Agent stopping the user's own conversation isn't its call ([2.4.5](2.4.5-stopping-and-restarts.md#stop-in-a-persons-thread)).
 - **Deleting a chat Thread:** deleting the user's own conversation, for good, isn't an Agent's call ([2.4.1](2.4.1-threads.md#deleting-a-chat-thread)).
 - **Allow changes on a Caretaker Thread:** a Thread switch with no Office tool, which would widen the Caretaker's reach past Office tools, left out of scope; the user turns it on in the Thread ([2.4.1](2.4.1-threads.md#allow-changes)).
+- **Switching Allow changes off:** it stops the Caretaker's answer under way, and stopping a person's answer isn't an Agent's call ([2.4.1](2.4.1-threads.md#allow-changes), [2.4.5](2.4.5-stopping-and-restarts.md#stop-in-a-persons-thread)).
+- **Applying or declining a Proposal:** a Proposal is a person's call put to the user, so it stays the user's own click on its card; `answer_decision` never answers one ([A person's Office tools](#a-persons-office-tools)).
+- **Connecting a device to a Task, adding a Project device and pairing one:** over USB the browser's own device picker asks the user, and over wireless debugging the user types the pairing code from the phone, which never goes into a record or a log ([Connected devices](#connected-devices)); an Agent lends a Project device instead ([2.13](2.13-connected-devices.md#lent-to-a-task)).
 - **Not the user's alone:** these are in Authority, each with a preset default ([Authority by role](#authority-by-role)):
   - Reopen a Dropped Task, Restart from a Stage (Skip a Stage among it) and Start over: Work › Gates and runs;
   - a Gate's Continue on others' work, and Send back and Drop at a Gate: Work › Gates and runs;
@@ -404,9 +417,11 @@ Covers: threat models, stored hashes, the two layers, language servers, Authorit
 - The Office ends a session's leftover processes (dev servers, watchers) when its Stage ends.
 - `.git`, `.claude` and `.mcp.json` are protected paths: the hook refuses Agents' writes there first (but the Caretaker's with Allow changes on), with a clear reason.
 - `.gemini/settings.json`, anywhere in the worktree, is a protected path too, refused the same way on every engine; the rest of `.gemini/` stays writable ([why](5.4.7-gemini-cli-engine.md#gemini-cli-the-repositorys-gemini-settings)).
+- A shell command writing a protected path or `.devcontainer/` is refused with the reason Edit and Write get: a redirect's target, or a path named by a program that writes, moves or removes the files it names (`cp`, `mv`, `rm`, `tee`, `touch`, `mkdir`, `dd of=`, `sed -i`, `perl -i`, `Set-Content`, `Copy-Item` and the like), the source of a copy included, wherever the line's `cd`s lead.
+- A program writing by its own code, such as `node -e`, isn't read: the rule guards against an Agent's mistakes ([Threat model](#threat-model)).
 - The engine's own protection of those paths (it never auto-approves them, and its refusal reads like any other prompt refusal) stays as a backstop; it still refuses a Claude Code engine's Edit and Write there for the Caretaker too, who changes those paths by commands instead.
 - The Office's own writes there go through Office code, not Agents.
-- `.devcontainer/`, the repository's run environment definition ([5.5](5.5-git-and-isolation.md)), is written only through The Office: the hook refuses Agents' Write and Edit there, with a reason naming `write_run_environment_definition`, the Office tool an Agent Stage, or a Consultation on a Task, of a Role with the Run environment capability gets ([2.2](2.2-people.md)).
+- `.devcontainer/`, the repository's run environment definition ([5.5](5.5-git-and-isolation.md)), is written only through The Office: the hook refuses Agents' Write and Edit there, and their commands writing there, with a reason naming `write_run_environment_definition`, the Office tool an Agent Stage, or a Consultation on a Task, of a Role with the Run environment capability gets ([2.2](2.2-people.md)).
 - The tool takes devcontainer.json and its compose files whole, checks them as The Office reads the definition, and writes them into the Task's worktree only when it is valid; otherwise it writes nothing and answers every problem found.
 - Who else gets the tool, and who never does, is in [the one exception](#the-one-exception-the-run-environment-definition).
 - No allow rule lifts the engine's own protection of `.devcontainer/`, which refuses a Write there past a hook `allow` (the engine check's `permissions.devcontainer`) and stays as the backstop on every other session.

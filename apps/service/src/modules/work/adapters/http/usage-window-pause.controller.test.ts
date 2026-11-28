@@ -15,7 +15,7 @@ import {
 } from "../../../engine/index.js";
 import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
-import { TaskLocks } from "../../../../platform/locks/task-locks.js";
+import { TaskLocks } from "../../application/task-locks.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { TaskService } from "../../application/task-service.js";

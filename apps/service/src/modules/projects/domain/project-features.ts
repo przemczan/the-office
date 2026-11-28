@@ -14,6 +14,13 @@ export const PROJECT_FEATURES = [
 ] as const;
 export type ProjectFeature = (typeof PROJECT_FEATURES)[number];
 
+/**
+ * The switch of a Project's issues on its code host. Its key and name say GitHub, the one code
+ * host with issues today, as the spec and the contract name it; code reads the switch by this
+ * name, never by its key.
+ */
+export const ISSUES_FEATURE = "github-issues" satisfies ProjectFeature;
+
 /** A feature's rules: what it needs on, and how it reads while the Project never set it. */
 export interface ProjectFeatureEntry {
   readonly needs: readonly ProjectFeature[];

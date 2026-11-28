@@ -6,6 +6,7 @@ A module is a bounded context of [spec §5.3](../../../docs/spec/5.3-modules.md)
 src/modules/work/
   index.ts           the public entry: what other modules and the composition root may use
   index.fixtures.ts  optional: the fixtures other modules' tests may use
+  index.domain.ts    optional: the pure values of its domain other modules' domains may use
   work.module.ts     the Nest module: providers, and the adapter bound to each port
   domain/            entities, rules, and domain events (subclasses of DomainEvent)
   ports/             what the application needs from outside, as interfaces
@@ -17,14 +18,16 @@ src/modules/work/
     websocket/       which of the module's events reach the web, and as what
 ```
 
-`index.ts` exports the Nest module, the application services other modules call, and the domain events they subscribe to. Nothing else leaves the module: not its entities, ports, adapters or tables.
+`index.ts` exports the Nest module, the application services other modules call, and the domain events they subscribe to. Nothing else leaves the module: not its entities, ports, adapters or tables. `index.domain.ts`, the domain entry, re-exports from the module's own `domain/` alone the values and rules other modules' domains use (Engine's engine types, People's duties and Authority, Prompt templates' `promptTemplate`), so importing it loads no Nest module; they are in `index.ts` too.
 
 ## The rules
 
 `npm run verify` enforces these with the oxlint rules `office/module-boundaries` and `office/workspace-boundaries` from [tools/lint-rules](../../../tools/lint-rules/src/plugin.ts).
 
 - **Layers import only inward:** adapters → application → ports → domain. A layer imports its own files and the inner layers; the root files import any of them, and no layer imports the root files.
-- **Another module is reached only through its `index.ts`**, from other modules and the composition root alike; their tests may also use its `index.fixtures.ts`. Modules talk through application services and domain events, and none reads another's tables.
+- **Another module is reached only through its `index.ts`**, from other modules and the composition root alike, or its `index.domain.ts`; their tests may also use its `index.fixtures.ts`. Modules talk through application services and domain events, and none reads another's tables.
+- **A domain takes another module's `index.ts` only with `import type`.** Its values would load that module's Nest module, ports and adapters into a domain meant to be pure (`import { type A }` loads it too, under `verbatimModuleSyntax`); a domain takes them from the other module's `index.domain.ts`, which imports nothing but its own `domain/`. Tests may load anything.
+- **An engine type's adapter reaches no other engine type's.** In the Engine module, `adapters/<engine type>/` (`agent-sdk`, `claude-code`, `claude-code-p`, `codex`, `copilot-cli`, `gemini-cli`, `openai-compatible-api`, `scripted`) imports its own folder, `adapters/shared/` (the engine-neutral code, which imports no engine type) and the engine's other adapters, so a change to one engine type reaches no other. The Claude Code family is the one exception: `agent-sdk/` and `claude-code-p/` both run Claude Code and share `claude-code/`. Tests and fixtures may use other engine types' fakes.
 - **The platform is below the modules** and never imports one. The domain and ports layers take only `src/platform/events/domain-event.ts` from it; application and adapters use all of it.
 - **Only adapters import `@the-office/contracts`.** The contracts are the wire format; the inner layers never see it.
 - **A module holds only its four layers and its root files.** A layer importing from any other folder in the module is refused.
@@ -39,12 +42,12 @@ oxlint's JS plugins are alpha and not under semver. oxlint is pinned, and the pl
 
 - **Domain events:** every state change emits one ([spec §5.3](../../../docs/spec/5.3-modules.md)). Application services publish it on the global `EventBus`. A module that reacts to another's events subscribes to the event class it imports from that module's `index.ts`.
 - **The WebSocket push:** the module's WebSocket adapter calls `WebEventForwarding.forward(EventClass, toWebEvent)` for each event the web sees. The event's schema goes into `packages/contracts`, in the union the web parses. Events nobody forwards stay inside the service.
-- **The database:** Postgres adapters inject the Drizzle client with the `DATABASE` token; no other layer touches it. Tables live in `adapters/**/*.schema.ts`, the glob drizzle-kit reads. `npm run db:generate` writes the migration into `drizzle/`, and the service applies pending migrations at start.
+- **The database:** Postgres adapters inject the Drizzle client with the `DATABASE` token; no other layer touches it. Tables live in `adapters/**/*.schema.ts`, the glob drizzle-kit reads. `npm run db:generate` writes the migration into `drizzle/`, and the service applies pending migrations at start. A migration only expands what the previous release reads ([AGENTS.md](../../../AGENTS.md), "Migrations keep the previous release working"): read the SQL drizzle-kit wrote, and treat `DROP NOT NULL`, `DROP CONSTRAINT`, a new enum or CHECK value and a dropped or renamed column as contracting, which waits for the release after the code that stops needing it.
 - **Telemetry:** spans and token counts go through `Telemetry` (`inSpan`, `recordTokens`), never `@opentelemetry/*` directly. HTTP requests and database queries are traced without it. Logs go through Nest's `Logger`, which also exports them.
 - **Uploads:** a module's `configure` applies `uploadBody(limit)` from `src/platform/http/` to its upload routes, and the controller reads the bytes with `uploadedBytes(body)`; the file comes as `application/octet-stream`, its name in the query.
 - **Jobs of its own:** a module that runs a job by the clock imports `ScheduleModule` from `src/platform/schedule/` and asks `Schedule.daily(name, job)` in `onApplicationBootstrap`; never `setInterval`. Tests run the job with a `ManualSchedule` (`runDaily`).
 - **The Office data directory:** inject `OfficeDataDirectory` and ask it for its `folder("worktrees")`, `"sessions"`, `"skills"` or `"attachments"`.
-- **git:** a module that runs git imports `GitIdentityModule` from `src/platform/git-identity/` and runs each command with what `OfficeIdentity.forGitCommand(remote, inherited)` gives: its `configArguments` before the subcommand and its `variables` as the whole environment. The `identity` folder is the identity's own.
+- **git:** a module that runs git imports `GitIdentityModule` from the Office identity module's `index.ts` (`src/modules/office-identity/`) and runs each command with what `OfficeIdentity.forGitCommand(remote, inherited)` gives: its `configArguments` before the subcommand and its `variables` as the whole environment. The `identity` folder is the identity's own.
 - **The operating system:** anything that differs between Windows and Linux comes from `src/platform/os/`: ask `currentOperatingSystem()` for it (the data directory default, path rules, the default shell), never which system it is. A lint rule refuses `process.platform`, `os.platform()` and `os.type()` anywhere else.
 
 ## A business module

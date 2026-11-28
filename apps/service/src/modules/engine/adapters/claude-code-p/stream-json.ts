@@ -101,6 +101,7 @@ export class StreamJson {
         this.settle(line["response"] as ControlAnswer);
         return;
       case "control_request":
+        // oxlint-disable-next-line office/caught-voided-calls -- a failure is answered as a refusal
         void this.answerRequest(line["request_id"], line["request"] as HostRequest | undefined);
         return;
       case "control_cancel_request":

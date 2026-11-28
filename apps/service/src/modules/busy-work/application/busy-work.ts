@@ -45,7 +45,7 @@ export class BusyWork {
   }
 
   private changed(): void {
-    // The bus logs a failing reaction itself.
+    // oxlint-disable-next-line office/caught-voided-calls -- the bus logs a failing reaction itself
     void this.events.publish(new BusyWorkChanged(this.going.size));
   }
 }

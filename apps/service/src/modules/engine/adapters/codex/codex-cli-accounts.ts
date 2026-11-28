@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { OnModuleDestroy } from "@nestjs/common";
+import { Logger, type OnModuleDestroy } from "@nestjs/common";
 import { KeyedLocks } from "../../../../platform/locks/keyed-locks.js";
 import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
@@ -19,6 +19,8 @@ import {
 } from "../engine-folders/engine-config-folder.js";
 import { codexAppServerArguments, codexEnvironment } from "./codex-arguments.js";
 import { CodexAppServer, CodexRpcError, METHOD_NOT_FOUND } from "./codex-rpc.js";
+
+const logger = new Logger("CodexCliAccounts");
 
 /** How the Codex binary is run: the pinned one in the service, a stand-in script in tests. */
 export interface CodexCli {
@@ -128,6 +130,7 @@ export class CodexCliAccounts extends CodexAccounts implements OnModuleDestroy {
       const child = await this.spawnCodex(engineId, ["login", "--device-auth"]);
       const started = new RunningDeviceLogin(child, this.processTrees);
       this.signIns.set(engineId, started);
+      // oxlint-disable-next-line office/caught-voided-calls -- a login's end never rejects
       void started.ended.then(() => this.forget(engineId, started));
       return started;
     });
@@ -246,7 +249,10 @@ export class CodexCliAccounts extends CodexAccounts implements OnModuleDestroy {
     });
     const giveUp = setTimeout(() => {
       output += "\nit didn't end in time.";
-      if (child.pid !== undefined) void this.processTrees.end(child.pid);
+      if (child.pid === undefined) return;
+      void this.processTrees.end(child.pid).catch((error: unknown) => {
+        logger.warn(`Codex, which didn't end in time, wasn't ended: ${messageOf(error)}`);
+      });
     }, COMMAND_TIMEOUT_MS);
     if (input !== undefined) child.stdin.write(input);
     child.stdin.end();
@@ -267,9 +273,19 @@ class RunningDeviceLogin {
     private readonly child: ChildProcessWithoutNullStreams,
     private readonly processTrees: ProcessTrees,
   ) {
+    const giveUp = setTimeout(() => {
+      void this.end().catch((error: unknown) => {
+        logger.warn(`The Codex Sign in that ran too long didn't end: ${messageOf(error)}`);
+      });
+    }, SIGN_IN_TIMEOUT_MS);
+    giveUp.unref();
     this.ended = new Promise((resolve) => {
-      child.once("close", () => resolve());
-      child.once("error", () => resolve());
+      const ended = (): void => {
+        clearTimeout(giveUp);
+        resolve();
+      };
+      child.once("close", ended);
+      child.once("error", ended);
     });
     this.page = this.pageOf(child);
     child.stdin.on("error", () => undefined);
@@ -277,9 +293,6 @@ class RunningDeviceLogin {
     child.stdin.end();
     // A rejected page is awaited by the Sign in; this only keeps a late rejection quiet.
     this.page.catch(() => undefined);
-    const giveUp = setTimeout(() => void this.end(), SIGN_IN_TIMEOUT_MS);
-    giveUp.unref();
-    void this.ended.then(() => clearTimeout(giveUp));
   }
 
   async end(): Promise<void> {

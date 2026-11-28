@@ -25,6 +25,7 @@ import { answerSignIn } from "./sign-in-answers.js";
 import { pendingSignInTokenOf } from "./sign-in-cookie.js";
 import { pageAddressOf, signInRequestOf } from "./sign-in-request.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
+import { OpenWithoutSignIn } from "../../../../platform/http/sign-in-guard.js";
 
 /**
  * The sign-in pages (spec §2.10), open to anyone that passed the Host and Origin checks: every way
@@ -32,6 +33,7 @@ import { UserRefusalsFilter } from "./user-refusals.filter.js";
  * open.
  */
 @Controller("sign-in")
+@OpenWithoutSignIn()
 @UseFilters(UserRefusalsFilter)
 export class SignInController {
   constructor(

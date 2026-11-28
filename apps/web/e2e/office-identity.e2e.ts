@@ -639,7 +639,7 @@ test.describe.serial("Sign in with GitHub", () => {
       await expect(row).toContainText(`CI #7 · ${title}`);
 
       await row.getByRole("button", { name: `More for CI #7 · ${title}` }).click();
-      await page.getByRole("menu").getByRole("button", { name: "Re-run failed jobs" }).click();
+      await page.getByRole("menu").getByRole("menuitem", { name: "Re-run failed jobs" }).click();
 
       // The re-run lists the Project at once, and the fake's run starts again, queued.
       await expect(row).toContainText("Queued", { timeout: 30_000 });

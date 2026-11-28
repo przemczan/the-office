@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
+import { ISSUES_FEATURE, PROJECT_FEATURE_REGISTRY } from "../domain/project-features.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import type { CodeHost } from "../ports/code-host.js";
 import { Git } from "../ports/git.js";
@@ -37,24 +38,26 @@ export class ProjectIssueHosts {
     return (await this.of(project))?.host.name ?? null;
   }
 
-  /** The Project's host, whose issues can be read now; refused, saying why, otherwise. */
+  /**
+   * The Project's host, whose issues can be read now; refused, saying why, otherwise, in the words
+   * of the issues' switch and of the code hosts.
+   */
   async readable(project: Project): Promise<ProjectIssueHost> {
+    const issues = PROJECT_FEATURE_REGISTRY[ISSUES_FEATURE].name;
     const remoteUrl = await this.remoteUrlOf(project);
     if (remoteUrl === undefined) {
       throw new ProjectRefused([
-        `${project.name}'s base branch ${project.baseBranch} tracks no remote, so it has no GitHub issues.`,
+        `${project.name}'s base branch ${project.baseBranch} tracks no remote, so it has no ${issues}.`,
       ]);
     }
     const host = this.codeHosts.of(remoteUrl);
     if (host === undefined) {
       throw new ProjectRefused([
-        `GitHub issues need a repository on GitHub. This Project's is at ${hostOf(remoteUrl)}.`,
+        `${issues} need a repository on ${this.codeHosts.names}. This Project's is at ${hostOf(remoteUrl)}.`,
       ]);
     }
     if ((await host.whyCannotRead(remoteUrl)) !== undefined) {
-      throw new ProjectRefused([
-        "Sign in with GitHub in Settings › Office identity to import issues.",
-      ]);
+      throw new ProjectRefused([`${host.signInWords} to import issues.`]);
     }
     return { remoteUrl, host };
   }

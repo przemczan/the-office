@@ -5,10 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { interruptedOutcome } from "../../domain/stage-interruption.js";
-import { endStageRun } from "../../domain/stage-run-changes.js";
+import {
+  endStageRun,
+  holdStageRun,
+  keepAnswers,
+  keepDecision,
+  keepGateAction,
+} from "../../domain/stage-run-changes.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import { aStageRun } from "../../domain/stage-run.fixtures.js";
-import type { StageRun } from "../../domain/stage-run.js";
+import type { StageOutcome, StageRun, StageRunDecision } from "../../domain/stage-run.js";
 import { PostgresStageRunRepository } from "./postgres-stage-run-repository.js";
 import { PostgresTaskStagesRepository } from "./postgres-task-stages-repository.js";
 
@@ -39,6 +45,10 @@ async function runOf(taskId: string): Promise<StageRun | undefined> {
   return (await runs.list(taskId))[0];
 }
 
+function ended(run: StageRun, outcome: StageOutcome) {
+  return runs.update(run.id, (held) => endStageRun(held, outcome, new Date()));
+}
+
 describe("PostgresStageRunRepository's changed files", () => {
   it("keeps where the run left the branch with the files its commit changed", async () => {
     const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
@@ -46,7 +56,7 @@ describe("PostgresStageRunRepository's changed files", () => {
     const changedFiles = ["src/old-name.ts", "src/new-name.ts", "README.md"];
 
     await runs.saveLeftBranch(run.id, { headCommit: "c".repeat(40), changedFiles });
-    await runs.saveEnded({ ...run, outcome: { status: "done", summary: "Done." } });
+    await ended(run, { status: "done", summary: "Done." });
 
     expect(await runOf(run.taskId)).toMatchObject({ headCommit: "c".repeat(40), changedFiles });
   });
@@ -59,7 +69,7 @@ describe("PostgresStageRunRepository's changed files", () => {
 
     await runs.saveLeftBranch(leftAsFound.id, { headCommit: "a".repeat(40), changedFiles: [] });
     expect((await runOf(gate.taskId))?.changedFiles).toBeUndefined();
-    await runs.saveEnded({ ...gate, outcome: { status: "done", summary: "Approved." } });
+    await ended(gate, { status: "done", summary: "Approved." });
 
     expect((await runOf(leftAsFound.taskId))?.changedFiles).toEqual([]);
     expect((await runOf(gate.taskId))?.changedFiles).toEqual([]);
@@ -87,30 +97,149 @@ describe("PostgresStageRunRepository's hold", () => {
     const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
     await runs.saveNew(run);
 
-    const stopped = interruptedOutcome("stop", [], { heldByUser: BEN_ITO });
-    await runs.saveEnded(endStageRun(run, stopped, new Date()).run);
+    await ended(run, interruptedOutcome("stop", [], { heldByUser: BEN_ITO }));
 
     expect(await runOf(run.taskId)).toMatchObject({ heldBy: "stop", heldByUser: BEN_ITO });
   });
 
-  it("keeps what the walk saved was asked of the run over what its end honoured", async () => {
+  it("keeps what the walk saved was asked of the run over a weaker hold its end honoured", async () => {
     const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
     await runs.saveNew(run);
 
-    await runs.saveHeldBy(run.id, "stop", BEN_ITO);
-    const paused = interruptedOutcome("pause", [], { heldByUser: ANN_LEE });
-    await runs.saveEnded(endStageRun(run, paused, new Date()).run);
+    await runs.update(run.id, (held) => holdStageRun(held, "stop", BEN_ITO));
+    // The end reads the run as stored, not the copy the walk started it from.
+    await ended(run, interruptedOutcome("pause", [], { heldByUser: ANN_LEE }));
 
     expect(await runOf(run.taskId)).toMatchObject({ heldBy: "stop", heldByUser: BEN_ITO });
+  });
+
+  it("keeps the Stop of a Pause and a Stop asked at once, whichever is saved first", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+
+    await Promise.all([
+      runs.update(run.id, (held) => holdStageRun(held, "pause", ANN_LEE)),
+      runs.update(run.id, (held) => holdStageRun(held, "stop", BEN_ITO)),
+      runs.update(run.id, (held) => holdStageRun(held, "pause", ANN_LEE)),
+    ]);
+    await ended(run, interruptedOutcome("stop", [], { heldByUser: BEN_ITO }));
+
+    expect(await runOf(run.taskId)).toMatchObject({ heldBy: "stop", heldByUser: BEN_ITO });
+  });
+
+  it("holds an ended run no more", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+    await ended(run, { status: "done", summary: "Done." });
+
+    const held = await runs.update(run.id, (stored) => holdStageRun(stored, "stop", BEN_ITO));
+
+    expect(held).toBeUndefined();
+    expect(await runOf(run.taskId)).toMatchObject({ heldBy: undefined, heldByUser: undefined });
   });
 
   it("keeps none for a run that ended without being held", async () => {
     const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
     await runs.saveNew(run);
 
-    await runs.saveEnded(endStageRun(run, { status: "done", summary: "Done." }, new Date()).run);
+    await ended(run, { status: "done", summary: "Done." });
 
     expect(await runOf(run.taskId)).toMatchObject({ heldBy: undefined, heldByUser: undefined });
+  });
+
+  it("ends a run once: a second end is refused and changes nothing", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+    await ended(run, { status: "done", summary: "Done." });
+
+    await expect(ended(run, { status: "failed", error: "Too late." })).rejects.toThrow(
+      "has already ended done",
+    );
+    expect((await runOf(run.taskId))?.outcome).toEqual({ status: "done", summary: "Done." });
+  });
+});
+
+function walkDecisionOf(id: string): StageRunDecision {
+  return { id, kind: "route-limit", options: [{ kind: "drop" }], answer: undefined };
+}
+
+function agentDecisionOf(id: string): StageRunDecision {
+  const options = [{ kind: "answered", answer: "Yes" } as const];
+  return { id, kind: "agent", question: "Go on?", options, answer: undefined };
+}
+
+describe("PostgresStageRunRepository's Decisions", () => {
+  it("keeps every Decision kept on the run at once", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID() });
+    await runs.saveNew(run);
+    const ids = Array.from({ length: 8 }, () => randomUUID());
+
+    await Promise.all(
+      ids.map((id) => runs.update(run.id, (held) => keepDecision(held, agentDecisionOf(id)))),
+    );
+
+    expect((await runOf(run.taskId))?.decisions.map(({ id }) => id).toSorted()).toEqual(
+      ids.toSorted(),
+    );
+  });
+
+  it("keeps an answer given while another Decision is kept on the run", async () => {
+    const answered = walkDecisionOf(randomUUID());
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), decisions: [answered] });
+    await runs.saveNew(run);
+    const asked = agentDecisionOf(randomUUID());
+
+    await Promise.all([
+      runs.update(run.id, (held) => keepDecision(held, asked)),
+      runs.update(run.id, (held) =>
+        keepAnswers(held, new Map([[answered.id, { kind: "option", option: 0 }]])),
+      ),
+    ]);
+
+    expect((await runOf(run.taskId))?.decisions).toEqual(
+      expect.arrayContaining([{ ...answered, answer: { kind: "drop" } }, asked]),
+    );
+  });
+
+  it("takes one answer of a Decision answered twice at once", async () => {
+    const decision = agentDecisionOf(randomUUID());
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), decisions: [decision] });
+    await runs.saveNew(run);
+
+    const taken = await Promise.all(
+      ["first", "second"].map((text) =>
+        runs.update(run.id, (held) =>
+          keepAnswers(held, new Map([[decision.id, { kind: "free-answer", text }]])),
+        ),
+      ),
+    );
+
+    const kept = taken.filter((change) => change !== undefined);
+    expect(kept).toHaveLength(1);
+    expect((await runOf(run.taskId))?.decisions).toEqual(kept[0]?.run.decisions);
+  });
+});
+
+describe("PostgresStageRunRepository's update", () => {
+  it("refuses a run there is none of", async () => {
+    await expect(
+      runs.update(randomUUID(), (run) => holdStageRun(run, "pause", undefined)),
+    ).rejects.toThrow("There is no Stage run");
+  });
+
+  it("takes one Gate action of two at once", async () => {
+    const gate = aStageRun({ id: randomUUID(), taskId: randomUUID(), stageKey: "approve" });
+    await runs.saveNew(gate);
+    const byUser = { userId: randomUUID(), name: "Ann Lee" };
+
+    const taken = await Promise.all([
+      runs.update(gate.id, (run) => keepGateAction(run, { kind: "continue", byUser })),
+      runs.update(gate.id, (run) => keepGateAction(run, { kind: "drop", byUser })),
+    ]);
+
+    expect(taken.filter((change) => change !== undefined)).toHaveLength(1);
+    const kept = taken.find((change) => change !== undefined)?.run.gateAction;
+    expect((await runOf(gate.taskId))?.gateAction).toEqual(kept);
   });
 });
 

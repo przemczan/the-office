@@ -19,7 +19,7 @@ import { BaseCheckouts } from "./base-checkouts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
 import { TaskBasesForTests } from "./task-bases.fixtures.js";
-import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../office-identity/index.fixtures.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
 /** The Projects as kept: only listing them matters here. */

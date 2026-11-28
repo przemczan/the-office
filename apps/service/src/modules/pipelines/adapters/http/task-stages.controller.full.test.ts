@@ -141,7 +141,7 @@ describe("GET /api/tasks/:id/stages", () => {
     };
     await pipelines.app
       .get(StageRunRepository, { strict: false })
-      .saveEnded({ ...run, outcome: older });
+      .update(run.id, (stored) => ({ run: { ...stored, outcome: older } }));
 
     const { stages } = await stagesOf(taskId);
 

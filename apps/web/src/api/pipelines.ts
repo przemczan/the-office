@@ -43,7 +43,7 @@ import {
 } from "@the-office/contracts";
 import { callOfficeAction, deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { OFF_BOARD_TASKS } from "./off-board-tasks.ts";
-import { taskEngineCascadeKey } from "./people.ts";
+import { ENGINE_CASCADE, taskEngineCascadeKey } from "./people.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pipeline-keys.ts";
@@ -404,15 +404,21 @@ function staleStageTemplates(): readonly (readonly unknown[])[] {
 
 /**
  * Each of the walk's events makes the Stages of the Task it names stale, and the Projects'
- * Off-board Tasks, whose cards show the current Stage and who works it.
+ * Off-board Tasks, whose cards show the current Stage and who works it. An event this page can't
+ * read, as after an Office update, makes every Task's stale.
  */
 function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
-  return [taskStagesKey(taskIdOf(event)), OFF_BOARD_TASKS];
+  const taskId = taskIdOf(event);
+  return [taskId === undefined ? EVERY_TASK : taskStagesKey(taskId), OFF_BOARD_TASKS];
 }
 
 /** A change of a Task's Stages changes the Roles they name, so what each runs on for the Task too. */
 function staleTaskStagesAndRoles(event: unknown): readonly (readonly unknown[])[] {
-  return [...staleTaskStages(event), taskEngineCascadeKey(taskIdOf(event))];
+  const taskId = taskIdOf(event);
+  return [
+    ...staleTaskStages(event),
+    taskId === undefined ? ENGINE_CASCADE : taskEngineCascadeKey(taskId),
+  ];
 }
 
 /**
@@ -421,6 +427,7 @@ function staleTaskStagesAndRoles(event: unknown): readonly (readonly unknown[])[
  */
 function staleTaskStagesAndChanges(event: unknown): readonly (readonly unknown[])[] {
   const taskId = taskIdOf(event);
+  if (taskId === undefined) return [EVERY_TASK, COMMAND_OUTPUTS_KEY];
   return [
     taskStagesKey(taskId),
     taskChangesKey(taskId),
@@ -434,10 +441,15 @@ function staleStandInChoices(): readonly (readonly unknown[])[] {
   return [STAND_IN_CHOICES_KEY];
 }
 
-function taskIdOf(event: unknown): string {
-  const parsed = pipelinesWebEventSchema.parse(event);
-  if (!("taskId" in parsed)) throw new Error(`A ${parsed.type} event names no Task.`);
-  return parsed.taskId;
+/** Every Task's queries, its Stages and Changes among them. */
+const EVERY_TASK: readonly unknown[] = ["tasks"];
+
+/** The Task the event names; undefined when this page can't read it, as after an Office update. */
+function taskIdOf(event: unknown): string | undefined {
+  const parsed = pipelinesWebEventSchema.safeParse(event);
+  if (!parsed.success) return undefined;
+  if (!("taskId" in parsed.data)) throw new Error(`A ${parsed.data.type} event names no Task.`);
+  return parsed.data.taskId;
 }
 
 export const pipelineEventInvalidations: Readonly<

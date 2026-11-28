@@ -6,6 +6,7 @@ export {
 } from "./adapters/scripted/scripted-container-runtime.js";
 export { KnownPeopleForTests, KnownPeopleForTestsModule } from "./ports/known-people.fixtures.js";
 export {
+  restartedTestbed,
   runEnvironmentsTestbed,
   taskIn,
   writeFiles,
@@ -18,4 +19,8 @@ export {
   realRuntimeMissing,
 } from "./adapters/compose/compose-command-line.fixtures.js";
 export { DeviceHelperSource } from "./application/device-helper-files.js";
-export { DEFAULT_RUN_ENVIRONMENT_OPTIONS, officeLabels } from "./domain/run-environment.js";
+export {
+  DEFAULT_RUN_ENVIRONMENT_OPTIONS,
+  IDLE_STOP_MS,
+  officeLabels,
+} from "./domain/run-environment.js";

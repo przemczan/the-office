@@ -71,6 +71,7 @@ export class ThreadWebEvents implements OnModuleInit {
     this.forwarding.forward(MessagesLogged, (event): WebEventOf<"thread.messages-logged"> => ({
       type: "thread.messages-logged",
       ...namesOf(event.thread),
+      threadChanged: event.threadChanged,
     }));
     // The web reads the Thread again, its `engine-switched` line and session's engine with it.
     this.forwarding.forward(
@@ -78,6 +79,7 @@ export class ThreadWebEvents implements OnModuleInit {
       (event): WebEventOf<"thread.messages-logged"> => ({
         type: "thread.messages-logged",
         ...namesOf(event.thread),
+        threadChanged: true,
       }),
     );
     this.forwarding.forward(DeliveryMarked, (event): WebEventOf<"thread.delivery-marked"> => ({

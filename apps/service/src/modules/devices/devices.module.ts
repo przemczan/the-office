@@ -41,10 +41,10 @@ export interface DevicesModuleOptions {
    * `TaskConnectedDevices`, Projects' `TaskWorktrees`, `ProjectFeatures`, `PairingDefinitionExports`
    * and `ProjectDeviceLines`, Run environments' `RunEnvironments`, `DeviceHelperFiles`,
    * `RunEnvironmentCommandVariables`, `ProjectRunEnvironments` and `PairingEnvironments`, and
-   * Conversations' `ThreadService`, which knows the person behind the Office actions.
+   * Conversations' `SessionThreads`, which knows the person behind the Office actions.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
-  /** Conversations' `ThreadService`, which knows the person at work in an engine session. */
+  /** Conversations' `SessionThreads`, which knows the person at work in an engine session. */
   readonly sessionPeople: Type<SessionPeople>;
 }
 

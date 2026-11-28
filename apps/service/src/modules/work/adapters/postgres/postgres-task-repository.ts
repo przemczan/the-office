@@ -17,6 +17,7 @@ import {
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
+import { retriedTransaction } from "../../../../platform/database/retried-transaction.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Neighbours } from "../../domain/manual-order.js";
 import {
@@ -334,12 +335,14 @@ export class PostgresTaskRepository extends TaskRepository {
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<readonly TaskChange<Event>[]> {
     return forgettingReads(() =>
-      this.database.transaction(async (transaction) => {
+      retriedTransaction(this.database, async (transaction) => {
         await holdStarts(transaction);
+        // In id order, as every hold of several Tasks takes them.
         const started = await transaction
           .select()
           .from(tasks)
           .where(inArray(tasks.state, [...STARTED_STATES]))
+          .orderBy(asc(tasks.id))
           .for("update");
         const changes: TaskChange<Event>[] = [];
         for (const task of started.map(toTask)) {

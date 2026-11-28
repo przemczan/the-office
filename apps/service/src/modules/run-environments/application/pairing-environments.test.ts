@@ -1,4 +1,4 @@
-import { access, readFile, rm } from "node:fs/promises";
+import { access, mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
@@ -13,6 +13,7 @@ import {
 } from "../domain/run-environment.js";
 import type { PairingEnvironmentStart } from "./pairing-environments.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   taskIn,
   writeFiles,
@@ -268,7 +269,7 @@ describe("PairingEnvironments.sweep", () => {
       },
     });
 
-    await testbed.pairingEnvironments.sweep();
+    await (await restartedTestbed(testbed, runtime)).pairingEnvironments.sweep();
 
     expect(runtime.projects.has(projectName)).toBe(false);
     expect(runtime.resources.map(({ id }) => id).toSorted()).toEqual(
@@ -281,7 +282,37 @@ describe("PairingEnvironments.sweep", () => {
       ].toSorted(),
     );
     expect(runtime.resources.some(({ labels }) => labels[LABEL.task] === "task-1")).toBe(true);
-    expect(await exists(testbed.folders.pairings)).toBe(false);
+    expect(await exists(testbed.folders.pairingFolder(DEVICE_ID))).toBe(false);
     expect(await exists(testbed.folders.taskFolder("task-1"))).toBe(true);
+  });
+
+  it("leaves a pairing started since the service started running", async () => {
+    const environment = await testbed.pairingEnvironments.start(await pairing());
+
+    await testbed.pairingEnvironments.sweep();
+
+    expect(runtime.projects.get(projectName)?.state).toBe("running");
+    await expect(environment.attach({ arguments: ["true"] })).resolves.toBeDefined();
+  });
+
+  it("removes one the down of which fails by its labels, and the files of one with no resource left", async () => {
+    await testbed.pairingEnvironments.start(await pairing());
+    const restarted = await restartedTestbed(testbed, runtime);
+    const filesOnly = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
+    await mkdir(testbed.folders.pairingFolder(filesOnly), { recursive: true });
+    runtime.failing.add("down");
+
+    await restarted.pairingEnvironments.sweep();
+
+    expect(runtime.steps).toContain(
+      `remove ${JSON.stringify({
+        "office.managed": "true",
+        "office.instance": testbed.folders.instance,
+        [LABEL.pairing]: DEVICE_ID,
+      })}`,
+    );
+    expect(runtime.resources).toEqual([]);
+    expect(await exists(testbed.folders.pairingFolder(DEVICE_ID))).toBe(false);
+    expect(await exists(testbed.folders.pairingFolder(filesOnly))).toBe(false);
   });
 });

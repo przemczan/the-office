@@ -20,8 +20,8 @@ import {
 } from "../../api/projects.ts";
 import { IMAGE_LIMIT_IN_MB } from "../../shell/image-row.tsx";
 import { otherPalette } from "../../shell/project-image.ts";
-import type { RepositoryFile } from "../../shell/repository-files/repository-file-browser.tsx";
-import { RepositoryFileWindow } from "../../shell/repository-files/repository-file-window.tsx";
+import type { RepositoryFile } from "./repository-files/repository-file-browser.tsx";
+import { RepositoryFileWindow } from "./repository-files/repository-file-window.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 
 /** What a tile is changing its version to: an upload, a file in the repository, or none. */

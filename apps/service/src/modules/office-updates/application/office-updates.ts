@@ -331,7 +331,10 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
       .catch((error: unknown) => {
         this.logger.error(`The Office updater wasn't followed to its end: ${String(error)}`);
       })
-      .then(() => this.updaterEnded());
+      .then(() => this.updaterEnded())
+      .catch((error: unknown) => {
+        this.logger.error(`The end of the Office updater wasn't followed: ${String(error)}`);
+      });
     return "stay";
   }
 

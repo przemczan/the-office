@@ -162,6 +162,24 @@ describe("testTargetProblems", () => {
     ]);
   });
 
+  it("refuses a variable, plain or secret, by a name a shell can't hold", () => {
+    expect(
+      testTargetProblems(
+        [
+          {
+            ...WEB,
+            variables: [{ name: "API-URL", value: "http://localhost" }],
+            secretVariables: [{ name: "TOKEN $(id)", value: "a-test-token" }],
+          },
+        ],
+        COMMAND_KEYS,
+      ),
+    ).toEqual([
+      `Test target "web": A variable's name takes letters, digits and _, not starting with a digit: API-URL.`,
+      `Test target "web": A variable's name takes letters, digits and _, not starting with a digit: TOKEN $(id).`,
+    ]);
+  });
+
   it("refuses memory outside 0.5 GB to 64 GB or off its 0.5 GB steps", () => {
     const words = `Test target "web": Its memory per service is between 0.5 GB and 64 GB, in steps of 0.5 GB.`;
     for (const memoryMegabytes of [0, 256, 700, 65_537, 66_048, 1024.5]) {

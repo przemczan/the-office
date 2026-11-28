@@ -88,6 +88,7 @@ import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { LiveSessions } from "./live-sessions.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { OfficeActionProposals } from "./office-action-proposals.js";
@@ -255,6 +256,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      LiveSessions,
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,

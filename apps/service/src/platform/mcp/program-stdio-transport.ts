@@ -71,7 +71,11 @@ export class ProgramStdioTransport implements Transport {
         this.notifyClosed();
       });
       child.once("exit", () => {
-        void within(this.outputRead, OUTPUT_GRACE_MS).then(() => this.notifyClosed());
+        void within(this.outputRead, OUTPUT_GRACE_MS)
+          .then(() => this.notifyClosed())
+          .catch((error: unknown) => {
+            this.onerror?.(error instanceof Error ? error : new Error(String(error)));
+          });
       });
       child.stdin.on("error", (error) => this.onerror?.(error));
       child.stdout.on("data", (chunk: Buffer) => this.read(chunk));

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
-import type { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import type { OfficeIdentity } from "../../../office-identity/index.js";
 import { GIT_OUTPUT_LIMIT_BYTES, GitCommandFailed, type GitVariables } from "../../ports/git.js";
 
 const LOCAL_TIMEOUT_MS = 30_000;

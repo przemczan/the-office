@@ -1,5 +1,12 @@
-import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
-import { promptTemplate, renderedPart, type PromptTexts } from "../../prompt-templates/index.js";
+import {
+  READ_ONLY_SHELL_RULE,
+  WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+} from "../../engine/index.domain.js";
+import {
+  promptTemplate,
+  renderedPart,
+  type PromptTexts,
+} from "../../prompt-templates/index.domain.js";
 import {
   ALLOW_CHANGES_ADVICE,
   CALLING_RULE,

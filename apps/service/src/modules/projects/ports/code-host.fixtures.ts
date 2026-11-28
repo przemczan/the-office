@@ -33,6 +33,7 @@ export interface IssueForTests {
  */
 export class IssueHostForTests extends CodeHost {
   readonly name = "GitHub";
+  readonly signInWords = "Sign in with GitHub in Settings › Office identity";
   readonly issues = new Map<number, Required<IssueForTests>>();
   /** Every comment, close and reopen taken, in order. */
   readonly writes: {

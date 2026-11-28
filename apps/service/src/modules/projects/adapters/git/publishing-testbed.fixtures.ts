@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../../office-identity/index.fixtures.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
@@ -58,6 +58,7 @@ export const commitMessage: CommitMessage = {
  */
 export class CodeHostForTests extends CodeHost {
   readonly name = "the test's code host";
+  readonly signInWords = "Sign in to the test's code host";
   readonly requests: PullRequestRequest[] = [];
   readonly askedWhy: string[] = [];
   refusal: string | undefined = undefined;

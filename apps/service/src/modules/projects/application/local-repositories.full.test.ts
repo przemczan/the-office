@@ -15,7 +15,7 @@ import type { ProjectRepository } from "../ports/project-repository.js";
 import { LocalRepositories } from "./local-repositories.js";
 import { MANIFEST_CHARACTERS } from "./repository-folder.js";
 import { ProjectChecks } from "./project-checks.js";
-import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../office-identity/index.fixtures.js";
 import type { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import type { EngineModels } from "../../engine/index.js";
 

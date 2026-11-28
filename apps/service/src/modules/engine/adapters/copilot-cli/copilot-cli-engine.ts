@@ -18,7 +18,7 @@ import {
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { OfficeTool, OfficeToolCall, OfficeToolPicture } from "../../ports/office-tool.js";
 import type { SessionMcpServer, SessionOptions } from "../../ports/session-options.js";
-import { serviceVariables } from "../claude-code/engine-read.js";
+import { serviceVariables } from "../shared/engine-read.js";
 import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import {
   officeToolCall,

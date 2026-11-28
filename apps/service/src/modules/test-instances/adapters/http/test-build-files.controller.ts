@@ -16,14 +16,15 @@ import { TestInstances } from "../../application/test-instances.js";
 import { mediaTypeOf } from "../../domain/test-build.js";
 import { TestInstanceNotFound } from "../../domain/test-instance-refused.js";
 import { TestInstanceRefusalsFilter } from "./test-instance-refusals.filter.js";
+import { OpenWithoutSignIn } from "../../../../platform/http/sign-in-guard.js";
 
-/** Where a QR code's link is served, open without sign-in as every `/api/sign-in/**` path is. */
+/** Where a QR code's link is served, under `/api/sign-in/`, as the sign-in pages are. */
 export const TEST_BUILD_LINK_PATH = "sign-in/test-builds";
 
 /**
  * A Built instance's files (spec §2.12, "Build to install"): downloaded behind sign-in, or by the
  * QR code's link (an Office action, `TestInstanceOfficeActionsController`), for one file and an
- * hour, open without sign-in under `/api/sign-in/test-builds/`.
+ * hour, open without sign-in (`@OpenWithoutSignIn()`) under `/api/sign-in/test-builds/`.
  * A name is served only as the instance lists it; anything else answers 404.
  */
 @Controller()
@@ -45,6 +46,7 @@ export class TestBuildFilesController {
 
   /** The file a link is for; a link malformed, tampered with or expired, or its file gone, 404. */
   @Get(`${TEST_BUILD_LINK_PATH}/:token`)
+  @OpenWithoutSignIn()
   async downloadByLink(
     @Param("token") token: string,
     @Res({ passthrough: true }) response: Response,

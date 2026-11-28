@@ -1,4 +1,4 @@
-import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import { READ_ONLY_SHELL_RULE } from "../../engine/index.domain.js";
 import type { PromptTexts } from "../../prompt-templates/index.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
 import type { Idea } from "./idea.js";

@@ -9,7 +9,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
-import { ThreadService } from "./thread-service.js";
+import { WorkThreads } from "./work-threads.js";
 
 const NO_TAB = "This person has no tab on this Task.";
 const PLANNED_IN_THE_INITIATIVE =
@@ -23,7 +23,7 @@ export class TaskConversations {
 
   constructor(
     private readonly repository: ThreadRepository,
-    private readonly threads: ThreadService,
+    private readonly threads: WorkThreads,
     private readonly roleCards: RoleCards,
     private readonly taskThreads: TaskThreadSetups,
     private readonly briefs: Briefs,

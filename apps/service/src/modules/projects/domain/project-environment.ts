@@ -116,7 +116,7 @@ export function environmentProblems(environment: ProjectEnvironment): string[] {
   }
   problems.push(...repeatedNameProblems(environment.set));
   for (const name of environment.unset) {
-    const problem = variableNameProblem(name);
+    const problem = removedVariableNameProblem(name);
     if (problem) problems.push(problem);
   }
   return problems;
@@ -152,7 +152,26 @@ export function repeatedNameProblems(variables: readonly ProjectVariable[]): str
   });
 }
 
+/**
+ * A name a shell can hold: a run environment's script exports each variable set under its own
+ * name, and its image's install mounts each by that name (spec §5.5).
+ */
+export const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** Why a variable can't be set under the name: none, or one a shell can't hold. */
 export function variableNameProblem(name: string): string | undefined {
+  if (name === "") return "Give each variable a name.";
+  if (!VARIABLE_NAME.test(name)) {
+    return `A variable's name takes letters, digits and _, not starting with a digit: ${name}.`;
+  }
+  return undefined;
+}
+
+/**
+ * Why an inherited variable can't be removed by the name: one is passed on as it is named in The
+ * Office's own environment, which on Windows holds such names as `ProgramFiles(x86)`.
+ */
+function removedVariableNameProblem(name: string): string | undefined {
   if (name === "") return "Give each variable a name.";
   if (/[=\0]/.test(name)) return `A variable's name can't have "=" in it: ${name}.`;
   return undefined;

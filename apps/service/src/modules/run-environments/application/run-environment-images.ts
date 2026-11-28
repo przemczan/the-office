@@ -12,9 +12,14 @@ import {
   installSecrets,
   INSTALL_INPUTS_FOLDER,
 } from "../domain/run-environment-image.js";
-import { officeLabels, type ImageSource } from "../domain/run-environment.js";
+import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
+import {
+  officeLabels,
+  projectVariableNameProblems,
+  type ImageSource,
+} from "../domain/run-environment.js";
 import { ContainerRuntime, type StreamedOutputMask } from "../ports/container-runtime.js";
-import { imageInputsOf } from "./definition-files.js";
+import { imageInputsOf, ownFileIn } from "./definition-files.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 
 /**
@@ -38,7 +43,10 @@ export class RunEnvironmentImages {
     return imageNameOf(task.projectId, imageKeyOf(await imageInputsOf(task)));
   }
 
-  /** The Task's image, built first unless one is there for its key. */
+  /**
+   * The Task's image, built first unless one is there for its key; refused, nothing built, while a
+   * variable the install runs with has a name a shell can't hold.
+   */
   async imageFor(
     task: ImageSource,
     definition: RunEnvironmentDefinition,
@@ -46,6 +54,8 @@ export class RunEnvironmentImages {
     /** Masks the build's output on its way to the file; none for a Task's, as before. */
     mask?: StreamedOutputMask,
   ): Promise<string> {
+    const problems = projectVariableNameProblems(task.installVariables.map(({ name }) => name));
+    if (problems.length > 0) throw new RunEnvironmentRefused(problems);
     const inputs = await imageInputsOf(task);
     const key = imageKeyOf(inputs);
     const image = imageNameOf(task.projectId, key);
@@ -146,8 +156,10 @@ export class RunEnvironmentImages {
     for (const input of task.installInputs) {
       const target = join(inputs, input);
       await mkdir(dirname(target), { recursive: true });
-      // An Install input not there yet is left out, as its absence is in the key.
-      await copyFile(join(task.worktree, input), target).catch(() => undefined);
+      // An Install input not there yet, or leading out of the worktree, is left out, as its
+      // absence is in the key.
+      const source = await ownFileIn(task.worktree, join(task.worktree, input));
+      if (source !== undefined) await copyFile(source, target).catch(() => undefined);
     }
     const variableNames = task.installVariables.map(({ name }) => name);
     await writeFile(

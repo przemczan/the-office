@@ -7,12 +7,8 @@ import {
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
-import { EngineProcess, type EngineCommand } from "../claude-code/engine-process.js";
-import {
-  engineRead,
-  READ_EXIT_GRACE_MS,
-  type EngineReadLimits,
-} from "../claude-code/engine-read.js";
+import { EngineProcess, type EngineCommand } from "../shared/engine-process.js";
+import { engineRead, READ_EXIT_GRACE_MS, type EngineReadLimits } from "../shared/engine-read.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { sessionEnvironment } from "../claude-code/session-settings.js";
 
@@ -87,6 +83,7 @@ export async function readOnSdk<T>(
         ),
       });
       engine = opened;
+      // oxlint-disable-next-line office/caught-voided-calls -- draining never rejects
       void drained(opened);
       return ask(opened);
     },

@@ -13,7 +13,7 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { OfficeIdentity } from "../../../platform/git-identity/office-identity.js";
+import { OfficeIdentity } from "../../office-identity/index.js";
 import {
   createSourceRepository,
   sourceSkillMd,

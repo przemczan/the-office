@@ -3,6 +3,11 @@ import type { DecisionAnswer } from "../domain/walk-decisions.js";
 
 /** A Decision the walk puts to the user, or first to a Consultant. */
 export interface StageDecisionRequest {
+  /**
+   * The Decision's id, so opening it again, as the walk does after The Office stopped before
+   * keeping it on its run, opens none twice; left out for a new one.
+   */
+  readonly id?: string;
   readonly taskId: string;
   /** The Stage Thread it is asked in; undefined puts it in the Task's newest Thread. */
   readonly threadId: string | undefined;
@@ -25,6 +30,7 @@ export interface OpenedStageDecision {
  * Their answers come back as Conversations' DecisionAnswered.
  */
 export abstract class StageDecisions {
+  /** Opens the Decision; one with the request's id opened already is answered as it stands. */
   abstract open(request: StageDecisionRequest): Promise<OpenedStageDecision>;
 
   /**

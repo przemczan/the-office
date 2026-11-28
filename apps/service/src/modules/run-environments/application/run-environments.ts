@@ -1,5 +1,5 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { access, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -27,7 +27,7 @@ import {
   handBackScript,
   IDLE_STOP_MS,
   LABEL,
-  officeLabels,
+  projectVariableNameProblems,
   ROOT_USER,
   taskLabels,
   type CommandEnvironment,
@@ -44,6 +44,7 @@ import {
 } from "../ports/container-runtime.js";
 import { KnownTasks } from "../ports/known-tasks.js";
 import { RunEnvironmentSettings } from "../ports/run-environment-settings.js";
+import { ComposeProjectLifecycle } from "./compose-project-lifecycle.js";
 import { readDefinitionIn } from "./definition-files.js";
 import { HostCores } from "./host-cores.js";
 import { RunEnvironmentCommandVariables } from "./run-environment-command-variables.js";
@@ -155,6 +156,7 @@ export class RunEnvironments implements OnModuleInit {
   private readonly running = new Map<string, RunningEnvironment>();
   /** Each Task's last step, which its next one waits for. */
   private readonly steps = new Map<string, Promise<unknown>>();
+  private readonly lifecycle: ComposeProjectLifecycle;
 
   constructor(
     private readonly runtime: ContainerRuntime,
@@ -169,7 +171,9 @@ export class RunEnvironments implements OnModuleInit {
     private readonly schedule: Schedule,
     private readonly busyWork: BusyWork,
     private readonly events: EventBus,
-  ) {}
+  ) {
+    this.lifecycle = new ComposeProjectLifecycle(runtime, folders.instance, this.logger);
+  }
 
   async onModuleInit(): Promise<void> {
     this.events.subscribe(TaskStateChanged, ({ taskId, to }) => {
@@ -203,10 +207,15 @@ export class RunEnvironments implements OnModuleInit {
   /**
    * Runs the check in the Task's run environment, starting it first if it isn't running, the
    * output streamed to the file; waits for a slot when Run environments at once are all running.
+   * Refused, nothing started, while a variable of the Project's has a name a shell can't hold.
    */
   run(task: TaskInWorktree, command: RunEnvironmentCommand): Promise<CommandEnd> {
     return this.exclusively(task.taskId, () =>
       this.busyWork.during(this.busyItem(task), async () => {
+        const problems = projectVariableNameProblems(
+          command.environment.set.map(({ name }) => name),
+        );
+        if (problems.length > 0) throw new RunEnvironmentRefused(problems);
         const environment = await this.started(
           task,
           command.startOutputFile ?? command.outputFile,
@@ -418,24 +427,27 @@ export class RunEnvironments implements OnModuleInit {
   }
 
   /**
-   * As The Office starts (spec §5.5, "Lifecycle"): removes what carries this Office's label and no
-   * open Task owns, and stops the open Tasks' run environments, which start again at their next
-   * check; then the files of Tasks with none, and the images no Project's current key uses.
+   * As The Office starts (spec §5.5, "Lifecycle"): removes what carries this Office's label, and
+   * the files, of Tasks not open, and stops the open Tasks' run environments, which start again at
+   * their next check; then the images no Project's current key uses. It runs while Stages start:
+   * a Task's run environment started since is left as it is, and one Task's failure is only
+   * logged, the others swept all the same.
    */
   async sweep(): Promise<void> {
+    const labelled = await this.lifecycle.labelled(LABEL.task);
+    const withFiles = await this.lifecycle.withFiles(this.folders.tasks);
+    // Read after what is there: a Task made since, with a run environment already, reads as open.
     const open = new Set((await this.knownTasks.open()).map(({ id }) => id));
-    const resources = await this.runtime.listByLabel(officeLabels(this.folders.instance));
-    const owners = new Set(resources.map(({ labels }) => labels[LABEL.task] ?? ""));
-    owners.delete("");
-    for (const taskId of owners) {
-      await this.exclusively(taskId, () =>
-        open.has(taskId) ? this.stopNow(taskId) : this.removeNow(taskId),
-      );
-    }
-    const folders = await readdir(this.folders.tasks).catch(() => []);
-    for (const taskId of folders) {
-      if (!open.has(taskId)) await this.exclusively(taskId, () => this.removeNow(taskId));
-    }
+    await this.lifecycle.eachOf(
+      new Set([...labelled, ...withFiles]),
+      (taskId) => `The run environment of the Task ${taskId}`,
+      (taskId) =>
+        this.exclusively(taskId, async () => {
+          if (this.running.has(taskId)) return;
+          if (!open.has(taskId)) await this.removeNow(taskId);
+          else if (labelled.has(taskId)) await this.stopNow(taskId);
+        }),
+    );
     await this.images.sweep();
   }
 
@@ -610,9 +622,12 @@ export class RunEnvironments implements OnModuleInit {
     this.running.delete(taskId);
     environment?.idleStop?.cancel();
     try {
-      await this.runtime.down(composeProjectNameOf(this.folders.instance, taskId));
-      await this.runtime.removeByLabel(taskLabels(this.folders.instance, taskId));
-      await rm(this.folders.taskFolder(taskId), { recursive: true, force: true });
+      await this.lifecycle.remove({
+        name: composeProjectNameOf(this.folders.instance, taskId),
+        labels: taskLabels(this.folders.instance, taskId),
+        folder: this.folders.taskFolder(taskId),
+        what: `The run environment of the Task ${taskId}`,
+      });
     } finally {
       await this.slots.release(taskId);
       if (environment !== undefined) await this.events.publish(new RunEnvironmentStopped(taskId));
@@ -633,6 +648,7 @@ export class RunEnvironments implements OnModuleInit {
     const next = previous.catch(() => undefined).then(step);
     const settled = next.catch(() => undefined);
     this.steps.set(taskId, settled);
+    // oxlint-disable-next-line office/caught-voided-calls -- settled never rejects
     void settled.finally(() => {
       if (this.steps.get(taskId) === settled) this.steps.delete(taskId);
     });

@@ -422,7 +422,9 @@ export class EngineSessions {
     }
     return new WatchedSession(session, spans, {
       rateLimited: async () => {
-        await this.readUsageWindows(settings, session);
+        await this.readUsageWindows(settings, session).catch((error: unknown) => {
+          this.logger.warn(`Reading the usage windows failed: ${messageOf(error)}`);
+        });
       },
       turnEnded: (usage) => this.turnEnded(settings, usage),
       refused: async (refusedTurn) => {
@@ -512,6 +514,7 @@ function asFailedTurn({ usedUpWindow: _usedUpWindow, ...turn }: TurnEndedEvent):
 }
 
 interface SessionWatch {
+  /** Never rejects: a failed read is logged. */
   readonly rateLimited: () => Promise<void>;
   readonly turnEnded: (usage: TokenUsage) => Promise<void>;
   /**
@@ -523,7 +526,7 @@ interface SessionWatch {
   readonly turnFailed: (ended: TurnEndedEvent) => void;
   /**
    * The session's Agent or a subagent called the Skill tool for `skill`, or the user sent a skill
-   * command running it.
+   * command running it. Never rejects, as the bus logs a handler that fails.
    */
   readonly skillCalled: (skill: string) => Promise<void>;
   readonly failed: (error: unknown) => Promise<void>;
@@ -561,6 +564,7 @@ class WatchedSession implements EngineSession {
   send(message: UserMessage, priority: MessagePriority): void {
     this.spans.messageSent(message.id);
     const commanded = message.skillCommand && skillNameOf(message.skillCommand.skill);
+    // oxlint-disable-next-line office/caught-voided-calls -- the watch logs its own failure
     if (commanded) void this.watch.skillCalled(commanded);
     this.session.send(message, priority);
   }
@@ -613,6 +617,7 @@ class WatchedSession implements EngineSession {
     }
     if (event.kind === "rate-limit" && !this.readingWindows) {
       this.readingWindows = true;
+      // oxlint-disable-next-line office/caught-voided-calls -- the watch logs its own failure
       void this.watch.rateLimited().finally(() => (this.readingWindows = false));
     }
     return event;

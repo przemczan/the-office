@@ -9,7 +9,7 @@ import { issueImportOf } from "../../shell/issues/issue-words.ts";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { useShaper } from "../../shell/work/use-shaper.ts";
+import { useShaper } from "./use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";

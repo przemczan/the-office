@@ -21,7 +21,7 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProjectSkills } from "../../../skills/index.js";
-import type { RemoteNeeds } from "../../../../platform/git-identity/remote-needs.js";
+import type { RemoteNeeds } from "../../../office-identity/index.js";
 import { ProjectIssueHosts } from "../../application/project-issue-hosts.js";
 import { ProjectRemotes } from "../../application/project-remotes.js";
 import { ProjectService } from "../../application/project-service.js";
@@ -147,8 +147,9 @@ export class ProjectsController {
 
 function toRemoteNeedsResponse(needs: RemoteNeeds): RemoteNeedsResponse {
   switch (needs.kind) {
-    case "github-https":
-      return { kind: needs.kind, missing: [...needs.missing] };
+    // The wire knows one host with a sign-in, GitHub, by its own names.
+    case "signed-in-https":
+      return { kind: "github-https", missing: needs.missing.map(() => "sign-in-with-github") };
     case "ssh":
       return { kind: needs.kind, host: needs.host, port: needs.port, missing: [...needs.missing] };
     default:

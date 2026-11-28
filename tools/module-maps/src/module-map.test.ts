@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GENERATED_MARKER, generatedPart, mapText } from "./module-map.ts";
+import {
+  GENERATED_MARKER,
+  HANDWRITTEN_CHARACTER_CAP,
+  HANDWRITTEN_LINE_CAP,
+  generatedPart,
+  handwrittenProblems,
+  mapText,
+} from "./module-map.ts";
 
 const files = [
   {
@@ -67,5 +74,31 @@ test("a new map starts with its title and a note of what to write by hand", () =
   assert.match(
     mapText("Work: module map", undefined, files),
     /^# Work: module map\n\nWhat this part owns/,
+  );
+});
+
+test("a handwritten part within its caps has no problems, whatever the generated part holds", () => {
+  const generated = "x".repeat(HANDWRITTEN_CHARACTER_CAP * 2);
+  assert.deepEqual(
+    handwrittenProblems(`# Work\n\n## Traps\n\n- One trap.\n\n${GENERATED_MARKER}\n\n${generated}`),
+    [],
+  );
+});
+
+test("a handwritten part over the character cap is refused with its size", () => {
+  const handwritten = Array.from({ length: 40 }, () => `- ${"a".repeat(300)}`).join("\n");
+  assert.deepEqual(handwrittenProblems(`${handwritten}\n\n${GENERATED_MARKER}\n`), [
+    `its handwritten part is ${handwritten.length} characters, over ${HANDWRITTEN_CHARACTER_CAP}`,
+  ]);
+});
+
+test("each handwritten line over the line cap is refused by its number", () => {
+  const long = `- ${"b".repeat(HANDWRITTEN_LINE_CAP)}`;
+  assert.deepEqual(
+    handwrittenProblems(`# Work\n\n${long}\n- short\n${long}\n\n${GENERATED_MARKER}\n`),
+    [
+      `line 3 is ${long.length} characters, over ${HANDWRITTEN_LINE_CAP}`,
+      `line 5 is ${long.length} characters, over ${HANDWRITTEN_LINE_CAP}`,
+    ],
   );
 });

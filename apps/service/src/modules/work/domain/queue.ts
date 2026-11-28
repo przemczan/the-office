@@ -150,8 +150,9 @@ export interface Release {
  * (`withStarted`, `standInsWithStarted`), so a Task waiting for a busy person holds none behind it.
  * A Task that meets a refusal leaves the queue; one with no conditions (queued after they were
  * read) waits on.
- * `tasks` holds every Task, `fireAlarmOn` the alarm and `pausedInitiativeIds` the Initiatives
- * paused, all read in the hold of Starts.
+ * `tasks` holds the queued Tasks, every started Task and the Tasks the queued ones wait for,
+ * `fireAlarmOn` the alarm and `pausedInitiativeIds` the Initiatives paused, all read in the hold
+ * of Starts.
  */
 export function releaseQueue(
   queue: readonly QueuedTask[],

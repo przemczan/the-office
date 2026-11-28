@@ -4,6 +4,7 @@ import { Logger } from "@nestjs/common";
 import { DEVICE_FRAME_TYPES, encodeFrame, FrameReader } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  IDLE_STOP_MS,
   NO_MASK,
   runEnvironmentsTestbed,
   ScriptedContainerRuntime,
@@ -165,7 +166,8 @@ describe("an Android phone over USB", () => {
     await connectWithRelay();
     await untilStep(CONNECT);
 
-    await testbed.environments.environments.sweep();
+    // It stops once idle, and starts again.
+    await testbed.environments.schedule.advanceBy(IDLE_STOP_MS);
     await start();
 
     await untilStep(CONNECT, 2);

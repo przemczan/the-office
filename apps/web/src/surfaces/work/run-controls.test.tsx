@@ -6,12 +6,7 @@ import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
 import { buttonNamed } from "../../shell/page.fixtures.tsx";
-import {
-  aWaysBack,
-  rendered,
-  TASK,
-  unmounted,
-} from "../../shell/work/way-back-dialogs.fixtures.tsx";
+import { aWaysBack, rendered, TASK, unmounted } from "./way-back-dialogs.fixtures.tsx";
 import { RecordActionButton } from "./record-actions.tsx";
 import { useReopenAction } from "./reopen-action.tsx";
 import { useRunControlActions } from "./run-controls.tsx";

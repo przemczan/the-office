@@ -369,6 +369,12 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
     };
   }
 
+  /** Takes it off `opened`, so it is no longer there. */
+  async removeWorktree(projectId: string, taskId: string): Promise<void> {
+    const at = this.opened.indexOf(`${projectId}/${taskId}`);
+    if (at >= 0) this.opened.splice(at, 1);
+  }
+
   /** A worktree is there once it was opened. */
   async exists(projectId: string, taskId: string): Promise<boolean> {
     return this.opened.includes(`${projectId}/${taskId}`);

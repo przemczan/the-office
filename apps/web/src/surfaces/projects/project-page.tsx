@@ -17,7 +17,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
-import { ProjectLogo } from "../../shell/project-logo.tsx";
+import { ProjectLogo } from "./project-logo.tsx";
 import { switchedOffWords } from "./feature-words.ts";
 import { OnboardingBadge } from "./onboarding-block.tsx";
 import { remoteNeedsLine } from "./remote-needs-words.ts";

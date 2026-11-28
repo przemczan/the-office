@@ -1,4 +1,5 @@
 import type { IncomingMessage } from "node:http";
+import { isIP } from "node:net";
 import {
   addressingOf,
   localRequestRefusal,
@@ -28,5 +29,21 @@ export class OfficeAddresses {
   /** The kind of address a request this let through was addressed to, and whether it is HTTPS. */
   addressOf(request: IncomingMessage): RequestAddress {
     return requestAddressOf(addressingOf(request), this.publicAddress);
+  }
+
+  /**
+   * The address a request came from, for a limit per client: at the public address, the one its
+   * reverse proxy appended last to `X-Forwarded-For`, as the socket's is the proxy's own; else, or
+   * with none, the socket's.
+   */
+  clientOf(request: IncomingMessage): string {
+    const socketAddress = request.socket.remoteAddress ?? "";
+    if (this.addressOf(request).kind !== "public") return socketAddress;
+    const forwardedFor = request.headers["x-forwarded-for"];
+    const appended = (Array.isArray(forwardedFor) ? forwardedFor.join(",") : forwardedFor)
+      ?.split(",")
+      .at(-1)
+      ?.trim();
+    return appended !== undefined && isIP(appended) !== 0 ? appended : socketAddress;
   }
 }

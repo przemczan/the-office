@@ -1,4 +1,4 @@
-import { hasUsageWindows, type Engine, type EngineId } from "../../engine/index.js";
+import { hasUsageWindows, type Engine, type EngineId } from "../../engine/index.domain.js";
 import {
   DEFAULT_USAGE_MEASURES,
   type UsageMeasure,

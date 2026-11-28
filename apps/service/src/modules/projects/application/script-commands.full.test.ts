@@ -19,7 +19,7 @@ import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 import { ScriptedTaskRunEnvironments } from "./task-run-environments.fixtures.js";
 import { Worktrees } from "./worktrees.js";
 import { TaskBasesForTests } from "./task-bases.fixtures.js";
-import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../office-identity/index.fixtures.js";
 
 // Real git and real commands in a Task's worktree of a temporary repository.
 let repository: TemporaryRepository;

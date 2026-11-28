@@ -157,11 +157,11 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 
 - A button of fixed width at the strip's right end, shown only while there is something to tell, so a long message never moves a figure. It shows the first message's icon, its short line (about 34 characters at most), who says it and when, "+N" for the rest and a chevron. Named "Office Notifications: <short line>[, N more]".
 - It opens a popover headed "Office Notifications · N" that lists each message whole, each with its tone (amber, red, green, blue or grey on its left edge), icon, line, who says it and when, and its action.
-- Order: **Reconnecting to The Office…** first (while the web lost the service; its icon pulses; line "The web has lost the service and is reconnecting. The figures are the last ones read.", detail "Figures may be out of date"); then the Office's own open Notifications (kinds starting `office.`), newest first; then a scheduled update or restart ("Update scheduled" / "Restart scheduled", with "Waiting for N things" or nothing when none); then **Turn on desktop notifications** until the user answers.
+- Order: **Reconnecting to The Office…** first (while the web lost the service; its icon pulses; line "The web has lost the service and is reconnecting. The figures are the last ones read.", detail "Figures may be out of date"); then **The Office was updated** (blue, `refresh-cw`, once the service serves a newer build of the web app than this tab runs, until the page is reloaded; line "The Office was updated since this page opened. Reload the page to use the new version.", detail "Reload to use it"; [5.1.2](../5.1.2-updates-and-restarts.md#updating-the-office)); then the Office's own open Notifications (kinds starting `office.`), newest first; then a scheduled update or restart ("Update scheduled" / "Restart scheduled", with "Waiting for N things" or nothing when none); then **Turn on desktop notifications** until the user answers.
 - A Notification's kind sets its look: window nearly used (amber, `gauge`), window used up (red), window reset (green, `rotate-ccw`), service down and engine down (red, `triangle-alert`), alarm lifted (green, `siren`), update done (green, `check`), update failed (red).
 - The meta line is the speaker's avatar, name and the time ("Pam · 13:05"), or the time alone while nobody speaks (The Office).
 - A message naming an instant words it in the browser's time zone: "17:10" the same day, "Tue 17 Nov 17:10" otherwise.
-- Actions: **Open Settings › Updates** (a link, for a scheduled update or restart and an `office-update` Notification); the button **Turn on desktop notifications** (the browser asks once).
+- Actions: **Open Settings › Updates** (a link, for a scheduled update or restart and an `office-update` Notification); the button **Reload the page** (for The Office was updated); the button **Turn on desktop notifications** (the browser asks once).
 - A slot's list opens under the slot from its left edge, kept inside the window, and the slot shows no tooltip on hover.
 
 ## Needs you panel
@@ -227,7 +227,8 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 
 - Loading: the shell waits for the account before drawing; each figure shows nothing until its data is read.
 - Service out of reach: "Reconnecting to The Office…" in the slot; the figures keep their last values.
-- Signed out: any `/api` 401 sends the page to `/sign-in?returnTo=<path and query>`; the WebSocket's close code 4401 stops the stream for good.
+- Signed out: any `/api` 401 sends the page to `/sign-in?returnTo=<path and query>`; the WebSocket's close code 4401 stops the stream until the user signs in again in the tab, when it connects anew.
+- An answer this tab can't read, as after an Office update: the place that read it says "The Office answered in a way this page can't read, as after an update. Reload the page."; it isn't tried again.
 - First-run setup open: every page but `/setup` and `/settings/engines` goes to `/setup` ([sign-in.md](sign-in.md)).
 - Narrow window: see Layout and the widths above; at 900px and under the top bar shows marks alone ([Top bar](#top-bar)).
 - Reduced motion: no pops, pulses or blinking.

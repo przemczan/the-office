@@ -11,7 +11,7 @@ import { Badge, Button, Icon } from "@the-office/ui";
 import { Fragment, type ReactNode } from "react";
 import { offBoardTaskQueries, startOnboard } from "../../api/off-board-tasks.ts";
 import { onboardingsQuery, TASKS } from "../../api/work.ts";
-import { offBoardStartWords } from "../../shell/off-board-task-words.ts";
+import { offBoardStartWords } from "./off-board-task-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";

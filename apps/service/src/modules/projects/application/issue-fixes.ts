@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { withFixes } from "../domain/issue-fixes.js";
 import type { Project } from "../domain/project.js";
-import { isFeatureOn } from "../domain/project-features.js";
+import { isFeatureOn, ISSUES_FEATURE } from "../domain/project-features.js";
 import type { CommitMessage } from "../domain/publication.js";
 import type { TaskBase } from "../domain/task-base.js";
 import { Git } from "../ports/git.js";
@@ -33,7 +33,7 @@ export class IssueFixes {
     taskBase: TaskBase,
     message: CommitMessage,
   ): Promise<CommitMessage> {
-    if (!project.issueSettings.closeOnDone || !isFeatureOn(project, "github-issues")) {
+    if (!project.issueSettings.closeOnDone || !isFeatureOn(project, ISSUES_FEATURE)) {
       return message;
     }
     const upstream = await this.git.upstreamOf(project.path, project.baseBranch);

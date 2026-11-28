@@ -1,20 +1,15 @@
 import type { StageCommandRunWithOutput } from "../domain/stage-command-run.js";
 import type {
   EngineSwitch,
-  GateAction,
   ChosenRoute,
   PublishedWork,
   StageRun,
   StageRunContext,
-  StageRunDecision,
   StageRunStandIn,
   StageSessionMove,
   StageTokens,
-  AskedInterruption,
-  HoldingUser,
-  StartedOver,
-  TaskRestart,
 } from "../domain/stage-run.js";
+import type { StageRunChange } from "../domain/stage-run-changes.js";
 import type { StageRunUsage } from "../domain/usage-history.js";
 
 /**
@@ -71,7 +66,12 @@ export interface KeptStageRunEngines {
   readonly switches: readonly EngineSwitch[];
 }
 
-/** Where each Task's Stage runs are kept. */
+/**
+ * Where each Task's Stage runs are kept. What several hands change at once (what was asked of a
+ * run, its Decisions and their answers, its end, a Gate's action, a Restart from…, a Start over)
+ * goes through `update` and a change of `stage-run-changes.ts`; each other write sets fields only
+ * the run's own Stage or the Task's walk writes, without reading them back first.
+ */
 export abstract class StageRunRepository {
   /**
    * Saves a run that has just started; false when the Task already has a run of that number, so two
@@ -124,9 +124,6 @@ export abstract class StageRunRepository {
   /** Saves the run's session's context after its latest turn, replacing what was saved before. */
   abstract saveContext(runId: string, context: StageRunContext): Promise<void>;
 
-  /** Saves the Decisions the walk opened on the run, replacing those saved before. */
-  abstract saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void>;
-
   /** Saves what a Publish run shipped, before its after publishing line runs. */
   abstract savePublished(runId: string, published: PublishedWork): Promise<void>;
 
@@ -137,37 +134,14 @@ export abstract class StageRunRepository {
   abstract saveWaitingSince(runId: string, waitingSince: Date | undefined): Promise<void>;
 
   /**
-   * Saves what the user, or the fire alarm, asked of the run while it runs, with the user who
-   * asked, replacing what was asked before.
+   * Applies `change` to the run as stored, holding the run until what it changed is saved, so two
+   * changes at once never lose one: the second reads the run as the first left it. Answers the
+   * change as saved, or undefined when it changes nothing. A run there is none of is a fault.
    */
-  abstract saveHeldBy(
+  abstract update<Change extends StageRunChange | undefined>(
     runId: string,
-    heldBy: AskedInterruption,
-    heldByUser: HoldingUser | undefined,
-  ): Promise<void>;
-
-  /**
-   * Saves the user's Restart from… on the Task's ended held run; false when the run has one already
-   * or hasn't ended, as each held run takes one.
-   */
-  abstract saveRestart(runId: string, restart: TaskRestart): Promise<boolean>;
-
-  /**
-   * Saves the Start over on the last run before it; false when that run has one already.
-   */
-  abstract saveStartedOver(runId: string, startedOver: StartedOver): Promise<boolean>;
-
-  /**
-   * Saves what the user did at a Gate's run; false when an action was saved first, as each Gate
-   * run takes one.
-   */
-  abstract saveGateAction(runId: string, gateAction: GateAction): Promise<boolean>;
-
-  /**
-   * Saves how the run ended, with what it was held by unless what was asked of it is saved
-   * already; a run that saved no changed files, such as a Gate's, changed none.
-   */
-  abstract saveEnded(run: StageRun): Promise<void>;
+    change: (run: StageRun) => Change,
+  ): Promise<Change>;
 
   /** The Task's runs, oldest first, without their commands' whole outputs. */
   abstract list(taskId: string): Promise<readonly StageRun[]>;

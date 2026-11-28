@@ -1,4 +1,8 @@
-import { flagField, promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
+import {
+  flagField,
+  promptTemplate,
+  type PromptTexts,
+} from "../../prompt-templates/index.domain.js";
 
 /**
  * A followed Hard switch's value on the Role card (spec §6), with whom Consult names as the Agent

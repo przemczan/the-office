@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdir, open, rm } from "node:fs/promises";
 import { StringDecoder } from "node:string_decoder";
+import { Logger } from "@nestjs/common";
 import type { PathRules } from "../../../../platform/os/path-rules.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { ShellProgram } from "../../../../platform/os/shell.js";
@@ -12,6 +13,8 @@ import type {
   ProcessStartedEvent,
 } from "../../ports/session-events.js";
 import { shellSpawn, type CommandLine } from "./shell-command.js";
+
+const logger = new Logger("BackgroundCommands");
 
 /** How a command meant to run in the background began. */
 export type BackgroundStart =
@@ -209,7 +212,12 @@ export class BackgroundCommands {
       // later its id may be another process's.
       const ended =
         command.ending ?? this.processTrees.endLeftovers(command.processId).catch(() => undefined);
-      void ended.then(() => this.finished(command, exitCode, reads)).finally(exited);
+      void ended
+        .then(() => this.finished(command, exitCode, reads))
+        .finally(exited)
+        .catch((error: unknown) => {
+          logger.error(`The end of the command ${command.callId} wasn't told.`, error);
+        });
     });
     return command;
   }
@@ -259,6 +267,7 @@ class OutputReader {
 
   /** A timer's read, skipped while the last one is still reading. */
   readIfIdle(): void {
+    // oxlint-disable-next-line office/caught-voided-calls -- a read never rejects
     if (!this.busy) void this.next();
   }
 
@@ -269,6 +278,7 @@ class OutputReader {
     if (rest !== "") this.read(rest);
   }
 
+  /** Reads what is new after the reads before it; never rejects. */
   private next(): Promise<void> {
     this.busy = true;
     this.reading = this.reading

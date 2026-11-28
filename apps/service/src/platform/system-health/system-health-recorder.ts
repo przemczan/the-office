@@ -235,7 +235,9 @@ export class SystemHealthRecorder implements OnApplicationBootstrap, OnModuleDes
   /** Tells `listener` each request from now on; the returned function stops it. */
   onRequest(listener: RequestListener): () => void {
     this.requestListeners.add(listener);
-    return () => void this.requestListeners.delete(listener);
+    return () => {
+      this.requestListeners.delete(listener);
+    };
   }
 
   /**
@@ -265,7 +267,9 @@ export class SystemHealthRecorder implements OnApplicationBootstrap, OnModuleDes
   /** Tells `listener` each query from now on; the returned function stops it. */
   onQuery(listener: QueryListener): () => void {
     this.queryListeners.add(listener);
-    return () => void this.queryListeners.delete(listener);
+    return () => {
+      this.queryListeners.delete(listener);
+    };
   }
 
   /** The last Health reading taken, if any. */

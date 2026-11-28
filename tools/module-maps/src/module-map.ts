@@ -13,6 +13,32 @@ export const GENERATED_MARKER =
 const HANDWRITTEN_PLACEHOLDER =
   "What this part owns, what it talks to and how, its traps, and what is still open.";
 
+/**
+ * The handwritten part stays a map: Owns, Talks to, Traps and Spec links, never the behaviour the spec states.
+ * `maps:check` fails a map past either cap.
+ */
+export const HANDWRITTEN_CHARACTER_CAP = 10_000;
+export const HANDWRITTEN_LINE_CAP = 400;
+
+/** Why a map's handwritten part is over its caps, in words; none when it fits. */
+export function handwrittenProblems(text: string): string[] {
+  const handwritten = text.split(GENERATED_MARKER)[0]?.trimEnd() ?? "";
+  const size =
+    handwritten.length > HANDWRITTEN_CHARACTER_CAP
+      ? [
+          `its handwritten part is ${handwritten.length} characters, over ${HANDWRITTEN_CHARACTER_CAP}`,
+        ]
+      : [];
+  const lines = handwritten
+    .split("\n")
+    .flatMap((line, index) =>
+      line.length > HANDWRITTEN_LINE_CAP
+        ? [`line ${index + 1} is ${line.length} characters, over ${HANDWRITTEN_LINE_CAP}`]
+        : [],
+    );
+  return [...size, ...lines];
+}
+
 /** The map's text: its handwritten part, kept from the existing map, then the generated part. */
 export function mapText(
   title: string,

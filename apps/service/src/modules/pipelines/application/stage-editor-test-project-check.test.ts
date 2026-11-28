@@ -30,7 +30,7 @@ import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { EngineSessions } from "../../engine/index.js";
 import { StageInterpreter } from "./stage-interpreter.js";
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 
 /**
  * Task 15's check on the Test Project: a Ready Task on Quick fix is edited for the Task through the

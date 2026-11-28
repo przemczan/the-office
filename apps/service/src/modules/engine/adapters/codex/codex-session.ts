@@ -173,7 +173,9 @@ export class CodexSession implements EngineSession {
     this.server = server;
     this.threadId = opened;
     this.threadTotal = undefined;
-    void this.watchExit(server);
+    void this.watchExit(server).catch((error: unknown) => {
+      logger.error(`The end of the app-server wasn't followed: ${messageOf(error)}`);
+    });
     return opened;
   }
 
@@ -322,7 +324,7 @@ export class CodexSession implements EngineSession {
       turn.id = started.turn.id;
       turn.started.resolve();
       for (const { message } of this.takeWaiting("next")) this.steer(turn, message);
-      if (turn.completedEarly !== undefined) void this.finishTurn(turn, turn.completedEarly);
+      if (turn.completedEarly !== undefined) this.finishInBackground(turn, turn.completedEarly);
     } catch (error) {
       turn.started.resolve();
       if (this.ending !== undefined || this.failed) return;
@@ -473,13 +475,20 @@ export class CodexSession implements EngineSession {
       turn.completedEarly = completed;
       return;
     }
-    if (turn.id === completed.id) void this.finishTurn(turn, completed);
+    if (turn.id === completed.id) this.finishInBackground(turn, completed);
   }
 
   /**
    * Reports the turn's end once its steered messages are settled, so it names each it took; with
    * an output schema, a completed turn's answer must parse and fit, or the turn failed.
    */
+  /** Finishes the turn without waiting for it; a failure to finish fails the turn. */
+  private finishInBackground(turn: RunningTurn, completed: CodexTurn): void {
+    void this.finishTurn(turn, completed).catch((error: unknown) => {
+      this.endTurn(turn, "failed", [messageOf(error)]);
+    });
+  }
+
   private async finishTurn(turn: RunningTurn, completed: CodexTurn): Promise<void> {
     if (turn.finishing) return;
     turn.finishing = true;

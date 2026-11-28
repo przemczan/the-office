@@ -35,6 +35,32 @@ const CMD_BUILT_INS: ReadonlySet<string> = new Set(
 /** What cmd.exe tries after a bare program name when PATHEXT is not set. */
 const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 
+/**
+ * What a program needs from the environment on Windows: PATH and PATHEXT, the system's folders and
+ * shell (without SystemRoot a program can't load the system's DLLs), the user and their profile's
+ * folders, where a credential helper keeps its store, and the temporary folders.
+ */
+const WINDOWS_SYSTEM_VARIABLES: readonly string[] = [
+  "PATH",
+  "PATHEXT",
+  "SystemRoot",
+  "SystemDrive",
+  "windir",
+  "ComSpec",
+  "ProgramData",
+  "ProgramFiles",
+  "ProgramW6432",
+  "USERNAME",
+  "USERDOMAIN",
+  "USERPROFILE",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "TEMP",
+  "TMP",
+];
+
 export function windows({ variables, homeDirectory }: UserEnvironment): OperatingSystem {
   const localAppData = variables["LOCALAPPDATA"] || win32.join(homeDirectory, "AppData", "Local");
   const appData = variables["APPDATA"] || win32.join(homeDirectory, "AppData", "Roaming");
@@ -73,6 +99,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     },
     hasLoadAverage: false,
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
+    systemVariableNames: WINDOWS_SYSTEM_VARIABLES,
     printFileCommand: (file) => printFileCommand(doubleQuoted, file),
     localSocketPath: (name) => `\\\\.\\pipe\\${name}`,
     nodeScriptHookCommand: (script, args) =>

@@ -136,6 +136,15 @@ export abstract class ThreadRepository {
   /** The Thread's log, in the order its messages were logged. */
   abstract messages(threadId: string): Promise<readonly Message[]>;
 
+  /**
+   * The messages the Thread logged after `messageId`, in order; undefined when that message isn't
+   * in its log.
+   */
+  abstract messagesAfter(
+    threadId: string,
+    messageId: string,
+  ): Promise<readonly Message[] | undefined>;
+
   /** The messages logged in the range, in any Thread it takes, the first logged first. */
   abstract loggedIn(range: LoggedMessagesRange): Promise<readonly LoggedMessage[]>;
 
@@ -143,17 +152,6 @@ export abstract class ThreadRepository {
   abstract countLoggedIn(range: LoggedMessagesRange): Promise<number>;
 
   abstract decision(id: string): Promise<Decision | undefined>;
-
-  /**
-   * Runs `work` on the Decision as stored, holding it against every other `holdingDecision` of it
-   * until `work` ends, so two answers at once never carry out the same answer twice: the second
-   * reads the Decision as the first left it. `work` may change the Decision and its Thread through
-   * `update` meanwhile; undefined when there is no such Decision.
-   */
-  abstract holdingDecision<Result>(
-    id: string,
-    work: (decision: Decision | undefined) => Promise<Result>,
-  ): Promise<Result>;
 
   /** Those of the Decisions with the ids still there, in one read, in no set order. */
   abstract decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]>;

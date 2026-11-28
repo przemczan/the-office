@@ -6,6 +6,16 @@ export interface SessionMcpServersStandIn {
   readonly prepared: Parameters<SessionMcpServers["prepare"]>[0][];
   readonly rebuilt: string[];
   readonly forgotten: string[];
+  /** Holds the next new session's servers until released, as a slow server would. */
+  holdNextPrepare(): HeldPreparation;
+}
+
+/** A new session's MCP servers held while they are prepared. */
+export interface HeldPreparation {
+  /** Resolves once a session's opening is waiting for them. */
+  readonly reached: Promise<void>;
+  /** Lets them go: the opening goes on. */
+  release(): void;
 }
 
 const NONE: PreparedMcpServers = { servers: [], leftOut: [] };
@@ -21,11 +31,17 @@ export function sessionMcpServersStandIn(
   const prepared: SessionMcpServersStandIn["prepared"] = [];
   const rebuilt: string[] = [];
   const forgotten: string[] = [];
+  const holds: { readonly reach: () => void; readonly released: Promise<void> }[] = [];
   return {
     service: {
-      prepare: (request) => {
+      prepare: async (request) => {
         prepared.push(request);
-        return Promise.resolve(onStart);
+        const hold = holds.shift();
+        if (hold) {
+          hold.reach();
+          await hold.released;
+        }
+        return onStart;
       },
       rebuild: (sessionId) => {
         rebuilt.push(sessionId);
@@ -39,5 +55,13 @@ export function sessionMcpServersStandIn(
     prepared,
     rebuilt,
     forgotten,
+    holdNextPrepare: () => {
+      let reach!: () => void;
+      let release!: () => void;
+      const reached = new Promise<void>((resolve) => (reach = resolve));
+      const released = new Promise<void>((resolve) => (release = resolve));
+      holds.push({ reach, released });
+      return { reached, release };
+    },
   };
 }

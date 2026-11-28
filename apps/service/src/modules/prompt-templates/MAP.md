@@ -1,12 +1,27 @@
 # Prompt templates: module map
 
-**Owns:** the Prompt templates (spec §2.2): the catalog (`PromptTemplateCatalog`) each module registers its templates in from an `onModuleInit` provider, refusing at start a duplicate key, a key not `<domain>.<kebab-name>` of its own domain, or a default text that fails the check; each template's versions (`prompt_template_versions`, a `null` text meaning the default, each with `saved_by` and `saved_at`), saved, replaced for a Proposal drafted from a text (`PromptTemplates.replace`, refused once the text changed since) or reset to the default; the one check of a text (`promptTextProblems`: Mustache syntax, variables the template lists, `.` and a list's fields only inside its section, no partials, no delimiter changes, `PROMPT_TEXT_MAX_CHARACTERS`), each problem with its line and column; rendering (`renderPrompt`, Mustache with no HTML escaping, the escape given per call). Settings › Prompt templates' read and check routes under `/settings/prompt-templates`; its saving and reset (`PUT` and `DELETE` of `:key`) are Office actions carried out by Pipelines (`PromptTemplateOfficeActions`), as Engine imports this module and a handler here couldn't import Engine's tool registry.
+## Owns
 
-**Talks to:** nothing: it imports no other module, so every module that owns a prompt imports its `index.ts`. Pipelines registers `PIPELINES_PROMPT_TEMPLATES` (Stage Briefs, Stage messages and Resolve's briefs) and Engine `ENGINE_PROMPT_TEMPLATES` (the API engine's and Codex's own instructions). Conversations reads the templates and applies their Proposals (`list`, `read`, `check`, `replace`, and `refusalOf` for the Settings save's words). It publishes `PromptTemplateChanged`, which its WebSocket adapter forwards to the web as `prompt-template.changed` with the key.
+- The Prompt templates: the catalog (`PromptTemplateCatalog`, filled from each module's `onModuleInit`, refusing a duplicate key, a key not `<domain>.<kebab-name>` or a default failing the check), versions (`prompt_template_versions`, `null` text = default, `saved_by`, `saved_at`), `PromptTemplates.replace` for Proposals, reset.
+- The one check (`promptTextProblems`, `PROMPT_TEXT_MAX_CHARACTERS`) and rendering (`renderPrompt`, Mustache without HTML escaping).
+- Settings › Prompt templates' read and check routes; saving and reset are Office actions carried out by Pipelines (`PromptTemplateOfficeActions`), as Engine imports this module.
 
-**How a module renders a template:** it declares the template as data in its own `domain/` with `promptTemplate` (its values' type follows from its variables), its pure functions take a `PromptTexts`, and its application layer loads the texts first with `PromptTemplates.textsOf([A, B])` (one read) and passes them in. Domain tests use `defaultPromptTexts`. A template rendered as one part of a longer text goes through `renderedPart` (drops the one line break a closing section leaves), and a list record's flag field is `flagField`, as records hold only texts.
+## Talks to
 
-**Traps:** a text is loaded at use time, never in a constructor or before the modules' init: the catalog is filled in `onModuleInit`, and `textsOf` throws for a template not registered. A saved text that no longer passes the check (a release removed a variable) renders the default and logs a warning; `read` still answers it with its `problems`. Saving the default text stores `null`, so the template follows a later release's default. Every test file shares the table: a test saves only keys of its own (`test.<uuid>`, or a catalog entry of its own), and a test that saves a real template's text, such as `pipelines.resolve-brief`, overrides `PromptTemplateRepository` with `PromptTemplateRepositoryForTests` (`index.fixtures.ts`); another module's unit test takes `promptTemplatesFor(templates, saved?)` there, over a catalog of its own and versions in memory. `PROMPT_TEXT_MAX_CHARACTERS` mirrors the contracts' `PROMPT_TEMPLATE_MAX_CHARACTERS`, which the controller test compares.
+- Nothing: it imports no other module. Modules import its `index.ts`, domains its `index.domain.ts` (`promptTemplate`, `flagField`, `renderedPart`, `PromptTexts`).
+- Conversations reads templates and applies their Proposals; `PromptTemplateChanged` reaches the web as `prompt-template.changed`.
+
+## Traps
+
+- How to render: declare with `promptTemplate` in the module's `domain/`, pure functions take `PromptTexts`, the application loads `PromptTemplates.textsOf([A, B])` first. Domain tests use `defaultPromptTexts`; parts go through `renderedPart`, flags through `flagField`.
+- Load texts at use time, never in a constructor or before modules' init: `textsOf` throws for an unregistered template.
+- A saved text failing the check renders the default and logs a warning; saving the default stores `null`.
+- Every test file shares the table: tests save only keys of their own (`test.<uuid>`); one saving a real template overrides `PromptTemplateRepository` with `PromptTemplateRepositoryForTests`; other unit tests use `promptTemplatesFor`.
+- `PROMPT_TEXT_MAX_CHARACTERS` mirrors contracts' `PROMPT_TEMPLATE_MAX_CHARACTERS` (the controller test compares).
+
+## Spec
+
+- [2.2 People](../../../../../docs/spec/2.2-people.md) (Prompt templates), [screens/settings.md](../../../../../docs/spec/screens/settings.md)
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
@@ -32,6 +47,7 @@ PromptTemplateCatalog, PromptTemplates, promptTemplate, PromptTemplate, PromptTe
 
 ### ./
 
+- `index.domain.ts`: promptTemplate, PromptTemplate, PromptValues, PromptTexts, flagField, renderedPart
 - `index.fixtures.ts`: promptTemplatesFor, PromptTemplateRepository, PromptTemplateRepositoryForTests
 - `prompt-templates.module.ts`: PromptTemplatesModule
 

@@ -1,4 +1,4 @@
-import type { OnModuleDestroy } from "@nestjs/common";
+import { Logger, type OnModuleDestroy } from "@nestjs/common";
 import { KeyedLocks } from "../../../../platform/locks/keyed-locks.js";
 import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { EngineAccountUnreadable, type EngineAccount } from "../../domain/engine-account.js";
@@ -18,6 +18,8 @@ import type {
   CopilotSignInRuntime,
   OpenCopilotSignInRuntime,
 } from "./copilot-sign-in-runtime.js";
+
+const logger = new Logger("CopilotSdkAccounts");
 
 /** How long reading the sign-in, starting a Sign in or signing out has to end. */
 const RUNTIME_TIMEOUT_MS = 30_000;
@@ -57,7 +59,9 @@ export class CopilotSdkAccounts extends CopilotCliAccounts implements OnModuleDe
       await this.signIns.get(engineId)?.end();
       const started = await this.startSignIn(engineId);
       this.signIns.set(engineId, started);
-      void started.ended.then(() => this.forget(engineId, started));
+      // Forgotten however it ended; a failed one's failure reaches whoever waits for its end.
+      const forget = (): void => this.forget(engineId, started);
+      void started.ended.then(forget, forget);
       return started;
     });
     return { url: running.url, userCode: running.userCode, ended: running.ended };
@@ -153,7 +157,11 @@ class RunningSignIn {
     this.login = login;
     this.url = login.url;
     this.userCode = login.userCode;
-    this.timer = setTimeout(() => void this.end(), SIGN_IN_TIMEOUT_MS).unref();
+    this.timer = setTimeout(() => {
+      void this.end().catch((error: unknown) => {
+        logger.warn(`The Copilot CLI Sign in that ran too long didn't end: ${messageOf(error)}`);
+      });
+    }, SIGN_IN_TIMEOUT_MS).unref();
     this.ended = login.finished
       .catch((error: unknown) => {
         if (this.endedOnPurpose) return;

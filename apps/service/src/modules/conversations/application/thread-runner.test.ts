@@ -118,10 +118,14 @@ import { ThreadContexts } from "./thread-contexts.js";
 import { AllowChanges } from "./allow-changes.js";
 import { StageThreads } from "./stage-threads.js";
 import { ThreadRunner, type SentWith } from "./thread-runner.js";
+import { LiveSessions } from "./live-sessions.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
+import { SessionThreads } from "./session-threads.js";
+import { ThreadsAtWork } from "./threads-at-work.js";
+import { WorkThreads } from "./work-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { storedBeforeOfficeInstructions } from "../domain/thread.fixtures.js";
@@ -218,6 +222,9 @@ const personRecords = new Map<string, string>();
 const projectRecords = new Map<string, string>();
 
 let threads: ThreadService;
+let sessionThreads: SessionThreads;
+let workThreads: WorkThreads;
+let threadsAtWork: ThreadsAtWork;
 let runner: ThreadRunner;
 let repository: ThreadRepository;
 let decisions: DecisionService;
@@ -405,6 +412,9 @@ async function startOn(
       OfficeInstructions,
       ContextPolicySettingsService,
       ThreadService,
+      SessionThreads,
+      ThreadsAtWork,
+      WorkThreads,
       Briefs,
       MessageImages,
       ThreadImages,
@@ -424,6 +434,7 @@ async function startOn(
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      LiveSessions,
       ...openPageRecordProviders(personRecords, projectRecords),
       WorkRecords,
       StageThreads,
@@ -502,6 +513,9 @@ async function startOn(
   messageImages = new MessageImagesInMemory();
   app.get(MessageImages).provide(messageImages);
   threads = app.get(ThreadService);
+  sessionThreads = app.get(SessionThreads);
+  workThreads = app.get(WorkThreads);
+  threadsAtWork = app.get(ThreadsAtWork);
   runner = app.get(ThreadRunner);
   repository = app.get(ThreadRepository);
   decisions = app.get(DecisionService);
@@ -706,7 +720,7 @@ describe("a new Thread's first message", () => {
     expect(JSON.stringify(session?.options)).not.toContain(GITHUB_USER_TOKEN);
     expect(session?.options.instructions).toContain("You are Jan, the Planner in The Office");
     // A chat's session is on no Task, so the Office tools writing onto one refuse it.
-    await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
+    await expect(sessionThreads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
     expect(session?.options.instructions).toContain("Plan in conversation: ask what is unclear.");
     expect(drafts(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
@@ -1120,18 +1134,18 @@ describe("whether a Thread has a turn running", () => {
       ),
     );
     const thread = await threads.startInChat(roleKey);
-    expect(threads.isTurnRunning(thread.id)).toBe(false);
+    expect(threadsAtWork.isTurnRunning(thread.id)).toBe(false);
 
     await runner.send(thread.id, "Check the tests.", ANN_LEE);
     await vi.waitFor(async () => {
       expect((await threads.messages(thread.id)).map(({ kind }) => kind)).toContain("person");
     });
-    expect(threads.isTurnRunning(thread.id)).toBe(true);
+    expect(threadsAtWork.isTurnRunning(thread.id)).toBe(true);
 
     engine.sessions[0]?.reach(HOLD);
     await answered(thread.id, 3);
-    expect(threads.isTurnRunning(thread.id)).toBe(false);
-    expect(threads.isTurnRunning(randomUUID())).toBe(false);
+    expect(threadsAtWork.isTurnRunning(thread.id)).toBe(false);
+    expect(threadsAtWork.isTurnRunning(randomUUID())).toBe(false);
   });
 });
 
@@ -1204,7 +1218,7 @@ describe("Stop in a person's Thread", () => {
     expect(stopped.session).toBeDefined();
     // The session is kept: nothing ended it.
     expect(receivedSteps()).toEqual(["start", "send", "interrupt"]);
-    expect(threads.isTurnRunning(thread.id)).toBe(false);
+    expect(threadsAtWork.isTurnRunning(thread.id)).toBe(false);
   });
 
   it("does nothing while the person doesn't answer", async () => {
@@ -2117,9 +2131,9 @@ describe("a Thread on a Task", () => {
       brief: `${KNOWLEDGE_BASE_LINE}\n\nYou are planning the Task ${taskId}.`,
     });
     expect((await threads.read(opened.id)).title).toBe("Planning");
-    await expect(threads.taskInSession(session?.id ?? "")).resolves.toBe(taskId);
-    await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBeUndefined();
-    await expect(threads.personInSession(session?.id ?? "")).resolves.toBe(roleKey);
+    await expect(sessionThreads.taskInSession(session?.id ?? "")).resolves.toBe(taskId);
+    await expect(sessionThreads.initiativeInSession(session?.id ?? "")).resolves.toBeUndefined();
+    await expect(sessionThreads.personInSession(session?.id ?? "")).resolves.toBe(roleKey);
   });
 
   it("hides the Project's Secret variables in the person's words and tool calls, stored and live", async () => {
@@ -2213,7 +2227,7 @@ describe("a Thread on a Task", () => {
     const taskId = randomUUID();
     await startWith(started(...aTurn("brief", "I'll read the sign-in first.")));
 
-    const opened = await threads.startOnTask({
+    const opened = await workThreads.startOnTask({
       taskId,
       roleKey,
       title: "Planning",
@@ -2236,10 +2250,10 @@ describe("a Thread on a Task", () => {
     await startWith();
 
     await expect(
-      threads.openOnTask({ taskId: randomUUID(), roleKey: "nobody", title: "Planning" }),
+      workThreads.openOnTask({ taskId: randomUUID(), roleKey: "nobody", title: "Planning" }),
     ).rejects.toThrow(ThreadRefused);
     await expect(
-      threads.startOnTask({
+      workThreads.startOnTask({
         taskId: randomUUID(),
         roleKey: "nobody",
         title: "Planning",
@@ -2313,7 +2327,7 @@ describe("a Thread on an Initiative", () => {
     const initiativeId = randomUUID();
     await startWith(started(...aTurn("brief", "What outcome do you want?")));
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Shaping",
@@ -2349,8 +2363,8 @@ describe("a Thread on an Initiative", () => {
     await expect(threads.listOnInitiative(initiativeId)).resolves.toMatchObject([
       { id: opened.id },
     ]);
-    await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
-    await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBe(initiativeId);
+    await expect(sessionThreads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
+    await expect(sessionThreads.initiativeInSession(session?.id ?? "")).resolves.toBe(initiativeId);
   });
 
   it("opens waiting for the user, the person starting on their first message, briefed from the Initiative's record", async () => {
@@ -2358,7 +2372,7 @@ describe("a Thread on an Initiative", () => {
     const threadId = randomUUID();
     await startWith(started(...aTurn("brief", "In which order?")));
 
-    const opened = await threads.openOnInitiative({
+    const opened = await workThreads.openOnInitiative({
       threadId,
       initiativeId,
       roleKey,
@@ -2390,7 +2404,7 @@ describe("a Thread on an Initiative", () => {
     await startWith();
 
     await expect(
-      threads.openOnInitiative({
+      workThreads.openOnInitiative({
         initiativeId: randomUUID(),
         roleKey: "nobody",
         title: "Planning",
@@ -2409,7 +2423,7 @@ describe("a Thread on an Initiative", () => {
       ...aTurn("m-3", "Back again."),
     ]);
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Shaping",
@@ -2447,7 +2461,7 @@ describe("a Thread on an Initiative", () => {
       ...aTurn("m-3", "Back again."),
     ]);
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Shaping",
@@ -2556,7 +2570,7 @@ describe("the engine cascade a Thread's session resolves", () => {
     cascade.setForInitiative(initiativeId, HAIKU);
     await startWith(started(...aTurn("brief", "What outcome do you want?")));
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Shaping",
@@ -2612,7 +2626,7 @@ const HAIKU_ON_CLAUDE_CODE = {
 async function aPersonsThread(): Promise<Thread> {
   const taskId = randomUUID();
   tasksAsked.add(taskId);
-  return threads.openOnTask({ taskId, roleKey, title: "Asking Ada" });
+  return workThreads.openOnTask({ taskId, roleKey, title: "Asking Ada" });
 }
 
 describe("a person's Thread on a Task", () => {
@@ -2701,7 +2715,7 @@ describe("a person's Thread on a Task", () => {
 
 /** A Task's planning Thread, waiting for the user's first message. */
 async function planningThread(taskId: string = randomUUID()): Promise<Thread> {
-  return threads.openOnTask({ taskId, roleKey, title: "Planning" });
+  return workThreads.openOnTask({ taskId, roleKey, title: "Planning" });
 }
 
 /** A Task's planning Thread where the Planner answers the user's first message. */
@@ -3278,7 +3292,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
       },
     });
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Planning the Initiative",
@@ -3386,7 +3400,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
         return { text: "Done.", isError: false };
       },
     });
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Planning the Initiative",
@@ -3455,7 +3469,7 @@ describe("a Decision on an Initiative as a whole", () => {
       },
     });
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Shaping the Initiative",
@@ -3518,7 +3532,7 @@ describe("a Decision on an Initiative as a whole", () => {
       ),
     );
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Planning the Initiative",
@@ -3929,7 +3943,7 @@ describe("a Decision answered for the user, at their request", () => {
       ),
       started(...aTurn("brief", "I'll answer them.")),
     );
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId,
       roleKey,
       title: "Planning the Initiative",
@@ -4492,7 +4506,7 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
   it("goes on in an Initiative's planning Thread too", async () => {
     await refusedThenAnsweredOnHome("In which order?");
 
-    const opened = await threads.startOnInitiative({
+    const opened = await workThreads.startOnInitiative({
       initiativeId: randomUUID(),
       roleKey,
       title: "Planning the Initiative",
@@ -4507,7 +4521,7 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
   it("goes on in a Task's planning Thread too, whatever its context's size", async () => {
     await refusedThenAnsweredOnHome("I'll read the sign-in first.");
 
-    const opened = await threads.startOnTask({
+    const opened = await workThreads.startOnTask({
       taskId: randomUUID(),
       roleKey,
       title: "Planning",
@@ -4877,7 +4891,7 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
       const initiativeId = randomUUID();
       cascade.setForInitiative(initiativeId, ON_WORK);
 
-      const opened = await threads.startOnInitiative({
+      const opened = await workThreads.startOnInitiative({
         initiativeId,
         roleKey,
         title: "Planning the Initiative",
@@ -5533,7 +5547,84 @@ describe("the Caretaker's chat", () => {
     );
     await expect(threads.messages(fresh.id)).resolves.toEqual([]);
   });
+
+  it("stops a session still opening when changes are switched off, so it never runs with them", async () => {
+    await startWith(started(...aTurn("brief", "Done.")));
+    const allowChanges = app.get(AllowChanges);
+    const thread = await threads.startInChat(roleKey);
+    await allowChanges.allow(thread.id, ANN_LEE);
+    const held = mcpServers.holdNextPrepare();
+    await runner.send(thread.id, "Update the toolchain.", ANN_LEE);
+    await held.reached;
+    const opening = (await threads.read(thread.id)).session;
+
+    await whileEnding(() => allowChanges.switchOff(thread.id, ANN_LEE), held.release);
+
+    expect(engine.sessions).toEqual([]);
+    expect(opening?.changesAllowed).toBe(true);
+    expect(forgotten).toContain(opening?.id);
+    expect(mcpServers.forgotten).toContain(opening?.id);
+    const after = await threads.read(thread.id);
+    expect(after.state).toBe("waiting");
+    // A session that never ran gives way to the one before: here none.
+    expect(after.session).toBeUndefined();
+    expect(drafts(await threads.messages(thread.id)).slice(-2)).toEqual([
+      { kind: "failure", reason: "Changes were switched off, so the answer stopped." },
+      { kind: "changes-allowed", allowed: false, by: ANN_LEE },
+    ]);
+  });
+
+  it("removes what a session still opening prepared as its chat is deleted", async () => {
+    await startWith(started(...aTurn("brief", "Done.")));
+    const thread = await threads.startInChat(roleKey);
+    const held = mcpServers.holdNextPrepare();
+    await runner.send(thread.id, "Why is the build slow?", ANN_LEE);
+    await held.reached;
+    const opening = (await threads.read(thread.id)).session;
+
+    await whileEnding(() => runner.endForDeletion(thread), held.release);
+
+    expect(engine.sessions).toEqual([]);
+    expect(forgotten).toContain(opening?.id);
+    expect(mcpServers.forgotten).toContain(opening?.id);
+    await expect(threads.read(thread.id)).resolves.toMatchObject({ state: "waiting" });
+  });
+
+  it("refuses Allow changes while the Caretaker's session opens, and leaves that answer going", async () => {
+    await startWith(started(...aTurn("brief", "The disk is nearly full.")));
+    const thread = await threads.startInChat(roleKey);
+    const held = mcpServers.holdNextPrepare();
+    await runner.send(thread.id, "Why is the build slow?", ANN_LEE);
+    await held.reached;
+
+    await expect(app.get(AllowChanges).allow(thread.id, ANN_LEE)).rejects.toThrow(
+      "Wait for the answer to finish, then Allow changes.",
+    );
+    held.release();
+    const log = await answered(thread.id, 3);
+
+    await expect(app.get(AllowChanges).inThread(thread)).resolves.toBe(false);
+    expect(engine.sessions[0]?.options).toMatchObject({ workstation: false });
+    expect(drafts(log).map(({ kind }) => kind)).not.toContain("changes-allowed");
+  });
 });
+
+/**
+ * Runs `ending`, which ends a Thread's session, and once it has asked `LiveSessions` to end the
+ * opening under way lets that opening go on with `release`, so the opening finds itself stopped.
+ */
+async function whileEnding(ending: () => Promise<unknown>, release: () => void): Promise<void> {
+  const lives = app.get(LiveSessions);
+  const asked = vi.spyOn(lives, "end");
+  try {
+    const ended = ending();
+    await vi.waitFor(() => expect(asked).toHaveBeenCalled(), { timeout: 5_000, interval: 5 });
+    release();
+    await ended;
+  } finally {
+    asked.mockRestore();
+  }
+}
 
 /** A session's options but its holds, which are functions made for each move. */
 function withoutHolds(options: object | undefined): object {

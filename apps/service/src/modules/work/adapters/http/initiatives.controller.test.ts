@@ -18,6 +18,7 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { TaskLocks } from "../../application/task-locks.js";
 import { PipelineLibrary } from "../../../pipelines/index.js";
 import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
@@ -474,6 +475,24 @@ describe("POST /api/initiatives/:id/start", () => {
         refused: [],
       });
       expect((await own.startCheck(startedAlone.id)).waits).toEqual([INITIATIVE_PAUSED]);
+    });
+
+    it("pauses its Tasks only once a way back holding one of them has let go", async () => {
+      const { initiative, started } = await initiativeWithStartedTasks(1, 0);
+      const [task] = started as [Task];
+      let release!: () => void;
+      const held = work.app
+        .get(TaskLocks, { strict: false })
+        .run(task.id, () => new Promise<void>((resolve) => (release = resolve)));
+
+      const pausing = pauseOrResume(initiative, "pause");
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect((await own.readTask(task.id)).state).toBe("in-progress");
+      release();
+      await held;
+      expect((await pausing).taskIds).toEqual([task.id]);
+      expect((await own.readTask(task.id)).state).toBe("paused");
     });
 
     it("resumes exactly the Tasks its Pause paused, and the queue starts its queued ones", async () => {

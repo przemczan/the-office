@@ -136,6 +136,15 @@ function MessageAction({
       </p>
     );
   }
+  if (message.kind === "updated") {
+    return (
+      <p className="shell-office-message-action">
+        <Button size="sm" onClick={() => window.location.reload()}>
+          Reload the page
+        </Button>
+      </p>
+    );
+  }
   if (message.kind === "desktop-ask") {
     return (
       <p className="shell-office-message-action">

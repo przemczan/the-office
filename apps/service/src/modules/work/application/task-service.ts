@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { TaskLocks } from "../../../platform/locks/task-locks.js";
+import { TaskLocks } from "./task-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { EngineModels, EngineReferenceLock, type EngineId } from "../../engine/index.js";
 import type { Author, UserRef } from "../domain/author.js";
@@ -531,12 +531,13 @@ export class TaskService {
 
   /**
    * Drops the Task, by the user (on its page, or by their answer to a Decision) or by a person
-   * (drop_task, only before it starts), with the reason given, if any, kept with the move.
+   * (drop_task, only before it starts), with the reason given, if any, kept with the move. Under the
+   * Task's lock, as every Drop is, so it never lands between a way back's branch reset and its move.
    */
   async drop(id: string, by: Author, reason?: DropReason): Promise<Task> {
     if (reason?.kind === "duplicate" && reason.taskId !== id)
       await this.refuseUnknown(reason.taskId);
-    return this.update(id, (task) => dropTask(task, by, reason));
+    return this.updateHoldingTheTask(id, (task) => dropTask(task, by, reason));
   }
 
   /**
@@ -545,7 +546,7 @@ export class TaskService {
    * Pipelines' answered Decisions call it; no route or Office action does.
    */
   async dropAsAnswered(id: string, answer: DropAnswer): Promise<Task> {
-    return this.update(id, (task) => dropTaskAsAnswered(task, answer));
+    return this.updateHoldingTheTask(id, (task) => dropTaskAsAnswered(task, answer));
   }
 
   /** Takes a Done or Dropped Task off the board into the Archive, its state as it was. */
@@ -640,13 +641,10 @@ export class TaskService {
     id: string,
     change: (task: Task) => TaskChange<TaskResumed | TaskPaused> | undefined,
   ): Promise<{ readonly task: Task; readonly changed: boolean }> {
-    const { task, event } = await this.repository.update(id, change);
-    // Read again after the save, as a Resume does: an alarm sounded meanwhile passed it by as Paused.
-    if (event instanceof TaskResumed && (await this.alarmStopsEveryWalk())) {
-      return { task: await this.update(id, pauseTaskForAlarm), changed: true };
-    }
+    const resumed = await this.repository.update(id, change);
+    const { task, event } = await this.heldByAlarmSoundedSince(id, resumed);
     if (event) await this.events.publish(event);
-    return { task, changed: event !== undefined };
+    return { task, changed: resumed.event !== undefined };
   }
 
   /** Holds the Task now; TaskStopped tells Pipelines to interrupt the Stage running. */
@@ -658,15 +656,14 @@ export class TaskService {
    * TaskResumed tells Pipelines to walk the Task's Stages on from where they were held. While the
    * fire alarm is on ASAP, the alarm holds the Task instead, until the all clear; under a softer
    * way it walks on, and the walk holds it at its Stage boundary after the current Stages. A Task
-   * the alarm paused is refused, as is one whose Initiative is paused.
+   * the alarm paused is refused, as is one whose Initiative is paused. Under the Task's lock, which
+   * Start over and Reopen… take too (`TaskWaysBack`), so none resets the branch under the walk.
    */
   async resume(id: string, by: Author): Promise<Task> {
     const alarm = await this.fireAlarm.read();
-    const { task, event } = await this.resumeHeld(id, alarm, by);
-    // Read again after the save: an alarm sounded meanwhile may have passed the Task by as Paused.
-    if (event instanceof TaskResumed && (await this.alarmStopsEveryWalk())) {
-      return this.update(id, pauseTaskForAlarm);
-    }
+    const { task, event } = await this.taskLocks.run(id, async () =>
+      this.heldByAlarmSoundedSince(id, await this.resumeHeld(id, alarm, by)),
+    );
     if (event) await this.events.publish(event);
     return task;
   }
@@ -701,7 +698,7 @@ export class TaskService {
    * Task goes on In progress as a Resume does, TaskResumed telling Pipelines to walk on, its History
    * naming the Stage and the user, or the person who restarted it at the user's request. Refused as
    * `restartProblems` says, judged again holding its Initiative and the Task; an alarm sounded ASAP
-   * meanwhile holds it as it holds a Resume.
+   * meanwhile holds it as it holds a Resume. Under the Task's lock, as a Resume is.
    */
   async restart(
     id: string,
@@ -716,16 +713,34 @@ export class TaskService {
     },
   ): Promise<Task> {
     const alarm = await this.fireAlarm.read();
-    const { task, event } = await this.changeWithItsInitiative(id, (held, initiativePaused) =>
-      restartTask(
-        held,
-        { initiativePaused, alarmHoldsResume: holdsResume(alarm, held) },
-        { stageName, user: by, person },
+    const { task, event } = await this.taskLocks.run(id, async () =>
+      this.heldByAlarmSoundedSince(
+        id,
+        await this.changeWithItsInitiative(id, (held, initiativePaused) =>
+          restartTask(
+            held,
+            { initiativePaused, alarmHoldsResume: holdsResume(alarm, held) },
+            { stageName, user: by, person },
+          ),
+        ),
       ),
     );
-    if (event && (await this.alarmStopsEveryWalk())) return this.update(id, pauseTaskForAlarm);
     if (event) await this.events.publish(event);
     return task;
+  }
+
+  /**
+   * Read again after a resume's save: an alarm sounded ASAP meanwhile passed the Task by as Paused,
+   * so the alarm holds it instead, and only its Pause is told.
+   */
+  private async heldByAlarmSoundedSince(
+    id: string,
+    resumed: TaskUpdate<TaskResumed | TaskPaused>,
+  ): Promise<TaskUpdate<TaskResumed | TaskPaused>> {
+    if (!(resumed.event instanceof TaskResumed) || !(await this.alarmStopsEveryWalk())) {
+      return resumed;
+    }
+    return this.repository.update(id, pauseTaskForAlarm);
   }
 
   /**
@@ -807,6 +822,19 @@ export class TaskService {
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<Task> {
     const { task, event } = await this.repository.update(id, change);
+    if (event) await this.events.publish(event);
+    return task;
+  }
+
+  /**
+   * As `update`, under the Task's lock, which Start over and Reopen… hold throughout (`TaskWaysBack`);
+   * its event is published once the lock is let go.
+   */
+  private async updateHoldingTheTask<Event extends DomainEvent>(
+    id: string,
+    change: (task: Task) => TaskChange<Event> | undefined,
+  ): Promise<Task> {
+    const { task, event } = await this.taskLocks.run(id, () => this.repository.update(id, change));
     if (event) await this.events.publish(event);
     return task;
   }

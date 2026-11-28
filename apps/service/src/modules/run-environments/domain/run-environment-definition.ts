@@ -115,13 +115,54 @@ const DEVCONTAINER_PROPERTIES = new Set([
   "customizations",
 ]);
 
-/** What a service may not set, since it would reach outside its run environment or share it. */
-const SHARED_SERVICE_PROPERTIES: Readonly<Record<string, string>> = {
+/** A compose file's own properties The Office reads or may leave aside; `x-` ones are kept too. */
+const COMPOSE_PROPERTIES = new Set(["name", "version", "services", "networks", "volumes"]);
+
+/**
+ * What a service may set: an allow-list, since any other property may reach outside its run
+ * environment (a folder, file, variable, device or namespace of this computer) or share it.
+ */
+const SERVICE_PROPERTIES = new Set([
+  "image",
+  "build",
+  "command",
+  "entrypoint",
+  "environment",
+  "depends_on",
+  "healthcheck",
+  "init",
+  "labels",
+  "networks",
+  "volumes",
+  "tmpfs",
+  "user",
+  "working_dir",
+  "restart",
+  "stop_signal",
+  "stop_grace_period",
+  "hostname",
+  "expose",
+  "shm_size",
+  "cap_drop",
+  "read_only",
+  "stdin_open",
+  "tty",
+  "platform",
+  "pull_policy",
+  "profiles",
+  "dns",
+  "dns_search",
+  "dns_opt",
+]);
+
+/** Why a service may not set a property, for those whose reason isn't plain from its name. */
+const SERVICE_PROPERTY_REASONS: Readonly<Record<string, string>> = {
   container_name: "a fixed container name, which two Tasks' run environments can't both have",
   ports: "ports published on this computer, which two Tasks' run environments can't both have",
   network_mode: "a network mode, while each run environment has its own network",
   pid: "the process namespace of something outside the run environment",
   ipc: "an IPC namespace, which run environments don't share",
+  uts: "the host name namespace of something outside the run environment",
   privileged: "privileged mode, which gives it the whole computer",
   cap_add: "added capabilities",
   devices: "devices of this computer",
@@ -130,10 +171,16 @@ const SHARED_SERVICE_PROPERTIES: Readonly<Record<string, string>> = {
   security_opt: "security options",
   volumes_from: "another container's volumes",
   extra_hosts: "addresses of this computer's network",
+  external_links: "containers outside the run environment",
+  use_api_socket: "the container runtime's socket, which gives it the whole computer",
+  env_file: 'variables from a file compose reads on this computer: give them in "environment"',
+  secrets: "secrets from files or variables of this computer",
+  configs: "configs from files or variables of this computer",
+  extends: "a service of another file, which The Office doesn't check: write the service whole",
 };
 
 /** The limits The Office sets on every service (spec §5.5): a definition can't set its own. */
-const LIMIT_PROPERTIES = [
+const LIMIT_PROPERTIES = new Set([
   "deploy",
   "cpus",
   "cpu_count",
@@ -146,9 +193,26 @@ const LIMIT_PROPERTIES = [
   "memswap_limit",
   "mem_reservation",
   "pids_limit",
-];
+]);
 
 const BUILD_PROPERTIES = new Set(["context", "dockerfile", "args", "target"]);
+
+/**
+ * What a declared network or volume may set: each run environment's are its own, plain ones of
+ * the runtime, labelled by The Office; a name, a driver or its options would reach past that.
+ */
+const NETWORK_PROPERTIES = new Set([
+  "labels",
+  "internal",
+  "attachable",
+  "enable_ipv4",
+  "enable_ipv6",
+  "external",
+]);
+const VOLUME_PROPERTIES = new Set(["labels", "external"]);
+
+/** A named volume's name, as compose takes one; a mount's source that isn't one is a folder. */
+const VOLUME_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
 /** Reads devcontainer.json's text; `undefined` when the file isn't there. */
 export function readDevcontainer(text: string | undefined): Reading<DevcontainerSettings> {
@@ -236,6 +300,8 @@ export function readDefinition(
     }
     const compose = parseCompose(path, text, problems);
     if (compose === undefined) continue;
+    problems.push(...unsupportedProblems(`The compose file ${path}`, compose, COMPOSE_PROPERTIES));
+    problems.push(...interpolationProblems(path, compose));
     const declaredServices = compose["services"];
     if (declaredServices !== undefined && !isRecord(declaredServices)) {
       problems.push(`The compose file ${path} must list its services by name.`);
@@ -247,8 +313,10 @@ export function readDefinition(
         continue;
       }
       services.set(name, { ...services.get(name), ...service });
-      if (service["build"] !== undefined) serviceFolders.set(name, posix.dirname(path));
+      const folder = posix.dirname(path);
+      if (service["build"] !== undefined) serviceFolders.set(name, folder);
       problems.push(...serviceProblems(name, path, service));
+      problems.push(...buildProblems(name, folder, service["build"]));
     }
     collectDeclared("network", path, compose["networks"], networks, problems);
     collectDeclared("volume", path, compose["volumes"], volumes, problems);
@@ -304,7 +372,8 @@ function parseCompose(
 ): Record<string, unknown> | undefined {
   let parsed: unknown;
   try {
-    parsed = parseYaml(text);
+    // With merge keys, as compose reads them, so what `<<` brings in is checked too.
+    parsed = parseYaml(text, { merge: true });
   } catch (error) {
     const reason = error instanceof Error ? error.message.split("\n")[0] : String(error);
     problems.push(`The compose file ${path} isn't valid YAML: ${reason}`);
@@ -317,36 +386,158 @@ function parseCompose(
   return parsed;
 }
 
+/** Each property `record` sets that isn't in `supported`, nor an `x-` extension compose ignores. */
+function unsupportedProblems(
+  subject: string,
+  record: Record<string, unknown>,
+  supported: ReadonlySet<string>,
+): string[] {
+  return Object.keys(record)
+    .filter((property) => !supported.has(property) && !property.startsWith("x-"))
+    .map((property) => `${subject} sets "${property}", which The Office doesn't support.`);
+}
+
+/**
+ * Each value that reads a variable (`$NAME`, `${NAME}`; `$$` is a `$` itself): compose would take
+ * it from the CLI's environment, The Office's, so a definition writes every value itself.
+ */
+function interpolationProblems(path: string, value: unknown, at = ""): string[] {
+  if (typeof value === "string") {
+    return value.replaceAll("$$", "").includes("$")
+      ? [
+          `The compose file ${path} reads a variable at ${at}: compose would take it from The Office's own environment, so write the value itself, or $$ for a $.`,
+        ]
+      : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((each, index) => interpolationProblems(path, each, `${at}[${index}]`));
+  }
+  if (isRecord(value)) {
+    return Object.entries(value).flatMap(([key, each]) =>
+      interpolationProblems(path, each, at === "" ? key : `${at}.${key}`),
+    );
+  }
+  return [];
+}
+
 function serviceProblems(name: string, path: string, service: Record<string, unknown>): string[] {
   const problems: string[] = [];
-  for (const [property, why] of Object.entries(SHARED_SERVICE_PROPERTIES)) {
-    if (service[property] !== undefined) {
-      problems.push(`The service ${name} in ${path} sets "${property}": ${why}.`);
-    }
-  }
-  for (const property of LIMIT_PROPERTIES) {
-    if (service[property] !== undefined) {
-      problems.push(
-        `The service ${name} in ${path} sets "${property}": The Office sets every service's limits.`,
-      );
-    }
+  for (const property of Object.keys(service)) {
+    if (SERVICE_PROPERTIES.has(property) || property.startsWith("x-")) continue;
+    const why = LIMIT_PROPERTIES.has(property)
+      ? "The Office sets every service's limits"
+      : SERVICE_PROPERTY_REASONS[property];
+    problems.push(
+      why === undefined
+        ? `The service ${name} in ${path} sets "${property}", which The Office doesn't support.`
+        : `The service ${name} in ${path} sets "${property}": ${why}.`,
+    );
   }
   const volumes = service["volumes"];
-  if (Array.isArray(volumes) && volumes.some(isFolderMount)) {
+  if (Array.isArray(volumes) && !volumes.every(isVolumeMount)) {
     problems.push(
       `The service ${name} in ${path} mounts a folder of this computer: The Office mounts the worktree itself, so use named volumes only.`,
+    );
+  }
+  for (const variable of valuelessNames(service["environment"])) {
+    problems.push(
+      `The service ${name} in ${path} gives ${variable} no value in "environment": compose would take it from The Office's own environment.`,
     );
   }
   return problems;
 }
 
-/** A bind mount, in the short syntax (a path before the colon) or the long one. */
-function isFolderMount(volume: unknown): boolean {
+/**
+ * A named or anonymous volume, or a tmpfs, by compose's reading of a mount: in the short syntax a
+ * source that is a volume's name, or none; anything else (a path, `~`, a drive, a pipe) is a
+ * folder of this computer, and so is any long-syntax type but a volume or a tmpfs.
+ */
+function isVolumeMount(volume: unknown): boolean {
   if (typeof volume === "string") {
-    const [source, target] = volume.split(":");
-    return target !== undefined && /^[./~]/.test(source ?? "");
+    if (/^[A-Za-z]:/.test(volume) || volume.startsWith("\\\\")) return false;
+    const colon = volume.indexOf(":");
+    return colon === -1 || VOLUME_NAME.test(volume.slice(0, colon));
   }
-  return isRecord(volume) && volume["type"] === "bind";
+  if (!isRecord(volume)) return false;
+  if (volume["type"] === "tmpfs") return true;
+  const source = volume["source"];
+  return (
+    volume["type"] === "volume" &&
+    (source === undefined || (typeof source === "string" && VOLUME_NAME.test(source)))
+  );
+}
+
+/**
+ * The names a list of `NAME=value` or a mapping gives no value, which compose fills from its own
+ * environment.
+ */
+function valuelessNames(entries: unknown): string[] {
+  if (Array.isArray(entries)) {
+    return entries.filter(
+      (each): each is string => typeof each === "string" && !each.includes("="),
+    );
+  }
+  if (!isRecord(entries)) return [];
+  return Object.entries(entries)
+    .filter(([, value]) => value === null || value === undefined)
+    .map(([variable]) => variable);
+}
+
+/**
+ * Why a service's build can't be used, whichever service it is: compose builds every one but the
+ * checks', so its context and Dockerfile must stay in the repository, whether read against the
+ * compose file's folder or against the project's, `.devcontainer/`, and no variable comes from
+ * The Office's environment.
+ */
+function buildProblems(name: string, composeFolder: string, build: unknown): string[] {
+  if (build === undefined) return [];
+  if (typeof build === "string") {
+    return contextOf(composeFolder, build) === undefined
+      ? [`The service ${name}'s build context is outside the repository.`]
+      : [];
+  }
+  if (!isRecord(build)) return [`The service ${name}'s build must be a folder.`];
+  const problems = Object.keys(build)
+    .filter((property) => !BUILD_PROPERTIES.has(property))
+    .map(
+      (property) =>
+        `The service ${name}'s build sets "${property}", which The Office doesn't support.`,
+    );
+  const context = contextOf(composeFolder, stringOr(build["context"], "."));
+  if (context === undefined) {
+    problems.push(`The service ${name}'s build context is outside the repository.`);
+  } else if (resolvedIn(context, stringOr(build["dockerfile"], "Dockerfile")) === undefined) {
+    problems.push(`The service ${name}'s Dockerfile is outside the repository.`);
+  }
+  if (argumentsOf(build["args"]) === undefined) {
+    problems.push(`The service ${name}'s build args must be names and values.`);
+  }
+  for (const variable of valuelessNames(build["args"])) {
+    problems.push(
+      `The service ${name}'s build gives ${variable} no value in "args": compose would take it from The Office's own environment.`,
+    );
+  }
+  return problems;
+}
+
+/** The build context as The Office reads it, or none when either reading leaves the repository. */
+function contextOf(composeFolder: string, context: string): string | undefined {
+  return resolvedIn(DEFINITION_FOLDER, context) === undefined
+    ? undefined
+    : resolvedIn(composeFolder, context);
+}
+
+/**
+ * The path, relative to the worktree, that `given` names from `folder`; none when it leads out of
+ * the repository or is absolute, from `~` or on a drive (a URL among them).
+ */
+function resolvedIn(folder: string, given: string): string | undefined {
+  const path = given.replaceAll("\\", "/");
+  if (path.startsWith("/") || path.startsWith("~") || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) {
+    return undefined;
+  }
+  const resolved = posix.join(folder, path);
+  return outsideWorktree(resolved) ? undefined : resolved;
 }
 
 function collectDeclared(
@@ -362,19 +553,29 @@ function collectDeclared(
     return;
   }
   for (const [name, settings] of Object.entries(declared)) {
-    if (
-      isRecord(settings) &&
-      settings["external"] !== undefined &&
-      settings["external"] !== false
-    ) {
+    if (isRecord(settings)) {
+      if (settings["external"] !== undefined && settings["external"] !== false) {
+        problems.push(
+          `The ${kind} ${name} in ${path} is external: each run environment has its own ${kind}s.`,
+        );
+      }
       problems.push(
-        `The ${kind} ${name} in ${path} is external: each run environment has its own ${kind}s.`,
+        ...unsupportedProblems(
+          `The ${kind} ${name} in ${path}`,
+          settings,
+          kind === "network" ? NETWORK_PROPERTIES : VOLUME_PROPERTIES,
+        ),
       );
     }
     names.add(name);
   }
 }
 
+/**
+ * The image the checks' service runs on. One The Office builds is keyed by the definition's
+ * folder alone (spec §5.5, "A run environment's image"), so its context and Dockerfile must be in
+ * `.devcontainer/`, where a pairing environment's export has them too.
+ */
 function serviceImageOf(
   name: string,
   service: Record<string, unknown>,
@@ -383,40 +584,38 @@ function serviceImageOf(
   const build = service["build"];
   if (build === undefined) {
     const image = service["image"];
-    if (typeof image === "string" && image.trim() !== "") return { kind: "image", image };
-    return { problems: [`The service ${name} has neither an image nor a build.`] };
-  }
-  if (typeof build === "string") {
+    if (typeof image === "string" && /^\S+$/.test(image)) return { kind: "image", image };
     return {
-      kind: "build",
-      context: posix.join(composeFolder, build),
-      dockerfile: "Dockerfile",
-      args: {},
+      problems: [
+        typeof image === "string" && image.trim() !== ""
+          ? `The service ${name}'s image ${JSON.stringify(image)} isn't an image's name.`
+          : `The service ${name} has neither an image nor a build.`,
+      ],
     };
   }
-  if (!isRecord(build)) return { problems: [`The service ${name}'s build must be a folder.`] };
-  const problems = Object.keys(build)
-    .filter((property) => !BUILD_PROPERTIES.has(property))
-    .map(
-      (property) =>
-        `The service ${name}'s build sets "${property}", which The Office doesn't support.`,
-    );
-  const args = argumentsOf(build["args"]);
-  if (args === undefined)
-    problems.push(`The service ${name}'s build args must be names and values.`);
-  const context = posix.join(composeFolder, stringOr(build["context"], "."));
-  if (outsideWorktree(context)) {
-    problems.push(`The service ${name}'s build context is outside the repository.`);
+  const settings = isRecord(build) ? build : { context: build };
+  const context = contextOf(composeFolder, stringOr(settings["context"], ".")) ?? "";
+  const dockerfile = stringOr(settings["dockerfile"], "Dockerfile");
+  if (!inDefinition(context) || !inDefinition(resolvedIn(context, dockerfile))) {
+    return {
+      problems: [
+        `The service ${name}'s build context and Dockerfile must be in ${DEFINITION_FOLDER}/: its image is keyed by that folder alone, so a file outside it wouldn't build the image again when it changed. Copy what it needs there, or have the install command make it from the Install inputs.`,
+      ],
+    };
   }
-  if (problems.length > 0 || args === undefined) return { problems };
-  const target = build["target"];
+  const target = settings["target"];
   return {
     kind: "build",
     context,
-    dockerfile: stringOr(build["dockerfile"], "Dockerfile"),
-    args,
+    dockerfile,
+    args: argumentsOf(settings["args"]) ?? {},
     ...(typeof target === "string" ? { target } : {}),
   };
+}
+
+/** Whether a path, relative to the worktree, lies in the definition's folder. */
+function inDefinition(path: string | undefined): boolean {
+  return path === DEFINITION_FOLDER || (path?.startsWith(`${DEFINITION_FOLDER}/`) ?? false);
 }
 
 /** Compose's build args, as a mapping or a list of `NAME=value`. */

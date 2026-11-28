@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,6 +6,8 @@ import { dirname, join } from "node:path";
 import { Transform, type Writable } from "node:stream";
 import { finished } from "node:stream/promises";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
+import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import { startProgram } from "../../../../platform/os/program.js";
 import { LABEL, type Labels } from "../../domain/run-environment.js";
 import {
@@ -23,6 +25,8 @@ import {
   type ResourceKind,
   type StreamedOutputMask,
 } from "../../ports/container-runtime.js";
+
+const logger = new Logger("ComposeCommandLine");
 
 /** The container runtime's CLI, Docker Engine with its Compose plugin (docs/container-runtime.md). */
 const RUNTIME = "docker";
@@ -46,7 +50,7 @@ const LISTED_LABELS = Object.values(LABEL);
 
 interface Invocation {
   readonly arguments: readonly string[];
-  /** Set over the service's own environment for the CLI, which reads them by name. */
+  /** Set over the CLI's environment (`runtimeEnvironmentOf`), where it reads them by name. */
   readonly variables?: Readonly<Record<string, string>>;
   readonly timeoutMs: number;
   /** Streams stdout and stderr there; else stdout is kept, for a listing. */
@@ -166,7 +170,7 @@ export class ComposeCommandLine extends ContainerRuntime {
         command: RUNTIME,
         arguments: attachArguments(project, attachment),
         workingFolder: project.projectDirectory,
-        environment: { ...runtimeEnvironment(), ...project.variables },
+        environment: { ...this.runtimeEnvironment(), ...project.variables },
       },
       processTrees,
     );
@@ -203,7 +207,7 @@ export class ComposeCommandLine extends ContainerRuntime {
         // The end of its input ends the program in the container; the CLI is ended after a grace,
         // and nothing restarts the service, which a device's program shares with the checks.
         killTimer = setTimeout(() => {
-          if (child.pid !== undefined) void processTrees.end(child.pid);
+          if (child.pid !== undefined) endInBackground(processTrees, child.pid);
         }, ATTACHED_STOP_GRACE_MS);
         killTimer.unref();
       },
@@ -382,6 +386,10 @@ export class ComposeCommandLine extends ContainerRuntime {
     throw new ContainerRuntimeFailed(`${what}. ${why}`.trim());
   }
 
+  private runtimeEnvironment(): Record<string, string> {
+    return runtimeEnvironmentOf(process.env, this.operatingSystem);
+  }
+
   private async invoke(invocation: Invocation): Promise<Ended> {
     if (invocation.signal?.aborted) {
       return { exitCode: undefined, endedBy: "stop", stdout: "", errorTail: "" };
@@ -397,7 +405,7 @@ export class ComposeCommandLine extends ContainerRuntime {
         command: RUNTIME,
         arguments: invocation.arguments,
         workingFolder,
-        environment: { ...runtimeEnvironment(), ...invocation.variables },
+        environment: { ...this.runtimeEnvironment(), ...invocation.variables },
       },
       processTrees,
     );
@@ -410,7 +418,7 @@ export class ComposeCommandLine extends ContainerRuntime {
       child.stderr.pipe(output.input, { end: false });
       output.file.on("error", (error) => {
         outputFailed ??= error;
-        if (child.pid !== undefined) void processTrees.end(child.pid);
+        if (child.pid !== undefined) endInBackground(processTrees, child.pid);
       });
     } else {
       child.stdout.on("data", (chunk: Buffer) => stdout.add(chunk));
@@ -420,7 +428,7 @@ export class ComposeCommandLine extends ContainerRuntime {
     let endedBy: "timeout" | "stop" | undefined;
     const end = (reason: "timeout" | "stop"): void => {
       endedBy ??= reason;
-      if (child.pid !== undefined) void processTrees.end(child.pid);
+      if (child.pid !== undefined) endInBackground(processTrees, child.pid);
     };
     const timer = setTimeout(() => end("timeout"), invocation.timeoutMs);
     const stop = (): void => end("stop");
@@ -453,6 +461,13 @@ export class ComposeCommandLine extends ContainerRuntime {
       errorTail: errorTail.text().trim(),
     };
   }
+}
+
+/** Ends the CLI with what it started, without waiting; a failure to end it is logged. */
+function endInBackground(processTrees: ProcessTrees, processId: number): void {
+  void processTrees.end(processId).catch((error: unknown) => {
+    logger.warn(`The container runtime's process ${processId} wasn't ended.`, error);
+  });
 }
 
 /**
@@ -572,14 +587,45 @@ function describe(labels: Labels): string {
 }
 
 /**
- * The service's own environment, without what would point compose at another project or file:
- * every command names its project and files itself.
+ * The CLI's own settings: the daemon and context it talks to, its config, TLS and API version, its
+ * builder, the ssh agent an `ssh://` daemon is reached with and the proxy a remote one is.
  */
-function runtimeEnvironment(): Record<string, string> {
+const RUNTIME_VARIABLES: readonly string[] = [
+  "DOCKER_HOST",
+  "DOCKER_CONTEXT",
+  "DOCKER_CONFIG",
+  "DOCKER_CERT_PATH",
+  "DOCKER_TLS",
+  "DOCKER_TLS_VERIFY",
+  "DOCKER_API_VERSION",
+  "DOCKER_BUILDKIT",
+  "BUILDX_CONFIG",
+  "BUILDX_BUILDER",
+  "SSH_AUTH_SOCK",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "no_proxy",
+];
+
+/**
+ * The CLI's environment, taken from the service's: only what a program needs on this system and
+ * the CLI's own settings, since compose interpolates a compose file's `${NAME}` and fills a
+ * variable named without a value from it (spec §5.5, "The compose CLI's environment"). None of
+ * `COMPOSE_*` either, as every command names its project and files itself.
+ */
+export function runtimeEnvironmentOf(
+  variables: Readonly<Record<string, string | undefined>>,
+  operatingSystem: Pick<OperatingSystem, "systemVariableNames" | "sameVariableName">,
+): Record<string, string> {
+  const wanted = [...operatingSystem.systemVariableNames, ...RUNTIME_VARIABLES];
   return Object.fromEntries(
-    Object.entries(process.env).filter(
+    Object.entries(variables).filter(
       (entry): entry is [string, string] =>
-        entry[1] !== undefined && !entry[0].startsWith("COMPOSE_"),
+        entry[1] !== undefined &&
+        wanted.some((name) => operatingSystem.sameVariableName(name, entry[0])),
     ),
   );
 }

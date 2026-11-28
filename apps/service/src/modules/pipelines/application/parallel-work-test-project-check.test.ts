@@ -46,7 +46,7 @@ import type { Stage } from "../domain/stage.js";
 import { makeTaskStages } from "../domain/task-stages.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 
 /**
  * Task 26's check on the Test Project: two Tasks planned by the Planner on Haiku, each appending

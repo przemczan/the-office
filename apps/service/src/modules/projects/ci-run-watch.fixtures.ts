@@ -5,7 +5,7 @@ import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
-import { officeIdentityForTests } from "../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../office-identity/index.fixtures.js";
 import { Schedule } from "../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";

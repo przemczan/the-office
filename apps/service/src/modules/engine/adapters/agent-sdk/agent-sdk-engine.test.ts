@@ -48,12 +48,12 @@ import {
 } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
-import { EngineProcess } from "../claude-code/engine-process.js";
+import { EngineProcess } from "../shared/engine-process.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { NoLanguageServers } from "../scripted/no-language-servers.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
-import { CLAUDE_CODE_PICTURE_LIMIT } from "../claude-code/office-tools.js";
-import { aNoisyPng, aPlainPng } from "../claude-code/png.fixtures.js";
+import { OFFICE_TOOL_PICTURE_LIMIT } from "../shared/office-tools.js";
+import { aNoisyPng, aPlainPng } from "../shared/png.fixtures.js";
 import { sdkMcpConfig, sdkOptions } from "./sdk-options.js";
 import { RUN_EVERY_CALL } from "../../ports/office-tool-ruling.fixtures.js";
 
@@ -249,9 +249,9 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       const pictures = {
         "red.png": aPlainPng(64, 64, [220, 20, 20]),
         // Random pixels deflate can't shrink, so the file is just under the limit.
-        "noise.png": aNoisyPng(1024, Math.floor((CLAUDE_CODE_PICTURE_LIMIT * 0.98) / 3 / 1024)),
+        "noise.png": aNoisyPng(1024, Math.floor((OFFICE_TOOL_PICTURE_LIMIT * 0.98) / 3 / 1024)),
       };
-      expect(pictures["noise.png"].byteLength).toBeLessThanOrEqual(CLAUDE_CODE_PICTURE_LIMIT);
+      expect(pictures["noise.png"].byteLength).toBeLessThanOrEqual(OFFICE_TOOL_PICTURE_LIMIT);
       const input = z.object({ name: z.enum(["red.png", "noise.png"]) });
       const showPicture: OfficeTool = {
         name: "show_picture",

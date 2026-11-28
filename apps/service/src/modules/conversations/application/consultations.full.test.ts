@@ -59,10 +59,12 @@ import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadContexts } from "./thread-contexts.js";
 import { AllowChanges } from "./allow-changes.js";
 import { ThreadRunner } from "./thread-runner.js";
+import { LiveSessions } from "./live-sessions.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
+import { WorkThreads } from "./work-threads.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { RunEveryOfficeToolCall } from "./approval-holds.fixtures.js";
@@ -111,6 +113,7 @@ let devopsKey: string;
 let architectKey: string;
 
 let threads: ThreadService;
+let workThreads: WorkThreads;
 
 let decisions: DecisionService;
 
@@ -192,6 +195,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       OfficeInstructions,
       ContextPolicySettingsService,
       ThreadService,
+      WorkThreads,
       Briefs,
       MessageImages,
       ThreadImages,
@@ -211,6 +215,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      LiveSessions,
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
@@ -267,6 +272,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       }),
   });
   threads = app.get(ThreadService);
+  workThreads = app.get(WorkThreads);
   decisions = app.get(DecisionService);
   consultations = app.get(Consultations);
 }
@@ -356,7 +362,7 @@ const ASKER_TAKES_THE_ANSWER: Step[] = [
 ];
 
 async function developerOnATask(): Promise<Thread> {
-  const opened = await threads.openOnTask({
+  const opened = await workThreads.openOnTask({
     taskId: randomUUID(),
     roleKey: askerKey,
     title: "Build the export",

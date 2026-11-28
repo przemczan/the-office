@@ -1,5 +1,6 @@
-import { copyFile, glob, lstat, mkdir, realpath, rm, stat } from "node:fs/promises";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { copyFile, glob, mkdir, rm, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { resolvedInside } from "../../../platform/files/resolved-inside.js";
 import {
   keptNamesOf,
   noMatch,
@@ -28,7 +29,6 @@ export async function keepOutputs(
     const problem = outputPatternProblem(pattern);
     if (problem !== undefined) return { problem };
   }
-  const root = await realpath(checkout);
   const matched = new Set<string>();
   for (const pattern of patterns) {
     for await (const match of glob(pattern.trim().replaceAll("\\", "/"), { cwd: checkout })) {
@@ -37,16 +37,10 @@ export async function keepOutputs(
   }
   const sources: { match: string; source: string }[] = [];
   for (const match of [...matched].toSorted()) {
-    const source = await realpath(join(checkout, match)).catch(() => undefined);
-    if (source === undefined) {
-      // A link to nothing: it can't be inside the checkout either.
-      if ((await lstat(join(checkout, match))).isSymbolicLink()) {
-        return { problem: outsideTheCheckout(match) };
-      }
-      continue;
-    }
-    if (!inside(root, source)) return { problem: outsideTheCheckout(match) };
-    if ((await stat(source)).isFile()) sources.push({ match, source });
+    const resolved = await resolvedInside(checkout, join(checkout, match));
+    if (resolved.state === "outside") return { problem: outsideTheCheckout(match) };
+    if (resolved.state === "missing") continue;
+    if ((await stat(resolved.path)).isFile()) sources.push({ match, source: resolved.path });
   }
   if (sources.length === 0) return { problem: noMatch(patterns) };
 
@@ -65,14 +59,4 @@ export async function keepOutputs(
     throw error;
   }
   return { files };
-}
-
-function inside(root: string, path: string): boolean {
-  const fromRoot = relative(root, path);
-  return (
-    fromRoot !== "" &&
-    fromRoot !== ".." &&
-    !fromRoot.startsWith(`..${sep}`) &&
-    !isAbsolute(fromRoot)
-  );
 }

@@ -21,7 +21,6 @@ import {
 } from "../../people/index.js";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import { ApprovalHolds } from "./approval-holds.js";
-import { BargeIns } from "./barge-ins.js";
 import { SessionSkills, SkillCommands } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
 import {
@@ -84,7 +83,6 @@ import {
 import type { UserRef } from "../domain/user.js";
 import {
   answerDecision,
-  bargeIn,
   beginAnswer,
   beginAskingAgain,
   beginOpening,
@@ -93,7 +91,6 @@ import {
   endTurn,
   failAnswer,
   failDecisionAnswer,
-  finishedFirst,
   freshSession,
   keepAnswerForTurnEnd,
   logMessages,
@@ -113,6 +110,12 @@ import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
+import {
+  LiveSessions,
+  OpeningStopped,
+  type SessionOpening,
+  type SessionOwner,
+} from "./live-sessions.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { OfficeInstructions } from "./office-instructions.js";
 import { sessionLogLines } from "./session-log.js";
@@ -120,7 +123,6 @@ import { SubAgentsAndProcesses, type SessionFollowing } from "./sub-agents-and-p
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { SessionStartWatch } from "./session-start-watch.js";
 import { carrySessionToEngine, type SessionCarrying } from "./session-carry.js";
-import { StageThreads } from "./stage-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ThreadImages } from "./thread-images.js";
 import { WorkRecords } from "./work-records.js";
@@ -144,6 +146,12 @@ export interface SkillCommandSent {
   readonly name: string;
   readonly input: string;
 }
+
+/** Whose sessions `ThreadRunner` runs, as `LiveSessions` keeps them. */
+const OWNER: SessionOwner = "thread-runner";
+
+/** Why a session opening as its chat is deleted stops; nothing reads it after. */
+const ENDED_FOR_DELETION = "The chat was deleted.";
 
 /** The plugin a session's library skills are in, so it lists each as `office:<name>`. */
 const SESSION_SKILLS_PLUGIN = "office";
@@ -275,7 +283,10 @@ const NO_RECORDS: GivenRecords = {
   ofRunningSession: () => Promise.resolve(undefined),
 };
 
-/** A session running behind a Thread, read by one loop that logs what it reports. */
+/**
+ * A session running behind a Thread, read by one loop that logs what it reports; whether it is in
+ * a turn, idle or ending, `LiveSessions` keeps.
+ */
 interface LiveSession {
   readonly session: EngineSession;
   /** Whose session it is, as the log names them. */
@@ -293,11 +304,8 @@ interface LiveSession {
    * interrupted logs who stopped the person.
    */
   stoppedBy: StoppedByUser | undefined;
-  /** The Agent is in a turn: from a message sent until its turn ends, or a turn the engine began. */
-  turnRunning: boolean;
+  /** Ends it once it has been idle for `IDLE_MS`. */
   idle: NodeJS.Timeout | undefined;
-  /** The Office ends it: its events finishing then is no surprise. */
-  ending: boolean;
   /** Keeps its Sub-agents and Processes, between turns too. */
   readonly following: SessionFollowing;
   /** What it was opened with, which resumes it on a Stand-in Engine. */
@@ -323,11 +331,8 @@ interface LiveSession {
 @Injectable()
 export class ThreadRunner implements OnModuleDestroy {
   private readonly logger = new Logger(ThreadRunner.name);
+  /** What each Thread's session runs with, while `LiveSessions` holds it running. */
   private readonly live = new Map<string, LiveSession>();
-  /** Sessions still ending, by Thread: a resume of one waits until its process is gone. */
-  private readonly endings = new Map<string, Promise<void>>();
-  /** The user's messages to the answer running, by Thread, from its start until it ends. */
-  private readonly bargeIns = new Map<string, BargeIns>();
 
   constructor(
     private readonly repository: ThreadRepository,
@@ -337,7 +342,6 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly engine: EngineSessions,
     private readonly sessionSkills: SessionSkills,
     private readonly sessionMcpServers: SessionMcpServers,
-    private readonly stageThreads: StageThreads,
     private readonly events: EventBus,
     private readonly settings: ContextPolicySettingsService,
     private readonly mentionedRecords: MentionedRecords,
@@ -350,6 +354,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly skillCommands: SkillCommands,
     private readonly threadImages: ThreadImages,
     private readonly promptTemplates: PromptTemplates,
+    private readonly lives: LiveSessions,
   ) {}
 
   /**
@@ -370,14 +375,19 @@ export class ThreadRunner implements OnModuleDestroy {
   ): Promise<Thread> {
     const thread = await this.threadOf(threadId);
     const images = await this.threadImages.carried(thread, sent.images ?? []);
+    const { mentions = [], handoverNoteFrom } = sent;
     if (thread.stageThread && thread.state === "answering") {
-      return this.stageThreads.bargeIn(threadId, text, writtenBy, images);
+      if (text.trim() === "" && images.length === 0) {
+        throw new ThreadRefused(["Write a message first."]);
+      }
+      // A Stage Thread is about its Task: no Open page goes with its messages.
+      const written = { text, writtenBy, mentions, openPage: undefined, images };
+      return this.lives.bargeIn(thread, undefined, written);
     }
     const current = await this.personOf(thread);
     if (text.trim() === "" && images.length === 0) {
       throw new ThreadRefused(["Write a message first."]);
     }
-    const { mentions = [], handoverNoteFrom } = sent;
     // Only the chat drawer sends one: a Task's or an Initiative's Threads are about their record.
     const openPage = thread.home.kind === "chat" ? sent.openPage : undefined;
     if (thread.state === "answering") {
@@ -393,7 +403,13 @@ export class ThreadRunner implements OnModuleDestroy {
           `${current.card.name} is answering; send the skill command once they finish.`,
         ]);
       }
-      return this.bargeIn(thread, current, { text, writtenBy, mentions, openPage, images });
+      return this.lives.bargeIn(thread, current.card.name, {
+        text,
+        writtenBy,
+        mentions,
+        openPage,
+        images,
+      });
     }
     const said: Message = {
       kind: "user",
@@ -413,7 +429,8 @@ export class ThreadRunner implements OnModuleDestroy {
     const given: GivenRecords = {
       mentioned: await this.mentionedRecords.read(mentions),
       openPage: ofBrief && (await this.mentionedRecords.openPage(ofBrief)),
-      ofRunningSession: () => this.openPageOfRunningSession(threadId, openPage, mentions),
+      ofRunningSession: () =>
+        this.mentionedRecords.openPageOfRunningSession(threadId, openPage, mentions),
     };
     return this.take(
       thread,
@@ -453,69 +470,6 @@ export class ThreadRunner implements OnModuleDestroy {
     // Only a message starting with "/" reads what the session offers.
     if (!skillCommandAmong || !text.startsWith("/")) return undefined;
     return skillCommandAmong((await offered()).map(({ name }) => name));
-  }
-
-  /**
-   * The user writes while the person answers (barge-in, spec §2.4): the message is logged waiting
-   * and goes to the turn running, or to the one about to start, with the records given as with any
-   * message to a running session; it is marked delivered once a turn has taken it. Refused once
-   * the answer has ended.
-   */
-  private async bargeIn(
-    thread: Thread,
-    { card }: SessionRole,
-    {
-      text,
-      writtenBy,
-      mentions,
-      openPage,
-      images,
-    }: {
-      readonly text: string;
-      readonly writtenBy: UserRef;
-      readonly mentions: readonly Mention[];
-      readonly openPage: OpenPage | undefined;
-      readonly images: readonly MessageImage[];
-    },
-  ): Promise<Thread> {
-    const bargeIns = this.bargeIns.get(thread.id);
-    if (!bargeIns) throw new ThreadRefused([finishedFirst(thread, card.name)]);
-    const mentioned = await this.mentionedRecords.read(mentions);
-    // Read before the message is logged, so the log holds only the messages before it.
-    const page = await this.openPageOfRunningSession(thread.id, openPage, mentions);
-    const fromUser = messageFromUser(text, writtenBy, await this.previousWriter(thread.id));
-    const contents = await this.threadImages.contents(images);
-    const id = randomUUID();
-    const logged = await this.change(thread.id, (latest) =>
-      bargeIn(latest, {
-        id,
-        text,
-        writtenBy,
-        openPage,
-        personName: card.name,
-        at: new Date(),
-        images,
-      }),
-    );
-    const said = {
-      id,
-      text: withOpenPageRecord(withMentionedRecords(fromUser, mentioned), page),
-      ...(contents.length > 0 && { images: contents }),
-    };
-    if (!bargeIns.take(said)) await this.mark(thread.id, [id], "not-delivered");
-    return logged;
-  }
-
-  /** The Open page's record for a running or resumed session, unless it has it already. */
-  private async openPageOfRunningSession(
-    threadId: string,
-    openPage: OpenPage | undefined,
-    mentions: readonly Mention[],
-  ): Promise<OpenPageRecord | undefined> {
-    if (!openPage) return undefined;
-    const log = await this.repository.messages(threadId);
-    const page = openPageToGive({ openPage, mentions, log, newSession: false });
-    return page && (await this.mentionedRecords.openPage(page));
   }
 
   /**
@@ -739,25 +693,50 @@ export class ThreadRunner implements OnModuleDestroy {
     const now = new Date();
     const thread = await this.threadOf(threadId);
     const current = await this.personOf(thread);
-    const place = await this.places.of(thread);
-    const { newSession, ...move } = await this.moveFor(thread, current, place, now);
-    const { decision } = move;
-    const answering = await this.change(threadId, (latest) =>
-      begin(
-        latest,
-        { personName: current.card.name, decision, newSession, brief: place.brief.text },
-        now,
-      ),
-    );
-    this.answerInBackground(answering, {
-      said: { id: randomUUID(), text: opening },
-      briefed: openingMessage(place.brief.text, opening),
-      ...move,
-      replaced: undefined,
-      place,
-      answers: [],
+    return this.opening(threadId, async (sessionOpening) => {
+      const place = await this.places.of(thread);
+      const { newSession, ...move } = await this.moveFor(thread, current, place, now);
+      const { decision } = move;
+      const answering = await this.change(threadId, (latest) =>
+        begin(
+          latest,
+          { personName: current.card.name, decision, newSession, brief: place.brief.text },
+          now,
+        ),
+      );
+      this.answerInBackground(
+        answering,
+        {
+          said: { id: randomUUID(), text: opening },
+          briefed: openingMessage(place.brief.text, opening),
+          ...move,
+          replaced: undefined,
+          place,
+          answers: [],
+        },
+        sessionOpening,
+      );
+      return answering;
     });
-    return answering;
+  }
+
+  /**
+   * Begins opening the Thread's session before anything the answer reads (`LiveSessions`), so
+   * stopping the Thread from then on stops the answer, even before its session opens: `begin` hands
+   * the opening on to `answerInBackground`, which settles it, and one that throws first settles it
+   * here.
+   */
+  private async opening(
+    threadId: string,
+    begin: (opening: SessionOpening) => Promise<Thread>,
+  ): Promise<Thread> {
+    const opening = this.lives.beginOpening(threadId, OWNER);
+    try {
+      return await begin(opening);
+    } catch (error) {
+      this.lives.settle(opening);
+      throw error;
+    }
   }
 
   /**
@@ -777,6 +756,25 @@ export class ThreadRunner implements OnModuleDestroy {
     ) => ThreadChange<Event>,
     answers: readonly Decision[] = [],
     given: GivenRecords = NO_RECORDS,
+  ): Promise<Thread> {
+    return this.opening(thread.id, (opening) =>
+      this.takeIn(opening, thread, current, said, begin, answers, given),
+    );
+  }
+
+  /** `take`, once the Thread's session has begun opening. */
+  private async takeIn<Event extends DomainEvent>(
+    sessionOpening: SessionOpening,
+    thread: Thread,
+    current: SessionRole,
+    said: Taken,
+    begin: (
+      latest: Thread,
+      opening: Opening,
+      command: SkillCommandSent | undefined,
+    ) => ThreadChange<Event>,
+    answers: readonly Decision[],
+    given: GivenRecords,
   ): Promise<Thread> {
     const opened = await this.places.of(thread);
     const brief = briefWithMentionedRecords(opened.brief, given.mentioned);
@@ -801,6 +799,7 @@ export class ThreadRunner implements OnModuleDestroy {
         newSession,
         move,
         answers,
+        sessionOpening,
       });
     }
     // Read before the message is logged, so the log holds only the messages before it.
@@ -825,23 +824,23 @@ export class ThreadRunner implements OnModuleDestroy {
     );
     const withRecords = withOpenPageRecord(withMentionedRecords(text, given.mentioned), openPage);
     // Held until the answer's turn starts, so a message never starts a turn of its own.
-    const bargeIns = new BargeIns(
-      (message) => this.live.get(thread.id)?.session.send(message, "next"),
-      false,
-    );
-    this.bargeIns.set(thread.id, bargeIns);
-    this.answerInBackground(answering, {
-      said: {
-        id: said.id,
-        text: newSession ? said.text : inOrder(said.ahead, withRecords),
-        ...images,
+    this.lives.answerBegins(thread.id, false);
+    this.answerInBackground(
+      answering,
+      {
+        said: {
+          id: said.id,
+          text: newSession ? said.text : inOrder(said.ahead, withRecords),
+          ...images,
+        },
+        briefed: briefedMessage(inOrder(place.brief.text, said.ahead), said.text, said.writtenBy),
+        ...move,
+        replaced: newSession ? thread.session : undefined,
+        place,
+        answers,
       },
-      briefed: briefedMessage(inOrder(place.brief.text, said.ahead), said.text, said.writtenBy),
-      ...move,
-      replaced: newSession ? thread.session : undefined,
-      place,
-      answers,
-    });
+      sessionOpening,
+    );
     return answering;
   }
 
@@ -863,6 +862,7 @@ export class ThreadRunner implements OnModuleDestroy {
       newSession,
       move,
       answers,
+      sessionOpening,
     }: {
       readonly begin: (
         latest: Thread,
@@ -873,6 +873,7 @@ export class ThreadRunner implements OnModuleDestroy {
       readonly newSession: ThreadSession | undefined;
       readonly move: Omit<Awaited<ReturnType<ThreadRunner["moveFor"]>>, "newSession">;
       readonly answers: readonly Decision[];
+      readonly sessionOpening: SessionOpening;
     },
   ): Promise<Thread> {
     const answering = await this.change(thread.id, (latest) =>
@@ -892,11 +893,7 @@ export class ThreadRunner implements OnModuleDestroy {
       text: said.text,
       skillCommand: { skill: `${SESSION_SKILLS_PLUGIN}:${command.name}`, input: command.input },
     };
-    const bargeIns = new BargeIns(
-      (message) => this.live.get(thread.id)?.session.send(message, "next"),
-      false,
-    );
-    this.bargeIns.set(thread.id, bargeIns);
+    this.lives.answerBegins(thread.id, false);
     this.answerInBackground(
       answering,
       newSession
@@ -910,6 +907,7 @@ export class ThreadRunner implements OnModuleDestroy {
             answers,
           }
         : { said: commandMessage, briefed: "", ...move, replaced: undefined, place, answers },
+      sessionOpening,
     );
     return answering;
   }
@@ -919,7 +917,6 @@ export class ThreadRunner implements OnModuleDestroy {
     return latestWriter(await this.repository.messages(threadId));
   }
 
-  /** Ends every running session with the service. */
   /**
    * Ends the sessions of the Task's Threads that wait for the user's next message, so none holds
    * the Task's worktree as Publish removes it, as their idle time would have later. A session
@@ -931,8 +928,7 @@ export class ThreadRunner implements OnModuleDestroy {
     await readEach(
       threads.filter(({ state }) => state === "waiting"),
       async ({ id }) => {
-        await this.endLive(id);
-        await this.endings.get(id);
+        await this.lives.endSession(id);
       },
     );
   }
@@ -942,11 +938,21 @@ export class ThreadRunner implements OnModuleDestroy {
    * user again, with why in its log. Nothing when it isn't answering.
    */
   async stopAnswering(threadId: string, reason: string): Promise<void> {
-    await this.endLive(threadId);
+    // An opening under way stops at its next step and fails with `reason` itself.
+    await this.lives.end(threadId, reason);
     await this.change(threadId, (thread) =>
       thread.state === "answering" ? failAnswer(thread, reason, new Date()) : undefined,
     );
-    await this.endBargeIns(threadId);
+    await this.lives.endBargeIns(threadId);
+  }
+
+  /**
+   * Ends the Thread's session when it is idle, waiting for the user's next message, so the next
+   * message starts one under the rules as they are now; an answer under way, or opening, goes on
+   * under the rules it read as it began.
+   */
+  async endIdleSession(threadId: string): Promise<void> {
+    if (this.lives.phaseOf(threadId) === "idle") await this.lives.endSession(threadId);
   }
 
   /**
@@ -966,8 +972,8 @@ export class ThreadRunner implements OnModuleDestroy {
     if (thread.consultation) {
       throw new ThreadRefused(["A Consultation can't be stopped: whoever asked waits on it."]);
     }
-    const live = this.live.get(threadId);
-    if (thread.state !== "answering" || !live?.turnRunning) {
+    const live = this.liveIn(threadId);
+    if (thread.state !== "answering" || !live || this.lives.phaseOf(threadId) !== "running") {
       return { stopped: false, sessionEnded: false };
     }
     // Stopping already: the turn's end comes, and a second Stop adds nothing.
@@ -985,8 +991,8 @@ export class ThreadRunner implements OnModuleDestroy {
       }
     }
     // The session ends instead, and its turn with it: the next message starts a new one.
-    await this.endLive(threadId);
-    await this.endBargeIns(threadId);
+    await this.lives.endSession(threadId);
+    await this.lives.endBargeIns(threadId);
     await this.change(threadId, (latest) =>
       latest.state === "answering"
         ? stopAnswer(latest, { ...stopped, sessionEnded: true }, new Date())
@@ -1012,30 +1018,42 @@ export class ThreadRunner implements OnModuleDestroy {
    * The Thread is deleted after (spec §2.4.1, "Deleting a chat Thread"); nothing is logged.
    */
   async endForDeletion(thread: Thread): Promise<void> {
-    const live = this.live.get(thread.id);
-    await this.endLive(thread.id);
+    // An opening under way stops at its next step, and what it prepared goes with it.
+    await this.lives.end(thread.id, ENDED_FOR_DELETION);
     // Its events are read to their end before the Thread goes, so none lands on a Thread not there.
-    await live?.reading;
-    this.closeBargeIns(thread.id);
-    const { session } = thread;
+    await this.live.get(thread.id)?.reading;
+    this.lives.closeBargeIns(thread.id);
+    // As the stopped opening left it: a session it started never ran, and gave way to the one before.
+    const session = (await this.repository.find(thread.id))?.session ?? thread.session;
     if (!session) return;
-    await this.engine.forgetSession(session.id, session.engineId).catch((error: unknown) => {
-      this.logger.warn(`Session ${session.id}'s engine files stay: ${messageOf(error)}`);
-    });
+    await this.forgetEngineFiles(session);
     await this.forget(session.id);
   }
 
+  /** Removes the session's files in its engine's folder; a failure there only warns. */
+  private async forgetEngineFiles({ id, engineId }: ThreadSession): Promise<void> {
+    await this.engine.forgetSession(id, engineId).catch((error: unknown) => {
+      this.logger.warn(`Session ${id}'s engine files stay: ${messageOf(error)}`);
+    });
+  }
+
   /**
-   * Whether the Thread's session is in a turn now (`LiveSession.turnRunning`), as kept in memory:
+   * Whether the Thread's session is in a turn now (`LiveSessions.phaseOf`), as kept in memory:
    * from a message sent until its turn ends, or a turn the engine began. False for a Thread with
-   * no live session, waiting for the user or for a Decision's answer.
+   * no live session, waiting for the user or for a Decision's answer, or whose session is opening.
    */
   isTurnRunning(threadId: string): boolean {
-    return this.live.get(threadId)?.turnRunning ?? false;
+    return this.lives.phaseOf(threadId) === "running";
   }
 
   async onModuleDestroy(): Promise<void> {
-    await Promise.all([...this.live.keys()].map((threadId) => this.endLive(threadId)));
+    await this.lives.endEvery(OWNER, "The Office stopped before the session opened.");
+  }
+
+  /** What the Thread's session runs with, while it runs. */
+  private liveIn(threadId: string): LiveSession | undefined {
+    const live = this.live.get(threadId);
+    return live && this.lives.holds(threadId, live.session) ? live : undefined;
   }
 
   /** Who answers in the Thread now; refused when nobody may. */
@@ -1234,16 +1252,22 @@ export class ThreadRunner implements OnModuleDestroy {
   }
 
   /**
-   * The person answers once the call that asked returns; a failure goes into the log. Failing here,
-   * the session never got the message: a Decision it answered waits on the user again.
+   * The person answers once the call that asked returns; a failure goes into the log, as does why
+   * the answer stopped when something stopped `opening` first. Failing here, the session never got
+   * the message: a Decision it answered waits on the user again.
    */
-  private answerInBackground(thread: Thread, answer: Answer): void {
-    const opening = answer.decision.move === "resume" ? undefined : thread.session;
-    const unopened = opening && { sessionId: opening.id, previous: answer.replaced };
+  private answerInBackground(thread: Thread, answer: Answer, opening: SessionOpening): void {
+    const opened = answer.decision.move === "resume" ? undefined : thread.session;
+    const unopened = opened && { sessionId: opened.id, previous: answer.replaced };
     const failure = { logged: false };
-    void this.answer(thread, answer, failure).catch((error: unknown) =>
-      this.fail(thread.id, error, { unopened, answers: answer.answers, logged: failure.logged }),
-    );
+    void this.answer(thread, answer, failure, opening)
+      .catch((error: unknown) =>
+        this.fail(thread.id, error, { unopened, answers: answer.answers, logged: failure.logged }),
+      )
+      .finally(() => this.lives.settle(opening))
+      .catch((error: unknown) => {
+        this.logger.error(`Thread ${thread.id}'s failed answer wasn't kept: ${messageOf(error)}`);
+      });
   }
 
   /**
@@ -1254,20 +1278,23 @@ export class ThreadRunner implements OnModuleDestroy {
     thread: Thread,
     answer: Answer,
     failure: { logged: boolean },
+    opening: SessionOpening,
   ): Promise<void> {
     const { said, decision, role, place } = answer;
     const session = thread.session;
     if (!session) throw new Error(`Thread ${thread.id} answers with no session.`);
-    const live = this.live.get(thread.id);
+    const live = this.liveIn(thread.id);
     // Once the Task is Ready the Planner's tools change (spec §2.4): that takes a resume.
     const sameTools = live?.officeTools.join() === place.officeTools.join();
     const goingOn = decision.move === "resume" && live?.session.id === session.id && sameTools;
     // A session on a used-up engine is carried to a stand-in first, which opening it does.
-    if (goingOn && !(await this.standInAhead(session.engineId, answer))) {
-      this.turnBegan(live);
+    const ahead = goingOn && (await this.standInAhead(session.engineId, answer));
+    // Its idle time may have ended it meanwhile: then it is opened again.
+    if (goingOn && !ahead && this.lives.goOn(opening, live.session)) {
+      this.turnBegan(thread.id, live);
       live.turnMessage = said;
       live.session.send(said, "later");
-      this.bargeIns.get(thread.id)?.turnStarted();
+      this.lives.bargeInsOf(thread.id)?.turnStarted();
       return;
     }
     const start = new SessionStartWatch(
@@ -1282,9 +1309,9 @@ export class ThreadRunner implements OnModuleDestroy {
       this.logger,
     );
     try {
-      await this.openSession(thread, session, answer, start);
+      await this.openSession(thread, session, answer, start, opening);
     } catch (error) {
-      failure.logged = start.failed(error);
+      failure.logged = stoppedOrFailed(start, error);
       throw error;
     }
   }
@@ -1299,39 +1326,45 @@ export class ThreadRunner implements OnModuleDestroy {
     session: ThreadSession,
     answer: Answer,
     start: SessionStartWatch,
+    opening: SessionOpening,
   ): Promise<void> {
     const { said, decision, place } = answer;
-    await this.endLive(thread.id);
-    await this.endings.get(thread.id);
+    await this.lives.endSession(thread.id);
+    opening.check();
     start.at("refreshing the Thread's folders");
     await place.ready();
+    opening.check();
     if (decision.move === "resume") {
       const ahead = await this.standInAhead(session.engineId, answer);
       if (ahead && !(await this.carries(session.engineId, ahead.standIn))) {
         // Started fresh there with the Brief, the message after it (spec §5.4.6).
-        return this.startFreshOnStandIn(thread.id, session, ahead, start, {
+        return this.startFreshOnStandIn(thread.id, session, ahead, start, opening, {
           said: said.skillCommand ? { id: randomUUID(), text: "" } : said,
           briefed: said.skillCommand ? place.brief.text : answer.briefed,
           ...(said.skillCommand && { commandAfterBrief: said }),
           place,
         });
       }
+      opening.check();
       const moved = ahead && (await this.carryToStandIn(thread.id, session, answer, ahead));
-      if (!moved) return this.resume(thread, session, answer, start, said);
-      return this.resumeOnStandIn(thread, moved, start, said);
+      if (!moved) return this.resume(thread, session, answer, start, said, opening);
+      return this.resumeOnStandIn(thread, moved, start, said, opening);
     }
-    return this.startNew(thread, session, answer, start);
+    return this.startNew(thread, session, answer, start, opening);
   }
 
   /**
    * Starts `session`, the Thread's new one, on its Brief (`opening.briefed`), the skill command
-   * after it when there is one; the session it replaces is forgotten once it runs.
+   * after it when there is one; the session it replaces is forgotten once it runs. Stopped before
+   * it runs (`opening`), nothing of it stays: its skills, its MCP servers' record and its engine
+   * files go, and a session the engine started ends with no turn run.
    */
   private async startNew(
     thread: Thread,
     session: ThreadSession,
     answer: SessionStart,
     start: SessionStartWatch,
+    opening: SessionOpening,
   ): Promise<void> {
     const { said, briefed, commandAfterBrief, role, replaced, place } = answer;
     let opened: EngineSession;
@@ -1343,6 +1376,7 @@ export class ThreadRunner implements OnModuleDestroy {
         roleKey: role.roleKey,
         project: place.project,
       });
+      opening.check();
       start.at("preparing MCP servers");
       const servers = await this.sessionMcpServers.prepare({
         sessionId: session.id,
@@ -1350,6 +1384,7 @@ export class ThreadRunner implements OnModuleDestroy {
         projectId: place.project?.id,
         workingFolder: place.folder,
       });
+      opening.check();
       start.at("starting on the engine");
       // A new session takes the message's images with the Brief its text is in.
       brief = {
@@ -1372,25 +1407,35 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.forget(session.id);
       throw error;
     }
-    if (answer.gaveWay !== undefined) {
-      await this.log(thread.id, [
-        {
-          kind: "model-gave-way",
-          personName: role.card.name,
-          model: answer.model,
-          engineName: await this.engine.nameOf(session.engineId),
-          notOffered: answer.gaveWay,
-        },
-      ]);
+    try {
+      await this.lives.run(opening, opened);
+      if (answer.gaveWay !== undefined) {
+        await this.log(thread.id, [
+          {
+            kind: "model-gave-way",
+            personName: role.card.name,
+            model: answer.model,
+            engineName: await this.engine.nameOf(session.engineId),
+            notOffered: answer.gaveWay,
+          },
+        ]);
+      }
+      opening.check();
+    } catch (error) {
+      await this.lives.endSession(thread.id, opened);
+      await this.forgetEngineFiles(session);
+      await this.forget(session.id);
+      throw error;
     }
     start.at("waiting for the engine's first event");
     this.watch(thread, answer, opened, start, brief, brief.id);
+    const bargeIns = this.lives.bargeInsOf(thread.id);
     if (commandAfterBrief) {
       // Its own turn after the Brief's, which keeps the Thread answering until it lands.
       opened.send(commandAfterBrief, "later");
-      this.bargeIns.get(thread.id)?.sentAfterTurn(commandAfterBrief.id);
+      bargeIns?.sentAfterTurn(commandAfterBrief.id);
     }
-    this.bargeIns.get(thread.id)?.turnStarted();
+    bargeIns?.turnStarted();
     // Only once the new session runs: until then the Thread may go back to the one it replaces.
     if (replaced) {
       await this.forget(replaced.id);
@@ -1398,18 +1443,24 @@ export class ThreadRunner implements OnModuleDestroy {
     }
   }
 
-  /** Resumes the Thread's session on the engine it records, on `said`. */
+  /**
+   * Resumes the Thread's session on the engine it records, on `said`; stopped first (`opening`), the
+   * session resumed ends with no turn run, kept for the next message.
+   */
   private async resume(
     thread: Thread,
     session: ThreadSession,
     reopening: Reopening,
     start: SessionStartWatch,
     said: UserMessage,
+    opening: SessionOpening,
   ): Promise<void> {
     start.at("preparing skills");
     const skills = await this.sessionSkills.rebuild(session.id);
+    opening.check();
     start.at("preparing MCP servers");
     const servers = await this.sessionMcpServers.rebuild(session.id, reopening.place.folder);
+    opening.check();
     start.at("starting on the engine");
     const opened = await this.engine.resume(
       session.id,
@@ -1421,6 +1472,7 @@ export class ThreadRunner implements OnModuleDestroy {
         reopening.place,
       ),
     );
+    await this.lives.run(opening, opened);
     start.at("waiting for the engine's first event");
     // A skill command goes as written: the left-out servers wait for the next message.
     const message = said.skillCommand
@@ -1428,7 +1480,7 @@ export class ThreadRunner implements OnModuleDestroy {
       : { ...said, text: withLeftOutServers(said.text, servers.leftOut) };
     this.watch(thread, reopening, opened, start, message);
     opened.send(message, "later");
-    this.bargeIns.get(thread.id)?.turnStarted();
+    this.lives.bargeInsOf(thread.id)?.turnStarted();
   }
 
   /**
@@ -1472,10 +1524,13 @@ export class ThreadRunner implements OnModuleDestroy {
     { session, reopening, fromName, toName, back }: StandInMove,
     start: SessionStartWatch,
     said: UserMessage,
+    opening: SessionOpening,
   ): Promise<void> {
     try {
-      await this.resume(thread, session, reopening, start, said);
+      await this.resume(thread, session, reopening, start, said, opening);
     } catch (error) {
+      // Stopped, it goes on there with the next message: the carry stands.
+      if (error instanceof OpeningStopped) throw error;
       await this.change(thread.id, (latest) =>
         moveSessionBack(latest, { from: session.engineId, to: back }, new Date()),
       );
@@ -1500,16 +1555,20 @@ export class ThreadRunner implements OnModuleDestroy {
     old: ThreadSession,
     { standIn, window, resetsAt }: StandInAhead,
     start: SessionStartWatch,
-    opening: Pick<SessionStart, "said" | "briefed" | "commandAfterBrief" | "place">,
+    opening: SessionOpening,
+    starting: Pick<SessionStart, "said" | "briefed" | "commandAfterBrief" | "place">,
     sessionId: string = randomUUID(),
   ): Promise<void> {
     const thread = await this.threadOf(threadId);
     const role = await this.personOf(thread);
     const office = await this.officeInstructions.current();
-    const { place } = opening;
+    const { place } = starting;
     const work = await this.engineCascade
       .onEngine(thread.roleKey, standIn, cascadeLocationOf(thread.home, place.project?.id))
       .catch(refusedWithoutEngine);
+    const fromName = await this.engine.nameOf(old.engineId);
+    const toName = await this.engine.nameOf(standIn);
+    opening.check();
     const now = new Date();
     const fresh = freshSession(
       sessionId,
@@ -1523,8 +1582,6 @@ export class ThreadRunner implements OnModuleDestroy {
       },
       now,
     );
-    const fromName = await this.engine.nameOf(old.engineId);
-    const toName = await this.engine.nameOf(standIn);
     const moved = await this.change(threadId, (latest) =>
       startSessionFreshOnEngine(
         latest,
@@ -1548,7 +1605,7 @@ export class ThreadRunner implements OnModuleDestroy {
         moved,
         moved.session,
         {
-          ...opening,
+          ...starting,
           role,
           officeInstructions: office.text,
           model: work.model,
@@ -1557,11 +1614,13 @@ export class ThreadRunner implements OnModuleDestroy {
           replaced: old,
         },
         start,
+        opening,
       );
     } catch (error) {
       await this.change(threadId, (latest) =>
         putBackReplacedSession(latest, { sessionId, previous: old }, new Date()),
       );
+      if (error instanceof OpeningStopped) throw error;
       // The line logged as it switched said it went on there: the failure says it didn't.
       throw new Error(
         `The session didn't start fresh on ${toName}, so it stays on ${fromName}: ${messageOf(error)}`,
@@ -1604,24 +1663,37 @@ export class ThreadRunner implements OnModuleDestroy {
     });
     if (!standIn) return false;
     const ahead = { standIn, window: usedUpWindow.window, resetsAt: usedUpWindow.resetsAt };
-    const carried = await this.carries(session.engineId, standIn);
-    // Nothing may write the session's transcript while it is copied.
-    await this.endLive(threadId);
-    const moved = carried
-      ? await this.carryToStandIn(threadId, session, live.reopening, ahead)
-      : undefined;
-    if (carried && !moved) return false;
-    await this.change(threadId, (latest) =>
-      endTurn(latest, {
-        usage,
-        contextTokens: context?.tokens ?? 0,
-        contextWindow: context?.window,
-        handingOver: false,
-        turnFollows: true,
-        endedAt: new Date(),
-      }),
-    );
-    this.bargeIns.get(threadId)?.sessionReplaced();
+    // From here on, stopping the Thread stops the answer going on there.
+    const opening = this.lives.beginOpening(threadId, OWNER);
+    let moved: StandInMove | undefined;
+    try {
+      const carried = await this.carries(session.engineId, standIn);
+      // Nothing may write the session's transcript while it is copied.
+      await this.lives.endSession(threadId);
+      opening.check();
+      moved = carried
+        ? await this.carryToStandIn(threadId, session, live.reopening, ahead)
+        : undefined;
+      if (carried && !moved) {
+        this.lives.settle(opening);
+        return false;
+      }
+      opening.check();
+      await this.change(threadId, (latest) =>
+        endTurn(latest, {
+          usage,
+          contextTokens: context?.tokens ?? 0,
+          contextWindow: context?.window,
+          handingOver: false,
+          turnFollows: true,
+          endedAt: new Date(),
+        }),
+      );
+    } catch (error) {
+      this.lives.settle(opening);
+      throw error;
+    }
+    this.lives.bargeInsOf(threadId)?.sessionReplaced();
     const freshId = randomUUID();
     const start = new SessionStartWatch(
       {
@@ -1637,8 +1709,10 @@ export class ThreadRunner implements OnModuleDestroy {
     // Once this session's events are read to their end, as its turn's end is read now.
     void live.reading
       .then(async () => {
+        opening.check();
         if (moved) {
-          return this.resumeOnStandIn(await this.threadOf(threadId), moved, start, sentAgain);
+          const latest = await this.threadOf(threadId);
+          return this.resumeOnStandIn(latest, moved, start, sentAgain, opening);
         }
         // The refused message goes again after the fresh Brief, or whole when it was the Brief. The
         // Brief reads the log up to it: it and the messages it never took are sent again.
@@ -1652,11 +1726,20 @@ export class ThreadRunner implements OnModuleDestroy {
           session,
           ahead,
           start,
+          opening,
           { said: sentAgain, briefed, place },
           freshId,
         );
       })
-      .catch((error: unknown) => this.fail(threadId, error, { logged: start.failed(error) }));
+      .catch((error: unknown) =>
+        this.fail(threadId, error, { logged: stoppedOrFailed(start, error) }),
+      )
+      .finally(() => this.lives.settle(opening))
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Thread ${threadId}'s failed move to a Stand-in Engine wasn't kept: ${messageOf(error)}`,
+        );
+      });
     return true;
   }
 
@@ -1748,9 +1831,7 @@ export class ThreadRunner implements OnModuleDestroy {
       officeTools,
       handingOver: false,
       stoppedBy: undefined,
-      turnRunning: true,
       idle: undefined,
-      ending: false,
       following,
       reopening,
       turnMessage,
@@ -1758,15 +1839,23 @@ export class ThreadRunner implements OnModuleDestroy {
       reading: Promise.resolve(),
     };
     following.whenBackgroundSubAgentsEnd(() => {
-      if (!live.turnRunning) this.idleFrom(threadId, live);
+      if (this.lives.phaseOf(threadId) === "idle" && this.liveIn(threadId) === live) {
+        this.idleFrom(threadId, live);
+      }
     });
     this.live.set(threadId, live);
     live.reading = this.read(threadId, live, start)
-      .then(() => (live.ending ? undefined : this.endedEarly(threadId, session.id)))
+      .then(() => {
+        // Still held, nothing ended it: it stopped of its own accord.
+        const ofItsOwn = this.lives.holds(threadId, session);
+        this.lives.sessionEnded(threadId, session);
+        return ofItsOwn ? this.endedEarly(threadId, session.id) : undefined;
+      })
       .catch((error: unknown) => this.fail(threadId, error, { logged: start.failed(error) }))
       .finally(() => {
         start.ended();
         if (live.idle) clearTimeout(live.idle);
+        this.lives.sessionEnded(threadId, session);
         if (this.live.get(threadId) === live) this.live.delete(threadId);
       });
   }
@@ -1778,7 +1867,7 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.change(threadId, (latest) =>
         failAnswer(latest, "The session ended before the answer was finished.", new Date()),
       );
-      await this.endBargeIns(threadId);
+      await this.lives.endBargeIns(threadId);
     }
   }
 
@@ -1796,7 +1885,7 @@ export class ThreadRunner implements OnModuleDestroy {
   private async readEvent(threadId: string, live: LiveSession, event: SessionEvent): Promise<void> {
     await live.following.take(event);
     // A turn the engine began itself, such as on a background Sub-agent's report.
-    if (isAgentsOwnTurnEvent(event)) this.turnBegan(live);
+    if (isAgentsOwnTurnEvent(event)) this.turnBegan(threadId, live);
     if (event.kind === "turn-ended") {
       await this.turnEnded(threadId, live, event);
       return;
@@ -1845,10 +1934,10 @@ export class ThreadRunner implements OnModuleDestroy {
       ]);
     }
     const stillToLand = await this.landBargeIns(threadId, turn);
-    if (!stillToLand) live.turnRunning = false;
+    if (!stillToLand) this.lives.turnEnded(threadId, live.session);
     const wroteNote = live.handingOver;
     // A session ended for a switch to a Stand-in Engine whose carry failed takes nothing more.
-    const ended = live.ending;
+    const ended = !this.lives.holds(threadId, live.session);
     const handingOver =
       !ended &&
       !stopped &&
@@ -1871,13 +1960,13 @@ export class ThreadRunner implements OnModuleDestroy {
     if (handingOver) {
       const request = handoverRequest(await this.promptTemplates.textsOf([HANDOVER_REQUEST]));
       live.handingOver = true;
-      this.turnBegan(live);
+      this.turnBegan(threadId, live);
       live.turnMessage = { id: randomUUID(), text: request };
       live.session.send(live.turnMessage, "later");
       return;
     }
     if (wroteNote) {
-      await this.endLive(threadId);
+      await this.lives.endSession(threadId, live.session);
       return;
     }
     if (!ended) this.idleFrom(threadId, live);
@@ -1894,29 +1983,17 @@ export class ThreadRunner implements OnModuleDestroy {
    * some sent are still to land, which the function answers.
    */
   private async landBargeIns(threadId: string, turn: TurnEndedEvent): Promise<boolean> {
-    const bargeIns = this.bargeIns.get(threadId);
+    const bargeIns = this.lives.bargeInsOf(threadId);
     if (!bargeIns) return false;
     const { delivered, stillToLand } = bargeIns.turnEnded(
       turn.consumedMessageIds,
       turn.outcome === "completed",
     );
     // Ended at once, so a message written from now on is refused rather than held.
-    const undelivered = stillToLand ? [] : this.closeBargeIns(threadId);
+    const undelivered = stillToLand ? [] : this.lives.closeBargeIns(threadId);
     await this.mark(threadId, delivered, "delivered");
     await this.mark(threadId, undelivered, "not-delivered");
     return stillToLand;
-  }
-
-  /** The answer has ended: the user's messages to it that never landed are marked so. */
-  private async endBargeIns(threadId: string): Promise<void> {
-    await this.mark(threadId, this.closeBargeIns(threadId), "not-delivered");
-  }
-
-  /** Ends the answer's messages, answering those that never landed. */
-  private closeBargeIns(threadId: string): readonly string[] {
-    const bargeIns = this.bargeIns.get(threadId);
-    this.bargeIns.delete(threadId);
-    return bargeIns?.end() ?? [];
   }
 
   private async mark(
@@ -1929,8 +2006,8 @@ export class ThreadRunner implements OnModuleDestroy {
     );
   }
 
-  private turnBegan(live: LiveSession): void {
-    live.turnRunning = true;
+  private turnBegan(threadId: string, live: LiveSession): void {
+    this.lives.turnBegan(threadId, live.session);
     if (live.idle) clearTimeout(live.idle);
     live.idle = undefined;
   }
@@ -1943,7 +2020,11 @@ export class ThreadRunner implements OnModuleDestroy {
     if (live.idle) clearTimeout(live.idle);
     live.idle = setTimeout(() => {
       live.idle = undefined;
-      if (!live.following.backgroundSubAgentsRunning) void this.endLive(threadId);
+      if (!live.following.backgroundSubAgentsRunning) {
+        void this.lives.endSession(threadId, live.session).catch((error: unknown) => {
+          this.logger.warn(`Thread ${threadId}'s idle session didn't end: ${messageOf(error)}`);
+        });
+      }
     }, IDLE_MS);
     live.idle.unref();
   }
@@ -1956,20 +2037,6 @@ export class ThreadRunner implements OnModuleDestroy {
     const engineId = (await this.repository.find(threadId))?.session?.engineId;
     if (engineId === undefined || !(await this.engine.reportsContext(engineId))) return undefined;
     return live.session.readContextUsage();
-  }
-
-  private async endLive(threadId: string): Promise<void> {
-    const live = this.live.get(threadId);
-    if (!live) return;
-    this.live.delete(threadId);
-    live.ending = true;
-    if (live.idle) clearTimeout(live.idle);
-    const ending = live.session.end().catch((error: unknown) => {
-      this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
-    });
-    this.endings.set(threadId, ending);
-    await ending;
-    if (this.endings.get(threadId) === ending) this.endings.delete(threadId);
   }
 
   /**
@@ -2004,11 +2071,12 @@ export class ThreadRunner implements OnModuleDestroy {
     } = {},
   ): Promise<void> {
     if (!logged) this.logger.error(`Thread ${threadId} stopped answering: ${messageOf(error)}`);
-    await this.endLive(threadId);
+    // Only the session: an opening that failed is settled by its caller once this returns.
+    await this.lives.endSession(threadId);
     const reason = messageOf(error);
     const [first, ...others] = answers ?? [];
     try {
-      await this.endBargeIns(threadId);
+      await this.lives.endBargeIns(threadId);
       await this.change<DecisionReopened | MessagesLogged>(threadId, (thread) =>
         first
           ? failDecisionAnswer(thread, first, reason, new Date(), unopened)
@@ -2042,6 +2110,16 @@ export class ThreadRunner implements OnModuleDestroy {
     if (!thread) throw new ThreadNotFound(threadId);
     return thread;
   }
+}
+
+/**
+ * Writes an opening's end into the service log through its watch: a failure as one, an opening
+ * stopped (`OpeningStopped`) as no failure. Whether the log has all it needs.
+ */
+function stoppedOrFailed(start: SessionStartWatch, error: unknown): boolean {
+  if (!(error instanceof OpeningStopped)) return start.failed(error);
+  start.ended();
+  return true;
 }
 
 function messageOf(error: unknown): string {

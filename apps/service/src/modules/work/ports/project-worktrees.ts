@@ -26,6 +26,9 @@ export abstract class ProjectWorktrees {
    */
   abstract open(projectId: string, taskId: string): Promise<TaskWorktree>;
 
+  /** Removes the Task's worktree with whatever it holds; its branch stays. */
+  abstract removeWorktree(projectId: string, taskId: string): Promise<void>;
+
   /** Where the Task's worktree is, without running git. */
   abstract find(projectId: string, taskId: string): Promise<TaskWorktree>;
 

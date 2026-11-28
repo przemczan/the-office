@@ -40,7 +40,8 @@ export function toRoleResponse(
   const { mcpTools } = role.card.permissionProfile;
   return {
     key: role.key,
-    // The Hard switches go along for the release before Authority, which reads them.
+    // ROLLBACK SHIM (Authority): the Hard switches go along for the release before Authority,
+    // which reads them; drop them with the stored ones (`storedCardOf`).
     card: {
       ...role.card,
       hardSwitches: hardSwitchesOf(role.key, role.card.authority),

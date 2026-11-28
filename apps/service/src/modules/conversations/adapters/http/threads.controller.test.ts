@@ -33,6 +33,8 @@ import { BusyWorkModule } from "../../../busy-work/index.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadService } from "../../application/thread-service.js";
+import { SessionThreads } from "../../application/session-threads.js";
+import { WorkThreads } from "../../application/work-threads.js";
 import { DecisionAnswered } from "../../domain/conversation-events.js";
 import { closeDecision } from "../../domain/thread-changes.js";
 import { oneWordsAnswer, type Decision, type DecisionDraft } from "../../domain/decision.js";
@@ -81,6 +83,7 @@ import { ThreadSummaries } from "../../application/thread-summaries.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
+import { LiveSessions } from "../../application/live-sessions.js";
 import { MentionedRecords } from "../../application/mentioned-records.js";
 import { openPageRecordProviders } from "../../application/open-page-records.fixtures.js";
 import { WorkRecords } from "../../application/work-records.js";
@@ -297,6 +300,8 @@ function setUpEachTest(): void {
         ConversationsSettingsOfficeActions,
         ContextPolicySettingsService,
         ThreadService,
+        SessionThreads,
+        WorkThreads,
         Briefs,
         MessageImages,
         ThreadImages,
@@ -320,6 +325,7 @@ function setUpEachTest(): void {
         ChatActivity,
         ChatThreadDeletions,
         MentionedRecords,
+        LiveSessions,
         ...openPageRecordProviders(),
         WorkRecords,
         StageThreads,
@@ -696,10 +702,12 @@ describe("a Thread", () => {
     ]);
     const titled = threadSchema.parse(await (await get(`/threads/${thread.id}`)).json());
     expect(titled.title).toBe("Read the deploy workflow");
+    // The first message titled the Thread, which changed besides its log.
     expect(webEvents()).toContainEqual({
       type: "thread.messages-logged",
       threadId: thread.id,
       home: { kind: "chat", roleKey },
+      threadChanged: true,
     });
   });
 

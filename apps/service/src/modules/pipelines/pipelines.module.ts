@@ -1,5 +1,5 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
-import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
+import { TaskLocksModule } from "../work/index.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../busy-work/index.js";

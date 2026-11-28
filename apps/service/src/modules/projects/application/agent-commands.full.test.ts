@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
-import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { officeIdentityForTests } from "../../office-identity/index.fixtures.js";
 import { CommandLineGit } from "../adapters/git/command-line-git.js";
 import { RepositoryLocks } from "../adapters/git/repository-locks.js";
 import {

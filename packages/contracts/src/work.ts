@@ -1883,6 +1883,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     threadId: z.uuid(),
   }),
   webEventSchema.extend({ type: z.literal("task.created"), taskId: z.uuid() }),
+  /** A Task just made, taken away again as its Start was refused: nothing is left of it. */
+  webEventSchema.extend({ type: z.literal("task.discarded"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.state-changed"),
     taskId: z.uuid(),

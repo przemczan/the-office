@@ -19,7 +19,7 @@ import {
 import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
-import { PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
+import { heldFireAlarm, PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./postgres-initiative-repository.js";
 import { PostgresTaskRepository } from "./postgres-task-repository.js";
@@ -247,6 +247,8 @@ describe("PostgresFireAlarmRepository", () => {
         seen.push(await alarm.sound(later, "after-tasks"));
         seen.push(await alarm.sound(later, "after-stages"));
         seen.push(await alarm.read());
+        // As the hold of Starts reads it, on the transaction it holds.
+        seen.push(await heldFireAlarm(transaction));
         seen.push(await alarm.sound(later, "after-tasks"));
         seen.push(await alarm.allClear());
         seen.push(await alarm.allClear());
@@ -262,6 +264,7 @@ describe("PostgresFireAlarmRepository", () => {
       "turned-on",
       "unchanged",
       "made-stricter",
+      { on: true, since, way: "after-stages" },
       { on: true, since, way: "after-stages" },
       "refused",
       true,

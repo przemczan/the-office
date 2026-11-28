@@ -158,7 +158,7 @@ describe("A converted Pipeline's Stages", () => {
           new Date(),
         );
         await repository.saveNew(run);
-        await repository.saveEnded(endStageRun(run, outcome, new Date()).run);
+        await repository.update(run.id, (held) => endStageRun(held, outcome, new Date()));
       }
 
       await walkStages(pipelines, LIST, taskId);

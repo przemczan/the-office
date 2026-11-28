@@ -9,7 +9,7 @@ import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 import { hasOfficeTools, type SessionOptions } from "../../ports/session-options.js";
 import type { McpConfig } from "../claude-code/mcp-config-file.js";
-import { officeToolAnswer } from "../claude-code/office-tools.js";
+import { officeToolAnswer } from "../shared/office-tools.js";
 import { mcpServerConfigs } from "../claude-code/session-mcp-servers.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import {

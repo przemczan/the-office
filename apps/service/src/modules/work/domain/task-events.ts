@@ -9,6 +9,19 @@ export class TaskCreated extends DomainEvent {
   }
 }
 
+/**
+ * A Task just made was taken away again, as the Start it was made for was refused: its row, its
+ * worktree and its creation are gone, so whatever showed it after `TaskCreated` drops it.
+ */
+export class TaskDiscarded extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly projectId: string,
+  ) {
+    super();
+  }
+}
+
 export class TaskStateChanged extends DomainEvent {
   constructor(
     readonly taskId: string,

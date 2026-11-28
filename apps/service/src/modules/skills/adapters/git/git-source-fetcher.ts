@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
-import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import { OfficeIdentity } from "../../../office-identity/index.js";
 import type { PinnedVersion, RemoteRef } from "../../domain/installed-source.js";
 import { SKILL_MD } from "../../domain/skill-files.js";
 import type { FolderEntry } from "../../domain/skill-upload.js";

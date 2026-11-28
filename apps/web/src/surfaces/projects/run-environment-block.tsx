@@ -15,7 +15,7 @@ import { offBoardTaskQueries } from "../../api/off-board-tasks.ts";
 import { changeRunEnvironment, projectQueries, setUpRunEnvironment } from "../../api/projects.ts";
 import { TASKS } from "../../api/work.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
-import { settingChosenWords, setUpWords } from "../../shell/run-environment-words.ts";
+import { settingChosenWords, setUpWords } from "./run-environment-words.ts";
 import { momentWords } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { OffBoardTaskStatus, StartRefusal } from "./off-board-task-status.tsx";

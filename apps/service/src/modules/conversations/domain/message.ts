@@ -1,4 +1,4 @@
-import { usageWindowWords } from "../../engine/index.js";
+import { usageWindowWords } from "../../engine/index.domain.js";
 import type { ContextMove, ContextReason } from "./context-policy.js";
 import type { AtUsersRequest, DecisionAnswer } from "./decision.js";
 import type { OpenPage } from "./open-page.js";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { TaskLocks } from "../../../platform/locks/task-locks.js";
+import { TaskLocks } from "../../work/index.js";
 import {
   EngineSessions,
   FIRST_CLAUDE_CODE_ENGINE,

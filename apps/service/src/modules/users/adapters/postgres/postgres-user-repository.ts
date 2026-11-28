@@ -4,10 +4,10 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { FirstRunSetupState } from "../../domain/first-run-setup.js";
 import type { User } from "../../domain/user.js";
 import { UserRefused } from "../../domain/user-refused.js";
-import { UserRepository } from "../../ports/user-repository.js";
+import { UserRepository, type RemovedUser } from "../../ports/user-repository.js";
 import { firstRunSetup } from "./first-run-setup.schema.js";
 import { firstRunSetupRowOf } from "./postgres-first-run-setup-repository.js";
-import { earlierRecordsClaimed, users } from "./users.schema.js";
+import { earlierRecordsClaimed, signedInDevices, users } from "./users.schema.js";
 
 type UserRow = typeof users.$inferSelect;
 
@@ -123,7 +123,7 @@ export class PostgresUserRepository extends UserRepository {
   removeAmongActive(
     id: string,
     remove: (user: User, activeUserIds: readonly string[]) => User,
-  ): Promise<User | undefined> {
+  ): Promise<RemovedUser | undefined> {
     return this.database.transaction(async (transaction) => {
       // Locked in one order, so two removals at once wait for each other rather than deadlock; the
       // second then reads the first's removal, as a row it waited for is read again.
@@ -140,7 +140,11 @@ export class PostgresUserRepository extends UserRepository {
         rows.map((active) => active.id),
       );
       await transaction.update(users).set(toRow(removedUser)).where(eq(users.id, id));
-      return removedUser;
+      const signedOut = await transaction
+        .delete(signedInDevices)
+        .where(eq(signedInDevices.userId, id))
+        .returning({ id: signedInDevices.id });
+      return { user: removedUser, signedOutDeviceIds: signedOut.map((device) => device.id) };
     });
   }
 }

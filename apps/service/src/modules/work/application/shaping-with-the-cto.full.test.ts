@@ -17,9 +17,13 @@ import {
   LIST_PIPELINES_TOOL,
   LIST_STAGE_TEMPLATES_TOOL,
   ProposalService,
+  READ_REPOSITORY_TOOL,
   READ_STAGE_HISTORY_TOOL,
   ThreadRunner,
+  SessionThreads,
+  ThreadCards,
   ThreadService,
+  WorkThreads,
 } from "../../conversations/index.js";
 import {
   EngineModule,
@@ -46,6 +50,7 @@ import {
   ProjectFeatures,
   ProjectService,
   RunEnvironmentSwitchRegistry,
+  SessionPeople as ProjectsSessionPeople,
   TaskBases,
   TestTargets,
   TestTargetsChatThreads,
@@ -203,8 +208,8 @@ class NoProjectRecords {
 }
 
 /**
- * Projects' list_projects and Pipelines' list_pipelines, list_stage_templates and
- * read_stage_history, which a shaping session is given, on the registry the sessions read.
+ * Projects' list_projects and read_repository and Pipelines' list_pipelines, list_stage_templates
+ * and read_stage_history, which a shaping session is given, on the registry the sessions read.
  */
 @Injectable()
 class ListProjectsStandIn {
@@ -216,7 +221,12 @@ class ListProjectsStandIn {
       input: z.object({}),
       run: () => Promise.resolve({ text: PROJECT, isError: false }),
     });
-    for (const name of [LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL, READ_STAGE_HISTORY_TOOL]) {
+    for (const name of [
+      READ_REPOSITORY_TOOL,
+      LIST_PIPELINES_TOOL,
+      LIST_STAGE_TEMPLATES_TOOL,
+      READ_STAGE_HISTORY_TOOL,
+    ]) {
       registry.register({
         name,
         area: "core",
@@ -257,6 +267,8 @@ const STAND_INS = [
   { provide: IssueWriteBack, useExisting: IssueWriteBackForTests },
   ProjectFeaturesForTests,
   { provide: ProjectFeatures, useExisting: ProjectFeaturesForTests },
+  // Where Conversations tells Projects whose session a call comes from, as Projects would.
+  ProjectsSessionPeople,
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
@@ -345,12 +357,12 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         knownPeople: RoleCards,
         knownEngineCascade: KnownEngineCascadeForTests,
         knownPipelines: PipelineLibrary,
-        sessionPeople: ThreadService,
-        ideaCards: ThreadService,
-        sessionTasks: ThreadService,
-        sessionInitiatives: ThreadService,
-        taskThreads: ThreadService,
-        initiativeThreads: ThreadService,
+        sessionPeople: SessionThreads,
+        ideaCards: ThreadCards,
+        sessionTasks: SessionThreads,
+        sessionInitiatives: SessionThreads,
+        taskThreads: WorkThreads,
+        initiativeThreads: WorkThreads,
         threadTurns: ConversationsThreadTurns,
         taskDecisions: DecisionService,
         proposalDrafts: ProposalService,

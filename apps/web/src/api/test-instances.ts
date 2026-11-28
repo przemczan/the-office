@@ -170,8 +170,9 @@ export const testInstanceEventInvalidations: Readonly<
   Record<TestInstanceWebEvent["type"], EventInvalidations[string]>
 > = {
   [TEST_INSTANCE_CHANGED]: (event) => {
-    const parsed = testInstanceWebEventSchema.parse(event);
-    if (parsed.type !== "test-instance.changed") return [TEST_INSTANCES];
+    const read = testInstanceWebEventSchema.safeParse(event);
+    if (!read.success || read.data.type !== "test-instance.changed") return [TEST_INSTANCES];
+    const parsed = read.data;
     return [
       testInstanceQueries.ofProject(parsed.projectId).queryKey,
       ...(parsed.initiativeId === null

@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { Injectable } from "@nestjs/common";
-import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import { OfficeIdentity } from "../../../office-identity/index.js";
 import type { ProjectSkillFile } from "../../domain/session-skills.js";
 import { ProjectSkillFiles } from "../../ports/project-skill-files.js";
 

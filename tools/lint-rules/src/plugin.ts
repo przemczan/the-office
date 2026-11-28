@@ -1,3 +1,5 @@
+import { caughtVoidedCalls } from "./caught-voided-calls.ts";
+import { engineAdapterViolation } from "./engine-adapters.ts";
 import { checkImports, type Import, type Rule } from "./imports.ts";
 import { moduleBoundaryViolation, modulePackageViolation } from "./module-boundaries.ts";
 import { isTestFile, placeOf } from "./module-layout.ts";
@@ -23,22 +25,31 @@ const moduleBoundaries: Rule = {
   create: (context) => checkImports(context, moduleViolation),
 };
 
-function moduleViolation({ importerPath, importerWorkspace, target }: Import): string | undefined {
+function moduleViolation({
+  importerPath,
+  importerWorkspace,
+  target,
+  typeOnly,
+}: Import): string | undefined {
   if (!importerWorkspace) return undefined;
   const pathInWorkspace = (repositoryPath: string): string =>
     repositoryPath.slice(importerWorkspace.directory.length + 1);
-  const importer = placeOf(pathInWorkspace(importerPath));
+  const importerInWorkspace = pathInWorkspace(importerPath);
+  const importer = placeOf(importerInWorkspace);
   const importerIsTest = isTestFile(importerPath);
   if (target.kind === "package") {
     return modulePackageViolation(importer, importerIsTest, target.name);
   }
-  return target.workspace === importerWorkspace
-    ? moduleBoundaryViolation({
-        importer,
-        importerIsTest,
-        target: placeOf(pathInWorkspace(target.path)),
-      })
-    : undefined;
+  if (target.workspace !== importerWorkspace) return undefined;
+  const targetInWorkspace = pathInWorkspace(target.path);
+  return (
+    moduleBoundaryViolation({
+      importer,
+      importerIsTest,
+      target: placeOf(targetInWorkspace),
+      typeOnly,
+    }) ?? engineAdapterViolation(importerInWorkspace, importerIsTest, targetInWorkspace)
+  );
 }
 
 /** Keeps the web app's areas apart: api, shell and each surface (AGENTS.md, Project layout and defaults). */
@@ -59,6 +70,7 @@ const webLayers: Rule = {
 export default {
   meta: { name: "office" },
   rules: {
+    "caught-voided-calls": caughtVoidedCalls,
     "workspace-boundaries": workspaceBoundaries,
     "module-boundaries": moduleBoundaries,
     "operating-system-branches": operatingSystemBranches,

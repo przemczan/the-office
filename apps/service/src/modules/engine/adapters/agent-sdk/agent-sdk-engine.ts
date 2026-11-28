@@ -29,7 +29,7 @@ import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
-import { EngineProcess } from "../claude-code/engine-process.js";
+import { EngineProcess } from "../shared/engine-process.js";
 import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { CLAUDE_CODE_OFFICE_TOOL_LOADING } from "../claude-code/office-tool-deferral.js";
@@ -44,7 +44,7 @@ import { carrySessionOver } from "../claude-code/session-carry-over.js";
 import { forgetSessionFiles } from "../claude-code/session-forget.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
-import { serviceVariables } from "../claude-code/engine-read.js";
+import { serviceVariables } from "../shared/engine-read.js";
 import { sdkMcpConfig, sdkOptions, type SdkSession } from "./sdk-options.js";
 import { listModelsOnSdk } from "./model-list-read.js";
 import { readUsageWindowsOnSdk } from "./usage-window-read.js";
@@ -53,7 +53,7 @@ import {
   requireUsageWindows,
   WINDOW_START_PROMPT,
   windowStartWhat,
-} from "../claude-code/usage-window-start.js";
+} from "../shared/usage-window-start.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived

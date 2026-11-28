@@ -93,6 +93,34 @@ function AppPageLink({
   );
 }
 
+/**
+ * An image from The Office itself, or a `data:` or `blob:` one, which load from nowhere else;
+ * any other shows as a link to it, by its alt text, so opening a text never has the browser reach
+ * another site.
+ */
+function MarkdownImage({ src, alt }: { readonly src?: string; readonly alt?: string }): ReactNode {
+  if (src === undefined || src === "") return alt ?? null;
+  if (isShownImage(src, document.baseURI)) return <img src={src} alt={alt ?? ""} />;
+  return (
+    <a href={src} target="_blank" rel="noreferrer noopener">
+      {alt === undefined || alt === "" ? src : alt}
+    </a>
+  );
+}
+
+/** Whether an image's address loads from the app's own origin, or from no address at all. */
+function isShownImage(src: string, base: string): boolean {
+  let url;
+  try {
+    url = new URL(src, base);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "data:" || url.protocol === "blob:" || url.origin === new URL(base).origin
+  );
+}
+
 const MESSAGE_PLUGINS = [remarkGfm, remarkBreaks];
 
 const MESSAGE_COMPONENTS: Components = {
@@ -103,6 +131,7 @@ const MESSAGE_COMPONENTS: Components = {
   h5: MarkdownHeading,
   h6: MarkdownHeading,
   a: MarkdownLink,
+  img: MarkdownImage,
   pre: CopyableCodeBlock,
   blockquote: CopyableQuote,
 };
@@ -111,15 +140,17 @@ const DOCUMENT_PLUGINS = [remarkGfm];
 
 const DOCUMENT_COMPONENTS: Components = {
   a: MarkdownLink,
+  img: MarkdownImage,
   pre: CopyableCodeBlock,
   blockquote: CopyableQuote,
 };
 
 /**
  * Text written by people and The Office, in Markdown. Raw HTML shows as text (there is no raw HTML
- * plugin) and unsafe link targets are dropped by the renderer's URL check. A link to a Task,
- * Initiative, Decision or Idea shows as a chip for it, one to another page of the app opens it in
- * place, and any other opens in a new tab. A code block or a quote has Copy, and copying a
+ * plugin) and unsafe link targets are dropped by the renderer's URL check. An image shows only
+ * from The Office itself, any other as a link (`MarkdownImage`). A link to a Task, Initiative,
+ * Decision or Idea shows as a chip for it, one to another page of the app opens it in place, and
+ * any other opens in a new tab. A code block or a quote has Copy, and copying a
  * selection copies it as Markdown. An inline one holds no blocks, for a line inside a row. A
  * single line break stays a break, as typed in a message.
  */

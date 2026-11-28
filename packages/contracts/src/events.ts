@@ -54,7 +54,10 @@ export type WebEvent = z.infer<typeof webEventSchema>;
 /**
  * What the service sends, for a given union of events: an event; the event types the client now
  * receives, after each subscribe or unsubscribe (those without a scope, or with the `threadId` of
- * the message's scope, those scoped to it); or why a client message was refused.
+ * the message's scope, those scoped to it); or why a client message was refused. A reply without a
+ * scope also names the build of the web app the service serves (`webAppBuild`), so a tab opened
+ * on an earlier build can tell The Office was updated; left out while the service serves the web
+ * app's source, as `npm run dev` does, or no web app at all.
  */
 export function serverMessageSchema<Event extends z.ZodType<WebEvent>>(eventSchema: Event) {
   return z.discriminatedUnion("type", [
@@ -63,6 +66,7 @@ export function serverMessageSchema<Event extends z.ZodType<WebEvent>>(eventSche
       type: z.literal("subscriptions"),
       events: z.array(z.string()),
       threadId: z.uuid().optional(),
+      webAppBuild: z.string().min(1).optional(),
     }),
     z.object({ type: z.literal("refused"), reason: z.string() }),
   ]);

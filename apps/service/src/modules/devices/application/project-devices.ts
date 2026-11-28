@@ -452,7 +452,11 @@ export class ProjectDevices implements OnModuleInit {
         if (this.running.get(device.id) === running) this.running.delete(device.id);
       });
     this.pairings.add(pairing);
-    void pairing.finally(() => this.pairings.delete(pairing));
+    void pairing
+      .finally(() => this.pairings.delete(pairing))
+      .catch((error: unknown) => {
+        this.logger.error(`The pairing of the Project device ${device.id} didn't end.`, error);
+      });
   }
 
   private async pairIn(

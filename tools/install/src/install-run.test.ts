@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import {
   appendFileSync,
   existsSync,
@@ -68,7 +68,7 @@ describe("a fresh install", () => {
 
     const installs = callsTo("apt-get").filter((call) => call.startsWith("apt-get install"));
     assert.deepEqual(installs, [
-      "apt-get install -y --no-install-recommends ca-certificates curl gnupg git openssh-client",
+      "apt-get install -y --no-install-recommends ca-certificates curl gnupg git openssh-client openssl",
       "apt-get install -y --no-install-recommends nodejs",
       "apt-get install -y --no-install-recommends docker-ce=5:29.9.3-1~debian.13~trixie docker-ce-cli=5:29.9.3-1~debian.13~trixie containerd.io=2.4.2-3~debian.13~trixie docker-buildx-plugin=0.38.1-1~debian.13~trixie docker-compose-plugin=5.7.0-1~debian.13~trixie",
       "apt-get install -y --no-install-recommends postgresql-18",
@@ -224,6 +224,30 @@ describe("a fresh install", () => {
   it("leaves current untouched when the tarball doesn't match its sha256", () => {
     machine.publishRelease("1.2.0", { checksum: "0".repeat(64) });
     assert.match(refused(), /doesn't match its sha256/);
+    assert.equal(existsSync(machine.path("/opt/the-office/current")), false);
+  });
+
+  it("with no release key pinned, downloads and checks no signature", () => {
+    installed();
+    assert.ok(!machine.calls().some((call) => call.includes(".sha256.sig")));
+    assert.match(machine.read("/var/log/the-office-install.log"), /No release key is pinned/);
+  });
+
+  it("with a release key pinned, installs a release whose .sha256 that key signed", () => {
+    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+    machine.publishRelease("1.2.0", { signWith: privateKey });
+    machine.pinReleaseKey(publicKey.export({ format: "der", type: "spki" }).toString("base64"));
+    installed();
+    assert.equal(currentRelease(), "releases/1.2.0");
+    assert.ok(machine.calls().some((call) => call.endsWith("linux-x64.tar.gz.sha256.sig")));
+  });
+
+  it("with a release key pinned, refuses a release signed by another key or not signed", () => {
+    const pinned = generateKeyPairSync("ed25519").publicKey;
+    machine.pinReleaseKey(pinned.export({ format: "der", type: "spki" }).toString("base64"));
+    assert.match(refused(), /this failed: curl .*\.sha256\.sig/);
+    machine.publishRelease("1.2.0", { signWith: generateKeyPairSync("ed25519").privateKey });
+    assert.match(refused(), /isn't signed by The Office's release key/);
     assert.equal(existsSync(machine.path("/opt/the-office/current")), false);
   });
 

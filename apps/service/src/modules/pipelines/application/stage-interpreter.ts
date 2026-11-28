@@ -27,7 +27,7 @@ import { StaffingHolds } from "./staffing-holds.js";
 import { asFlow } from "../domain/flow.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
-import { closingOf, interruptedOutcome, outranks } from "../domain/stage-interruption.js";
+import { closingOf, interruptedOutcome } from "../domain/stage-interruption.js";
 import type {
   StageInterruption,
   StageOutcome,
@@ -35,7 +35,14 @@ import type {
   AskedInterruption,
   HoldingUser,
 } from "../domain/stage-run.js";
-import { endStageRun, heldRunChoice, startStageRun } from "../domain/stage-run-changes.js";
+import {
+  endStageRun,
+  heldRunChoice,
+  holdStageRun,
+  keepAnswers,
+  keepDecision,
+  startStageRun,
+} from "../domain/stage-run-changes.js";
 import { startsAtStageBoundary } from "../domain/stage-boundary.js";
 import { runsOfLatestStart } from "../domain/start-over.js";
 import { staffedRole } from "../domain/stage-staffing.js";
@@ -51,8 +58,8 @@ import {
 import {
   agentDecision,
   asksAConsultantFirst,
-  walkAnswerOf,
   walkDecision,
+  walkDecisionId,
   type DecisionAnswer,
 } from "../domain/walk-decisions.js";
 import { KnownPeople } from "../ports/known-people.js";
@@ -69,6 +76,9 @@ import type { StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
 import { StageRunsRunningNow } from "./stage-runs-running-now.js";
 import { TaskStagesService } from "./task-stages-service.js";
+
+/** How long after a failed try to walk a Task on from the user's answer The Office tries again. */
+const WALK_ON_AGAIN_AFTER_MS = 30_000;
 
 type RunMove = Extract<NextMove, { move: "run" }>;
 type HaltMove = Exclude<NextMove, RunMove | WeighCommandMove>;
@@ -132,6 +142,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
    * Dropped (spec 2.1, "Publishing Tasks"), walked again as any Task ends or loses a blocker.
    */
   private readonly heldForBlocker = new Set<string>();
+  /** Tasks whose walk on from the user's answer failed, by the wait before it is tried again. */
+  private readonly walksOnLater = new Map<string, Wait>();
 
   constructor(
     private readonly taskStages: TaskStagesService,
@@ -191,40 +203,69 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
    * walk's, and one taken already is left as it is.
    */
   async takeAnswer(taskId: string, decisionId: string, answer: DecisionAnswer): Promise<void> {
-    const runs = await this.runs.list(taskId);
-    const run = runs.find(({ decisions }) => decisions.some(({ id }) => id === decisionId));
-    if (!run || !(await this.keepAnswers(run, new Map([[decisionId, answer]])))) return;
-    await this.goOn(taskId);
+    await this.walkingOn(taskId, async () => {
+      const runs = await this.runs.list(taskId);
+      const run = runs.find(({ decisions }) => decisions.some(({ id }) => id === decisionId));
+      if (!run) return;
+      const answers = new Map([[decisionId, answer]]);
+      if (!(await this.runs.update(run.id, (held) => keepAnswers(held, answers)))) return;
+      await this.moveOn(taskId);
+    });
   }
 
   /**
-   * Lets the walk go on from what the user did on a Task Waiting on you. A Task they paused stays
-   * Paused until they resume it; a walk moving the Task to Waiting on you meanwhile sees the change
-   * and goes on itself.
+   * Lets the walk go on from what the user did on a Task Waiting on you, such as a Gate's action
+   * kept on its run. A Task they paused stays Paused until they resume it; a walk moving the Task
+   * to Waiting on you meanwhile sees the change and goes on itself.
    */
   async goOn(taskId: string): Promise<void> {
+    await this.walkingOn(taskId, () => this.moveOn(taskId));
+  }
+
+  private async moveOn(taskId: string): Promise<void> {
     if ((await this.tasks.read(taskId)).state !== "waiting-on-you") return;
     await this.tasks.changeState(taskId, "in-progress");
     this.walkInBackground(taskId);
   }
 
   /**
-   * Keeps the given answers on the run's Decisions that are still open; false when none was.
-   * One taken already is left as it is.
+   * Goes on from what the user did, kept on the Task's runs or in Conversations already: when that
+   * fails, such as the database being out of reach for a moment, it goes into the log and the Task
+   * is walked on from what is kept a moment later (`walkOnIfAnswered`), so the Task never stays
+   * Waiting on you behind an answer it has (spec §2.4.5, "Restarting").
    */
-  private async keepAnswers(
-    run: StageRun,
-    answers: ReadonlyMap<string, DecisionAnswer>,
-  ): Promise<boolean> {
-    let kept = false;
-    const decisions = run.decisions.map((decision) => {
-      const answer = answers.get(decision.id);
-      if (decision.answer || !answer) return decision;
-      kept = true;
-      return { ...decision, answer: walkAnswerOf(decision, answer) };
+  private async walkingOn(taskId: string, work: () => Promise<void>): Promise<void> {
+    try {
+      await work();
+    } catch (error) {
+      this.logger.error(`Task ${taskId} didn't go on from the user's answer`, stackOf(error));
+      this.walkOnLater(taskId);
+    }
+  }
+
+  private walkOnLater(taskId: string): void {
+    if (this.stopping || this.walksOnLater.has(taskId)) return;
+    const at = new Date(this.schedule.now().getTime() + WALK_ON_AGAIN_AFTER_MS);
+    const wait = this.schedule.once(`walking Task ${taskId} on from its answer`, at, () => {
+      this.walksOnLater.delete(taskId);
+      return this.walkingOn(taskId, () => this.walkOnIfAnswered(taskId));
     });
-    if (kept) await this.runs.saveDecisions(run.id, decisions);
-    return kept;
+    this.walksOnLater.set(taskId, wait);
+  }
+
+  /**
+   * Walks a Task Waiting on you on once what it waits on is answered: the answer or the Gate's
+   * action kept on its run, or an answer given in Conversations before a run kept its Decision,
+   * yet the walk never went on from it, as The Office stopped or the move failed in between.
+   */
+  private async walkOnIfAnswered(taskId: string): Promise<void> {
+    const own = await this.taskStages.find(taskId);
+    if (!own) return;
+    const { definitionOfDone } = await this.records.read(taskId);
+    const runs = runsOfLatestStart(await this.runs.list(taskId));
+    const stages = await this.roleFillings.staffed(own.stages, runs);
+    if (!(await this.answeredMeanwhile(taskId, stages, definitionOfDone))) return;
+    await this.moveOn(taskId);
   }
 
   /**
@@ -238,7 +279,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       const recorded = answer ? undefined : await this.decisions.answerOf(id);
       if (recorded) answers.set(id, recorded);
     }
-    return answers.size > 0 && this.keepAnswers(run, answers);
+    if (answers.size === 0) return false;
+    return (await this.runs.update(run.id, (held) => keepAnswers(held, answers))) !== undefined;
   }
 
   /**
@@ -268,8 +310,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   ): Promise<void> {
     this.interruptions.get(taskId)?.request(interruption, heldByUser);
     const running = (await this.runs.list(taskId)).at(-1);
-    if (!running || running.outcome || !outranks(interruption, running.heldBy)) return;
-    await this.runs.saveHeldBy(running.id, interruption, heldByUser);
+    if (!running || running.outcome) return;
+    // Weighed against what the run records as it is held, so a Pause and a Stop at once keep the Stop.
+    await this.runs.update(running.id, (held) => holdStageRun(held, interruption, heldByUser));
   }
 
   /**
@@ -282,7 +325,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
    */
   async onApplicationBootstrap(): Promise<void> {
     for (const task of await this.tasks.started()) {
-      if (task.state === "waiting-on-you") continue;
+      if (task.state === "waiting-on-you") {
+        await this.walkingOn(task.id, () => this.walkOnIfAnswered(task.id));
+        continue;
+      }
       await this.takeUpAfterRestart(task).catch((error: unknown) => {
         this.logger.error(`Task ${task.id}'s Stage runs weren't taken up`, stackOf(error));
       });
@@ -297,6 +343,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   async onModuleDestroy(): Promise<void> {
     this.stopping = true;
     this.hardStop?.cancel();
+    for (const wait of this.walksOnLater.values()) wait.cancel();
+    this.walksOnLater.clear();
     for (const interruption of this.interruptions.values()) interruption.request("restart");
     await Promise.all(this.walks.values());
   }
@@ -362,14 +410,14 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       cutShortBy: "restart",
       heldByUser,
     });
-    const ended = endStageRun(run, outcome, new Date());
-    await this.runs.saveEnded(ended.run);
+    const endedAt = new Date();
+    const ended = await this.runs.update(run.id, (stored) => endStageRun(stored, outcome, endedAt));
     const closing = closingOf(outcome);
     if (run.threadId && closing) {
       const asked = await this.threads.endLeftRunning(run.threadId, closing, run.startedAt);
       // As a held run keeps it: nothing runs again until the user answers it.
-      if (asked && !run.decisions.some(({ id }) => id === asked.id)) {
-        await this.runs.saveDecisions(run.id, [...run.decisions, agentDecision(asked)]);
+      if (asked) {
+        await this.runs.update(run.id, (stored) => keepDecision(stored, agentDecision(asked)));
       }
     }
     await this.events.publish(ended.event);
@@ -570,8 +618,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       }
       await this.events.publish(started.event);
       const work = { stage, run: started.run, stages, earlierRuns, interruption };
-      const ended = endStageRun(started.run, await this.outcomeOf(work), new Date());
-      await this.runs.saveEnded(ended.run);
+      const outcome = await this.outcomeOf(work);
+      const endedAt = new Date();
+      const ended = await this.runs.update(started.run.id, (run) =>
+        endStageRun(run, outcome, endedAt),
+      );
       await this.events.publish(ended.event);
       await this.tellStopHeldAsPause(ended.run, interruption);
       return true;
@@ -673,16 +724,17 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const consultant = asksAConsultantFirst(question, runs)
       ? await this.people.holderOf("asked-first-when-out-of-tries")
       : undefined;
+    // Its id is the run's and its kind's, so a walk asking again after The Office stopped before
+    // the run kept it finds the same Decision open, and the answer given to it counts.
     const { id, putTo } = await this.decisions.open({
+      id: walkDecisionId(run.id, decision.kind),
       taskId,
       threadId,
       draft: decision.draft,
       ...(consultant !== undefined && { putTo: consultant }),
     });
-    await this.runs.saveDecisions(run.id, [
-      ...run.decisions,
-      { id, kind: decision.kind, options: decision.options, answer: undefined },
-    ]);
+    const kept = { id, kind: decision.kind, options: decision.options, answer: undefined };
+    await this.runs.update(run.id, (held) => keepDecision(held, kept));
     if (question.kind === "no-retries-left") {
       await this.events.publish(new NoRetriesLeft(taskId, run.stageKey, question.error, putTo));
     }

@@ -21,7 +21,7 @@ import { InOtherProjectsNote } from "../../shell/project-filter/in-other-project
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { dayOf } from "../../shell/time.ts";
 import { initiativeProgress, progressWords } from "../../shell/work/initiative-progress.ts";
-import { useShaper } from "../../shell/work/use-shaper.ts";
+import { useShaper } from "./use-shaper.ts";
 import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { isArchived } from "../../shell/work/work-words.ts";
 import { useDroppedFold } from "./dropped-fold.ts";

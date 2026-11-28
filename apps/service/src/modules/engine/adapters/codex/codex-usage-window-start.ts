@@ -4,8 +4,8 @@ import { join } from "node:path";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { UsageWindowStart } from "../../ports/agent-engine.js";
 import type { TokenUsage } from "../../ports/session-events.js";
-import type { EngineCommand } from "../claude-code/engine-process.js";
-import { engineRead, type EngineReadLimits } from "../claude-code/engine-read.js";
+import type { EngineCommand } from "../shared/engine-process.js";
+import { engineRead, type EngineReadLimits } from "../shared/engine-read.js";
 import { codexTokens } from "./codex-events.js";
 import type { Effort } from "../../ports/session-options.js";
 import {

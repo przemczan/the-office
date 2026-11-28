@@ -236,8 +236,9 @@ describe("Starting with a run left running", () => {
     const taskId = await aRunLeftRunning(pipelines, [implement]);
     const [running] = await runsOf(pipelines, taskId);
     if (!running) throw new Error("The run left running is missing.");
-    const paused = endStageRun(running, interruptedOutcome("pause", []), new Date());
-    await pipelines.app.get(StageRunRepository, { strict: false }).saveEnded(paused.run);
+    const paused = await pipelines.app
+      .get(StageRunRepository, { strict: false })
+      .update(running.id, (held) => endStageRun(held, interruptedOutcome("pause", []), new Date()));
 
     await startUp(pipelines, taskId, "paused");
 

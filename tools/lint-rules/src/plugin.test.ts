@@ -12,13 +12,38 @@ const inRepository = (file: string): string => path.join(repositoryRoot, file);
 const tester = new RuleTester({ languageOptions: { sourceType: "module" } });
 
 const workApplication = inRepository("apps/service/src/modules/work/application/plan-task.ts");
+const workDomain = inRepository("apps/service/src/modules/work/domain/task.ts");
+const codexAdapter = inRepository("apps/service/src/modules/engine/adapters/codex/codex-engine.ts");
 
 tester.run("module-boundaries", plugin.rules["module-boundaries"], {
   valid: [
     { filename: workApplication, code: `import { PeopleDirectory } from "../../people/index.js";` },
     { filename: workApplication, code: `import { Task } from "../domain/task.js";` },
+    { filename: workDomain, code: `import type { Engine } from "../../engine/index.js";` },
+    { filename: workDomain, code: `export type { Engine } from "../../engine/index.js";` },
+    { filename: workDomain, code: `let engine: import("../../engine/index.js").Engine;` },
+    {
+      filename: workDomain,
+      code: `import { hasUsageWindows } from "../../engine/index.domain.js";`,
+    },
+    { filename: codexAdapter, code: `import { engineRead } from "../shared/engine-read.js";` },
   ],
   invalid: [
+    ...[
+      `import { hasUsageWindows } from "../../engine/index.js";`,
+      `import { type Engine } from "../../engine/index.js";`,
+      `export { hasUsageWindows } from "../../engine/index.js";`,
+      `const engine = await import("../../engine/index.js");`,
+    ].map((code) => ({
+      filename: workDomain,
+      code,
+      errors: [{ message: /only with `import type`/ }],
+    })),
+    {
+      filename: codexAdapter,
+      code: `import { officeToolAnswer } from "../claude-code/office-tools.js";`,
+      errors: [{ message: /an engine type's adapter imports only its own folder and shared\// }],
+    },
     ...[
       `import { Person } from "../../people/domain/person.js";`,
       `import type { Person } from "../../people/domain/person.js";`,
@@ -140,4 +165,26 @@ tester.run("web-layers", plugin.rules["web-layers"], {
       errors: [{ message: /The shell frames the surfaces and never imports one/ }],
     },
   ],
+});
+
+tester.run("caught-voided-calls", plugin.rules["caught-voided-calls"], {
+  valid: [
+    `void work().catch((error) => log(error));`,
+    `void this.remove(id).catch(log);`,
+    `void ended.then(() => done(), (error) => log(error));`,
+    `void running.removeEnvironment?.().catch(log);`,
+    `void unusedParameter;`,
+    `void live.reading;`,
+    `const ok = typeof void 0;`,
+  ],
+  invalid: [
+    `void work();`,
+    `void this.inTurn(() => step());`,
+    `void settled.finally(() => forget());`,
+    `void ended.then(() => done());`,
+    `void work().catch(log).finally(() => settle());`,
+    `void fake?.answer(request);`,
+    `listener.on("close", () => void close());`,
+    `void work().catch();`,
+  ].map((code) => ({ code, errors: [{ message: /A voided call ends in \.catch/ }] })),
 });

@@ -4,6 +4,10 @@ import type { Task } from "../domain/task.js";
 
 /** What a release reads in the hold of Starts. */
 export interface HeldForRelease {
+  /**
+   * The Tasks a release weighs: the queued ones, every started one, and those the queued ones wait
+   * for, whatever their state; no other.
+   */
   readonly tasks: readonly Task[];
   readonly fireAlarmOn: boolean;
   /** The Initiatives paused, whose Tasks wait until each is resumed. */
@@ -29,8 +33,8 @@ export abstract class QueueRepository {
   ): Promise<Starting>;
 
   /**
-   * A release: `decide` weighs the queue against every Task, the fire alarm and the paused
-   * Initiatives read in the hold;
+   * A release: `decide` weighs the queue against its Tasks, the started ones and those they wait
+   * for, the fire alarm and the paused Initiatives read in the hold;
    * the Tasks it starts are saved and leave the queue with those refused, and those still waiting
    * keep their new reasons.
    */

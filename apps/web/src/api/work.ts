@@ -119,7 +119,11 @@ import {
 } from "./api-client.ts";
 import { attachmentCopiesOf } from "./attachment-copies.ts";
 import { pagedQueryOptions } from "./pages.ts";
-import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
+import {
+  readEvent,
+  type EventCacheUpdates,
+  type EventInvalidations,
+} from "./event-stream-provider.tsx";
 import { ENGINE_CASCADE, taskEngineCascadeKey } from "./people.ts";
 import { RUN_ENVIRONMENTS, TEST_TARGETS_SET_UPS } from "./projects.ts";
 
@@ -963,6 +967,8 @@ export const workEventInvalidations: Readonly<
   "initiative.resumed": () => [INITIATIVES, TASKS],
   "initiative.planning-started": () => [INITIATIVES],
   "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS, TEST_TARGETS_SET_UPS],
+  // An Off-board Task whose Start was refused after it was made leaves whatever showed it.
+  "task.discarded": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS, TEST_TARGETS_SET_UPS],
   // A move to Planning in its Initiative's planning Thread changes the planning tab too.
   "task.state-changed": (event) => [
     TASKS,
@@ -1041,8 +1047,8 @@ export const workEventCacheUpdates: Readonly<
   Record<ReplacingEventType, EventCacheUpdates[string]>
 > = {
   "attachment.replaced": (event, queryClient) => {
-    const replaced = workWebEventSchema.parse(event);
-    if (replaced.type !== "attachment.replaced") return;
+    const replaced = readEvent(workWebEventSchema, event, queryClient, [ATTACHMENTS, SEARCH]);
+    if (replaced?.type !== "attachment.replaced") return;
     attachmentCopiesOf(queryClient).replaced(replaced.attachmentId);
     void queryClient.invalidateQueries({ queryKey: ATTACHMENTS });
     void queryClient.invalidateQueries({ queryKey: SEARCH });

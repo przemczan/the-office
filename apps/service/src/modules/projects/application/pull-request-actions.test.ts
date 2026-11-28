@@ -39,6 +39,7 @@ const USER = { userId: randomUUID(), name: "Ada" };
 /** A code host in memory that merges and closes, unless a test refuses. */
 class MergingCodeHost extends CodeHost {
   readonly name = "GitHub";
+  readonly signInWords = "Sign in with GitHub in Settings › Office identity";
   allowed: readonly MergeMethod[] = MERGE_METHODS;
   refusal: CodeHostRefused | undefined = undefined;
   readonly merges: { number: number; request: MergeRequest }[] = [];

@@ -1,4 +1,4 @@
-import type { EngineReadLimits } from "../claude-code/engine-read.js";
+import type { EngineReadLimits } from "../shared/engine-read.js";
 import { listedClaudeModels } from "../claude-code/listed-models.js";
 import { readOnSdk, type SdkUsageRead } from "./usage-window-read.js";
 

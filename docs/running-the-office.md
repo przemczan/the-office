@@ -45,7 +45,7 @@ The Office sets `OFFICE_TEST_INSTANCE=true` in it, which makes the service refus
 
 ## An example systemd unit
 
-The checkout way of keeping The Office running on a Linux host; a direct install sets up its own unit ([installing.md](installing.md#install-on-debianubuntu)). `/etc/systemd/system/the-office.service`, for a checkout in `/opt/the-office` with the compose stack's Postgres beside it. It needs `docker.service`: Docker Engine at the versions [container-runtime.md](container-runtime.md) holds, which also says how to upgrade it without losing Postgres.
+The checkout way of keeping The Office running on a Linux host; a direct install sets up its own unit ([installing.md](installing.md#install-on-debianubuntu)). `/etc/systemd/system/the-office.service`, for a checkout in `/srv/the-office` owned by a user of its own (`office` here, in the `docker` group), with the compose stack's Postgres beside it. Not `/opt/the-office` and never root: those are a direct install's folder and what its installer keeps The Office from running as. It needs `docker.service`: Docker Engine at the versions [container-runtime.md](container-runtime.md) holds, which also says how to upgrade it without losing Postgres.
 
 ```ini
 [Unit]
@@ -54,7 +54,8 @@ After=docker.service network-online.target
 Requires=docker.service
 
 [Service]
-WorkingDirectory=/opt/the-office
+User=office
+WorkingDirectory=/srv/the-office
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStartPre=/usr/bin/docker compose up -d --wait postgres
 ExecStart=/usr/bin/npm start
@@ -79,6 +80,7 @@ The Office is used at `localhost`, by IP on a trusted local network over plain H
 - **HTTPS to the browser.** The proxy ends TLS and passes requests on to The Office's own address and port (`http://127.0.0.1:4310`) over plain HTTP.
 - **The original `Host`.** The Office answers only requests addressed to `localhost`, `127.0.0.1`, the IP address it listens on, or the public address's name, so the proxy passes the browser's `Host` on unchanged (nginx: `proxy_set_header Host $host;`; Caddy does by default).
 - **`X-Forwarded-Proto: https`.** A request at the public address's name counts as HTTPS only with it, and only then does the sign-in cookie get `Secure` (nginx: `proxy_set_header X-Forwarded-Proto $scheme;`; Caddy sets it).
+- **`X-Forwarded-For`.** The Office limits how many sign-ins each browser's address starts, and at the public address it reads that address from the last entry of `X-Forwarded-For`, which the proxy appends (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`; Caddy sets it). Without it every browser there counts as the proxy's one address.
 - **WebSocket upgrades on `/api/events`.** The live updates come over a WebSocket there (nginx: `proxy_http_version 1.1;`, `proxy_set_header Upgrade $http_upgrade;` and `proxy_set_header Connection "upgrade";` in that location; Caddy passes them by default).
 
 Then give The Office its public address in its configuration (`office.env` on a direct install, `.env` on a Compose install or in a checkout, [installing.md](installing.md#configuration)) and restart it:
@@ -214,7 +216,7 @@ A rollback puts the previous code back, never the database: a migration the newe
 2. Update is refused when the checkout has local changes to tracked files, has commits its upstream doesn't have, has no upstream, or the service runs without the launcher.
 3. The request is `{ "kind": "commit", "target": "<commit>" }`. The launcher takes it and runs, in the checkout, `git fetch`, `git merge --ff-only <target>`, `npm ci` and `npm run build`. If one fails, it runs `git reset --hard <previous commit>`, `npm ci` and `npm run build` again. Either way it starts the service. The steps a failure names: `fetch`, `merge`, `install`, `build`.
 
-`tools/deploy/update.sh` updates a checkout host by hand from the workstation, outside the service.
+`tools/deploy/deploy.sh <ssh target>` updates the dev host, a checkout run by its unit as above, from the workstation, outside the service: it runs the checkout's `tools/deploy/update.sh` there as root, which pulls, installs and builds as the checkout's owner and restarts the unit (`OFFICE_DEV_CHECKOUT`, default `/srv/the-office`; `OFFICE_DEV_UNIT`, default `the-office`). It refuses a release's folder and a checkout root owns. Neither is for a direct or Compose install.
 
 ### A release install (a tarball)
 
@@ -245,8 +247,8 @@ The launcher knows it runs a release when the folder it was loaded from carries 
 1. The check reads the GitHub Releases of the repository the release's `office-release.json` names (`repository`, set when the release was packed): `GET {OFFICE_GITHUB_API_URL}/repos/<repository>/releases?per_page=30`, without signing in, given up after 30 seconds. Drafts, pre-releases and tags that aren't a version (`v1.2.3`) are left out; each version newer than the one running is listed, newest first, with its notes. "GitHub Releases couldn't be read: …" is the check's problem when the read fails.
 2. Update is refused when the service runs without its launcher or outside a `releases` folder, when the stamp names no repository, or when the newest release has no `the-office-<version>-linux-<cpu>.tar.gz` and its `.sha256` for this machine's CPU.
 3. The request is `{ "kind": "release", "version", "from", "tarballUrl", "checksumUrl" }` (https only). The service exits with code 75, and the launcher runs, each step in `log.txt`:
-   1. **download**: the tarball and its `.sha256` into `update/downloads/`;
-   2. **verify**: the tarball's sha256 matches its line in `.sha256`, for that file name; once unpacked, its top folder is `the-office-<version>` and its `office-release.json` says that version;
+   1. **download**: the `.sha256`, its signature `<tarball>.sha256.sig` once a release key is pinned, and the tarball into `update/downloads/`, all within 15 minutes, the tarball at most 2 GiB and each small file at most 64 KiB, since the service is already stopped;
+   2. **verify**: with a release key pinned, the `.sha256` is signed by it ([releasing.md](releasing.md#signing-a-release)); without one, `log.txt` says the signature isn't checked; the tarball's sha256 matches its line in `.sha256`, for that file name; once unpacked, its top folder is `the-office-<version>` and its `office-release.json` says that version;
    3. **unpack**: into `releases/.unpack-<version>`, renamed to `releases/<version>` (a folder left by a failed attempt is replaced);
    4. **switch**: `current.next` is written and renamed over `current`, so the switch is all or nothing;
    5. **start**: `result.json` says `updated` first, then the service starts from `current`, and the launcher waits up to 5 minutes for `/api/health` to answer that the database is up (`"database":"up"`) (on `127.0.0.1` when the service listens on `0.0.0.0` or `::`), or for the service to end. The launcher finds the address in its own environment, so `OFFICE_PORT` (and `OFFICE_HOST`, if set) belong in the unit's `EnvironmentFile`; without `OFFICE_PORT` the update fails at `start` before anything is downloaded.

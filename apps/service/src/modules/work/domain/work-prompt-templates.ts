@@ -1,4 +1,4 @@
-import { promptTemplate, type PromptTemplate } from "../../prompt-templates/index.js";
+import { promptTemplate, type PromptTemplate } from "../../prompt-templates/index.domain.js";
 
 /*
  * Work's Prompt templates (spec §2.2): the instructions, openings and Briefs of the shaping,

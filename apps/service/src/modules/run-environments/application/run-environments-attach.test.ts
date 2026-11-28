@@ -17,6 +17,7 @@ import {
 } from "../domain/run-environment.js";
 import type { RunEnvironmentCommand } from "./run-environments.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   taskIn,
   writeFiles,
@@ -100,14 +101,19 @@ describe("RunEnvironmentStarted and RunEnvironmentStopped", () => {
     expect(attached).toBeDefined();
   });
 
-  it("is published as the startup sweep stops an open Task's run environment", async () => {
+  it("is published as the startup sweep stops an open Task's run environment the last run left", async () => {
     await testbed.environments.prepare(task, join(testbed.folder, "prepare.log"));
-    testbed.knownTasks.tasks = [{ id: "task-1", title: "Task task-1", state: "in-progress" }];
-    events = [];
+    const restarted = await restartedTestbed(testbed, runtime, DEFAULT_RUN_ENVIRONMENT_OPTIONS);
+    restarted.knownTasks.tasks = [{ id: "task-1", title: "Task task-1", state: "in-progress" }];
+    const stopped: string[] = [];
+    restarted.events.subscribe(RunEnvironmentStopped, ({ taskId }) => {
+      stopped.push(taskId);
+    });
 
-    await testbed.environments.sweep();
+    await restarted.environments.sweep();
 
-    expect(events).toEqual(["stopped task-1"]);
+    expect(stopped).toEqual(["task-1"]);
+    expect(runtime.projects.get(projectName())?.state).toBe("stopped");
   });
 });
 

@@ -6,6 +6,12 @@ import { WRITE_ROUTE_REGISTER } from "./write-routes.js";
 
 const SPEC_FOLDER = resolve(import.meta.dirname, "../../../docs/spec");
 
+/**
+ * How many known gaps are left. It only goes down: lower it when a gap becomes an Office action or
+ * gets a written reason; never raise it (AGENTS.md, "Every user action has its Agent tool").
+ */
+const KNOWN_GAPS_LEFT = 28;
+
 const ENTRIES = [
   ...WRITE_ROUTE_REGISTER.usersAlone,
   ...WRITE_ROUTE_REGISTER.noAction,
@@ -85,6 +91,16 @@ describe("the write-route register", () => {
     });
 
     expect(broken).toEqual([]);
+  });
+
+  it("holds exactly the tracked count of known gaps, so the list only shrinks", () => {
+    expect(WRITE_ROUTE_REGISTER.knownGaps).toHaveLength(KNOWN_GAPS_LEFT);
+  });
+
+  it("marks every known gap by what covers it, none left undecided", () => {
+    const marks = new Set<string>(["tool", "proposal", "partial", "gap"]);
+
+    expect(WRITE_ROUTE_REGISTER.knownGaps.filter(({ agent }) => !marks.has(agent))).toEqual([]);
   });
 
   it("resolves a heading by its page and anchor", () => {

@@ -1,4 +1,4 @@
-import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
+import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.domain.js";
 import type { DutyKey } from "../../people/index.js";
 import {
   decisionSummary,

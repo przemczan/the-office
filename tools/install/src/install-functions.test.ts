@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
@@ -344,5 +344,17 @@ describe("the stamp", () => {
   it("keeps its two placeholders, which tools/release/prepare.sh replaces, and no other", () => {
     const stamps = withScript('echo "$STAMPED_VERSION $STAMPED_REPOSITORY"');
     assert.equal(stamps.stdout.trim(), "@OFFICE_VERSION@ @OFFICE_REPOSITORY@");
+  });
+});
+
+describe("the release key", () => {
+  it("is the one tools/office-launcher pins, so an install and its updates trust the same key", () => {
+    const launcher = readFileSync(
+      new URL("../../office-launcher/src/release-signing.ts", import.meta.url),
+      "utf8",
+    );
+    const pinned = /^export const RELEASE_SIGNING_KEY = "([A-Za-z0-9+/=]*)";$/m.exec(launcher);
+    assert.ok(pinned, "release-signing.ts pins no RELEASE_SIGNING_KEY");
+    assert.equal(withScript('echo "$RELEASE_SIGNING_KEY"').stdout.trim(), pinned[1]);
   });
 });

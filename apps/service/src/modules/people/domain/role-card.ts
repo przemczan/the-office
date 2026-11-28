@@ -1,4 +1,4 @@
-import { ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.js";
+import { ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.domain.js";
 import { builtInCardProblems } from "./caretaker.js";
 import {
   authorityProblems,

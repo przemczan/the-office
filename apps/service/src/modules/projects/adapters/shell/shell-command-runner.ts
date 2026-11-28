@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createWriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { ShellProgram } from "../../../../platform/os/shell.js";
 import type { CommandOutcome } from "../../domain/command-run.js";
@@ -13,6 +13,8 @@ import {
   type CommandToRun,
   type FinishedCommand,
 } from "../../ports/command-runner.js";
+
+const logger = new Logger("ShellCommandRunner");
 
 /** The end of the output kept in memory; filtering reads its end anyway. */
 const OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
@@ -98,7 +100,10 @@ export class ShellCommandRunner extends CommandRunner {
       let endedBy: EndedBy | undefined;
       const end = (reason: EndedBy): void => {
         endedBy ??= reason;
-        if (child.pid !== undefined) void processTrees.end(child.pid);
+        if (child.pid === undefined) return;
+        void processTrees.end(child.pid).catch((error: unknown) => {
+          logger.warn(`The command's process ${child.pid} wasn't ended.`, error);
+        });
       };
       const timer = setTimeout(() => end("timeout"), command.timeoutMs);
       const stop = (): void => end("stop");

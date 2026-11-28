@@ -296,6 +296,8 @@ function attachBoard(
             if (done) break;
             const channel = openChannels.at(-1);
             if (channel !== undefined && value.byteLength > 0) sink.send(channel, value);
+            // The board's next read waits while the relay's socket has no room.
+            await sink.writable();
           }
         } catch {
           // Read on from the new readable, if the port has one.

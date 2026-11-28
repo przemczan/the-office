@@ -1,4 +1,4 @@
-import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { GITHUB_SITE } from "../../../platform/config/github-site.js";
 
 /** Where GitHub is: its website, which registers Apps and signs in, and its REST API. */
 export abstract class GitHubUrls {

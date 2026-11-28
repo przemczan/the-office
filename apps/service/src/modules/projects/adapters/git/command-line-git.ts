@@ -22,7 +22,7 @@ import {
   type Upstream,
   type WorktreeCheckout,
 } from "../../ports/git.js";
-import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import { OfficeIdentity } from "../../../office-identity/index.js";
 import { readBranchTip } from "./git-branch-tip.js";
 import { commitTreeOf } from "./git-commit-tree.js";
 import { cloneRepository, reachedUrlOf, remoteBranchesOf } from "./git-clone.js";

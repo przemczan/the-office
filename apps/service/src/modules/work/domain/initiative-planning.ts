@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import { READ_ONLY_SHELL_RULE } from "../../engine/index.domain.js";
 import type { PromptTexts } from "../../prompt-templates/index.js";
 import type { Author } from "./author.js";
 import {

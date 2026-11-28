@@ -46,6 +46,7 @@ import {
 import { SavedViewRemoved, SavedViewSaved } from "../../domain/saved-view-events.js";
 import {
   TaskCreated,
+  TaskDiscarded,
   TaskDefinitionOfDoneConfirmed,
   TaskAddedToInitiative,
   TaskDependencyAdded,
@@ -252,6 +253,10 @@ export class WorkWebEvents implements OnModuleInit {
     this.forwarding.forward(TaskCreated, (event): WebEventOf<"task.created"> => ({
       type: "task.created",
       taskId: event.task.id,
+    }));
+    this.forwarding.forward(TaskDiscarded, (event): WebEventOf<"task.discarded"> => ({
+      type: "task.discarded",
+      taskId: event.taskId,
     }));
     this.forwarding.forward(TaskStateChanged, (event): WebEventOf<"task.state-changed"> => ({
       type: "task.state-changed",

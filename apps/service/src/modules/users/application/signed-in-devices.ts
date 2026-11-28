@@ -10,7 +10,7 @@ import {
   type SignInRequest,
 } from "../domain/signed-in-device.js";
 import { SignedIn, SignedOut } from "../domain/user-events.js";
-import { SignedInDeviceNotFound } from "../domain/user-refused.js";
+import { SignedInDeviceNotFound, UserIdNotFound } from "../domain/user-refused.js";
 import { SignedInDeviceRepository } from "../ports/signed-in-device-repository.js";
 import { newSignInToken, tokenHashOf } from "./sign-in-tokens.js";
 
@@ -29,12 +29,15 @@ export class SignedInDevices {
     private readonly eventBus: EventBus,
   ) {}
 
-  /** Signs the user in on a new device. Only `SignIns.finish` calls it. */
+  /**
+   * Signs the user in on a new device. Only `SignIns.finish` calls it. Throws UserIdNotFound when
+   * the user was removed since the sign-in found them.
+   */
   async signIn(userId: string, request: SignInRequest): Promise<NewSignedInDevice> {
     const token = newSignInToken();
     const now = this.schedule.now();
     const device = signedInDeviceOf(randomUUID(), userId, tokenHashOf(token), request, now);
-    await this.devices.add(device);
+    if (!(await this.devices.add(device))) throw new UserIdNotFound();
     await this.eventBus.publish(new SignedIn(userId, device.id, now));
     return { token, device };
   }
@@ -73,7 +76,7 @@ export class SignedInDevices {
     await this.eventBus.publish(new SignedOut(userId, [signedInDeviceId]));
   }
 
-  /** Signs out every device of the user, as the host command and removing a user do. */
+  /** Signs out every device of the user, as the host command does. */
   async signOutAll(userId: string): Promise<void> {
     await this.publishSignedOut(userId, await this.devices.removeAllOf(userId));
   }

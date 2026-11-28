@@ -532,8 +532,10 @@ function serverValuesKey(id: string) {
 }
 
 /** Outside ["projects"]: a clone is no Project yet, and Project events don't change it. */
+const REPOSITORY_CLONES = ["repository-clones"] as const;
+
 function repositoryCloneKey(cloneId: string) {
-  return ["repository-clones", cloneId] as const;
+  return [...REPOSITORY_CLONES, cloneId] as const;
 }
 
 /**
@@ -576,9 +578,11 @@ export const projectEventInvalidations: Readonly<
 export const repositoryCloneEventInvalidations: Readonly<
   Record<RepositoryCloneWebEvent["type"], EventInvalidations[string]>
 > = {
-  "repository-clone.changed": (event) => [
-    repositoryCloneKey(repositoryCloneWebEventSchema.parse(event).cloneId),
-  ],
+  // A clone's event this page can't read, as after an Office update, has every clone read again.
+  "repository-clone.changed": (event) => {
+    const changed = repositoryCloneWebEventSchema.safeParse(event);
+    return [changed.success ? repositoryCloneKey(changed.data.cloneId) : REPOSITORY_CLONES];
+  },
 };
 
 /**

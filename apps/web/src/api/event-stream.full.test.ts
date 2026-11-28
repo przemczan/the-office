@@ -10,20 +10,26 @@ import {
 /** A WebSocket the test opens, feeds and closes as the service would. */
 class FakeWebSocket extends EventTarget {
   readonly sent: unknown[] = [];
+  readyState: number = WebSocket.CONNECTING;
 
   constructor(readonly url: string) {
     super();
   }
 
+  /** As a browser's: sending before the socket opens throws. */
   send(data: string): void {
+    if (this.readyState !== WebSocket.OPEN) {
+      throw new DOMException("Still in CONNECTING state.", "InvalidStateError");
+    }
     this.sent.push(JSON.parse(data));
   }
 
   close(): void {
-    this.dispatchEvent(new CloseEvent("close", { code: 1000 }));
+    this.closeWith(1000);
   }
 
   open(): void {
+    this.readyState = WebSocket.OPEN;
     this.dispatchEvent(new Event("open"));
   }
 
@@ -34,12 +40,17 @@ class FakeWebSocket extends EventTarget {
 
   /** This device was signed out: the service closes its connection with 4401. */
   signedOut(): void {
-    this.dispatchEvent(new CloseEvent("close", { code: SIGNED_OUT_CLOSE_CODE }));
+    this.closeWith(SIGNED_OUT_CLOSE_CODE);
   }
 
   /** The service went away, as on a restart: it closes its clients with 1001. */
   serviceGone(): void {
-    this.dispatchEvent(new CloseEvent("close", { code: 1001 }));
+    this.closeWith(1001);
+  }
+
+  private closeWith(code: number): void {
+    this.readyState = WebSocket.CLOSED;
+    this.dispatchEvent(new CloseEvent("close", { code }));
   }
 }
 
@@ -352,11 +363,12 @@ describe("the event stream", () => {
     vi.advanceTimersByTime(60_000);
 
     expect(sockets).toHaveLength(1);
+    expect(eventStream.status()).toBe("stopped");
   });
 
   it("stops, connecting no more, once the service closes it as this device was signed out", () => {
     const onSignedOut = vi.fn<() => void>();
-    startStream({ onSignedOut });
+    const eventStream = startStream({ onSignedOut });
     latestSocket().open();
 
     latestSocket().signedOut();
@@ -364,5 +376,77 @@ describe("the event stream", () => {
 
     expect(onSignedOut).toHaveBeenCalledOnce();
     expect(sockets).toHaveLength(1);
+    expect(eventStream.status()).toBe("stopped");
+  });
+
+  describe("started again, as after signing in again in the same tab", () => {
+    for (const [ending, end] of [
+      ["stopped", (eventStream: EventStream) => eventStream.stop()],
+      ["signed out", () => latestSocket().signedOut()],
+    ] as const) {
+      it(`connects anew once ${ending}, holding a Thread's subscription until it opens`, () => {
+        const eventStream = startStream();
+        latestSocket().open();
+        latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
+        end(eventStream);
+
+        eventStream.start();
+        expect(eventStream.status()).toBe("connecting");
+        expect(() =>
+          eventStream.subscribeToThread({
+            threadId: THREAD_A,
+            eventTypes: OUTPUT,
+            onEvent: () => undefined,
+          }),
+        ).not.toThrow();
+        latestSocket().open();
+
+        expect(sockets).toHaveLength(2);
+        expect(eventStream.status()).toBe("connected");
+        expect(latestSocket().sent).toEqual([
+          { type: "subscribe", events: ["task.started"] },
+          { type: "subscribe", events: OUTPUT, threadId: THREAD_A },
+        ]);
+      });
+    }
+  });
+
+  describe("the web app's build", () => {
+    it("is not taken for updated while the service names the build it named first", () => {
+      const eventStream = startStream();
+      latestSocket().open();
+      latestSocket().receive({ type: "subscriptions", events: [], webAppBuild: "first" });
+      latestSocket().serviceGone();
+      vi.advanceTimersByTime(RECONNECT_DELAYS_MS[0]);
+      latestSocket().open();
+      latestSocket().receive({ type: "subscriptions", events: [], webAppBuild: "first" });
+
+      expect(eventStream.webAppUpdated()).toBe(false);
+    });
+
+    it("is taken for updated once a reconnect names another build, and tells the subscribers", () => {
+      const eventStream = startStream();
+      const onChange = vi.fn<() => void>();
+      latestSocket().open();
+      latestSocket().receive({ type: "subscriptions", events: [], webAppBuild: "first" });
+      latestSocket().serviceGone();
+      vi.advanceTimersByTime(RECONNECT_DELAYS_MS[0]);
+      latestSocket().open();
+      eventStream.subscribe(onChange);
+
+      latestSocket().receive({ type: "subscriptions", events: [], webAppBuild: "second" });
+
+      expect(eventStream.webAppUpdated()).toBe(true);
+      expect(onChange).toHaveBeenCalledOnce();
+    });
+
+    it("is never taken for updated while the service names none, as `npm run dev`'s", () => {
+      const eventStream = startStream();
+      latestSocket().open();
+      latestSocket().receive({ type: "subscriptions", events: [] });
+      latestSocket().receive({ type: "subscriptions", events: [], webAppBuild: "first" });
+
+      expect(eventStream.webAppUpdated()).toBe(false);
+    });
   });
 });

@@ -21,19 +21,14 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.js";
 import type {
   EngineSwitch,
-  GateAction,
   ChosenRoute,
   PublishedWork,
   StageRun,
   StageRunContext,
-  StageRunDecision,
   StageRunStandIn,
   StageTokens,
-  AskedInterruption,
-  HoldingUser,
-  StartedOver,
-  TaskRestart,
 } from "../../domain/stage-run.js";
+import type { StageRunChange } from "../../domain/stage-run-changes.js";
 import type { StageRunUsage } from "../../domain/usage-history.js";
 import {
   StageRunRepository,
@@ -156,10 +151,6 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set({ context }).where(eq(stageRuns.id, runId));
   }
 
-  async saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void> {
-    await this.database.update(stageRuns).set({ decisions }).where(eq(stageRuns.id, runId));
-  }
-
   async savePublished(runId: string, published: PublishedWork): Promise<void> {
     await this.database.update(stageRuns).set({ published }).where(eq(stageRuns.id, runId));
   }
@@ -175,58 +166,26 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .where(eq(stageRuns.id, runId));
   }
 
-  async saveHeldBy(
+  async update<Change extends StageRunChange | undefined>(
     runId: string,
-    heldBy: AskedInterruption,
-    heldByUser: HoldingUser | undefined,
-  ): Promise<void> {
-    await this.database
-      .update(stageRuns)
-      .set({ heldBy, heldByUser: heldByUser ?? null })
-      .where(eq(stageRuns.id, runId));
-  }
-
-  async saveRestart(runId: string, restart: TaskRestart): Promise<boolean> {
-    const saved = await this.database
-      .update(stageRuns)
-      .set({ restart })
-      .where(and(eq(stageRuns.id, runId), isNull(stageRuns.restart), isNotNull(stageRuns.outcome)))
-      .returning({ id: stageRuns.id });
-    return saved.length > 0;
-  }
-
-  async saveStartedOver(runId: string, startedOver: StartedOver): Promise<boolean> {
-    const saved = await this.database
-      .update(stageRuns)
-      .set({ startedOver })
-      .where(and(eq(stageRuns.id, runId), isNull(stageRuns.startedOver)))
-      .returning({ id: stageRuns.id });
-    return saved.length > 0;
-  }
-
-  async saveGateAction(runId: string, gateAction: GateAction): Promise<boolean> {
-    const saved = await this.database
-      .update(stageRuns)
-      .set({ gateAction })
-      .where(and(eq(stageRuns.id, runId), isNull(stageRuns.gateAction)))
-      .returning({ id: stageRuns.id });
-    return saved.length > 0;
-  }
-
-  async saveEnded({ id, outcome, endedAt, heldBy, heldByUser }: StageRun): Promise<void> {
-    // A Pause or a Stop the walk saved while the run ran wins over what the run honoured at its end.
-    const savedHeldBy = sql`${stageRuns.heldBy} is not null`;
-    await this.database
-      .update(stageRuns)
-      .set({
-        outcome,
-        endedAt,
-        waitingSince: null,
-        changedFiles: sql`coalesce(${stageRuns.changedFiles}, '[]'::jsonb)`,
-        heldBy: sql`coalesce(${stageRuns.heldBy}, ${heldBy ?? null})`,
-        heldByUser: sql`case when ${savedHeldBy} then ${stageRuns.heldByUser} else ${heldByUser ? JSON.stringify(heldByUser) : null}::jsonb end`,
-      })
-      .where(eq(stageRuns.id, id));
+    change: (run: StageRun) => Change,
+  ): Promise<Change> {
+    return this.database.transaction(async (transaction) => {
+      const [row] = await transaction
+        .select(stageRunColumns)
+        .from(stageRuns)
+        .where(eq(stageRuns.id, runId))
+        .for("update");
+      if (!row) throw new Error(`There is no Stage run ${runId} to change.`);
+      const changed = change(stageRunOf(row));
+      if (changed) {
+        await transaction
+          .update(stageRuns)
+          .set(changedColumns(changed.run))
+          .where(eq(stageRuns.id, runId));
+      }
+      return changed;
+    });
   }
 
   async list(taskId: string): Promise<readonly StageRun[]> {
@@ -400,6 +359,45 @@ function standInColumns(standInFor: StageRunStandIn | undefined) {
     standInForEngineId: standInFor?.engineId ?? null,
     standInForEngineName: standInFor?.engineName ?? null,
     standInReason: standInFor?.reason ?? null,
+  };
+}
+
+/**
+ * The row of a run a change left, every column but those that name it and the commands' whole
+ * outputs, which the record doesn't carry; an undefined field clears its column.
+ */
+function changedColumns({
+  id: _named,
+  taskId: _ofTheTask,
+  number: _placed,
+  standInFor,
+  ...run
+}: StageRun): Partial<typeof stageRuns.$inferInsert> {
+  return {
+    ...run,
+    ...standInColumns(standInFor),
+    carriedFailure: run.carriedFailure ?? null,
+    sentBack: run.sentBack ?? null,
+    restart: run.restart ?? null,
+    restarted: run.restarted ?? null,
+    startedOver: run.startedOver ?? null,
+    threadId: run.threadId ?? null,
+    roleKey: run.roleKey ?? null,
+    session: run.session ?? null,
+    engineId: run.engineId ?? null,
+    engineName: run.engineName ?? null,
+    model: run.model ?? null,
+    context: run.context ?? null,
+    headCommit: run.headCommit ?? null,
+    changedFiles: run.changedFiles ?? null,
+    heldBy: run.heldBy ?? null,
+    heldByUser: run.heldByUser ?? null,
+    gateAction: run.gateAction ?? null,
+    outcome: run.outcome ?? null,
+    published: run.published ?? null,
+    choice: run.choice ?? null,
+    waitingSince: run.waitingSince ?? null,
+    endedAt: run.endedAt ?? null,
   };
 }
 

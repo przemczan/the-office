@@ -81,6 +81,23 @@ describe("Worktrees.prepare", REAL_GIT_TEST, () => {
     expect(await installs()).toBe(before);
   });
 
+  it("makes the worktree and installs in it once when two prepare it at the same time", async () => {
+    const taskId = aTaskId();
+    const before = await installs();
+
+    const [first, second] = await Promise.all([
+      worktrees.prepare(project, taskId),
+      worktrees.prepare(project, taskId),
+    ]);
+
+    expect(second.worktree).toEqual(first.worktree);
+    expect([first.installation.kind, second.installation.kind].toSorted()).toEqual([
+      "ran",
+      "up-to-date",
+    ]);
+    expect(await installs()).toBe(before + 1);
+  });
+
   it("checks out the Task's branch where it was when its worktree was removed", async () => {
     const taskId = aTaskId();
     const { worktree } = await worktrees.prepare(project, taskId);

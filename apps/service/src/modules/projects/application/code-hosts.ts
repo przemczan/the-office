@@ -18,6 +18,11 @@ export class CodeHosts {
     private readonly testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
   ) {}
 
+  /** The hosts' names in the user's words, such as "GitHub", or "GitHub or GitLab". */
+  get names(): string {
+    return this.hosts.map((host) => host.name).join(" or ");
+  }
+
   /** The host that holds the repository at `remoteUrl`; undefined when none of them does. */
   of(remoteUrl: string): CodeHost | undefined {
     return this.hosts.find((host) => host.reaches(remoteUrl));

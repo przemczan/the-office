@@ -14,7 +14,7 @@ import { OfficeDataDirectory } from "../../../../platform/office-data/office-dat
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { EngineProcess } from "../claude-code/engine-process.js";
+import { EngineProcess } from "../shared/engine-process.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";

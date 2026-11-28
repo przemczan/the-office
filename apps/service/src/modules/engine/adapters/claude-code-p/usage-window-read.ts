@@ -1,12 +1,8 @@
 import type { SDKControlGetUsageResponse } from "@anthropic-ai/claude-agent-sdk";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
-import { EngineProcess, type EngineCommand } from "../claude-code/engine-process.js";
-import {
-  engineRead,
-  READ_EXIT_GRACE_MS,
-  type EngineReadLimits,
-} from "../claude-code/engine-read.js";
+import { EngineProcess, type EngineCommand } from "../shared/engine-process.js";
+import { engineRead, READ_EXIT_GRACE_MS, type EngineReadLimits } from "../shared/engine-read.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { StreamJson } from "./stream-json.js";
 

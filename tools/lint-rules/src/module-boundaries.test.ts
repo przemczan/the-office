@@ -3,11 +3,12 @@ import { describe, test } from "node:test";
 import { moduleBoundaryViolation, modulePackageViolation } from "./module-boundaries.ts";
 import { isTestFile, placeOf } from "./module-layout.ts";
 
-function violation(importerPath: string, targetPath: string): string | undefined {
+function violation(importerPath: string, targetPath: string, typeOnly = false): string | undefined {
   return moduleBoundaryViolation({
     importer: placeOf(importerPath),
     importerIsTest: isTestFile(importerPath),
     target: placeOf(targetPath),
+    typeOnly,
   });
 }
 
@@ -68,6 +69,41 @@ describe("between modules", () => {
       ) ?? "",
       /public entry/,
     );
+  });
+
+  test("a domain takes another module's public entry as types only, its values from its domain entry", () => {
+    const domain = "src/modules/work/domain/a.ts";
+    assert.equal(violation(domain, "src/modules/engine/index.js", true), undefined);
+    assert.equal(violation(domain, "src/modules/engine/index.domain.js"), undefined);
+    assert.match(
+      violation(domain, "src/modules/engine/index.js") ?? "",
+      /only with `import type`, and its values from modules\/engine\/index\.domain\.ts/,
+    );
+    assert.equal(
+      violation("src/modules/work/domain/a.test.ts", "src/modules/engine/index.js"),
+      undefined,
+    );
+    assert.equal(
+      violation("src/modules/work/application/a.ts", "src/modules/engine/index.js"),
+      undefined,
+    );
+  });
+
+  test("a domain entry re-exports only its own module's domain", () => {
+    const entry = "src/modules/engine/index.domain.ts";
+    assert.equal(violation(entry, "src/modules/engine/domain/engines.js"), undefined);
+    for (const target of [
+      "src/modules/engine/application/a.js",
+      "src/modules/engine/engine.module.js",
+      "src/modules/people/index.domain.js",
+      "src/platform/events/domain-event.js",
+    ]) {
+      assert.match(
+        violation(entry, target) ?? "",
+        /index\.domain\.ts re-exports only its own domain\//,
+        target,
+      );
+    }
   });
 
   test("the platform imports no module, not even its entry", () => {

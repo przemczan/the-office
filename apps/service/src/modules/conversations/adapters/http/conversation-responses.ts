@@ -293,7 +293,11 @@ export function toProposalResponse({
   };
 }
 
-/** A card a Proposal holds, with its Hard switches as its Authority's named groups read them. */
+/**
+ * A card a Proposal holds, with its Hard switches as its Authority's named groups read them.
+ * ROLLBACK SHIM (Authority): drop the Hard switches here with the Role card's own (People's
+ * `storedCardOf`).
+ */
 function cardResponse(given: IncomingRoleCard, roleKey: string) {
   const card = cardWithAuthority(roleKey, given, {});
   return { ...card, hardSwitches: hardSwitchesOf(roleKey, card.authority) };

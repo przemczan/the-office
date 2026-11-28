@@ -19,12 +19,13 @@ import { z } from "zod";
 import { SKILL_TOOL } from "../../domain/skill-calls.js";
 import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 import type { SessionMcpServer } from "../../ports/session-options.js";
-import { officeToolAnswer, textAnswer } from "../claude-code/office-tools.js";
+import { officeToolAnswer, textAnswer } from "../shared/office-tools.js";
 import type { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import type { ToolDecider } from "../office-rules/office-tool-call.js";
 import { mcpToolName, OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import { modelListing, type ListedSkill } from "../skills/listed-skills.js";
 import { skillCalled, skillToolDescription } from "../skills/skill-loading.js";
+import { UNRULED_MCP_CALL_REFUSAL, type RuledMcpCalls } from "./ruled-mcp-calls.js";
 
 /** The largest request body taken: a tool call's arguments, never a file's bytes. */
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
@@ -45,6 +46,8 @@ export interface SessionMcpEndpointParts {
   readonly mcpServers: readonly SessionMcpServer[];
   /** The session's connections to them, which its owner opens and closes. */
   readonly connections: McpServerConnections;
+  /** The calls of those servers the Office rules allowed on Codex's approval request (`CodexApprovals`). */
+  readonly ruledCalls: RuledMcpCalls;
 }
 
 /**
@@ -52,8 +55,9 @@ export interface SessionMcpEndpointParts {
  * Streamable HTTP on `127.0.0.1`, one path per server, `/office` with the session's Office tools
  * and `Skill`, and `/<name>` for each of the Role's MCP servers, every request refused without the
  * session's bearer token. Codex asks the Office rules about each call before making it
- * (`mcpServer/elicitation/request`, `CodexApprovals`), so an MCP server's call is forwarded as it
- * comes, never judged again, which would put it to `approvalHold` twice; an Office tool is still
+ * (`mcpServer/elicitation/request`, `CodexApprovals`), so an MCP server's call is forwarded only
+ * once the rules allowed it there (`RuledMcpCalls`), never judged again, which would put it to
+ * `approvalHold` twice, and refused when Codex made it without asking; an Office tool is still
  * judged again as it runs, as on every engine. A Server value goes nowhere but its own server.
  */
 export class SessionMcpEndpoint {
@@ -195,9 +199,12 @@ export class SessionMcpEndpoint {
     return server;
   }
 
-  /** One of the Role's MCP servers: its reviewed tools listed, each call forwarded to it. */
+  /**
+   * One of the Role's MCP servers: its reviewed tools listed, each call the Office rules allowed
+   * forwarded to it.
+   */
   private mcpServer(name: string): Server {
-    const { mcpServers, connections } = this.parts;
+    const { mcpServers, connections, ruledCalls } = this.parts;
     const tools = mcpServers.find((server) => server.name === name)?.tools ?? [];
     const server = new Server({ name, version: "1.0.0" }, { capabilities: { tools: {} } });
     server.setRequestHandler(ListToolsRequestSchema, () => ({
@@ -214,7 +221,11 @@ export class SessionMcpEndpoint {
         if (!tools.some((tool) => tool.name === params.name)) {
           return textAnswer(`${params.name} is not one of ${name}'s tools in this session.`, true);
         }
-        const answer = await connections.call(name, params.name, params.arguments ?? {}, signal);
+        const input = params.arguments ?? {};
+        if (!ruledCalls.take(name, params.name, input)) {
+          return textAnswer(UNRULED_MCP_CALL_REFUSAL, true);
+        }
+        const answer = await connections.call(name, params.name, input, signal);
         return textAnswer(answer.text, answer.isError);
       },
     );

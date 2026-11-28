@@ -15,6 +15,7 @@ import {
   unwrappedCommand,
 } from "./codex-approvals.js";
 import type { CodexServerRequest, CodexThreadItem } from "./codex-protocol.js";
+import { RuledMcpCalls } from "./ruled-mcp-calls.js";
 
 const SYSTEM = linux({ variables: {}, homeDirectory: "/home/office" });
 const FOLDER = "/work/task-1";
@@ -56,14 +57,16 @@ function approvals({
   const decide = vi.fn<ToolDecider>((tool, input) =>
     toolDecision(sessionRules, holds, tool, input),
   );
+  const ruledCalls = new RuledMcpCalls();
   const answering = new CodexApprovals({
     decide,
     folder: FOLDER,
     paths: SYSTEM.paths,
     defaultShell: "Bash",
     outsideSandbox,
+    ruledCalls,
   });
-  return { answering, decide };
+  return { answering, decide, ruledCalls };
 }
 
 function commandRequest(
@@ -351,17 +354,27 @@ describe("CodexApprovals on an MCP tool call", () => {
     ).resolves.toEqual({ result: { action: "accept", content: null, _meta: null } });
   });
 
-  it("judges a server's tool by its setting: Allowed runs", async () => {
-    const { answering, decide } = approvals();
+  it("judges a server's tool by its setting: Allowed runs, noted for the endpoint to forward once", async () => {
+    const { answering, decide, ruledCalls } = approvals();
 
     await expect(
       answering.answer(elicitation("github", toolCallMeta("list_issues", { state: "open" }))),
     ).resolves.toEqual({ result: { action: "accept", content: null, _meta: null } });
     expect(decide).toHaveBeenCalledWith("mcp__github__list_issues", { state: "open" });
+    expect(ruledCalls.take("github", "list_issues", { state: "open" })).toBe(true);
+    expect(ruledCalls.take("github", "list_issues", { state: "open" })).toBe(false);
+  });
+
+  it("notes no Office tool's call, which is judged again as it runs", async () => {
+    const { answering, ruledCalls } = approvals();
+
+    await answering.answer(elicitation("office", toolCallMeta("handover_note", { note: "Done" })));
+
+    expect(ruledCalls.take("office", "handover_note", { note: "Done" })).toBe(false);
   });
 
   it("declines a Never tool, naming the call that started for it", async () => {
-    const { answering } = approvals();
+    const { answering, ruledCalls } = approvals();
     answering.itemStarted({
       type: "mcpToolCall",
       id: "mcp-1",
@@ -375,6 +388,7 @@ describe("CodexApprovals on an MCP tool call", () => {
       elicitation("github", toolCallMeta("delete_repo", { repo: "x" })),
     );
 
+    expect(ruledCalls.take("github", "delete_repo", { repo: "x" })).toBe(false);
     expect(answer).toEqual({
       result: { action: "decline", content: null, _meta: null },
       refusal: {

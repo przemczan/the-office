@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, rename, rm } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskStateChanged } from "../../work/index.js";
@@ -18,6 +18,7 @@ import {
 import { ContainerRuntimeFailed, type Execution } from "../ports/container-runtime.js";
 import { NO_VALID_DEFINITION, type RunEnvironmentCommand } from "./run-environments.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   taskIn,
   writeFiles,
@@ -97,7 +98,7 @@ describe("RunEnvironments.prepare", () => {
     await writeFiles(task.worktree, {
       ...DEFINITION,
       ".devcontainer/compose.yaml":
-        "services:\n  app:\n    build:\n      context: ..\n      dockerfile: .devcontainer/Dockerfile\n",
+        "services:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile\n",
     });
 
     await testbed.environments.prepare(task, outputOf("prepare"));
@@ -107,9 +108,64 @@ describe("RunEnvironments.prepare", () => {
       "the-office/shop",
     ]);
     expect(runtime.builds[0]).toMatchObject({
-      context: task.worktree,
-      dockerfile: ".devcontainer/Dockerfile",
+      context: join(task.worktree, ".devcontainer"),
+      dockerfile: "Dockerfile",
     });
+  });
+
+  it("leaves an Install input that links out of the worktree out of the image and its key", async () => {
+    const task = await taskWithDefinition("task-1");
+    const hostFile = join(testbed.folder, "host-secret");
+    await writeFile(hostFile, "s3cret");
+    const lockfile = join(task.worktree, "package-lock.json");
+    await rm(lockfile);
+    await symlink(hostFile, lockfile);
+    const copied: string[] = [];
+    const build = runtime.buildImage.bind(runtime);
+    vi.spyOn(runtime, "buildImage").mockImplementation(async (image, outputFile, mask) => {
+      copied.push(...(await readdir(join(image.context, "install-inputs"))));
+      await build(image, outputFile, mask);
+    });
+
+    await testbed.environments.prepare(task, outputOf("prepare"));
+    const linked = await testbed.environments.imageOf(task);
+    await rm(lockfile);
+
+    expect(copied).toEqual([]);
+    await expect(testbed.environments.imageOf(task)).resolves.toBe(linked);
+  });
+
+  it("copies an Install input that links to a file of the worktree, as that file", async () => {
+    const task = await taskWithDefinition("task-1");
+    const lockfile = join(task.worktree, "package-lock.json");
+    await rename(lockfile, join(task.worktree, "lockfile.json"));
+    await symlink(join(task.worktree, "lockfile.json"), lockfile);
+    const copied: string[] = [];
+    const build = runtime.buildImage.bind(runtime);
+    vi.spyOn(runtime, "buildImage").mockImplementation(async (image, outputFile, mask) => {
+      copied.push(
+        await readFile(join(image.context, "install-inputs", "package-lock.json"), "utf8"),
+      );
+      await build(image, outputFile, mask);
+    });
+
+    await testbed.environments.prepare(task, outputOf("prepare"));
+
+    expect(copied).toEqual(['{ "lockfileVersion": 3 }']);
+  });
+
+  it("refuses, building nothing, an install variable whose name a shell can't hold", async () => {
+    const task = {
+      ...(await taskWithDefinition("task-1")),
+      installVariables: [{ name: "NPM TOKEN", value: "npm_s3cret", secret: true }],
+    };
+
+    await expect(testbed.environments.prepare(task, outputOf("prepare"))).rejects.toMatchObject({
+      reasons: [
+        `The Project's variable "NPM TOKEN" can't reach a run environment: a name takes letters, digits and _, not starting with a digit. Rename it in the Project's Environment.`,
+      ],
+    });
+    expect(runtime.steps).toEqual([]);
   });
 
   it("gives the Task its own compose project, made once: a second prepare uses it again", async () => {
@@ -168,6 +224,20 @@ describe("RunEnvironments.prepare", () => {
 });
 
 describe("RunEnvironments.run", () => {
+  it("refuses, starting nothing, a Project's variable whose name a shell can't hold", async () => {
+    const task = await taskWithDefinition("task-1");
+    const environment = { set: [{ name: "MY-VAR", value: "1" }], unset: [], prependPath: [] };
+
+    await expect(
+      testbed.environments.run(task, command(outputOf("check"), { environment })),
+    ).rejects.toMatchObject({
+      reasons: [
+        `The Project's variable "MY-VAR" can't reach a run environment: a name takes letters, digits and _, not starting with a digit. Rename it in the Project's Environment.`,
+      ],
+    });
+    expect(runtime.steps).toEqual([]);
+  });
+
   it("counts as busy work while it runs", async () => {
     const task = await taskWithDefinition("task-1");
     let busy: readonly unknown[] = [];
@@ -489,12 +559,13 @@ describe("RunEnvironments.sweep", () => {
     runtime.leave({ kind: "volume", id: "v-done", labels: taskLabels(instance, "finished") });
     runtime.leave({ kind: "network", id: "n-other", labels: taskLabels("another", "gone") });
     await mkdir(testbed.folders.taskFolder("only-files"), { recursive: true });
-    testbed.knownTasks.tasks = [
+    const restarted = await restartedTestbed(testbed, runtime);
+    restarted.knownTasks.tasks = [
       { id: "live", title: "Live", state: "in-progress" },
       { id: "finished", title: "Finished", state: "done" },
     ];
 
-    await testbed.environments.sweep();
+    await restarted.environments.sweep();
 
     expect(runtime.resources.map(({ id }) => id).toSorted()).toEqual(
       [
@@ -507,6 +578,45 @@ describe("RunEnvironments.sweep", () => {
     expect(runtime.projects.get(composeProjectNameOf(instance, "live"))?.state).toBe("stopped");
     expect(await exists(testbed.folders.taskFolder("live"))).toBe(true);
     expect(await exists(testbed.folders.taskFolder("only-files"))).toBe(false);
+  });
+
+  it("leaves a run environment started since the service started as it is, its check run in it", async () => {
+    const live = await taskWithDefinition("live");
+    await testbed.environments.prepare(live, outputOf("live"));
+    testbed.knownTasks.tasks = [{ id: "live", title: "Live", state: "in-progress" }];
+    runtime.steps.length = 0;
+
+    const sweep = testbed.environments.sweep();
+    const end = await testbed.environments.run(live, command(outputOf("check")));
+    await sweep;
+
+    expect(end).toMatchObject({ exitCode: 0 });
+    const name = composeProjectNameOf(testbed.folders.instance, "live");
+    expect(runtime.steps).toEqual([`exec ${name}`]);
+    expect(runtime.projects.get(name)?.state).toBe("running");
+  });
+
+  it("goes on to the other Tasks and the images when one isn't removed, a failed down falling back on the labels", async () => {
+    const instance = testbed.folders.instance;
+    runtime.leave({ kind: "container", id: "c-stuck", labels: taskLabels(instance, "stuck") });
+    runtime.leave({ kind: "container", id: "c-gone", labels: taskLabels(instance, "gone") });
+    await mkdir(testbed.folders.taskFolder("stuck"), { recursive: true });
+    runtime.images.set("the-office/shop:old", new Date("2026-11-01T00:00:00Z"));
+    runtime.images.set("the-office/shop:new", new Date("2026-11-02T00:00:00Z"));
+    runtime.failing.add("down");
+    runtime.failing.add("remove");
+
+    await testbed.environments.sweep();
+
+    expect(runtime.steps.slice(0, 4)).toEqual([
+      `down ${composeProjectNameOf(instance, "stuck")}`,
+      `remove ${JSON.stringify(taskLabels(instance, "stuck"))}`,
+      `down ${composeProjectNameOf(instance, "gone")}`,
+      `remove ${JSON.stringify(taskLabels(instance, "gone"))}`,
+    ]);
+    expect(runtime.resources.map(({ id }) => id)).toEqual(["c-stuck"]);
+    expect(await exists(testbed.folders.taskFolder("stuck"))).toBe(false);
+    expect([...runtime.images.keys()]).toEqual(["the-office/shop:new"]);
   });
 
   it("removes the Office's images but the newest of each Project's", async () => {

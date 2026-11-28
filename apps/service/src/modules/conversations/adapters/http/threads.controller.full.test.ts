@@ -25,6 +25,9 @@ import {
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { DecisionService } from "../../application/decision-service.js";
 import { ThreadService } from "../../application/thread-service.js";
+import { SessionThreads } from "../../application/session-threads.js";
+import { ThreadCards } from "../../application/thread-cards.js";
+import { WorkThreads } from "../../application/work-threads.js";
 import { ThreadRenamed } from "../../domain/conversation-events.js";
 import {
   oneOptionAnswer,
@@ -75,6 +78,7 @@ import { ThreadSummaries } from "../../application/thread-summaries.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
+import { LiveSessions } from "../../application/live-sessions.js";
 import { MentionedRecords } from "../../application/mentioned-records.js";
 import { openPageRecordProviders } from "../../application/open-page-records.fixtures.js";
 import { WorkRecords } from "../../application/work-records.js";
@@ -269,6 +273,9 @@ function setUpEachTest(): void {
         ConversationsSettingsOfficeActions,
         ContextPolicySettingsService,
         ThreadService,
+        SessionThreads,
+        ThreadCards,
+        WorkThreads,
         Briefs,
         MessageImages,
         ThreadImages,
@@ -292,6 +299,7 @@ function setUpEachTest(): void {
         ChatActivity,
         ChatThreadDeletions,
         MentionedRecords,
+        LiveSessions,
         ...openPageRecordProviders(),
         WorkRecords,
         StageThreads,
@@ -615,6 +623,30 @@ describe("a Thread", () => {
       openPage,
     });
   });
+
+  it("reads on its log after a message, and is not found after one it never logged", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = threadSchema.parse(
+      await (await send("POST", `/chats/${roleKey}/threads`)).json(),
+    );
+    const [first, second, third] = await app.get(ThreadService).log(thread.id, [
+      { kind: "person", roleKey, text: "Reading the workflow." },
+      { kind: "person", roleKey, text: "It deploys on push." },
+      { kind: "person", roleKey, text: "Done." },
+    ]);
+
+    const later = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages?after=${first?.id}`)).json(),
+    );
+    const afterLast = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages?after=${third?.id}`)).json(),
+    );
+    const never = await get(`/threads/${thread.id}/messages?after=${randomUUID()}`);
+
+    expect(later.map(({ id }) => id)).toEqual([second?.id, third?.id]);
+    expect(afterLast).toEqual([]);
+    expect(never.status).toBe(404);
+  });
 });
 
 describe("a Decision", () => {
@@ -836,8 +868,8 @@ describe("an Idea's card and the Office status", () => {
     const { thread, sessionId } = await withSession((roleKey) => ({ kind: "chat", roleKey }));
     const ideaId = randomUUID();
 
-    await app.get(ThreadService).postIdeaCard(sessionId, ideaId);
-    await app.get(ThreadService).postOfficeStatus(sessionId);
+    await app.get(ThreadCards).postIdeaCard(sessionId, ideaId);
+    await app.get(ThreadCards).postOfficeStatus(sessionId);
     const messages = messageListSchema.parse(
       await (await get(`/threads/${thread.id}/messages`)).json(),
     );
@@ -855,7 +887,7 @@ describe("an Idea's card and the Office status", () => {
     }));
     const ideaId = randomUUID();
 
-    await app.get(ThreadService).postIdeaCard(sessionId, ideaId);
+    await app.get(ThreadCards).postIdeaCard(sessionId, ideaId);
 
     expect(await app.get(ThreadService).messages(thread.id)).toEqual([
       expect.objectContaining({ kind: "idea", roleKey: thread.roleKey, ideaId }),
@@ -868,8 +900,8 @@ describe("an Idea's card and the Office status", () => {
       { stageThread: true },
     );
 
-    await app.get(ThreadService).postIdeaCard(sessionId, randomUUID());
-    await app.get(ThreadService).postOfficeStatus(randomUUID());
+    await app.get(ThreadCards).postIdeaCard(sessionId, randomUUID());
+    await app.get(ThreadCards).postOfficeStatus(randomUUID());
 
     expect(await app.get(ThreadService).messages(thread.id)).toEqual([]);
   });
@@ -1140,7 +1172,7 @@ describe("what the user has seen in a chat", () => {
   it("has no record for a Thread on a Task, and refuses marking one", async () => {
     const roleKey = aPerson("Jan", true);
     const thread = await app
-      .get(ThreadService)
+      .get(WorkThreads)
       .openOnTask({ taskId: randomUUID(), roleKey, title: "Asking Jan" });
     const [message] = await app
       .get(ThreadService)

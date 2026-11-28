@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   addressableStatements,
   RESTARTS_ASKED_AT,
@@ -75,6 +76,24 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
     case "no-route-holds":
       return noRouteHolds(question);
   }
+}
+
+/**
+ * The id of the walk's Decision of `kind` on the run, the same each time the walk asks it, as a run
+ * keeps at most one of each kind: asking again after The Office stopped before the run kept it
+ * finds the Decision opened then, so none is opened twice and the answer given to it counts. A
+ * UUID (version 8, RFC 9562) made of a hash of the two.
+ */
+export function walkDecisionId(runId: string, kind: WalkDecisionKind): string {
+  const hex = createHash("sha256").update(`${runId} ${kind}`).digest("hex");
+  const variant = ((Number.parseInt(hex.slice(16, 17), 16) & 0x3) | 0x8).toString(16);
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `8${hex.slice(13, 16)}`,
+    `${variant}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join("-");
 }
 
 /**

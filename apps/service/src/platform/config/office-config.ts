@@ -1,6 +1,6 @@
 import { isAbsolute } from "node:path";
 import { z } from "zod";
-import { GITHUB_SITE, type GitHubSite } from "../git-identity/github-site.js";
+import { GITHUB_SITE, type GitHubSite } from "./github-site.js";
 import { InvalidOfficeConfigError, type ConfigProblem } from "./invalid-office-config-error.js";
 
 export interface OfficeConfig {

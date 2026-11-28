@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { stringify as stringifyYaml } from "yaml";
@@ -23,7 +23,6 @@ import {
   hostedProjectNameOf,
   installOverrideOf,
   LABEL,
-  officeLabels,
   TEST_BUILD_FILES_MOUNT,
   TEST_INSTANCE_VARIABLE,
   testInstanceLabels,
@@ -43,6 +42,7 @@ import {
 } from "../ports/container-runtime.js";
 import { RunEnvironmentSettings } from "../ports/run-environment-settings.js";
 import { CheckoutHandOver } from "./checkout-hand-over.js";
+import { ComposeProjectLifecycle } from "./compose-project-lifecycle.js";
 import { readDefinitionIn } from "./definition-files.js";
 import { HostCores } from "./host-cores.js";
 import { HostedServiceReadiness } from "./hosted-service-readiness.js";
@@ -195,6 +195,7 @@ export class HostedServices {
   /** Each instance's last stop, which the next one waits for. */
   private readonly stops = new Map<string, Promise<void>>();
   private readonly handOver: CheckoutHandOver;
+  private readonly lifecycle: ComposeProjectLifecycle;
 
   constructor(
     private readonly runtime: ContainerRuntime,
@@ -206,6 +207,7 @@ export class HostedServices {
     serviceOwner: ServiceOwner,
   ) {
     this.handOver = new CheckoutHandOver(runtime, serviceOwner, this.logger);
+    this.lifecycle = new ComposeProjectLifecycle(runtime, folders.instance, this.logger);
   }
 
   /**
@@ -332,6 +334,7 @@ export class HostedServices {
     const next = previous.catch(() => undefined).then(() => this.removeNow(instanceId));
     const settled = next.catch(() => undefined);
     this.stops.set(instanceId, settled);
+    // oxlint-disable-next-line office/caught-voided-calls -- settled never rejects
     void settled.finally(() => {
       if (this.stops.get(instanceId) === settled) this.stops.delete(instanceId);
     });
@@ -339,15 +342,22 @@ export class HostedServices {
   }
 
   /**
-   * As The Office starts: removes every Hosted Test instance of this Office the runtime still holds
-   * and their files, whatever their id, since none is running yet.
+   * As The Office starts: removes every Test instance's compose project of this Office the runtime
+   * still holds and their files, whatever their id, but those of instances started since; one
+   * instance's failure is only logged, the others removed all the same.
    */
   async sweep(): Promise<void> {
-    const resources = await this.runtime.listByLabel(officeLabels(this.folders.instance));
-    const ids = new Set(resources.map(({ labels }) => labels[LABEL.testInstance] ?? ""));
-    ids.delete("");
-    for (const instanceId of ids) await this.stop(instanceId);
-    await rm(this.folders.testInstances, { recursive: true, force: true });
+    const ids = new Set([
+      ...(await this.lifecycle.labelled(LABEL.testInstance)),
+      ...(await this.lifecycle.withFiles(this.folders.testInstances)),
+    ]);
+    await this.lifecycle.eachOf(
+      ids,
+      (instanceId) => `The Test instance ${instanceId}`,
+      async (instanceId) => {
+        if (!this.running.has(instanceId)) await this.stop(instanceId);
+      },
+    );
   }
 
   private async started(
@@ -456,10 +466,14 @@ export class HostedServices {
     const problem = await this.answering(hostPort, start.containerPort, ended, stopping);
     if (problem !== undefined) throw new RunEnvironmentRefused([problem], start.logFile);
 
-    void ended.then((reason) => {
-      if (!stopping.aborted && reason !== undefined) onEnded(reason);
-      return undefined;
-    });
+    void ended
+      .then((reason) => {
+        if (!stopping.aborted && reason !== undefined) onEnded(reason);
+        return undefined;
+      })
+      .catch((error: unknown) => {
+        this.logger.error(`The end of the Test instance ${start.instanceId} wasn't told.`, error);
+      });
     await note(start.logFile, `The app answers on port ${start.containerPort}.`);
     return { hostPort };
   }
@@ -774,7 +788,8 @@ export class HostedServices {
 
   /**
    * Follows the services' logs into the log file and runs the entry point in the devcontainer's
-   * service; answers why the app ended once it does, or nothing when it was stopped.
+   * service; answers why the app ended once it does, or nothing when it was stopped. Never rejects:
+   * a failure to follow the app's logs or run its entry point is why it ended.
    */
   private run(
     start: HostedServiceStart,
@@ -786,11 +801,19 @@ export class HostedServices {
   ): Promise<string | undefined> {
     if (command === undefined) {
       // The service is the app: its logs end when it does.
-      return this.runtime
-        .followLogs(project, appService, start.logFile, start.mask, stopping)
-        .then(() => (stopping.aborted ? undefined : `The service ${appService} ended.`));
+      return this.runtime.followLogs(project, appService, start.logFile, start.mask, stopping).then(
+        () => (stopping.aborted ? undefined : `The service ${appService} ended.`),
+        (error: unknown) =>
+          stopping.aborted
+            ? undefined
+            : `The service ${appService}'s logs couldn't be followed. ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-    void this.runtime.followLogs(project, undefined, start.logFile, start.mask, stopping);
+    void this.runtime
+      .followLogs(project, undefined, start.logFile, start.mask, stopping)
+      .catch((error: unknown) => {
+        this.logger.warn(`The Test instance ${start.instanceId}'s logs weren't followed.`, error);
+      });
     return this.runtime
       .exec(
         project,
@@ -828,6 +851,7 @@ export class HostedServices {
   ): Promise<string | undefined> {
     let endedWith: string | undefined;
     let hasEnded = false;
+    // oxlint-disable-next-line office/caught-voided-calls -- the app's end never rejects
     void ended.then((reason) => {
       hasEnded = true;
       endedWith = reason;
@@ -844,16 +868,14 @@ export class HostedServices {
   }
 
   private async removeNow(instanceId: string): Promise<void> {
-    const projectName = hostedProjectNameOf(this.folders.instance, instanceId);
     await this.handOver.back(this.handBackFileOf(instanceId), `the Test instance ${instanceId}`);
-    try {
-      await this.runtime.down(projectName, { builtImages: true });
-    } catch (error) {
-      // What down left is removed by its label next.
-      this.logger.warn(`The Test instance ${instanceId} didn't come down.`, error);
-    }
-    await this.runtime.removeByLabel(testInstanceLabels(this.folders.instance, instanceId));
-    await rm(this.folders.testInstanceFolder(instanceId), { recursive: true, force: true });
+    await this.lifecycle.remove({
+      name: hostedProjectNameOf(this.folders.instance, instanceId),
+      labels: testInstanceLabels(this.folders.instance, instanceId),
+      folder: this.folders.testInstanceFolder(instanceId),
+      removal: { builtImages: true },
+      what: `The Test instance ${instanceId}`,
+    });
   }
 
   private async refusing<Result>(

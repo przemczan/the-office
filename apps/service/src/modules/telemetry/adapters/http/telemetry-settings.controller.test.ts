@@ -6,6 +6,7 @@ import { telemetrySettingsSchema, type TelemetrySettings } from "@the-office/con
 import { afterEach, describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { TelemetryOfficeActionsController } from "./telemetry-office-actions.controller.js";
+import { TelemetrySettingsController } from "./telemetry-settings.controller.js";
 import { TelemetryOfficeActions } from "../office-actions/telemetry-office-actions.js";
 import { ScriptedStatsSource } from "../scripted/scripted-stats-source.js";
 import { GrafanaCheck } from "../../application/grafana-check.js";
@@ -16,7 +17,7 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { isOwnerOnly } from "../../../../platform/os/owner-only.fixtures.js";
 import { BundledGrafana } from "../../../../platform/telemetry/bundled-grafana/bundled-grafana.js";
 import { ScriptedBundledGrafana } from "../../../../platform/telemetry/bundled-grafana/scripted-bundled-grafana.js";
-import { TelemetryHttpModule } from "../../../../platform/telemetry/telemetry-http.module.js";
+import { TelemetrySettingModule } from "../../../../platform/telemetry/telemetry-setting.module.js";
 import { RunningTelemetrySettings } from "../../../../platform/telemetry/telemetry-in-effect.js";
 import {
   TELEMETRY_OFF,
@@ -35,8 +36,8 @@ const NOT_WANTED = {
 
 /** Save is an Office action of Telemetry: its route and handler, without the rest of Stats. */
 @Module({
-  imports: [TelemetryHttpModule],
-  controllers: [TelemetryOfficeActionsController],
+  imports: [TelemetrySettingModule],
+  controllers: [TelemetryOfficeActionsController, TelemetrySettingsController],
   providers: [
     OfficeToolRegistry,
     GrafanaCheck,

@@ -18,7 +18,7 @@ import {
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
-import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import { OfficeIdentity } from "../../../office-identity/index.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";

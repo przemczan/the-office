@@ -528,12 +528,13 @@ export class TestInstances implements OnModuleInit {
         : [secretsWithoutValue(build.secretsWithoutValue)]),
     ];
     if (build === undefined || problems.length > 0) throw new TestInstanceRefused(problems);
-    const device = await this.devices.checkFree(launch.projectId, target.projectDeviceId);
-    if (by.kind === "person" && device.kind !== "android-wireless") {
-      throw new TestInstanceRefused([overUsb(device.name)]);
-    }
 
+    // Checked with the insert, one launch at a time, as the limit is.
     const instance = await this.oneAtATime(async () => {
+      const device = await this.devices.checkFree(launch.projectId, target.projectDeviceId);
+      if (by.kind === "person" && device.kind !== "android-wireless") {
+        throw new TestInstanceRefused([overUsb(device.name)]);
+      }
       await this.withinTheLimit();
       const made = launchedInstance({
         id: randomUUID(),

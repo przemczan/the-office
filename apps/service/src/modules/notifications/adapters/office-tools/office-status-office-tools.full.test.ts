@@ -17,16 +17,14 @@ import {
   OfficeStatusCardsForTests,
   ResumePlansForTests,
   StandInChoicesWaitingForTests,
-  OpenProposalsForTests,
   PullRequestsWaitingForTests,
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
-  ShapingRepliesForTests,
+  WaitingInConversationsForTests,
   OfficeUsersForTests,
   OfficeOffBoardTasksForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
-  OpenDecisionsForTests,
   TaskStageProgressForTests,
 } from "../../ports/notifications-ports.fixtures.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
@@ -45,7 +43,6 @@ describe("the show_office_status tool", () => {
           imports: [NotificationsPortsForTestsModule],
           officeTasks: OfficeTasksForTests,
           officeInitiatives: OfficeInitiativesForTests,
-          openDecisions: OpenDecisionsForTests,
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,
           startQueue: StartQueueForTests,
@@ -55,11 +52,10 @@ describe("the show_office_status tool", () => {
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
           standInChoicesWaiting: StandInChoicesWaitingForTests,
-          openProposals: OpenProposalsForTests,
           pullRequestsWaiting: PullRequestsWaitingForTests,
           skillUpdatesFound: SkillUpdatesFoundForTests,
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
-          shapingReplies: ShapingRepliesForTests,
+          waitingInConversations: WaitingInConversationsForTests,
           officeUsers: OfficeUsersForTests,
           officeOffBoardTasks: OfficeOffBoardTasksForTests,
         }),
@@ -83,7 +79,7 @@ describe("the show_office_status tool", () => {
         resumesAt: undefined,
       },
     ];
-    app.get(OpenDecisionsForTests).open = [
+    app.get(WaitingInConversationsForTests).decisions = [
       {
         id: randomUUID(),
         threadId: randomUUID(),

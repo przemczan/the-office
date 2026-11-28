@@ -1,5 +1,6 @@
 import {
   LAYERS,
+  MODULE_DOMAIN_ENTRY,
   MODULE_ENTRY,
   MODULE_TEST_ENTRY,
   type Layer,
@@ -18,6 +19,8 @@ export interface ImportInWorkspace {
   readonly importer: Place;
   readonly importerIsTest: boolean;
   readonly target: Place;
+  /** Whether the import loads nothing at run time (`import type`); false when left out. */
+  readonly typeOnly?: boolean;
 }
 
 /** Why importing a file of the same workspace breaks the module rules, or undefined if it doesn't. */
@@ -25,14 +28,19 @@ export function moduleBoundaryViolation({
   importer,
   importerIsTest,
   target,
+  typeOnly = false,
 }: ImportInWorkspace): string | undefined {
   if (importer.kind === "platform" && isInModule(target)) {
     return `src/platform/ is below the modules and never imports one. ${TEMPLATE}`;
   }
+  if (isDomainEntry(importer) && !isDomainOf(target, importer.module)) {
+    return `modules/${importer.module}/${MODULE_DOMAIN_ENTRY}.ts re-exports only its own domain/, so importing it loads no Nest module. ${TEMPLATE}`;
+  }
   if (isInModule(target) && (!isInModule(importer) || importer.module !== target.module)) {
-    return isEntryFor(target, importerIsTest)
-      ? undefined
-      : `Another module is reached only through its public entry, modules/${target.module}/${MODULE_ENTRY}.ts, and from tests also ${MODULE_TEST_ENTRY}.ts. ${TEMPLATE}`;
+    if (!isEntryFor(target, importerIsTest)) {
+      return `Another module is reached only through its public entry, modules/${target.module}/${MODULE_ENTRY}.ts, its domain entry ${MODULE_DOMAIN_ENTRY}.ts, and from tests also ${MODULE_TEST_ENTRY}.ts. ${TEMPLATE}`;
+    }
+    return crossModuleDomainViolation(importer, importerIsTest, target, typeOnly);
   }
   // Tests may wire a module's layers together and boot the app; the module boundary above still
   // holds for them.
@@ -82,9 +90,40 @@ function platformViolation(layer: Layer, platformFile: string): string | undefin
     : undefined;
 }
 
-function isEntryFor(target: Place, importerIsTest: boolean): boolean {
+function isEntryFor(
+  target: Place,
+  importerIsTest: boolean,
+): target is Extract<Place, { kind: "module root" }> {
   if (target.kind !== "module root") return false;
-  return target.file === MODULE_ENTRY || (importerIsTest && target.file === MODULE_TEST_ENTRY);
+  return (
+    target.file === MODULE_ENTRY ||
+    target.file === MODULE_DOMAIN_ENTRY ||
+    (importerIsTest && target.file === MODULE_TEST_ENTRY)
+  );
+}
+
+/**
+ * A domain takes another module's public entry only as types: its values would load that module's
+ * Nest module, ports and adapters into a domain meant to be pure. Its values come from the other
+ * module's domain entry instead. Tests may load anything.
+ */
+function crossModuleDomainViolation(
+  importer: Place,
+  importerIsTest: boolean,
+  target: Extract<Place, { kind: "module root" }>,
+  typeOnly: boolean,
+): string | undefined {
+  const isDomain = importer.kind === "layer" && importer.layer === "domain";
+  if (!isDomain || importerIsTest || typeOnly || target.file !== MODULE_ENTRY) return undefined;
+  return `The domain layer imports modules/${target.module}/${MODULE_ENTRY}.ts, which loads its Nest module; a domain takes another module's ${MODULE_ENTRY}.ts only with \`import type\`, and its values from modules/${target.module}/${MODULE_DOMAIN_ENTRY}.ts. ${TEMPLATE}`;
+}
+
+function isDomainEntry(place: Place): place is Extract<Place, { kind: "module root" }> {
+  return place.kind === "module root" && place.file === MODULE_DOMAIN_ENTRY;
+}
+
+function isDomainOf(place: Place, module: string): boolean {
+  return place.kind === "layer" && place.module === module && place.layer === "domain";
 }
 
 function isInModule(place: Place): place is Extract<Place, { module: string }> {

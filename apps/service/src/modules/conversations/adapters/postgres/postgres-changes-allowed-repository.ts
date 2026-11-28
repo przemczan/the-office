@@ -1,8 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { ChangesAllowedRepository } from "../../ports/changes-allowed-repository.js";
 import { changesAllowed } from "./changes-allowed.schema.js";
+import { threads } from "./threads.schema.js";
 
 @Injectable()
 export class PostgresChangesAllowedRepository extends ChangesAllowedRepository {
@@ -10,11 +11,26 @@ export class PostgresChangesAllowedRepository extends ChangesAllowedRepository {
     super();
   }
 
-  async allow(threadId: string, allowedAt: Date): Promise<void> {
-    await this.database
+  async allowUnlessAnswering(threadId: string, allowedAt: Date): Promise<boolean> {
+    // One statement: the Thread's state is read as the row goes in, so an answer can't begin
+    // between the check and the switch. A Thread allowed already keeps its row and answers it.
+    const allowed = await this.database
       .insert(changesAllowed)
-      .values({ threadId, allowedAt })
-      .onConflictDoNothing();
+      .select(
+        this.database
+          .select({
+            threadId: threads.id,
+            allowedAt: sql<Date>`${allowedAt.toISOString()}::timestamptz`.as("allowed_at"),
+          })
+          .from(threads)
+          .where(and(eq(threads.id, threadId), ne(threads.state, "answering"))),
+      )
+      .onConflictDoUpdate({
+        target: changesAllowed.threadId,
+        set: { allowedAt: sql`${changesAllowed.allowedAt}` },
+      })
+      .returning({ threadId: changesAllowed.threadId });
+    return allowed.length > 0;
   }
 
   async switchOff(threadId: string): Promise<boolean> {

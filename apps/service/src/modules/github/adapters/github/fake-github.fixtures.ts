@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { z } from "zod";
-import { GITHUB_ED25519 } from "../../../../platform/git-identity/fake-github-meta.fixtures.js";
+import { GITHUB_ED25519 } from "../../../office-identity/index.domain.js";
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
 import { FakeIssues, issueControlSchema } from "./fake-github-issues.fixtures.js";

@@ -81,6 +81,7 @@ export {
 export {
   TaskAddedToInitiative,
   TaskCreated,
+  TaskDiscarded,
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
   TaskDefinitionOfDoneSaved,
@@ -108,3 +109,5 @@ export {
 export { TaskRefused } from "./domain/task-refused.js";
 export { LEFT_THE_WORKSTATION, STARTED_STATES, TASK_STATE_NAMES } from "./domain/task-states.js";
 export { WorkModule } from "./work.module.js";
+export { TaskLocks } from "./application/task-locks.js";
+export { TaskLocksModule } from "./task-locks.module.js";

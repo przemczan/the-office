@@ -4,6 +4,7 @@ import type { EntryPoint } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it } from "vitest";
 import { OutputMask } from "../../../projects/index.js";
 import {
+  restartedTestbed,
   runEnvironmentsTestbed,
   writeFiles,
   type RunEnvironmentsTestbed,
@@ -95,7 +96,7 @@ describe.skipIf(missing !== undefined)(
     }, REAL_RUNTIME_TEST.timeout);
 
     afterAll(async () => {
-      await testbed.hostedServices.sweep();
+      await (await restartedTestbed(testbed, runtime)).hostedServices.sweep();
       for (const { name } of await runtime.listImages(officeLabels(testbed.folders.instance))) {
         await runtime.removeImage(name);
       }
