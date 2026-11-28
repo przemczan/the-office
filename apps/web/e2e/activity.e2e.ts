@@ -41,7 +41,7 @@ test("a running environment check is followed from the strip's Activity figure t
   await page.keyboard.press("Escape");
   await page
     .getByRole("status", { name: "Status strip" })
-    .getByRole("button", { name: /^Activity: \d+ running$/ })
+    .getByRole("button", { name: /^Activity: \d+ sessions?, \d+ other running$/ })
     .click();
   // A panel over the page, which stays where it was.
   await expect(page).toHaveURL(/\/now\?activity=true$/);

@@ -1,4 +1,4 @@
-import type { ActivityItem, SubjectActivity } from "@the-office/contracts";
+import type { ActivityItem, ActivitySession, SubjectActivity } from "@the-office/contracts";
 
 /** The item of one kind. */
 type ItemOf<Kind extends ActivityItem["kind"]> = Extract<ActivityItem, { readonly kind: Kind }>;
@@ -142,4 +142,18 @@ export function offBoardTaskItem(
 
 export function minutesAgo(minutes: number): string {
   return new Date(NOW.getTime() - minutes * 60_000).toISOString();
+}
+
+/** One active session: a Developer working at Implement, unless said. */
+export function sessionOf(overrides: Partial<ActivitySession> = {}): ActivitySession {
+  return {
+    threadId: "9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+    person: { kind: "person", roleKey: "developer" },
+    sessionKind: "stage",
+    stageName: "Implement",
+    state: "working",
+    waitingOn: null,
+    since: minutesAgo(18),
+    ...overrides,
+  };
 }

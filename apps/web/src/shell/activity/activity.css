@@ -63,3 +63,48 @@
   font: var(--type-caption);
   color: var(--fg-3);
 }
+
+.activity-grouping {
+  margin-bottom: 8px;
+}
+
+.activity-people {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.activity-person-heading,
+.activity-session-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-person-heading {
+  margin-bottom: 6px;
+  font: 600 var(--text-item) / 1.3 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.activity-other-work {
+  margin: 4px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+.activity-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-session-question {
+  margin: 2px 0 0;
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  color: var(--fg-2);
+}

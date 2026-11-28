@@ -1,4 +1,5 @@
 import type {
+  Activity,
   ActivityItem,
   ActivitySubject,
   ActivityItemKind,
@@ -218,12 +219,16 @@ export function activityPlaceOf(item: ActivityItem): ActivityPlace {
   }
 }
 
-/** "3 running": what the strip's figure and the panel's description count. */
-export function activityCountWords(count: number): string {
-  return `${count} running`;
+/** "2 sessions, 3 other running": what the strip's figure and the panel's description count. */
+export function activityCountWords({
+  activities,
+  otherWork,
+}: Pick<Activity, "activities" | "otherWork">): string {
+  const sessions = activities.length === 1 ? "1 session" : `${activities.length} sessions`;
+  return `${sessions}, ${otherWork.length} other running`;
 }
 
 export const NOTHING_RUNNING = "Nothing is running.";
 export const NOTHING_RUNNING_HERE = "Nothing is running in these Projects.";
 export const WHAT_SHOWS_HERE =
-  "Sessions at work, test instances, CI runs, environment checks and Connected devices show here while they run.";
+  "Sessions, test instances, CI runs, environment checks, Off-board Tasks, Connected devices and stalled Tasks show here while they run.";

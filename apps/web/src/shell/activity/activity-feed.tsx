@@ -1,22 +1,42 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { ActivityItem, Project, SubjectActivity } from "@the-office/contracts";
-import { Badge, Icon } from "@the-office/ui";
+import type {
+  ActivityItem,
+  ActivityPerson,
+  ActivitySession,
+  ActivitySubject,
+  Project,
+  Role,
+  SubjectActivity,
+} from "@the-office/contracts";
+import { Badge, Icon, SegmentedControl } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { activityQueries } from "../../api/activity.ts";
+import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { BlockLoader } from "../block-loader.tsx";
+import { useBrandTone } from "../brand-tone.ts";
 import { Feed, Panel, PanelHeading } from "../desk.tsx";
 import { EmptyCard, ItemCard, type CardEdge } from "../item-card.tsx";
+import { OfficeMark } from "../office-mark.tsx";
+import { PersonAvatar } from "../person-avatar.tsx";
+import { roleFirstName, roleName } from "../person-name.ts";
 import { ProjectChip } from "../project-chip.tsx";
 import { InOtherProjectsNote } from "../project-filter/in-other-projects-note.tsx";
 import { useProjectFilter } from "../project-filter/use-project-filter.ts";
 import type { Tone } from "../tone-words.ts";
 import { useClock } from "../use-clock.ts";
+import { ACTIVITY_GROUPINGS, useActivityGrouping } from "./activity-grouping-store.ts";
+import { byPerson, bySubject, personKey } from "./activity-sessions.ts";
+import {
+  sessionKindWords,
+  sessionQuestionWords,
+  sessionStateWords,
+  sessionTimeWords,
+} from "./activity-sessions-words.ts";
 import {
   activityPlaceOf,
   placeOfSubject,
-  spanWords,
   detailWords,
   groupedActivity,
   inStateWords,
@@ -37,8 +57,10 @@ import "./activity.css";
 export function ActivityFeed(): ReactNode {
   const activity = useQuery(activityQueries.list()).data;
   const projects = useQuery(projectQueries.list()).data;
+  const roles = useQuery(roleQueries.list()).data;
   const { shows } = useProjectFilter();
   const clock = useClock();
+  const [grouping, chooseGrouping] = useActivityGrouping();
   if (!activity) return <BlockLoader shape="rows" label="Loading Activity…" />;
   // An Initiative's or a chat's activity belongs to no one Project, so the filter keeps it.
   const activities = activity.activities.filter(
@@ -47,6 +69,7 @@ export function ActivityFeed(): ReactNode {
   const otherWork = activity.otherWork.filter(({ projectId }) => shows([projectId]));
   const elsewhere = activity.count - activities.length - otherWork.length;
   const groups = groupedActivity(otherWork);
+  const context = { projects, roles, clock };
   return (
     <div className="activity-feed">
       {activities.length === 0 && groups.length === 0 && (
@@ -60,18 +83,36 @@ export function ActivityFeed(): ReactNode {
       {activities.length > 0 && (
         <Panel label="Sessions">
           <PanelHeading icon="users" title="Sessions" count={String(activities.length)} />
-          <Feed>
-            {activities.map((subjectActivity) => (
-              <SubjectActivityCard
-                key={subjectActivity.id}
-                activity={subjectActivity}
-                projects={projects}
-                clock={clock}
-              />
-            ))}
-          </Feed>
+          <div className="activity-grouping" role="group" aria-label="Group sessions">
+            <SegmentedControl
+              size="sm"
+              options={[...GROUPING_OPTIONS]}
+              value={grouping}
+              onChange={(value) => {
+                const chosen = ACTIVITY_GROUPINGS.find((option) => option === value);
+                if (chosen) chooseGrouping(chosen);
+              }}
+            />
+          </div>
+          {grouping === "person" ? (
+            <SessionsByPerson activities={activities} {...context} />
+          ) : (
+            <Feed>
+              {bySubject(activities).map((subjectActivity) => (
+                <SubjectCard
+                  key={subjectActivity.id}
+                  subject={subjectActivity.subject}
+                  sessions={subjectActivity.sessions}
+                  showPeople
+                  {...context}
+                />
+              ))}
+            </Feed>
+          )}
         </Panel>
       )}
+      {/* A peer of the Sessions heading, so the outline reads as the drawer's two sections. */}
+      {groups.length > 0 && <h2 className="activity-other-work">Other running work</h2>}
       {groups.map((grouped) => (
         <ActivityGroupPanel
           key={grouped.group.key}
@@ -85,21 +126,87 @@ export function ActivityFeed(): ReactNode {
   );
 }
 
-function SubjectActivityCard({
-  activity: { subject, since, sessions },
-  projects,
-  clock,
-}: {
-  readonly activity: SubjectActivity;
+interface RowContext {
   readonly projects: readonly Project[] | undefined;
+  readonly roles: readonly Role[] | undefined;
   readonly clock: Date;
+}
+
+const GROUPING_OPTIONS = [
+  { value: "person", label: "By person" },
+  { value: "subject", label: "By subject" },
+] as const;
+
+function SessionsByPerson({
+  activities,
+  ...context
+}: RowContext & { readonly activities: readonly SubjectActivity[] }): ReactNode {
+  return (
+    <div className="activity-people">
+      {byPerson(activities).map(({ key, person, activities: personActivities }) => (
+        <div
+          key={key}
+          className="activity-person"
+          role="group"
+          aria-label={personLabel(person, context.roles)}
+        >
+          <div className="activity-person-heading">
+            <PersonMark person={person} roles={context.roles} />
+            <span>{personLabel(person, context.roles)}</span>
+          </div>
+          <Feed>
+            {personActivities.map(({ activity, sessions }) => (
+              <SubjectCard
+                key={activity.id}
+                subject={activity.subject}
+                sessions={sessions}
+                showPeople={false}
+                {...context}
+              />
+            ))}
+          </Feed>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function personLabel(person: ActivityPerson, roles: readonly Role[] | undefined): string {
+  return person.kind === "person" ? roleName(person.roleKey, roles) : "The Office";
+}
+
+function PersonMark({
+  person,
+  roles,
+}: {
+  readonly person: ActivityPerson;
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  const tone = useBrandTone();
+  if (person.kind === "the-office") return <OfficeMark size={20} tone={tone} />;
+  return (
+    <PersonAvatar roleKey={person.roleKey} name={roleFirstName(person.roleKey, roles)} size="sm" />
+  );
+}
+
+/** One subject with the sessions listed on it: all its people, or one person's. */
+function SubjectCard({
+  subject,
+  sessions,
+  showPeople,
+  projects,
+  roles,
+  clock,
+}: RowContext & {
+  readonly subject: ActivitySubject;
+  readonly sessions: readonly ActivitySession[];
+  readonly showPeople: boolean;
 }): ReactNode {
   const waiting = sessions.every(({ state }) => state === "waiting");
-  const state = waiting ? "Waiting" : "Working";
   return (
     <ItemCard
       edge={waiting ? "paused" : "running"}
-      label={`${state}: ${subject.title}`}
+      label={`${waiting ? "Waiting" : "Working"}: ${subject.title}`}
       className="activity-card"
     >
       <div className="activity-item">
@@ -108,19 +215,54 @@ function SubjectActivityCard({
           {subject.kind === "task" && (
             <ProjectChip projectId={subject.projectId} projects={projects} />
           )}
-          <Badge size="sm" dot tone={waiting ? "warning" : "info"}>
-            {state}
-          </Badge>
         </div>
-        <div className="activity-item-sub">
-          <span>{sessions.length === 1 ? "1 session" : `${sessions.length} sessions`}</span>
-          <span>·</span>
-          <span className="activity-item-time">
-            {state} for {spanWords(clock.getTime() - Date.parse(since))}
-          </span>
-        </div>
+        <ul className="activity-sessions">
+          {sessions.map((session) => (
+            <SessionRow
+              key={`${personKey(session.person)}:${session.threadId ?? session.sessionKind}:${session.stageName ?? ""}`}
+              session={session}
+              showPerson={showPeople}
+              roles={roles}
+              clock={clock}
+            />
+          ))}
+        </ul>
       </div>
     </ItemCard>
+  );
+}
+
+function SessionRow({
+  session,
+  showPerson,
+  roles,
+  clock,
+}: {
+  readonly session: ActivitySession;
+  readonly showPerson: boolean;
+  readonly roles: readonly Role[] | undefined;
+  readonly clock: Date;
+}): ReactNode {
+  const state = sessionStateWords(session);
+  const question = sessionQuestionWords(session);
+  return (
+    <li className="activity-session">
+      <div className="activity-item-sub">
+        {showPerson && (
+          <span className="activity-session-person">
+            <PersonMark person={session.person} roles={roles} />
+            {personLabel(session.person, roles)}
+          </span>
+        )}
+        <Badge size="sm" dot tone={state.tone}>
+          {state.label}
+        </Badge>
+        <span>{sessionKindWords(session)}</span>
+        <span>·</span>
+        <span className="activity-item-time">{sessionTimeWords(session, clock)}</span>
+      </div>
+      {question && <p className="activity-session-question">{question}</p>}
+    </li>
   );
 }
 

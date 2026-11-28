@@ -38,7 +38,7 @@ export function ActivityFigure(): ReactNode {
   );
 }
 
-/** "Activity: 3 running", the figure in words. */
-export function activityFigureName({ count }: Activity): string {
-  return `Activity: ${activityCountWords(count)}`;
+/** "Activity: 2 sessions, 1 other running", the figure in words. */
+export function activityFigureName(activity: Activity): string {
+  return `Activity: ${activityCountWords(activity)}`;
 }

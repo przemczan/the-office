@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { activityQueries } from "../../api/activity.ts";
+import { subjectActivity } from "./activity.fixtures.ts";
 import { ActivityFigure } from "./activity-figure.tsx";
 
 declare global {
@@ -18,11 +19,11 @@ vi.mock("./use-activity-panel.ts", () => ({
 }));
 
 function activityOf(count: number): Activity {
-  return {
-    activities: [],
-    otherWork: Array.from({ length: count }, (_, index) => item(`item-${index}`)),
-    count,
-  };
+  const activities = count > 0 ? [subjectActivity()] : [];
+  const otherWork = Array.from({ length: Math.max(0, count - 1) }, (_, index) =>
+    item(`item-${index}`),
+  );
+  return { activities, otherWork, count };
 }
 
 function item(id: string): ActivityItem {
@@ -79,7 +80,7 @@ it("shows the count with a live dot while anything runs, and says it all in its 
 
   expect(figure?.querySelector(".live-dot")).not.toBeNull();
   expect(figure?.querySelector("b")?.textContent).toBe("2");
-  expect(figure?.getAttribute("aria-label")).toBe("Activity: 2 running");
+  expect(figure?.getAttribute("aria-label")).toBe("Activity: 1 session, 1 other running");
   expect(figure?.getAttribute("aria-haspopup")).toBe("dialog");
   expect(figure?.getAttribute("aria-expanded")).toBe("false");
 });

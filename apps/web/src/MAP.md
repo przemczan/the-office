@@ -218,12 +218,15 @@
 
 - `activity-feed.tsx`: ActivityFeed
 - `activity-figure.tsx`: ActivityFigure, activityFigureName
+- `activity-grouping-store.ts`: ACTIVITY_GROUPINGS, ActivityGrouping, ACTIVITY_GROUPING_STORAGE_KEY, ActivityGroupingStore, createActivityGroupingStore, useActivityGrouping
 - `activity-panel-width.ts`: ACTIVITY_PANEL_WIDTH_STORAGE_KEY, ACTIVITY_PANEL_WIDTHS, showActivityPanelWidth, rememberActivityPanelWidth, useActivityPanelLayout
 - `activity-panel.tsx`: ActivityPanel
+- `activity-sessions-words.ts`: SessionStateWords, sessionStateWords, sessionKindWords, sessionTimeWords, sessionQuestionWords
+- `activity-sessions.ts`: PersonActivity, PersonSessions, THE_OFFICE_KEY, personKey, byPerson, bySubject
 - `activity-words.ts`: ActivityGroup, ACTIVITY_GROUPS, GroupedActivity, groupedActivity, StateWords, stateWords, kindWords, inStateWords, spanWords, detailWords, ActivityPlace, placeOfSubject, activityPlaceOf, activityCountWords, NOTHING_RUNNING, NOTHING_RUNNING_HERE, WHAT_SHOWS_HERE
-- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, subjectActivity, environmentCheckItem, ciRunItem, testInstanceItem, actionRunItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo
+- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, subjectActivity, environmentCheckItem, ciRunItem, testInstanceItem, actionRunItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo, sessionOf
 - `use-activity-panel.ts`: ActivityPanelControls, useActivityPanel
-- Tests: activity-feed.test.tsx, activity-figure.test.tsx, activity-words.full.test.ts
+- Tests: activity-feed.test.tsx, activity-figure.test.tsx, activity-grouping-store.test.ts, activity-sessions-words.test.ts, activity-sessions.test.ts, activity-words.full.test.ts
 
 ### shell/attachments/
 
