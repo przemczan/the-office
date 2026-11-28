@@ -6,7 +6,18 @@ import type {
   OfficeToolRuling,
 } from "../../engine/index.js";
 
-type Holder = (sessionId: string, call: ApprovalCall) => Promise<string | undefined>;
+/** A call of an MCP tool waiting on approval, with the tool's description as its server listed it. */
+export interface HeldMcpToolCall extends ApprovalCall {
+  readonly description?: string | undefined;
+}
+
+/** The MCP servers a session runs, as far as a held call's card reads them: their tools' words. */
+type SessionMcpTools = readonly {
+  readonly name: string;
+  readonly tools: readonly { readonly name: string; readonly description: string }[];
+}[];
+
+type Holder = (sessionId: string, call: HeldMcpToolCall) => Promise<string | undefined>;
 
 /**
  * Where the sessions' settings find how a call waiting on approval is held, and how every Office
@@ -39,11 +50,19 @@ export class ApprovalHolds {
     };
   }
 
-  /** The session's hold; a call is refused until `HeldCalls` has filled it. */
-  of(sessionId: string): ApprovalHold {
+  /**
+   * The hold of the session running `mcpServers`, which gives each held call its tool's
+   * description; a call is refused until `HeldCalls` has filled it.
+   */
+  of(sessionId: string, mcpServers: SessionMcpTools): ApprovalHold {
     return (call) =>
       this.holder
-        ? this.holder(sessionId, call)
+        ? this.holder(sessionId, { ...call, description: toolDescription(mcpServers, call) })
         : Promise.resolve("The Office can't ask for approval yet; try the call again shortly.");
   }
+}
+
+function toolDescription(mcpServers: SessionMcpTools, call: ApprovalCall): string | undefined {
+  const server = mcpServers.find(({ name }) => name === call.server);
+  return server?.tools.find(({ name }) => name === call.tool)?.description || undefined;
 }

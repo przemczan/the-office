@@ -298,6 +298,8 @@
 - `devops-proposal-changes.tsx`: ProposedCommandChanges, commandWords, ProposedTestTargetChanges, ProposedActionChanges, ProposedStageChanges, ProposedStageFieldChanges, ProposedProjectPipelineFields, ProposedSkillInstallFields, ProposedSkillUpdateFields
 - `edit-in-library.ts`: useEditInLibrary
 - `handover-notes.tsx`: HandoverNote, HandoverNotes, HandoverNotesProvider, useHandoverNotes
+- `held-call-card.tsx`: HeldCallCard
+- `held-call-input.ts`: InputValue, InputEntry, inputLabel, inputEntries
 - `idea-card.tsx`: IdeaCard
 - `link-card-words.ts`: personStatus
 - `link-card.tsx`: LinkCard
@@ -326,7 +328,7 @@
 - `thread-view.tsx`: ThreadView, ThreadLog, ThreadLoader, ThreadTitle
 - `thread-writing.ts`: takesMessages, writingPlaceholder
 - `use-answering.ts`: ProposalAnswering, useAnswering
-- Tests: bug-task-card.test.tsx, composer-images.full.test.tsx, composer-images.test.tsx, context-reading-words.full.test.ts, context-reading.full.test.tsx, context-words.full.test.ts, decision-card.full.test.tsx, decision-drafts.full.test.tsx, decision-form-words.full.test.ts, decision-on-task.full.test.tsx, decision-words.full.test.ts, details-store.full.test.ts, devops-proposal-changes.full.test.tsx, link-card-words.full.test.ts, message-field.full.test.tsx, message-groups.full.test.ts, message-list-images.full.test.tsx, message-list-kinds.full.test.tsx, message-list.full.test.tsx, message-visibility.full.test.ts, office-status-words.full.test.ts, proposal-card.full.test.tsx, proposal-on-flow.full.test.tsx, stop-button.test.tsx, stopped-messages.test.ts, thread-drafts.test.tsx, thread-sessions.full.test.ts, thread-title.full.test.ts, thread-writing.full.test.ts
+- Tests: bug-task-card.test.tsx, composer-images.full.test.tsx, composer-images.test.tsx, context-reading-words.full.test.ts, context-reading.full.test.tsx, context-words.full.test.ts, decision-card.full.test.tsx, decision-drafts.full.test.tsx, decision-form-words.full.test.ts, decision-on-task.full.test.tsx, decision-words.full.test.ts, details-store.full.test.ts, devops-proposal-changes.full.test.tsx, held-call-input.test.ts, link-card-words.full.test.ts, message-field.full.test.tsx, message-groups.full.test.ts, message-list-images.full.test.tsx, message-list-kinds.full.test.tsx, message-list.full.test.tsx, message-visibility.full.test.ts, office-status-words.full.test.ts, proposal-card.full.test.tsx, proposal-on-flow.full.test.tsx, stop-button.test.tsx, stopped-messages.test.ts, thread-drafts.test.tsx, thread-sessions.full.test.ts, thread-title.full.test.ts, thread-writing.full.test.ts
 
 ### shell/devices/
 

@@ -87,6 +87,7 @@ export function aDecision(fields: Partial<Decision> = {}): Decision {
     answeredBy: null,
     atUsersRequest: null,
     fields: null,
+    heldCall: null,
     answeredByTheOffice: false,
     inStageThread: false,
     closedAt: null,

@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   OfficeToolRegistry,
+  type OfficeTool,
   type OfficeToolCall,
   type OfficeToolRuled,
   type OfficeToolRuling,
@@ -57,9 +58,10 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
 
   async rule(
     call: OfficeToolCall,
-    { name, authority }: Parameters<OfficeToolRuling["rule"]>[1],
+    tool: Parameters<OfficeToolRuling["rule"]>[1],
     input: unknown,
   ): Promise<OfficeToolRuled> {
+    const { name, authority } = tool;
     const { sessionId } = call;
     // A tool that isn't an Office action has no setting of its own: it keeps its own checks.
     if (authority === undefined) return { kind: "run" };
@@ -121,9 +123,9 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
     if (ruling.kind === "propose") {
       const proposed = await this.propose(sessionId, authority.title, name, input);
       // A tool with no draft can't be proposed: it is held as Ask me.
-      return proposed ?? this.holdForApproval(call, name, authority, input, ASK_ME);
+      return proposed ?? this.holdForApproval(call, tool, authority, input, ASK_ME);
     }
-    return this.holdForApproval(call, name, authority, input, ruling.setting);
+    return this.holdForApproval(call, tool, authority, input, ruling.setting);
   }
 
   /** The groups a call touches: its tool's own, and those its tool says its input touches too. */
@@ -172,13 +174,13 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
 
   private async holdForApproval(
     call: OfficeToolCall,
-    name: string,
+    { name, description }: Pick<OfficeTool, "name" | "description">,
     authority: NonNullable<Parameters<OfficeToolRuling["rule"]>[1]["authority"]>,
     input: unknown,
     setting: HardSwitchValue,
   ): Promise<OfficeToolRuled> {
     const { sessionId } = call;
-    const fields = (await this.registry.draft(name, input).catch(() => undefined))?.fields;
+    const drafted = await this.registry.draft(name, input).catch(() => undefined);
     const lines = (await authority.approvalLines?.(input, call)) ?? [];
     const redacted = await this.registry.redact(name, input);
     return this.heldCalls.holdToolCall(sessionId, name, setting, {
@@ -186,7 +188,14 @@ export class OfficeToolRulings implements OfficeToolRuling, OnModuleInit {
       call: officeToolCallWords(name, input, redacted.hasSecret ? redacted : undefined),
       context: approvalContext(name, lines),
       why: `${name} needs approval for each call.`,
-      ...(fields && { fields }),
+      ...(drafted && { fields: drafted.fields }),
+      card: {
+        action: authority.title,
+        description,
+        ...(drafted && { subject: drafted.subject }),
+        input: redacted.shown,
+        callAsSent: { action: name, input: redacted.shown },
+      },
     });
   }
 }

@@ -147,6 +147,23 @@ export function anApproval(
   });
 }
 
+/** An approval of the held call `key`, asked in plain words and answered with the option at `option`. */
+export function aHeldCallApproval(option: number, key: string = CALL): Decision {
+  const approval = anApproval(option);
+  return {
+    ...approval,
+    questions: [
+      {
+        kind: "choice",
+        question: "Allow Ada to Change a Project's settings?",
+        options: APPROVAL_OPTIONS,
+        recommendation: { option: 0, reason: "It needs doing." },
+        heldCall: { key, action: "Change a Project's settings", input: {}, callAsSent: {} },
+      },
+    ],
+  };
+}
+
 /** A call of github/create_issue, waiting on approval as `setting` asks. */
 export function call(
   input: unknown,
