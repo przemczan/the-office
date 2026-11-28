@@ -70,7 +70,8 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
   const [view, setView] = useState<FlowZoomView>(AT_START);
   const [frameSize, setFrameSize] = useState<FlowSize>(NO_SIZE);
   const [contentSize, setContentSize] = useState<FlowSize>(NO_SIZE);
-  const [fullHeight, setFullHeight] = useState(0);
+  // The content as drawn with its full cards, which a fit and the viewport's height go by.
+  const [fullSize, setFullSize] = useState<FlowSize>(NO_SIZE);
   const [shape, setShape] = useState<FlowOverviewShape | undefined>();
   const [overviewOn, chooseOverview] = useOverviewChoice();
   const [panning, setPanning] = useState(false);
@@ -78,11 +79,11 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
   // Fit holds while the user hasn't moved the view by hand, so an edit or names-only refits.
   const fitted = useRef(true);
   // What the listeners and the canvas's calls read between renders.
-  const sizes = useRef({ frame: NO_SIZE, content: NO_SIZE });
+  const sizes = useRef({ frame: NO_SIZE, content: NO_SIZE, full: NO_SIZE });
   const namesOnly = namesOnlyAt(view.zoom);
   const showsNamesOnly = useRef(namesOnly);
   useLayoutEffect(() => {
-    sizes.current = { frame: frameSize, content: contentSize };
+    sizes.current = { frame: frameSize, content: contentSize, full: fullSize };
     showsNamesOnly.current = namesOnly;
   });
 
@@ -91,24 +92,24 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
     setView(next);
   }, []);
   const fit = useCallback(() => {
-    change(() => fittedView(sizes.current.frame, sizes.current.content), true);
+    change(() => fittedView(sizes.current.frame, sizes.current.content, sizes.current.full), true);
   }, [change]);
 
   useElementSize(frame, setFrameSize, "client");
   // The viewport is as tall as the Pipeline with its full cards, which names-only would shrink.
   const onContentSize = useCallback((size: FlowSize) => {
     setContentSize(size);
-    if (!showsNamesOnly.current && size.height > 0) setFullHeight(size.height);
+    if (!showsNamesOnly.current && size.height > 0) setFullSize(size);
   }, []);
   useElementSize(content, onContentSize, "offset");
   // A resize, an edit or a card's change of look moves what fits.
   useLayoutEffect(() => {
     setView((last) =>
       fitted.current
-        ? fittedView(frameSize, contentSize)
+        ? fittedView(frameSize, contentSize, fullSize)
         : clampedView(last, frameSize, contentSize),
     );
-  }, [frameSize, contentSize]);
+  }, [frameSize, contentSize, fullSize]);
   useWheel(frame, sizes, change);
 
   const orientation = orientationFor(frameSize.width);
@@ -129,7 +130,7 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
         // for its sizes, already has every Stage in view, and holds.
         const wholeInView =
           frameNow.width === 0 ||
-          !overflows(fittedView(frameNow, contentNow), frameNow, contentNow);
+          !overflows(fittedView(frameNow, contentNow, sizes.current.full), frameNow, contentNow);
         if (fitted.current && wholeInView) return;
         change((last) => withBoxInView(last, box, frameNow, contentNow));
       },
@@ -218,7 +219,7 @@ export function FlowViewport(props: FlowViewportProps): ReactNode {
   // A flow running down has no room beside the controls for an Overview.
   const overviewFits = orientation === "across";
   const style = {
-    height: fullScreen ? undefined : viewportHeight(fullHeight, window.innerHeight),
+    height: fullScreen ? undefined : viewportHeight(fullSize.height, window.innerHeight),
   } satisfies CSSProperties;
   const contentStyle = {
     transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,

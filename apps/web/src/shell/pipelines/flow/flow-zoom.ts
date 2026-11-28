@@ -101,14 +101,24 @@ export function pannedBy(
   return clampedView({ ...view, x: view.x + dx, y: view.y + dy }, viewport, content);
 }
 
-/** The whole content in view, centred, never enlarged past 100%. */
-export function fittedView(viewport: FlowSize, content: FlowSize): FlowZoomView {
-  if (content.width <= 0 || content.height <= 0) return AT_START;
+/**
+ * The whole content in view, centred, never enlarged past 100%. The zoom is the one that fits
+ * `fullCards`, which is the content with its full cards: names-only cards shrink the content, and a
+ * zoom chosen from that smaller size would bring the full cards back and flip the zoom again.
+ */
+export function fittedView(
+  viewport: FlowSize,
+  content: FlowSize,
+  fullCards: FlowSize = content,
+): FlowZoomView {
+  // Until the full cards have been measured, the content as it is stands in.
+  const fitting = fullCards.width > 0 && fullCards.height > 0 ? fullCards : content;
+  if (fitting.width <= 0 || fitting.height <= 0) return AT_START;
   const zoom = clampZoom(
     Math.min(
       ZOOM_MAX,
-      (viewport.width - 2 * FIT_MARGIN) / content.width,
-      (viewport.height - 2 * FIT_MARGIN) / content.height,
+      (viewport.width - 2 * FIT_MARGIN) / fitting.width,
+      (viewport.height - 2 * FIT_MARGIN) / fitting.height,
     ),
   );
   return clampedView(

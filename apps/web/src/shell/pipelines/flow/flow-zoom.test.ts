@@ -37,6 +37,14 @@ describe("the flow canvas's view", () => {
     expect(fittedView(viewport, small).zoom).toBe(1);
   });
 
+  it("takes its zoom from the full cards, so names-only's smaller content doesn't flip it", () => {
+    const fullCards = { width: 1000, height: 800 };
+    const namesOnly = { width: 400, height: 300 };
+    const fitted = fittedView({ width: 700, height: 500 }, namesOnly, fullCards);
+    expect(fitted.zoom).toBe(fittedView({ width: 700, height: 500 }, fullCards).zoom);
+    expect(fitted.x).toBeCloseTo((700 - namesOnly.width * fitted.zoom) / 2);
+  });
+
   it("fits no further out than 25%", () => {
     expect(fittedView(viewport, { width: 20_000, height: 400 }).zoom).toBe(0.25);
   });
