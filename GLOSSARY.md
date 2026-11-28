@@ -230,7 +230,7 @@ The user's action on a paused or stopped Task that has the walk run a chosen Sta
 _Avoid_: Rewind, Retry, Send back (a Gate's)
 
 **Start over** (a Task):
-The user's action on a paused or stopped Task that takes it back to Ready, optionally resetting its branch to the base; earlier Stage runs stay as history only. See [2.4.5](docs/spec/2.4.5-stopping-and-restarts.md#start-over).
+The user's action on a paused or stopped Task that takes it back to Ready, or to Backlog to be planned again, optionally resetting its branch to the base; earlier Stage runs stay as history only. See [2.4.5](docs/spec/2.4.5-stopping-and-restarts.md#start-over).
 _Avoid_: Reset the Task, Restart (that is Restart from)
 
 **Reopen** (a Dropped Task):

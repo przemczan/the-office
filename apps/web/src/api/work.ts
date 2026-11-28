@@ -97,6 +97,7 @@ import {
   type TaskMoveCheck,
   type TaskReopen,
   type TaskRestart,
+  type TaskStartOver,
   type TaskWaysBack,
   type TaskSummary,
   type TaskPersonEngineSettings,
@@ -837,9 +838,12 @@ export function restartTask(id: string, restart: TaskRestart): Promise<void> {
   return sendToApiWithNoAnswer("POST", `${taskPath(id)}/restart`, restart);
 }
 
-/** Start over: the paused Task goes to Ready, its branch reset to the base with `resetBranch`. */
-export function startTaskOver(id: string, resetBranch: boolean): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/start-over`, { resetBranch }, taskSchema);
+/**
+ * Start over: the paused Task goes to Ready or Backlog (`to`), its branch reset to the base with
+ * `resetBranch`.
+ */
+export function startTaskOver(id: string, startOver: TaskStartOver): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/start-over`, startOver, taskSchema);
 }
 
 /** Reopen…: a Dropped Task goes back to Backlog or Ready, started over when it had started. */

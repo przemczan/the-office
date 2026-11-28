@@ -170,15 +170,12 @@ export const ALARM_HOLDS_RESTART = `${FIRE_ALARM_ON} Restart it after the all cl
 export const USAGE_WINDOW_HOLDS_THE_TASK =
   "Its engine's usage window is used up: the Task resumes at its reset.";
 
-/** What Pipelines answers for a Task whose work a Publish Stage pushed or opened a pull request of. */
-export const LEFT_THE_WORKSTATION = "Its work has left the workstation.";
-
-/** Pipelines' refusal of a Start over as Start over words it: Restart from… still goes back. */
-export function startOverRefusalWords(refusal: string): string {
-  return refusal === LEFT_THE_WORKSTATION
-    ? "Its work has left the workstation: use Restart from… instead."
-    : refusal;
-}
+/**
+ * Why Pipelines doesn't reset the branch of a Task a Publish Stage pushed or opened a pull request
+ * of: the next Publish pushes without force, onto the branch and pull request as they are.
+ */
+export const LEFT_THE_WORKSTATION =
+  "Its work has left the workstation, so its branch isn't reset: the next Publish pushes onto the same branch and pull request.";
 
 /** What holds a Paused Task beyond its own Pause or Stop, read as it stays, for a way back. */
 export interface WayBackHolds {
@@ -234,6 +231,12 @@ function heldProblems(task: Task, { initiativePaused }: WayBackHolds): string[] 
 
 /** Where Reopen… takes a Dropped Task, as the user asks. */
 export type ReopenTo = "backlog" | "ready";
+
+/**
+ * Where Start over takes a Task, as the user asks: Ready, its Plan, Definition of Done and Pipeline
+ * kept as confirmed, or Backlog, to plan it again (spec 2.4.5, "Start over").
+ */
+export type StartOverTo = "backlog" | "ready";
 
 /** What a Reopen… weighs beyond the Task: its Initiative and that Initiative's Tasks, as they stay. */
 export interface ReopenGrounds {
@@ -322,21 +325,26 @@ export interface WaysBack {
   readonly startOver: WayBackOffer;
   readonly reopen: WayBackOffer;
   readonly reopenToReady: WayBackOffer;
+  /** Whether Start over and Reopen… may reset the branch of a Task that had started. */
+  readonly resetBranch: WayBackOffer;
 }
 
 /** What the ways back of a Task are weighed on, read as it stays. */
 export interface WaysBackGrounds extends ReopenGrounds {
   readonly holds: WayBackHolds;
-  /** Pipelines' refusals of a Start over of its work (`startOverRefusalWords` words them). */
+  /** Pipelines' refusals of a Start over of its work. */
   readonly startOverRefusals: readonly string[];
+  /** Pipelines' refusals of resetting its branch as it starts over, such as `LEFT_THE_WORKSTATION`. */
+  readonly branchResetRefusals: readonly string[];
   /** Whether the Task had started, so a Reopen… starts it over and weighs Pipelines' refusals. */
   readonly hadStarted: boolean;
 }
 
 /**
  * The Task's ways back: Restart from… and Start over for a Paused Task, Reopen… to Backlog or to
- * Ready for a Dropped one, each offered or why not. One whose state has no such way back is not
- * offered, with no reason (null): the page doesn't show it at all.
+ * Ready for a Dropped one, and the reset of the branch of one that had started, each offered or why
+ * not. One whose state has no such way back is not offered, with no reason (null): the page doesn't
+ * show it at all.
  */
 export function waysBackOf(task: Task, grounds: WaysBackGrounds): WaysBack {
   const notHere: WayBackOffer = { offered: false, why: null };
@@ -346,11 +354,10 @@ export function waysBackOf(task: Task, grounds: WaysBackGrounds): WaysBack {
   return {
     restart: paused ? offerOf(restartProblems(task, grounds.holds)) : notHere,
     startOver: paused
-      ? offerOf([
-          ...startOverProblems(task, grounds.holds),
-          ...grounds.startOverRefusals.map(startOverRefusalWords),
-        ])
+      ? offerOf([...startOverProblems(task, grounds.holds), ...grounds.startOverRefusals])
       : notHere,
+    resetBranch:
+      (paused || dropped) && grounds.hadStarted ? offerOf(grounds.branchResetRefusals) : notHere,
     reopen: dropped
       ? offerOf([...reopenProblems(task, "backlog", grounds), ...reopenRefusals])
       : notHere,

@@ -19,6 +19,7 @@ import {
   TaskStartedOver,
   TaskStateChanged,
 } from "../../domain/task-events.js";
+import { LEFT_THE_WORKSTATION } from "../../domain/task-states.js";
 import { IssueWriteBackForTests, WorkSettingsForTests } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
@@ -38,7 +39,7 @@ const startedIds: string[] = [];
 
 const ANN = { userId: "00000000-0000-4000-8000-0000000005e1", name: "Ann Lee" };
 const KEPT_REF = "refs/office/started-over/1";
-const LEFT = "Its work has left the workstation.";
+const STILL_ENDING = "Its Stage is still ending its turn: try again in a moment.";
 
 const { create, readyTask } = tasksHttp(() => ({ work, projectId }));
 
@@ -122,22 +123,28 @@ describe("GET /api/tasks/:id/ways-back", () => {
       startOver: NOT_HERE,
       reopen: NOT_HERE,
       reopenToReady: NOT_HERE,
+      resetBranch: NOT_HERE,
       started: true,
       resetTo: "initiative/exports",
     });
-    expect(await waysBack(paused)).toMatchObject({ restart: OFFERED, startOver: OFFERED });
+    expect(await waysBack(paused)).toMatchObject({
+      restart: OFFERED,
+      startOver: OFFERED,
+      resetBranch: OFFERED,
+    });
   });
 
-  it("says why Start over isn't offered once the work has left the workstation", async () => {
+  it("still offers Start over once the work has left the workstation, but not its branch reset", async () => {
     const paused = await pausedTask();
-    pipelinesSaying({ refusals: async () => [LEFT] });
+    pipelinesSaying({
+      hadStarted: async () => true,
+      branchResetRefusals: async () => [LEFT_THE_WORKSTATION],
+    });
 
     expect(await waysBack(paused)).toMatchObject({
       restart: OFFERED,
-      startOver: {
-        offered: false,
-        why: "Its work has left the workstation: use Restart from… instead.",
-      },
+      startOver: OFFERED,
+      resetBranch: { offered: false, why: LEFT_THE_WORKSTATION },
     });
   });
 });
@@ -151,6 +158,7 @@ describe("POST /api/tasks/:id/start-over", () => {
     work.published.length = 0;
 
     const response = await sendJson(work, "POST", `/tasks/${paused}/start-over`, {
+      to: "ready",
       resetBranch: true,
     });
 
@@ -167,6 +175,7 @@ describe("POST /api/tasks/:id/start-over", () => {
       TaskStartedOver,
     ]);
     expect(work.published[1]).toMatchObject({
+      to: "ready",
       resetBranch: true,
       resetTo: "main",
       keptRef: KEPT_REF,
@@ -176,22 +185,73 @@ describe("POST /api/tasks/:id/start-over", () => {
     );
   });
 
-  it("is refused for a Task not Paused, and once its work left the workstation, asking Pipelines nothing", async () => {
+  it("takes it to Backlog to be planned again when asked, its Pipeline proposed", async () => {
+    const paused = await pausedTask();
+    pipelinesSaying({});
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${paused}/start-over`, {
+      to: "backlog",
+      resetBranch: false,
+    });
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json())).toMatchObject({
+      state: "backlog",
+      planConfirmed: false,
+      definitionOfDoneConfirmed: false,
+      pipelineId: null,
+      proposedPipeline: { pipelineId: "quick-fix" },
+    });
+    expect(work.published[1]).toMatchObject({ to: "backlog" });
+    expect((await historyOf(paused)).at(-1)).toBe(
+      "paused → backlog, by the user Ann Lee: Started over",
+    );
+  });
+
+  it("is refused for a Task not Paused and while its Stage ends its turn, asking Pipelines nothing", async () => {
     const ready = await readyTask();
     const paused = await pausedTask();
-    const pipelines = pipelinesSaying({ refusals: async () => [LEFT] });
+    const pipelines = pipelinesSaying({ refusals: async () => [STILL_ENDING] });
 
     expect(
       await reasonsOf(
-        await sendJson(work, "POST", `/tasks/${ready.id}/start-over`, { resetBranch: false }),
+        await sendJson(work, "POST", `/tasks/${ready.id}/start-over`, {
+          to: "ready",
+          resetBranch: false,
+        }),
       ),
     ).toEqual(["Only a Paused Task can be started over; this one is in Ready."]);
     expect(
       await reasonsOf(
-        await sendJson(work, "POST", `/tasks/${paused}/start-over`, { resetBranch: false }),
+        await sendJson(work, "POST", `/tasks/${paused}/start-over`, {
+          to: "ready",
+          resetBranch: false,
+        }),
       ),
-    ).toEqual(["Its work has left the workstation: use Restart from… instead."]);
+    ).toEqual([STILL_ENDING]);
     expect(pipelines.calls).toEqual([]);
+  });
+
+  it("refuses only the branch reset once its work left the workstation", async () => {
+    const paused = await pausedTask();
+    const pipelines = pipelinesSaying({ branchResetRefusals: async () => [LEFT_THE_WORKSTATION] });
+
+    expect(
+      await reasonsOf(
+        await sendJson(work, "POST", `/tasks/${paused}/start-over`, {
+          to: "ready",
+          resetBranch: true,
+        }),
+      ),
+    ).toEqual([LEFT_THE_WORKSTATION]);
+    expect(pipelines.calls).toEqual([]);
+    const response = await sendJson(work, "POST", `/tasks/${paused}/start-over`, {
+      to: "ready",
+      resetBranch: false,
+    });
+    expect(taskSchema.parse(await response.json()).state).toBe("ready");
+    expect(pipelines.calls).toEqual([[paused, { resetBranch: false, by: ANN }]]);
   });
 });
 
@@ -229,7 +289,7 @@ describe("POST /api/tasks/:id/reopen", () => {
     );
   });
 
-  it("starts a Task that had started over through Pipelines, refused as Start over once its work left", async () => {
+  it("starts a Task that had started over through Pipelines, refused as Start over is", async () => {
     const paused = await pausedTask();
     await sendJson(work, "POST", `/tasks/${paused}/drop`);
     const pipelines = pipelinesSaying({ hadStarted: async () => true });
@@ -245,8 +305,8 @@ describe("POST /api/tasks/:id/reopen", () => {
     );
 
     await sendJson(work, "POST", `/tasks/${paused}/drop`);
-    pipelinesSaying({ hadStarted: async () => true, refusals: async () => [LEFT] });
-    expect((await waysBack(paused)).reopen).toEqual({ offered: false, why: LEFT });
+    pipelinesSaying({ hadStarted: async () => true, refusals: async () => [STILL_ENDING] });
+    expect((await waysBack(paused)).reopen).toEqual({ offered: false, why: STILL_ENDING });
     expect(
       await reasonsOf(
         await sendJson(work, "POST", `/tasks/${paused}/reopen`, {
@@ -254,7 +314,20 @@ describe("POST /api/tasks/:id/reopen", () => {
           resetBranch: false,
         }),
       ),
-    ).toEqual([LEFT]);
+    ).toEqual([STILL_ENDING]);
+
+    pipelinesSaying({
+      hadStarted: async () => true,
+      branchResetRefusals: async () => [LEFT_THE_WORKSTATION],
+    });
+    expect(
+      await reasonsOf(
+        await sendJson(work, "POST", `/tasks/${paused}/reopen`, {
+          to: "backlog",
+          resetBranch: true,
+        }),
+      ),
+    ).toEqual([LEFT_THE_WORKSTATION]);
   });
 
   it("refuses Ready for a Task whose parts and Pipeline aren't confirmed, and a Task not Dropped", async () => {

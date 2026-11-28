@@ -255,11 +255,14 @@ function EditTaskStagesForm({
   );
 }
 
-/** The Stages that have started, any run making one so, by key with their state's words. */
+/**
+ * The Stages that have started, by key with their state's words: any run since the Task's latest
+ * Start over makes one so, as the service locks them (spec 2.4.5, "Start over").
+ */
 function startedStages({ stages }: TaskStages): ReadonlyMap<string, string> {
   return new Map(
     (stages ?? [])
-      .filter(({ runs }) => runs.length > 0)
+      .filter(({ runs }) => runs.some(({ earlierStart }) => !earlierStart))
       .map(({ stage, state }): [string, string] => [stage.key, STAGE_STATE_WORDS[state]]),
   );
 }

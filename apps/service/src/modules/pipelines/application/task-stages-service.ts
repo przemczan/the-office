@@ -2,7 +2,12 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import type { DutyKey } from "../../people/index.js";
-import { TaskMovedToProject, TaskPipelineConfirmed, TaskStageEdits } from "../../work/index.js";
+import {
+  TaskMovedToProject,
+  TaskPipelineConfirmed,
+  TaskStageEdits,
+  TaskStartedOver,
+} from "../../work/index.js";
 import { asFlow } from "../domain/flow.js";
 import { pipelineProblem, type Pipeline, type StageProblem } from "../domain/pipeline.js";
 import type { StagePosition } from "../domain/route.js";
@@ -70,6 +75,9 @@ export class TaskStagesService implements OnModuleInit {
       this.reset(taskId, pipelineId),
     );
     this.events.subscribe(TaskMovedToProject, ({ taskId }) => this.reset(taskId));
+    this.events.subscribe(TaskStartedOver, async ({ taskId, to }) => {
+      if (to === "backlog") await this.copyAgain(taskId);
+    });
     this.stageEdits.register((taskId) => this.editedForTask(taskId));
   }
 
@@ -193,6 +201,28 @@ export class TaskStagesService implements OnModuleInit {
       if (!own || (pipelineId !== undefined && followsPipeline(own, pipelineId))) return;
       await this.repository.remove(taskId);
       await this.events.publish(new TaskStagesReset(taskId, own.pipelineId));
+    });
+  }
+
+  /**
+   * A Start over to Backlog drops the Stages edited for the Task: they are copied again from its
+   * Pipeline as built now, keeping its trace, so its earlier runs stay readable once it follows that
+   * Pipeline again (spec §2.4.5, "Start over"). Set aside when that Pipeline is Broken or gone.
+   */
+  private async copyAgain(taskId: string): Promise<void> {
+    await this.changes.run(taskId, async () => {
+      const own = await this.repository.find(taskId);
+      if (!own) return;
+      const { projectId } = await this.tasks.read(taskId);
+      const found = await this.library.forTask(own.pipelineId, projectId);
+      if (found.kind !== "found") {
+        await this.repository.remove(taskId);
+        await this.events.publish(new TaskStagesReset(taskId, own.pipelineId));
+        return;
+      }
+      const { taskStages, event } = makeTaskStages(taskId, found.pipeline, new Date());
+      await this.repository.save({ ...taskStages, trace: own.trace });
+      await this.events.publish(event);
     });
   }
 

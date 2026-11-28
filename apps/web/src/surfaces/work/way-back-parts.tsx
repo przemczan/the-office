@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Task } from "@the-office/contracts";
+import type { Task, TaskWaysBack } from "@the-office/contracts";
 import { CheckboxList } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { taskQueries } from "../../api/work.ts";
@@ -34,34 +34,53 @@ export function useWayBack<Sent>(
 }
 
 /**
+ * Why the Task's branch isn't reset, when Start over and Reopen… may not reset it (its work has left
+ * the workstation); undefined while they may.
+ */
+export function notResetWhy({ resetBranch }: TaskWaysBack): string | undefined {
+  return resetBranch.offered ? undefined : (resetBranch.why ?? "Its branch can't be reset now.");
+}
+
+/** Whether the way back resets the branch: only a started Task's, while it may, when checked. */
+export function resetsBranch(waysBack: TaskWaysBack, checked: boolean): boolean {
+  return waysBack.started && waysBack.resetBranch.offered && checked;
+}
+
+/**
  * Whether Start over or Reopen… resets the Task's branch to `resetTo`, the freshly fetched base or
  * its Initiative's branch, keeping the old head under a local ref; asked only of a Task that had
- * started.
+ * started, and left unchecked and disabled, saying why, once it may not be reset.
  */
 export function ResetBranchField({
   resetTo,
   checked,
+  notReset,
   disabled,
   onChange,
 }: {
   readonly resetTo: string;
   readonly checked: boolean;
+  /** Why the branch may not be reset, from `notResetWhy`; undefined while it may. */
+  readonly notReset: string | undefined;
   readonly disabled: boolean;
   readonly onChange: (checked: boolean) => void;
 }): ReactNode {
+  const reset = notReset === undefined && checked;
   return (
     <div>
       <CheckboxList
         label="Branch"
         options={[{ value: RESET_BRANCH, label: `Reset the branch to ${resetTo}` }]}
-        values={checked ? [RESET_BRANCH] : []}
-        disabled={disabled}
+        values={reset ? [RESET_BRANCH] : []}
+        disabled={disabled || notReset !== undefined}
         onChange={(values) => onChange(values.includes(RESET_BRANCH))}
       />
       <p className="dialog-hint">
-        {checked
-          ? "Its work so far is kept under a local ref, off the branch."
-          : "The branch keeps its work so far, and the next start builds on it."}
+        {notReset !== undefined
+          ? `Not reset: ${notReset}`
+          : reset
+            ? "Its work so far is kept under a local ref, off the branch."
+            : "The branch keeps its work so far, and the next start builds on it."}
       </p>
     </div>
   );

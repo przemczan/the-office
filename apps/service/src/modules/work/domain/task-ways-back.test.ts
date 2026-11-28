@@ -107,7 +107,7 @@ describe("Start over", () => {
       short: "5-hour window used up",
     };
     const held = { ...paused, engineStandIns: [standIn] };
-    const change = startTaskOver(held, FREE, {
+    const change = startTaskOver(held, "ready", FREE, {
       resetBranch: true,
       resetTo: "main",
       keptRef: KEPT_REF,
@@ -118,6 +118,7 @@ describe("Start over", () => {
     expect(change.event).toEqual(
       new TaskStartedOver(
         paused.id,
+        "ready",
         true,
         "main",
         KEPT_REF,
@@ -131,7 +132,7 @@ describe("Start over", () => {
   });
 
   it("says only that it started over when the branch stays", () => {
-    const change = startTaskOver(paused, FREE, {
+    const change = startTaskOver(paused, "ready", FREE, {
       resetBranch: false,
       resetTo: undefined,
       keptRef: undefined,
@@ -141,30 +142,74 @@ describe("Start over", () => {
     expect(historyLineOf(change)).toBe("Paused → Ready, by the user Ann Lee: Started over");
   });
 
+  it("takes it to Backlog to be planned again, its Pipeline proposed and nothing confirmed", () => {
+    const over = { resetBranch: false, resetTo: undefined, keptRef: undefined, user: ANN };
+    const planned = {
+      ...paused,
+      autoMode: true,
+      initiativePlanningThreadId: "thread-1",
+      markedPlanned: true,
+    };
+    const change = startTaskOver(planned, "backlog", FREE, over);
+
+    expect(change.task).toEqual({
+      ...paused,
+      state: "backlog",
+      planConfirmed: false,
+      definitionOfDoneConfirmed: false,
+      pipelineId: undefined,
+      proposedPipeline: {
+        pipelineId: "full",
+        reason: "Followed before the Task started over; confirm it again.",
+      },
+      hasPlanningThread: false,
+    });
+    expect(change.event).toEqual(
+      new TaskStartedOver(
+        paused.id,
+        "backlog",
+        false,
+        undefined,
+        undefined,
+        ANN,
+        new TaskStateChanged(paused.id, "paused", "backlog"),
+      ),
+    );
+    expect(historyLineOf(change)).toBe("Paused → Backlog, by the user Ann Lee: Started over");
+  });
+
+  it("keeps a Pipeline already proposed as it starts over to Backlog", () => {
+    const over = { resetBranch: false, resetTo: undefined, keptRef: undefined, user: ANN };
+    const proposedPipeline = { pipelineId: "quick", reason: "A one-line fix." };
+    const change = startTaskOver({ ...paused, proposedPipeline }, "backlog", FREE, over);
+
+    expect(change.task).toMatchObject({ pipelineId: undefined, proposedPipeline });
+  });
+
   it("is refused while the alarm, the usage window or the Initiative holds it, not for the alarm alone", () => {
     const over = { resetBranch: false, resetTo: undefined, keptRef: undefined, user: ANN };
-    expect(() => startTaskOver(aTask({ state: "dropped" }), FREE, over)).toThrow(
+    expect(() => startTaskOver(aTask({ state: "dropped" }), "ready", FREE, over)).toThrow(
       new TaskRefused(["Only a Paused Task can be started over; this one is in Dropped."]),
     );
-    expect(() => startTaskOver({ ...paused, pausedBy: "initiative" }, FREE, over)).toThrow(
+    expect(() => startTaskOver({ ...paused, pausedBy: "initiative" }, "ready", FREE, over)).toThrow(
       new TaskRefused(["The Initiative is paused: resume it to go on."]),
     );
-    expect(() => startTaskOver({ ...paused, pausedBy: "alarm" }, FREE, over)).toThrow(
+    expect(() => startTaskOver({ ...paused, pausedBy: "alarm" }, "ready", FREE, over)).toThrow(
       new TaskRefused(["The fire alarm is on. The Task resumes with the all clear."]),
     );
-    expect(startTaskOver(paused, { ...FREE, alarmHoldsResume: true }, over).task.state).toBe(
-      "ready",
-    );
+    expect(
+      startTaskOver(paused, "ready", { ...FREE, alarmHoldsResume: true }, over).task.state,
+    ).toBe("ready");
   });
 
   it("is refused for a Publishing and a Conflict resolution Task, whose branch isn't their own", () => {
     const over = { resetBranch: true, resetTo: undefined, keptRef: undefined, user: ANN };
-    expect(() => startTaskOver({ ...paused, madeFor: "publishing" }, FREE, over)).toThrow(
+    expect(() => startTaskOver({ ...paused, madeFor: "publishing" }, "ready", FREE, over)).toThrow(
       new TaskRefused([PUBLISHING_TASK_NOT_STARTED_OVER]),
     );
-    expect(() => startTaskOver({ ...paused, madeFor: "resolve-conflicts" }, FREE, over)).toThrow(
-      new TaskRefused([CONFLICT_RESOLUTION_NOT_STARTED_OVER]),
-    );
+    expect(() =>
+      startTaskOver({ ...paused, madeFor: "resolve-conflicts" }, "ready", FREE, over),
+    ).toThrow(new TaskRefused([CONFLICT_RESOLUTION_NOT_STARTED_OVER]));
   });
 });
 
@@ -315,10 +360,12 @@ describe("Reopen…", () => {
 });
 
 describe("the ways back offered", () => {
+  const STILL_ENDING = "Its Stage is still ending its turn: try again in a moment.";
   const grounds = {
     ...NO_INITIATIVE,
     holds: FREE,
     startOverRefusals: [] as string[],
+    branchResetRefusals: [] as string[],
     hadStarted: true,
   };
 
@@ -328,6 +375,7 @@ describe("the ways back offered", () => {
       startOver: { offered: true, why: null },
       reopen: { offered: false, why: null },
       reopenToReady: { offered: false, why: null },
+      resetBranch: { offered: true, why: null },
     });
     expect(waysBackOf(aTask({ ...dropped, pipelineId: undefined }), grounds)).toEqual({
       restart: { offered: false, why: null },
@@ -337,25 +385,50 @@ describe("the ways back offered", () => {
         offered: false,
         why: "Choose a Pipeline before the Task can be Ready.",
       },
+      resetBranch: { offered: true, why: null },
     });
   });
 
-  it("says why not once the work has left the workstation, pointing Start over to Restart from…", () => {
-    const left = { ...grounds, startOverRefusals: [LEFT_THE_WORKSTATION] };
+  it("says why not while its Stage is still ending its turn, a Reopen… only of one that had started", () => {
+    const ending = { ...grounds, startOverRefusals: [STILL_ENDING] };
+
+    expect(waysBackOf(paused, ending)).toMatchObject({
+      restart: { offered: true, why: null },
+      startOver: { offered: false, why: STILL_ENDING },
+    });
+    expect(waysBackOf(dropped, ending).reopen).toEqual({ offered: false, why: STILL_ENDING });
+    expect(waysBackOf(dropped, { ...ending, hadStarted: false }).reopen).toEqual({
+      offered: true,
+      why: null,
+    });
+  });
+
+  it("still starts over once the work has left the workstation, only its branch reset not offered", () => {
+    const left = { ...grounds, branchResetRefusals: [LEFT_THE_WORKSTATION] };
 
     expect(waysBackOf(paused, left)).toMatchObject({
-      restart: { offered: true, why: null },
-      startOver: {
-        offered: false,
-        why: "Its work has left the workstation: use Restart from… instead.",
-      },
+      startOver: { offered: true, why: null },
+      resetBranch: { offered: false, why: LEFT_THE_WORKSTATION },
     });
-    expect(waysBackOf(dropped, left).reopen).toEqual({
+    expect(waysBackOf(dropped, left)).toMatchObject({
+      reopen: { offered: true, why: null },
+      resetBranch: { offered: false, why: LEFT_THE_WORKSTATION },
+    });
+  });
+
+  it("doesn't ask about the branch of a Task that never started, nor of one neither Paused nor Dropped", () => {
+    const left = { ...grounds, branchResetRefusals: [LEFT_THE_WORKSTATION] };
+
+    expect(waysBackOf(paused, { ...left, hadStarted: false }).resetBranch).toEqual({
       offered: false,
-      why: "Its work has left the workstation.",
+      why: null,
     });
-    expect(waysBackOf(dropped, { ...left, hadStarted: false }).reopen).toEqual({
-      offered: true,
+    expect(waysBackOf(dropped, { ...left, hadStarted: false }).resetBranch).toEqual({
+      offered: false,
+      why: null,
+    });
+    expect(waysBackOf(aTask({ state: "ready" }), left).resetBranch).toEqual({
+      offered: false,
       why: null,
     });
   });

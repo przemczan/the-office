@@ -473,13 +473,16 @@ export class TaskStarted extends DomainEvent {
 }
 
 /**
- * Paused → Ready: the user started the Task over (spec 2.4.5, "Start over"), its earlier Stage runs
- * kept as history only. With `resetBranch`, its branch was reset to `resetTo`, its old head kept
- * under `keptRef`; both undefined when it wasn't. `stateChanged`, the move, is published before it.
+ * Paused → Ready or Backlog, as `to` asked: the user started the Task over (spec 2.4.5, "Start
+ * over"), its earlier Stage runs kept as history only; to Backlog, its Plan, Definition of Done and
+ * Pipeline are Not confirmed, and its Stages edited for this Task are dropped. With `resetBranch`,
+ * its branch was reset to `resetTo`, its old head kept under `keptRef`; both undefined when it
+ * wasn't. `stateChanged`, the move, is published before it.
  */
 export class TaskStartedOver extends DomainEvent {
   constructor(
     readonly taskId: string,
+    readonly to: "backlog" | "ready",
     readonly resetBranch: boolean,
     readonly resetTo: string | undefined,
     readonly keptRef: string | undefined,

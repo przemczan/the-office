@@ -84,6 +84,7 @@ export async function startWorkApplication(
 /** Pipelines' part of a Start over as a Work application without Pipelines has it. */
 export const START_OVER_WORK_FOR_TESTS: StartOverWork = {
   refusals: async () => [],
+  branchResetRefusals: async () => [],
   resetTo: async () => "main",
   hadStarted: async () => false,
   startOver: async () => ({ resetTo: undefined, keptRef: undefined }),

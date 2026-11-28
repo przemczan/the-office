@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import { TaskResumed, TaskStartedOver } from "../domain/task-events.js";
+import { TaskRefused } from "../domain/task-refused.js";
+import { LEFT_THE_WORKSTATION } from "../domain/task-states.js";
 import { ANN_LEE } from "../domain/work.fixtures.js";
 import { WorkSettingsForTests } from "../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../ports/work-settings.js";
@@ -95,7 +97,7 @@ describe("TaskWaysBack.startOver", () => {
     const pipelines = heldStartOvers();
     work.published.length = 0;
 
-    const startingOver = work.app.get(TaskWaysBack).startOver(paused, true, ANN_LEE);
+    const startingOver = work.app.get(TaskWaysBack).startOver(paused, "ready", true, ANN_LEE);
     await pipelines.began;
     const resuming = work.app
       .get(TaskService)
@@ -125,7 +127,7 @@ describe("TaskWaysBack.startOver", () => {
     const paused = await pausedTask();
     const pipelines = heldStartOvers();
 
-    const startingOver = work.app.get(TaskWaysBack).startOver(paused, false, ANN_LEE);
+    const startingOver = work.app.get(TaskWaysBack).startOver(paused, "ready", false, ANN_LEE);
     await pipelines.began;
     const restarting = work.app
       .get(TaskService)
@@ -142,7 +144,7 @@ describe("TaskWaysBack.startOver", () => {
     const paused = await pausedTask();
     const pipelines = heldStartOvers();
 
-    const startingOver = work.app.get(TaskWaysBack).startOver(paused, true, ANN_LEE);
+    const startingOver = work.app.get(TaskWaysBack).startOver(paused, "ready", true, ANN_LEE);
     await pipelines.began;
     const dropping = work.app
       .get(TaskService)
@@ -163,16 +165,36 @@ describe("TaskWaysBack.startOver", () => {
     const pipelines = heldStartOvers();
     const waysBack = work.app.get(TaskWaysBack);
 
-    const first = waysBack.startOver(paused, true, ANN_LEE);
+    const first = waysBack.startOver(paused, "ready", true, ANN_LEE);
     await pipelines.began;
     const second = waysBack
-      .startOver(paused, true, ANN_LEE)
+      .startOver(paused, "ready", true, ANN_LEE)
       .catch((error: unknown) => (error as Error).message);
     pipelines.letGo();
 
     expect((await first).state).toBe("ready");
     expect(await second).toBe("Only a Paused Task can be started over; this one is in Ready.");
     expect(pipelines.order).toEqual(["start over began", "start over ended"]);
+  });
+
+  it("refuses the branch reset Pipelines refuses, starting the Task over without it", async () => {
+    const paused = await pausedTask();
+    const asked: boolean[] = [];
+    work.app.get(TaskStartOvers).register({
+      ...START_OVER_WORK_FOR_TESTS,
+      branchResetRefusals: async () => [LEFT_THE_WORKSTATION],
+      startOver: async (_taskId, { resetBranch }) => {
+        asked.push(resetBranch);
+        return { resetTo: undefined, keptRef: undefined };
+      },
+    });
+    const waysBack = work.app.get(TaskWaysBack);
+
+    await expect(waysBack.startOver(paused, "ready", true, ANN_LEE)).rejects.toThrow(
+      new TaskRefused([LEFT_THE_WORKSTATION]),
+    );
+    expect((await waysBack.startOver(paused, "backlog", false, ANN_LEE)).state).toBe("backlog");
+    expect(asked).toEqual([false]);
   });
 });
 

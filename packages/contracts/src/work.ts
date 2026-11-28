@@ -677,11 +677,18 @@ export const dropSchema = z.object({ reason: dropReasonSchema.optional() });
 export type Drop = z.infer<typeof dropSchema>;
 
 /**
- * POST /tasks/:id/start-over, Start over a Task the user paused or stopped: it goes to Ready, its
- * earlier Stage runs kept as history only; with `resetBranch`, its branch is reset to the freshly
- * fetched base, the old head kept under a local ref. Answers the Task.
+ * Where Start over takes a Task: Ready, its Plan, Definition of Done and Pipeline kept as confirmed,
+ * or Backlog, all three Not confirmed and its Stages edited for the Task dropped.
  */
-export const taskStartOverSchema = z.object({ resetBranch: z.boolean() });
+export const startOverToSchema = z.enum(["backlog", "ready"]);
+export type StartOverTo = z.infer<typeof startOverToSchema>;
+
+/**
+ * POST /tasks/:id/start-over, Start over a Task the user paused or stopped: it goes to Ready or
+ * Backlog (`to`), its earlier Stage runs kept as history only; with `resetBranch`, its branch is
+ * reset to the freshly fetched base, the old head kept under a local ref. Answers the Task.
+ */
+export const taskStartOverSchema = z.object({ to: startOverToSchema, resetBranch: z.boolean() });
 export type TaskStartOver = z.infer<typeof taskStartOverSchema>;
 
 /** Where Reopen… takes a Dropped Task. */
@@ -710,6 +717,11 @@ export const taskWaysBackSchema = z.object({
   startOver: wayBackSchema,
   reopen: wayBackSchema,
   reopenToReady: wayBackSchema,
+  /**
+   * Whether Start over and Reopen… may reset the branch of a Task that had started: not once a
+   * Publish Stage pushed it or opened a pull request. Not offered, with no reason, when not asked.
+   */
+  resetBranch: wayBackSchema,
   started: z.boolean(),
   /** The branch a reset takes the Task's branch to: its Initiative's branch, else the base branch. */
   resetTo: z.string(),
@@ -1171,9 +1183,10 @@ export const START_TASK_OVER_ACTION = officeAction({
   name: "start_task_over",
   title: "Start a Task over",
   description:
-    "Starts a Task Paused by the user over: it goes to Ready, its earlier Stage runs kept as history only; with resetBranch, its branch is reset to the freshly fetched base.",
+    "Starts a Task Paused by the user over: it goes to Ready, its Plan, Definition of Done and Pipeline kept as confirmed, or to Backlog, all three Not confirmed and its Stages edited for the Task dropped; its earlier Stage runs are kept as history only. With resetBranch, its branch is reset to the freshly fetched base, refused once a Publish Stage pushed it.",
   input: z.object({
     taskId: taskIdInput,
+    to: startOverToSchema.describe("Where the Task goes: ready or backlog."),
     resetBranch: z.boolean().describe("Whether the Task's branch is reset to the base."),
   }),
   answer: taskSchema,

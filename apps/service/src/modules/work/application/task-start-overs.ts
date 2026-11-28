@@ -19,11 +19,13 @@ export interface StartedOverWork {
  * the walk, the Stage runs and the Task's branch (spec 2.4.5, "Start over").
  */
 export interface StartOverWork {
-  /**
-   * Why the Task's work can't be started over: a Publish Stage pushed its branch or opened a pull
-   * request, or its held run is still ending its turn. Empty when it can.
-   */
+  /** Why the Task's work can't be started over: its held run is still ending its turn. Empty when it can. */
   refusals(taskId: string): Promise<readonly string[]>;
+  /**
+   * Why the Task's branch isn't reset as it starts over: a Publish Stage pushed it or opened a pull
+   * request (`LEFT_THE_WORKSTATION`). Empty when it may be.
+   */
+  branchResetRefusals(taskId: string): Promise<readonly string[]>;
   /**
    * The branch a reset would take the Task's branch to: its Initiative's branch, else the
    * Project's base branch.
@@ -36,7 +38,8 @@ export interface StartOverWork {
   /**
    * Starts the walk over: the Task's runs so far become history only, the next Start opening fresh
    * Stage sessions; with `resetBranch`, the branch is reset to the freshly fetched `resetTo`, its
-   * old head kept under a local ref. Refused (it throws) as `refusals` says.
+   * old head kept under a local ref. Refused (it throws) as `refusals` says, and with `resetBranch`
+   * as `branchResetRefusals` says.
    */
   startOver(
     taskId: string,

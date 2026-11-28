@@ -18,10 +18,10 @@ import { TaskRefused } from "../domain/task-refused.js";
 import {
   reopenProblems,
   startOverProblems,
-  startOverRefusalWords,
   waysBackOf,
   type ReopenGrounds,
   type ReopenTo,
+  type StartOverTo,
   type WaysBack,
 } from "../domain/task-states.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
@@ -62,39 +62,50 @@ export class TaskWaysBack {
     const task = await this.tasks.read(id);
     const work = this.startOvers.registered;
     const weighsPipelines = task.state === "paused" || task.state === "dropped";
-    const [holds, grounds, hadStarted, resetTo, startOverRefusals] = await Promise.all([
-      this.tasks.wayBackHolds(task),
-      this.reopenGrounds(task),
-      work.hadStarted(id),
-      work.resetTo(id),
-      weighsPipelines ? work.refusals(id) : Promise.resolve([]),
-    ]);
+    const none = Promise.resolve([]);
+    const [holds, grounds, hadStarted, resetTo, startOverRefusals, branchResetRefusals] =
+      await Promise.all([
+        this.tasks.wayBackHolds(task),
+        this.reopenGrounds(task),
+        work.hadStarted(id),
+        work.resetTo(id),
+        weighsPipelines ? work.refusals(id) : none,
+        weighsPipelines ? work.branchResetRefusals(id) : none,
+      ]);
     return {
-      ...waysBackOf(task, { ...grounds, holds, startOverRefusals, hadStarted }),
+      ...waysBackOf(task, {
+        ...grounds,
+        holds,
+        startOverRefusals,
+        branchResetRefusals,
+        hadStarted,
+      }),
       started: hadStarted,
       resetTo,
     };
   }
 
   /**
-   * Start over: a Task Paused by the user's own Pause or Stop goes to Ready, not queued, its Plan,
-   * Definition of Done and Pipeline kept as confirmed; Pipelines leaves its Stage runs so far as
-   * history and, with `resetBranch`, resets its branch, keeping the old head under a local ref.
-   * Refused while the fire alarm, its engine's usage window or its paused Initiative holds it, and
-   * when its work has left the workstation.
+   * Start over: a Task Paused by the user's own Pause or Stop goes to Ready or Backlog (`to`), not
+   * queued: to Ready, its Plan, Definition of Done and Pipeline kept as confirmed; to Backlog, to be
+   * planned again. Pipelines leaves its Stage runs so far as history and, with `resetBranch`,
+   * resets its branch, keeping the old head under a local ref. Refused while the fire alarm, its
+   * engine's usage window or its paused Initiative holds it; the reset, once its work has left the
+   * workstation.
    */
-  async startOver(id: string, resetBranch: boolean, by: Author): Promise<Task> {
+  async startOver(id: string, to: StartOverTo, resetBranch: boolean, by: Author): Promise<Task> {
     const { user, person } = wayBackTakenBy(by);
     const work = this.startOvers.registered;
     const { task: changed, event } = await this.taskLocks.run(id, async () => {
       const task = await this.tasks.read(id);
       refuse(startOverProblems(task, await this.tasks.wayBackHolds(task)));
-      refuse((await work.refusals(id)).map(startOverRefusalWords));
+      refuse(await work.refusals(id));
+      if (resetBranch) refuse(await work.branchResetRefusals(id));
       const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
       const startingOver: StartingOver = { resetBranch, resetTo, keptRef, user, person };
       // The alarm holds no Start over (a Ready Task doesn't walk); its Initiative is read as held.
       return this.change(task, (held, initiativePaused) =>
-        startTaskOver(held, { initiativePaused, alarmHoldsResume: false }, startingOver),
+        startTaskOver(held, to, { initiativePaused, alarmHoldsResume: false }, startingOver),
       );
     });
     await this.publish(event);
@@ -104,7 +115,7 @@ export class TaskWaysBack {
   /**
    * Reopen…: a Dropped Task goes to Backlog or Ready, an archived one Restored first. One that had
    * started is started over through Pipelines as Start over is, with the same choice of resetting
-   * its branch and the same refusal once its work has left the workstation. In an active Initiative,
+   * its branch, refused once its work has left the workstation. In an active Initiative,
    * it waits in front of its Project's Publishing Task again while that hasn't started.
    */
   async reopen(id: string, to: ReopenTo, resetBranch: boolean, by: Author): Promise<Task> {
@@ -116,6 +127,7 @@ export class TaskWaysBack {
       let startedOver: StartingOver | undefined;
       if (await work.hadStarted(id)) {
         refuse(await work.refusals(id));
+        if (resetBranch) refuse(await work.branchResetRefusals(id));
         const { resetTo, keptRef } = await work.startOver(id, { resetBranch, by: user });
         startedOver = { resetBranch, resetTo, keptRef, user, person };
       }

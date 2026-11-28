@@ -78,6 +78,20 @@ describe("Reopen…", () => {
     );
   });
 
+  it("keeps the branch once its work has left the workstation, saying why", async () => {
+    api.reopenTask.mockResolvedValue({ ...TASK, state: "backlog" });
+    open(aWaysBack({ resetBranch: { offered: false, why: null } }));
+
+    expect(choice("Reset the branch to main").checked).toBe(false);
+    expect(choice("Reset the branch to main").disabled).toBe(true);
+    expect(document.body.textContent).toContain("Not reset: Its branch can't be reset now.");
+    await act(async () => button("Reopen the Task").click());
+
+    await until(() =>
+      expect(api.reopenTask).toHaveBeenCalledWith(TASK.id, { to: "backlog", resetBranch: false }),
+    );
+  });
+
   it("asks nothing of the branch of a Task that never started", async () => {
     api.reopenTask.mockResolvedValue({ ...TASK, state: "backlog" });
     open(aWaysBack({ started: false }));

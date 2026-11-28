@@ -22,6 +22,7 @@ export function aWaysBack(fields: Partial<TaskWaysBack> = {}): TaskWaysBack {
     startOver: OFFERED,
     reopen: OFFERED,
     reopenToReady: OFFERED,
+    resetBranch: OFFERED,
     started: true,
     resetTo: "main",
     ...fields,

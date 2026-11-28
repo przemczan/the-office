@@ -3,7 +3,13 @@ import { Button, Dialog, Field, RadioList } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { reopenTask } from "../../api/work.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { EARLIER_RUNS_STAY, ResetBranchField, useWayBack } from "./way-back-parts.tsx";
+import {
+  EARLIER_RUNS_STAY,
+  notResetWhy,
+  ResetBranchField,
+  resetsBranch,
+  useWayBack,
+} from "./way-back-parts.tsx";
 
 const REOPENED_WORDS: Readonly<Record<ReopenTo, string>> = {
   backlog: "Reopened to Backlog.",
@@ -25,7 +31,7 @@ export function ReopenTaskDialog({
 }): ReactNode {
   const name = useId();
   const [to, setTo] = useState<ReopenTo>("backlog");
-  const [resetBranch, setResetBranch] = useState(true);
+  const [resetBranch, setResetBranch] = useState(waysBack.resetBranch.offered);
   const reopening = useWayBack(
     task.id,
     (reopen: TaskReopen) => reopenTask(task.id, reopen),
@@ -45,7 +51,7 @@ export function ReopenTaskDialog({
         <Button
           variant="primary"
           loading={reopening.isPending}
-          onClick={() => reopening.mutate({ to, resetBranch: waysBack.started && resetBranch })}
+          onClick={() => reopening.mutate({ to, resetBranch: resetsBranch(waysBack, resetBranch) })}
         >
           Reopen the Task
         </Button>
@@ -82,6 +88,7 @@ export function ReopenTaskDialog({
           <ResetBranchField
             resetTo={waysBack.resetTo}
             checked={resetBranch}
+            notReset={notResetWhy(waysBack)}
             disabled={reopening.isPending}
             onChange={setResetBranch}
           />

@@ -2,16 +2,22 @@ import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
+import {
+  TaskMovedToProject,
+  TaskPipelineConfirmed,
+  TaskStartedOver,
+  TaskStateChanged,
+} from "../../work/index.js";
 import { asFlow } from "../domain/flow.js";
 import { agentStage, scriptStage } from "../domain/stage.fixtures.js";
 import { agentStageWorkers, type Stage } from "../domain/stage.js";
-import { TaskStagesReset } from "../domain/task-stages-events.js";
+import { TaskStagesMade, TaskStagesReset } from "../domain/task-stages-events.js";
 import {
   startPipelinesApplication,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aPerson } from "../ports/pipelines-ports.fixtures.js";
+import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { projectPipelinesForTests } from "../project-pipelines.fixtures.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 import { PipelineLibraryEditor } from "./pipeline-library-editor.js";
@@ -220,6 +226,66 @@ describe("moving the Task to another Project", () => {
     expect((await service.make(taskId, "quick-fix")).stages).toEqual(
       taskCopyOf(builtIn("quick-fix")),
     );
+  });
+});
+
+describe("starting the Task over", () => {
+  const ANN = { userId: "00000000-0000-4000-8000-0000000005e1", name: "Ann Lee" };
+  const TRACE = { traceId: "4bf92f3577b34da6a3ce929d0e0e4736", spanId: "00f067aa0ba902b7" };
+
+  /** A Paused Task whose Stages were edited for it, its trace begun. */
+  async function anEditedTask(): Promise<string> {
+    const taskId = aTask("paused");
+    await service.edit(taskId, withGate);
+    const repository = pipelines.app.get(TaskStagesRepository);
+    const own = await repository.find(taskId);
+    if (!own) throw new Error("No Stages of its own.");
+    await repository.save({ ...own, trace: TRACE });
+    pipelines.published.length = 0;
+    return taskId;
+  }
+
+  async function startOver(taskId: string, to: "backlog" | "ready"): Promise<void> {
+    await pipelines.app
+      .get(EventBus)
+      .publish(
+        new TaskStartedOver(
+          taskId,
+          to,
+          false,
+          undefined,
+          undefined,
+          ANN,
+          new TaskStateChanged(taskId, "paused", to),
+        ),
+      );
+  }
+
+  it("to Backlog copies its Pipeline's Stages again in place of those edited for it, keeping its trace", async () => {
+    const taskId = await anEditedTask();
+
+    await startOver(taskId, "backlog");
+
+    expect(await pipelines.app.get(TaskStagesRepository).find(taskId)).toMatchObject({
+      pipelineId: "quick-fix",
+      stages: taskCopyOf(builtIn("quick-fix")),
+      editedForTask: false,
+      trace: TRACE,
+    });
+    expect(eventsOf(TaskStagesMade)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
+  });
+
+  it("to Ready keeps the Stages edited for it", async () => {
+    const taskId = await anEditedTask();
+
+    await startOver(taskId, "ready");
+
+    expect(await pipelines.app.get(TaskStagesRepository).find(taskId)).toMatchObject({
+      stages: taskCopyOf(withGate),
+      editedForTask: true,
+      trace: TRACE,
+    });
+    expect(pipelines.published.filter((event) => !(event instanceof TaskStartedOver))).toEqual([]);
   });
 });
 

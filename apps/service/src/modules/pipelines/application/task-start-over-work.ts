@@ -44,13 +44,20 @@ export class TaskStartOverWork implements StartOverWork, OnModuleInit {
   }
 
   async refusals(taskId: string): Promise<readonly string[]> {
-    const allRuns = await this.runs.list(taskId);
-    const stages = asFlow((await this.taskStages.stagesToWork(taskId)) ?? []);
-    if (workLeftTheWorkstation(stages, allRuns)) return [LEFT_THE_WORKSTATION];
-    const last = allRuns.at(-1);
+    const last = (await this.runs.list(taskId)).at(-1);
     if (last && !last.outcome)
       return ["Its Stage is still ending its turn: try again in a moment."];
     return [];
+  }
+
+  /**
+   * A pushed branch isn't reset: the next Publish pushes without force, so it builds on the branch
+   * and pull request as they are (spec §2.4.5, "Start over").
+   */
+  async branchResetRefusals(taskId: string): Promise<readonly string[]> {
+    const allRuns = await this.runs.list(taskId);
+    const stages = asFlow((await this.taskStages.stagesToWork(taskId)) ?? []);
+    return workLeftTheWorkstation(stages, allRuns) ? [LEFT_THE_WORKSTATION] : [];
   }
 
   async resetTo(taskId: string): Promise<string> {
@@ -67,7 +74,10 @@ export class TaskStartOverWork implements StartOverWork, OnModuleInit {
     taskId: string,
     { resetBranch, by }: { readonly resetBranch: boolean; readonly by: StartingOverUser },
   ): Promise<StartedOverWork> {
-    const refused = await this.refusals(taskId);
+    const refused = [
+      ...(await this.refusals(taskId)),
+      ...(resetBranch ? await this.branchResetRefusals(taskId) : []),
+    ];
     if (refused.length > 0) throw new RestartRefused(refused);
     const allRuns = await this.runs.list(taskId);
     const number = startOversOf(allRuns) + 1;

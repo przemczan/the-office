@@ -135,15 +135,19 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - **Resume** (play, primary, a split button): on a Paused Task; its label and hint say how the Task goes on (from the latest run, its Thread's context and whether a Decision is open); toast "Resumed."
 - **Restart from…** and **Start over**: in Resume's split menu, on a Paused Task, including one Stopped; an Agent's call to either is in Work › Gates and runs, ruled by its [Authority](../6-permissions-and-safety.md#authority) ([6](../6-permissions-and-safety.md#authority-by-role)), not [the user's alone](../6-permissions-and-safety.md#the-users-alone); while the fire alarm, a usage window or a paused Initiative holds the Task they are refused with the reason, as Pause and Stop are.
 - Restart from… opens a window "Restart <title> from…" with a **Restart from** picker of every Stage of the Pipeline, later ones too, optional **Feedback**, and the button **Restart**; it says the held run ends and the Stage's uncommitted edits Pause kept are discarded; toast "Restarted from <Stage>."
-- Start over opens "Start <title> over?" with the checkbox **Reset the branch to <base>**, checked, <base> being the Initiative's branch for an Initiative Task, else the Project's base branch; it says the Task goes to Ready, keeps its Plan, Definition of Done and Pipeline, and keeps its earlier Stage runs as history; the button **Start over**; toast "Started over: the Task is Ready."
-- A Task whose Publish pushed its branch or opened a pull request refuses Start over: "Its work has left the workstation: use Restart from… instead."
+- Start over opens "Start <title> over?" (Small): it says the held run ends, the Task goes back, not queued, and its earlier Stage runs stay as history; the button **Start over**.
+- Radios **Start over to**: **To Ready**, the default, with "Its Plan, Definition of Done and Pipeline stay confirmed, to start again from its first Stage."; **To Backlog**, with "Its Plan, Definition of Done and Pipeline stay but go back to Not confirmed, to plan again, and its Stages edited for this Task are dropped."
+- For a Task that had started, the checkbox **Reset the branch to <base>**, checked, <base> being the Initiative's branch for an Initiative Task, else the Project's base branch.
+- Toast "Started over: the Task is Ready.", or "Started over: the Task is in Backlog, to plan again."
+- A Task whose Publish pushed its branch or opened a pull request can be started over, its reset unchecked and disabled: "Not reset: Its work has left the workstation, so its branch isn't reset: the next Publish pushes onto the same branch and pull request."
+- After a Start over, the Pipeline's picker and **Edit for this Task** treat a Stage as started only for a run since it: the first Stage's person can be changed again.
 - Rules: [2.4.5](../2.4.5-stopping-and-restarts.md#stop-and-pause), [Restart from](../2.4.5-stopping-and-restarts.md#restart-from), [Start over](../2.4.5-stopping-and-restarts.md#start-over).
 
 ## Reopen window
 
 - "Reopen <title>?" (Small), button **Reopen the Task**, from the head or **More** on a Dropped Task.
 - Radios **To Backlog** and **To Ready**; To Ready is disabled with the reason unless the Plan, Definition of Done and Pipeline are confirmed.
-- For a Task that had started: the checkbox **Reset the branch to <base>**, checked, and the words that its earlier Stage runs stay as history; refused once Publish pushed: "Its work has left the workstation."
+- For a Task that had started: the checkbox **Reset the branch to <base>**, checked, and the words that its earlier Stage runs stay as history; once Publish pushed, unchecked and disabled with "Not reset: …", as in Start over.
 - It notes a closed GitHub issue is reopened, and that the Decisions the Drop closed stay closed.
 - A refusal shows in the window ("The Task can't be reopened", with the reason); success toasts "Reopened to <Backlog|Ready>."
 - Rules: [2.1.3](../2.1.3-tasks.md#reopen).

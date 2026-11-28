@@ -1,3 +1,4 @@
+import type { TaskWaysBack } from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../api/api-client.ts";
@@ -21,11 +22,11 @@ vi.mock("../../api/work.ts", async (original) => ({
 
 const onClose = vi.fn<() => void>();
 
-function open(started = true): void {
+function open(waysBack: Partial<TaskWaysBack> = {}): void {
   rendered(
     <StartOverDialog
       task={TASK}
-      waysBack={aWaysBack({ started, resetTo: "office/initiative-login" })}
+      waysBack={aWaysBack({ resetTo: "office/initiative-login", ...waysBack })}
       onClose={onClose}
     />,
   );
@@ -47,13 +48,24 @@ describe("Start over", () => {
     expect(document.body.textContent).toContain("Its earlier Stage runs stay in the Stage history");
   });
 
+  it("starts over to Ready at first, saying its parts stay confirmed", () => {
+    open();
+
+    expect(choice("To Ready").checked).toBe(true);
+    expect(document.body.textContent).toContain(
+      "Its Plan, Definition of Done and Pipeline stay confirmed, to start again from its first Stage.",
+    );
+  });
+
   it("starts over with the branch reset, and says the Task is Ready", async () => {
     api.startTaskOver.mockResolvedValue({ ...TASK, state: "ready" });
     open();
 
     await act(async () => button("Start over").click());
 
-    await until(() => expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, true));
+    await until(() =>
+      expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, { to: "ready", resetBranch: true }),
+    );
     await until(() =>
       expect(document.body.textContent).toContain("Started over: the Task is Ready."),
     );
@@ -67,16 +79,54 @@ describe("Start over", () => {
 
     await act(async () => button("Start over").click());
 
-    await until(() => expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, false));
+    await until(() =>
+      expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, { to: "ready", resetBranch: false }),
+    );
+  });
+
+  it("starts over to Backlog when picked, to plan again", async () => {
+    api.startTaskOver.mockResolvedValue({ ...TASK, state: "backlog" });
+    open();
+    act(() => choice("To Backlog").click());
+
+    expect(document.body.textContent).toContain(
+      "Its Plan, Definition of Done and Pipeline stay but go back to Not confirmed, to plan again, and its Stages edited for this Task are dropped.",
+    );
+    await act(async () => button("Start over").click());
+
+    await until(() =>
+      expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, { to: "backlog", resetBranch: true }),
+    );
+    await until(() =>
+      expect(document.body.textContent).toContain(
+        "Started over: the Task is in Backlog, to plan again.",
+      ),
+    );
+  });
+
+  it("keeps the branch once its work has left the workstation, saying why", async () => {
+    api.startTaskOver.mockResolvedValue({ ...TASK, state: "ready" });
+    open({ resetBranch: { offered: false, why: "Its work has left the workstation." } });
+
+    expect(choice(RESET).checked).toBe(false);
+    expect(choice(RESET).disabled).toBe(true);
+    expect(document.body.textContent).toContain("Not reset: Its work has left the workstation.");
+    await act(async () => button("Start over").click());
+
+    await until(() =>
+      expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, { to: "ready", resetBranch: false }),
+    );
   });
 
   it("asks nothing of the branch of a Task that never started", async () => {
     api.startTaskOver.mockResolvedValue({ ...TASK, state: "ready" });
-    open(false);
+    open({ started: false, resetBranch: { offered: false, why: null } });
 
     expect(document.body.textContent).not.toContain("Reset the branch");
     await act(async () => button("Start over").click());
-    await until(() => expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, false));
+    await until(() =>
+      expect(api.startTaskOver).toHaveBeenCalledWith(TASK.id, { to: "ready", resetBranch: false }),
+    );
   });
 
   it("shows a refusal's reasons", async () => {

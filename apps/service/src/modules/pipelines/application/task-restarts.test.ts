@@ -266,7 +266,7 @@ describe("Start over", () => {
     expect(kept?.keptRef).toBeUndefined();
   });
 
-  it("is refused once a Publish shipped the Task's work", async () => {
+  it("keeps the branch of a Task a Publish shipped, starting its work over onto it", async () => {
     pipelines = await startPipelinesApplication([agentDone()]);
     const taskId = randomUUID();
     pausingAtTurn(taskId, 1);
@@ -280,9 +280,15 @@ describe("Start over", () => {
       pullRequestUrl: "https://github.com/acme/app/pull/7",
     });
 
-    expect(await startOvers().refusals(taskId)).toEqual([LEFT_THE_WORKSTATION]);
+    expect(await startOvers().refusals(taskId)).toEqual([]);
+    expect(await startOvers().branchResetRefusals(taskId)).toEqual([LEFT_THE_WORKSTATION]);
     await expect(
       startOvers().startOver(taskId, { resetBranch: true, by: ANN_LEE }),
     ).rejects.toThrow(LEFT_THE_WORKSTATION);
+    expect(await startOvers().startOver(taskId, { resetBranch: false, by: ANN_LEE })).toEqual({
+      resetTo: undefined,
+      keptRef: undefined,
+    });
+    expect(pipelines.git.keptRefs.size).toBe(0);
   });
 });

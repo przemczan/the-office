@@ -169,9 +169,9 @@ export class TasksController {
    */
   @Get(":id/ways-back")
   async waysBackOf(@Param("id", ParseUUIDPipe) id: string): Promise<TaskWaysBackResponse> {
-    const { restart, startOver, reopen, reopenToReady, started, resetTo } =
+    const { restart, startOver, reopen, reopenToReady, resetBranch, started, resetTo } =
       await this.waysBack.waysBack(id);
-    return { restart, startOver, reopen, reopenToReady, started, resetTo };
+    return { restart, startOver, reopen, reopenToReady, resetBranch, started, resetTo };
   }
 
   /** Move's check: every reason the Task can't move to another Project now. */

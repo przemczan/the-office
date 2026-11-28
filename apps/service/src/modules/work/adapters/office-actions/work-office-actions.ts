@@ -748,7 +748,8 @@ export class WorkOfficeActions implements OnModuleInit {
   private startTaskOver(): AnyWorkActionHandler {
     return handler({
       action: START_TASK_OVER_ACTION,
-      handle: ({ taskId, resetBranch }, by) => this.waysBack.startOver(taskId, resetBranch, by),
+      handle: ({ taskId, to, resetBranch }, by) =>
+        this.waysBack.startOver(taskId, to, resetBranch, by),
       response: (task: Task) => this.responses.task(task),
       words: async (task) => `"${task.title}" is started over, ${stateWords(task)}.`,
     });

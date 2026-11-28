@@ -61,6 +61,7 @@ import {
   stateChangeProblems,
   type ReopenGrounds,
   type ReopenTo,
+  type StartOverTo,
   type WayBackHolds,
 } from "./task-states.js";
 
@@ -292,24 +293,12 @@ export function moveToBacklogOnConfirm(task: Task, by: Author): TaskChange<TaskS
  * `changeTaskState`, as nobody may ask for this move on its own.
  */
 export function moveToShapingOnBackToShaping(task: Task, by: Author): TaskChange<TaskStateChanged> {
-  const proposedPipeline =
-    task.proposedPipeline ??
-    (task.pipelineId === undefined
-      ? undefined
-      : { pipelineId: task.pipelineId, reason: PIPELINE_KEPT_AT_BACK_TO_SHAPING });
   return withStateChange(
     {
       task: {
         ...task,
+        ...unconfirmedPlanning(task, PIPELINE_KEPT_AT_BACK_TO_SHAPING),
         state: "shaping",
-        planConfirmed: false,
-        definitionOfDoneConfirmed: false,
-        pipelineId: undefined,
-        proposedPipeline,
-        autoMode: false,
-        initiativePlanningThreadId: undefined,
-        markedPlanned: false,
-        hasPlanningThread: false,
       },
       event: new TaskStateChanged(task.id, task.state, "shaping"),
     },
@@ -320,6 +309,31 @@ export function moveToShapingOnBackToShaping(task: Task, by: Author): TaskChange
 
 const PIPELINE_KEPT_AT_BACK_TO_SHAPING =
   "Chosen before its Initiative went Back to Shaping; confirm it again.";
+
+const PIPELINE_KEPT_AT_START_OVER = "Followed before the Task started over; confirm it again.";
+
+/**
+ * The Task's Plan, Definition of Done and Pipeline kept but Not confirmed, its Pipeline as proposed
+ * unless one is proposed already, and the Task no longer marked planned nor planned anywhere, so
+ * the next Confirm has it planned again. `pipelineReason` is why its Pipeline is proposed.
+ */
+function unconfirmedPlanning(task: Task, pipelineReason: string): Partial<Task> {
+  const proposedPipeline =
+    task.proposedPipeline ??
+    (task.pipelineId === undefined
+      ? undefined
+      : { pipelineId: task.pipelineId, reason: pipelineReason });
+  return {
+    planConfirmed: false,
+    definitionOfDoneConfirmed: false,
+    pipelineId: undefined,
+    proposedPipeline,
+    autoMode: false,
+    initiativePlanningThreadId: undefined,
+    markedPlanned: false,
+    hasPlanningThread: false,
+  };
+}
 
 /** How the user marks a Task Ready: `confirmPlanAndDefinitionOfDone` confirms both as they stand. */
 export interface MarkReadyChoice {
@@ -714,14 +728,17 @@ function branchResetOf({ resetTo, keptRef }: StartingOver): BranchReset | null {
 }
 
 /**
- * Start over (spec 2.4.5): a Task Paused by the user's own Pause or Stop goes to Ready, not queued,
- * its Plan, Definition of Done and Pipeline kept as confirmed, nothing holding it any more and its
- * Stand-in Engines left for the next Start to choose; Pipelines has already left its earlier Stage
- * runs as history and, when asked, reset its branch. Its History says it started over, and where
- * the branch was reset to and its old head kept. Refused as `startOverProblems` says.
+ * Start over (spec 2.4.5): a Task Paused by the user's own Pause or Stop goes to `to`, not queued,
+ * nothing holding it any more and its Stand-in Engines left for the next Start to choose: to Ready,
+ * its Plan, Definition of Done and Pipeline kept as confirmed; to Backlog, all three Not confirmed
+ * and the Task no longer planned, as `unconfirmedPlanning` leaves it (Pipelines drops its Stages
+ * edited for this Task on the event). Pipelines has already left its earlier Stage runs as history
+ * and, when asked, reset its branch. Its History says it started over, and where the branch was
+ * reset to and its old head kept. Refused as `startOverProblems` says.
  */
 export function startTaskOver(
   task: Task,
+  to: StartOverTo,
   holds: WayBackHolds,
   startingOver: StartingOver,
 ): TaskChange<TaskStartedOver> {
@@ -732,18 +749,21 @@ export function startTaskOver(
     { kind: "start-over", branchReset: branchResetOf(startingOver) },
     startingOver.person,
   );
-  const stateChanged = new TaskStateChanged(task.id, task.state, "ready");
+  const state: Task["state"] = to === "ready" ? "ready" : "backlog";
+  const stateChanged = new TaskStateChanged(task.id, task.state, state);
   return withStateChange(
     {
       task: {
         ...task,
-        state: "ready",
+        ...(to === "backlog" && unconfirmedPlanning(task, PIPELINE_KEPT_AT_START_OVER)),
+        state,
         pausedBy: undefined,
         ...NO_USAGE_WINDOW_RESUME,
         engineStandIns: [],
       },
       event: new TaskStartedOver(
         task.id,
+        to,
         startingOver.resetBranch,
         startingOver.resetTo,
         startingOver.keptRef,
