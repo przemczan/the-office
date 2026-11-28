@@ -83,17 +83,52 @@ export function scaleOf(
 }
 
 /**
- * Boxes are read through the viewport's zoom, so at a fractional zoom the same layout measures a
- * hair differently on every read; comparing to a hundredth of a pixel keeps that from counting as a
- * change, which would render, measure and render again without end.
+ * How far apart, in the canvas's pixels, two reads of the same length may be and still count as the
+ * same: well under what shows on the screen, well over a fractional zoom's jitter.
  */
-function sameView(a: FlowView, b: FlowView): boolean {
-  return atHundredths(a) === atHundredths(b);
+const SAME_WITHIN = 0.5;
+
+/**
+ * Boxes are read through the viewport's zoom, so at a fractional zoom the same layout measures a
+ * hair differently on every read. Counting that as a change would render, measure and render again
+ * without end, so lengths are compared within SAME_WITHIN of each other. Rounding both reads instead
+ * doesn't hold: a length on a rounding boundary rounds one way, then the other, on every read.
+ */
+export function sameView(a: FlowView, b: FlowView): boolean {
+  return (
+    near(a.width, b.width) &&
+    near(a.height, b.height) &&
+    sameStages(a.measure.stages, b.measure.stages) &&
+    sameOptionalBox(a.measure.end, b.measure.end)
+  );
 }
 
-function atHundredths({ width, height, measure }: FlowView): string {
-  return JSON.stringify(
-    [width, height, [...measure.stages], measure.end],
-    (_key, value: unknown) => (typeof value === "number" ? Math.round(value * 100) / 100 : value),
-  );
+function sameStages(
+  a: ReadonlyMap<string, MeasuredStage>,
+  b: ReadonlyMap<string, MeasuredStage>,
+): boolean {
+  if (a.size !== b.size) return false;
+  const others = [...b];
+  return [...a].every(([key, stage], index) => {
+    const [otherKey, other] = others[index] ?? [];
+    return (
+      key === otherKey &&
+      other !== undefined &&
+      sameBox(stage.box, other.box) &&
+      stage.rowCentres.length === other.rowCentres.length &&
+      stage.rowCentres.every((centre, row) => near(centre, other.rowCentres[row] ?? NaN))
+    );
+  });
+}
+
+function sameOptionalBox(a: FlowBox | undefined, b: FlowBox | undefined): boolean {
+  return a === undefined || b === undefined ? a === b : sameBox(a, b);
+}
+
+function sameBox(a: FlowBox, b: FlowBox): boolean {
+  return near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height);
+}
+
+function near(a: number, b: number): boolean {
+  return Math.abs(a - b) < SAME_WITHIN;
 }

@@ -459,10 +459,10 @@
 - `proposal-flow.ts`: ProposedStageRoutes, ProposalFlow, proposalFlow, layoutSentences, routeWhenAfterTarget, routesOutSentence, sourceOf, checkedSentence
 - `task-flow-editor.tsx`: TaskFlowEditorProps, TaskFlowEditor
 - `use-flow-drag.ts`: CardDrag, RouteDrag, FlowDrag, FlowDragging, FlowDragOptions, useFlowDrag
-- `use-flow-measure.ts`: FlowView, useFlowMeasure, scaleOf
+- `use-flow-measure.ts`: FlowView, useFlowMeasure, scaleOf, sameView
 - `use-overview-choice.ts`: OVERVIEW_STORAGE_KEY, useOverviewChoice
 - `use-route-drawing.ts`: ROUTE_DRAWING_STORAGE_KEY, ROUTE_DRAWING_WORDS, useRouteDrawing
-- Tests: condition-edits.test.ts, condition-words.test.ts, flow-auto-align.test.ts, flow-checks.test.ts, flow-editor.full.test.tsx, flow-layout.test.ts, flow-model.test.ts, flow-snap.test.ts, flow-zoom.test.ts, proposal-flow.test.ts
+- Tests: condition-edits.test.ts, condition-words.test.ts, flow-auto-align.test.ts, flow-checks.test.ts, flow-editor.full.test.tsx, flow-layout.test.ts, flow-model.test.ts, flow-snap.test.ts, flow-zoom.test.ts, proposal-flow.test.ts, use-flow-measure.test.ts
 
 ### shell/pipelines/flow/flow-routes/
 
