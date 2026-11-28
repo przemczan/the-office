@@ -63,7 +63,7 @@
 
 - `action-runs.ts`: actionRunQueries, startActionRun, stopActionRun, readActionRunLog, changeActionSettings, ACTION_RUN_CHANGED, actionRunEventInvalidations
 - `actions.ts`: actionQueries, saveActions, useSaveActions
-- `activity.ts`: activityQueries, markActivitySeen, activityEventInvalidations
+- `activity.ts`: activityQueries, activityEventInvalidations
 - `api-client.ts`: ApiError, SignedOut, RefusedAs, UnreadableAnswer, shouldRetry, getFromApi, sendToApi, deleteFromApiReturning, callOfficeAction, sendFileToApi, sendToApiWithNoAnswer, sendToApiRefusedAs, sendToApiWithNoAnswerRefusedAs, deleteFromApi
 - `attachment-copies.ts`: AttachmentCopies, attachmentCopiesOf
 - `branch-deletions.ts`: BranchOwnerRef, branchQueries, deleteBranch
@@ -220,11 +220,10 @@
 - `activity-figure.tsx`: ActivityFigure, activityFigureName
 - `activity-panel-width.ts`: ACTIVITY_PANEL_WIDTH_STORAGE_KEY, ACTIVITY_PANEL_WIDTHS, showActivityPanelWidth, rememberActivityPanelWidth, useActivityPanelLayout
 - `activity-panel.tsx`: ActivityPanel
-- `activity-words.ts`: ActivityGroup, ACTIVITY_GROUPS, GroupedActivity, groupedActivity, StateWords, stateWords, kindWords, inStateWords, spanWords, detailWords, ActivityPlace, activityPlaceOf, activityCountWords, NOTHING_RUNNING, NOTHING_RUNNING_HERE, WHAT_SHOWS_HERE
-- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, taskItem, environmentCheckItem, ciRunItem, testInstanceItem, actionRunItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo
+- `activity-words.ts`: ActivityGroup, ACTIVITY_GROUPS, GroupedActivity, groupedActivity, StateWords, stateWords, kindWords, inStateWords, spanWords, detailWords, ActivityPlace, placeOfSubject, activityPlaceOf, activityCountWords, NOTHING_RUNNING, NOTHING_RUNNING_HERE, WHAT_SHOWS_HERE
+- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, subjectActivity, environmentCheckItem, ciRunItem, testInstanceItem, actionRunItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo
 - `use-activity-panel.ts`: ActivityPanelControls, useActivityPanel
-- `use-marking-seen.ts`: SEEN_AFTER_MS, SEND_EVERY_MS, useMarkingSeen, SeenWatcher
-- Tests: activity-feed.test.tsx, activity-figure.test.tsx, activity-words.full.test.ts, use-marking-seen.full.test.ts
+- Tests: activity-feed.test.tsx, activity-figure.test.tsx, activity-words.full.test.ts
 
 ### shell/attachments/
 

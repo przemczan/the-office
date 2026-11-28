@@ -9,17 +9,25 @@ import {
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  DeliveryMarked,
+  MessagesLogged,
+  ThreadSeen,
+  ThreadStarted,
+  TurnEnded,
 } from "../../conversations/index.js";
 import { ConnectedDeviceChanged } from "../../devices/index.js";
-import { StageRunEnded, StageRunStarted } from "../../pipelines/index.js";
+import {
+  GateContinued,
+  GateDropped,
+  GateReached,
+  SentBackFromGate,
+  StageRunEnded,
+  StageRunStarted,
+} from "../../pipelines/index.js";
 import {
   CiRunsChecked,
   EnvironmentCheckFinished,
   EnvironmentCheckStarted,
-  PullRequestClosed,
-  PullRequestMerged,
-  PullRequestReopened,
-  PullRequestsChecked,
 } from "../../projects/index.js";
 import { ActionRunStarted, ActionRunStateChanged } from "../../actions/index.js";
 import { TestInstanceLaunched, TestInstanceStateChanged } from "../../test-instances/index.js";
@@ -34,11 +42,11 @@ import {
 } from "../../work/index.js";
 import {
   activityOf,
-  endedCutOf,
   isOffBoard,
-  seenCutOf,
   type Activity,
   type ActivityParts,
+  type ActivityTask,
+  type ActivityThreadSession,
   type StartedActivityTask,
 } from "../domain/activity.js";
 import { ActivityChanged } from "../domain/activity-events.js";
@@ -47,8 +55,8 @@ import { ActivityDecisions } from "../ports/activity-decisions.js";
 import { ActivityDevices } from "../ports/activity-devices.js";
 import { ActivityEnvironmentChecks } from "../ports/activity-environment-checks.js";
 import { ActivityOffBoardTasks } from "../ports/activity-off-board-tasks.js";
-import { ActivityPullRequests } from "../ports/activity-pull-requests.js";
-import { ActivitySeenRepository } from "../ports/activity-seen-repository.js";
+import { ActivityInitiatives } from "../ports/activity-initiatives.js";
+import { ActivitySessions } from "../ports/activity-sessions.js";
 import { ActivityStages } from "../ports/activity-stages.js";
 import { ActivityTasks } from "../ports/activity-tasks.js";
 import { ActivityTestInstances } from "../ports/activity-test-instances.js";
@@ -66,6 +74,14 @@ const SOURCE_CHANGES: readonly DomainEventClass[] = [
   TaskMovedUpInQueue,
   StageRunStarted,
   StageRunEnded,
+  GateReached,
+  GateContinued,
+  SentBackFromGate,
+  GateDropped,
+  // A session starts, ends, or starts or stops waiting.
+  ThreadStarted,
+  TurnEnded,
+  ThreadSeen,
   DecisionOpened,
   DecisionAnswered,
   DecisionClosed,
@@ -77,26 +93,39 @@ const SOURCE_CHANGES: readonly DomainEventClass[] = [
   CiRunsChecked,
   EnvironmentCheckStarted,
   EnvironmentCheckFinished,
-  PullRequestsChecked,
-  PullRequestMerged,
-  PullRequestClosed,
-  PullRequestReopened,
   ConnectedDeviceChanged,
 ];
 
+/** Where a Thread stands for sessions: answering, and whether a Decision is open on it. */
+function sessionStandOf({
+  state,
+  openDecisions,
+}: {
+  readonly state: string;
+  readonly openDecisions: readonly unknown[];
+}): string {
+  return `${state}:${openDecisions.length > 0}`;
+}
+
+const IDLE_STAND = sessionStandOf({ state: "waiting", openDecisions: [] });
+
 /**
- * Activity (spec §2.14): everything The Office is running, read afresh from the modules that own
- * each part, with each user's ended items left out once they have seen them. Each change of a
- * source, and each user marking items seen, is announced as one `ActivityChanged` per burst.
+ * Activity (spec §2.14): the active sessions and the other running work, read afresh from the
+ * modules that own each part for the signed-in user. Each change of a source is announced as one
+ * `ActivityChanged` per burst.
  */
 @Injectable()
 export class ActivityService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ActivityService.name);
   private announcing: Promise<void> | undefined;
   private announceAgain = false;
+  /** Where each Thread last stood, which tells the logged messages that change no session. */
+  private readonly threadStands = new Map<string, string>();
 
   constructor(
     private readonly tasks: ActivityTasks,
+    private readonly initiatives: ActivityInitiatives,
+    private readonly sessions: ActivitySessions,
     private readonly stages: ActivityStages,
     private readonly decisions: ActivityDecisions,
     private readonly offBoardTasks: ActivityOffBoardTasks,
@@ -104,9 +133,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
     private readonly actionRuns: ActivityActionRuns,
     private readonly ciRuns: ActivityCiRuns,
     private readonly environmentChecks: ActivityEnvironmentChecks,
-    private readonly pullRequests: ActivityPullRequests,
     private readonly devices: ActivityDevices,
-    private readonly seen: ActivitySeenRepository,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
@@ -115,57 +142,50 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
     for (const eventClass of SOURCE_CHANGES) {
       this.events.subscribe(eventClass, () => this.announceInBackground());
     }
+    // Messages are logged all through a turn; only those that start or end a session, or its
+    // waiting, change what Activity lists.
+    this.events.subscribe(MessagesLogged, ({ thread }) => this.announceIfStandChanged(thread));
+    this.events.subscribe(DeliveryMarked, ({ thread }) => this.announceIfStandChanged(thread));
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.announcing;
   }
 
-  /** The user's Activity: what runs, and what ended that they haven't seen. */
+  /** The user's Activity: the active sessions, and the other work running now. */
   async read(userId: string): Promise<Activity> {
     const now = this.schedule.now();
     // A scope of its own: what each started Task's Stages read in common is read once.
-    const [parts, seenIds] = await Promise.all([
-      inReadScope(() => this.parts(now)),
-      this.seen.seenOf(userId),
-    ]);
-    return activityOf(parts, seenIds, now);
+    return activityOf(await inReadScope(() => this.parts(userId, now)));
   }
 
-  /** The user has seen these items; what they saw over 30 days ago is forgotten meanwhile. */
-  async markSeen(userId: string, itemIds: readonly string[]): Promise<void> {
-    const now = this.schedule.now();
-    await this.seen.markSeen(userId, itemIds, now);
-    await this.seen.forgetBefore(seenCutOf(now));
-    this.announceInBackground();
-  }
-
-  private async parts(now: Date): Promise<ActivityParts> {
-    const cut = endedCutOf(now);
+  private async parts(userId: string, now: Date): Promise<ActivityParts> {
     const [
+      threadSessions,
       started,
-      done,
       openDecisions,
       offBoardTasks,
       testInstances,
       actionRuns,
       environmentChecks,
       devices,
-      { pullRequests },
     ] = await Promise.all([
+      this.sessions.sessionsFor(userId),
       this.startedTasks(),
-      this.tasks.doneSince(cut).then((ids) => this.tasks.findAll(ids)),
       this.decisions.listOpen(),
       this.offBoardTasks.listAll(),
-      this.testInstances.activity(cut),
+      // Those Building or Running; any ended before now are left out by the domain.
+      this.testInstances.activity(now),
       this.actionRuns.runningCommandRuns(),
       this.environmentChecks.latestOfAll(),
       this.devices.open(),
-      this.pullRequests.list(),
     ]);
+    const [otherTasks, initiativeTitles] = await this.subjectsOf(threadSessions, started);
     return {
+      threadSessions,
       started,
-      done: done.filter(({ state }) => state === "done"),
+      otherTasks,
+      initiativeTitles,
       openDecisionTaskIds: new Set(openDecisions.flatMap(({ taskId }) => taskId ?? [])),
       offBoardTasks,
       testInstances,
@@ -173,20 +193,48 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
       ciRuns: this.ciRuns.list().runs,
       environmentChecks,
       devices,
-      pullRequests,
     };
+  }
+
+  /** The Tasks the sessions are on that aren't started, and the titles of their Initiatives. */
+  private async subjectsOf(
+    sessions: readonly ActivityThreadSession[],
+    started: readonly StartedActivityTask[],
+  ): Promise<[readonly ActivityTask[], ReadonlyMap<string, string>]> {
+    const startedIds = new Set(started.map(({ task }) => task.id));
+    const taskIds = new Set<string>();
+    const initiativeIds = new Set<string>();
+    for (const { subject } of sessions) {
+      if (subject.kind === "task" && !startedIds.has(subject.taskId)) taskIds.add(subject.taskId);
+      if (subject.kind === "initiative") initiativeIds.add(subject.initiativeId);
+    }
+    const [otherTasks, initiatives] = await Promise.all([
+      taskIds.size === 0 ? [] : this.tasks.findAll([...taskIds]),
+      initiativeIds.size === 0 ? [] : this.initiatives.titlesOf([...initiativeIds]),
+    ]);
+    return [
+      otherTasks,
+      new Map(initiatives.map(({ initiativeId, title }) => [initiativeId, title])),
+    ];
   }
 
   private async startedTasks(): Promise<StartedActivityTask[]> {
     // An Off-board Task is listed as its own kind, from what Work reads of it.
     const started = (await this.tasks.started()).filter((task) => !isOffBoard(task));
     return readEach(started, async (task) => {
-      const [stateChanges, progress] = await Promise.all([
-        this.tasks.stateChangesOf(task.id),
-        this.stages.progress(task.id),
-      ]);
-      return { task, stateChanges, stages: progress?.stages ?? [] };
+      const progress = await this.stages.progress(task.id);
+      return { task, stages: progress?.stages ?? [] };
     });
+  }
+
+  private announceIfStandChanged(
+    thread: Parameters<typeof sessionStandOf>[0] & { id: string },
+  ): void {
+    const stand = sessionStandOf(thread);
+    if (stand === (this.threadStands.get(thread.id) ?? IDLE_STAND)) return;
+    if (stand === IDLE_STAND) this.threadStands.delete(thread.id);
+    else this.threadStands.set(thread.id, stand);
+    this.announceInBackground();
   }
 
   /**

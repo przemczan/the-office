@@ -11,10 +11,6 @@
   color: var(--fg-2);
 }
 
-.activity-card.unseen {
-  background: var(--accent-subtle);
-}
-
 .activity-item {
   display: flex;
   flex: 1;

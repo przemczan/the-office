@@ -1,6 +1,9 @@
 import { index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 
-/** Each user's ended Activity items they have seen, by item id, forgotten after 30 days. */
+/**
+ * Unused since Activity stopped tracking what each user has seen. Kept in the schema so no migration
+ * drops it: the release before still reads it, so it is dropped in a later release.
+ */
 export const activitySeen = pgTable(
   "activity_seen",
   {

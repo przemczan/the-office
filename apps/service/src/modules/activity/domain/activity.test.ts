@@ -1,21 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   activityOf,
-  ENDED_KEPT_DAYS,
   type ActivityCiRun,
   type ActivityOffBoardTask,
   type ActivityParts,
-  type ActivityPullRequest,
   type ActivityStage,
   type ActivityTask,
   type ActivityTestInstance,
+  type ActivityThreadSession,
 } from "./activity.js";
 
 const NOW = new Date("2026-11-21T12:00:00Z");
-const DAY_MS = 24 * 60 * 60 * 1000;
 const TASK_ID = "00000000-0000-4000-8000-00000000a001";
 const OTHER_TASK_ID = "00000000-0000-4000-8000-00000000a002";
-const THIRD_TASK_ID = "00000000-0000-4000-8000-00000000a003";
+const INITIATIVE_ID = "00000000-0000-4000-8000-0000000001a1";
+const CHAT_THREAD_ID = "00000000-0000-4000-8000-0000000007c1";
 
 function hoursAgo(hours: number): Date {
   return new Date(NOW.getTime() - hours * 60 * 60 * 1000);
@@ -27,16 +26,17 @@ function activityTask(overrides: Partial<ActivityTask> = {}): ActivityTask {
     title: "Add a filter",
     projectId: "office",
     state: "in-progress",
-    createdAt: hoursAgo(10),
-    endedAt: undefined,
+    initiativeId: undefined,
     ...overrides,
   };
 }
 
 function partsWith(overrides: Partial<ActivityParts>): ActivityParts {
   return {
+    threadSessions: [],
     started: [],
-    done: [],
+    otherTasks: [],
+    initiativeTitles: new Map(),
     openDecisionTaskIds: new Set(),
     offBoardTasks: [],
     testInstances: [],
@@ -44,7 +44,19 @@ function partsWith(overrides: Partial<ActivityParts>): ActivityParts {
     ciRuns: [],
     environmentChecks: [],
     devices: [],
-    pullRequests: [],
+    ...overrides,
+  };
+}
+
+function threadSession(overrides: Partial<ActivityThreadSession> = {}): ActivityThreadSession {
+  return {
+    threadId: "00000000-0000-4000-8000-0000000005a1",
+    roleKey: "developer",
+    subject: { kind: "task", taskId: TASK_ID },
+    sessionKind: "stage",
+    state: "working",
+    waitingOn: undefined,
+    since: hoursAgo(1),
     ...overrides,
   };
 }
@@ -63,9 +75,16 @@ function offBoardTask(overrides: Partial<ActivityOffBoardTask>): ActivityOffBoar
   };
 }
 
-function stage(name: string, state: string, runId: string, startedAt: Date, endedAt?: Date) {
+function stage(
+  name: string,
+  state: string,
+  runId: string,
+  startedAt: Date,
+  endedAt?: Date,
+  kind = "agent",
+) {
   return {
-    stage: { name },
+    stage: { name, kind },
     state,
     runs: [{ id: runId, startedAt, endedAt }],
   } satisfies ActivityStage;
@@ -103,477 +122,330 @@ function ciRun(overrides: Partial<ActivityCiRun>): ActivityCiRun {
   };
 }
 
-function pullRequest(overrides: Partial<ActivityPullRequest>): ActivityPullRequest {
-  return {
-    id: "00000000-0000-4000-8000-0000000000b1",
-    projectId: "office",
-    taskId: TASK_ID,
-    number: 12,
-    url: "https://github.com/acme/office/pull/12",
-    title: "Add a filter",
-    state: "open",
-    checks: "passing",
-    mergeable: "yes",
-    stale: false,
-    openedAt: hoursAgo(5),
-    checkedAt: hoursAgo(1),
-    ...overrides,
-  };
-}
+describe("activityOf, the activities", () => {
+  it("groups a Task's sessions into one activity, since its earliest, with the Task's title", () => {
+    const activity = activityOf(
+      partsWith({
+        started: [{ task: activityTask({ initiativeId: INITIATIVE_ID }), stages: [] }],
+        threadSessions: [
+          threadSession({ since: hoursAgo(1) }),
+          threadSession({
+            threadId: "00000000-0000-4000-8000-0000000005a2",
+            roleKey: "cto",
+            sessionKind: "consultation",
+            since: hoursAgo(3),
+          }),
+        ],
+      }),
+    );
 
-describe("activityOf", () => {
-  it("lists a Task at a desk since it last moved into its state, and leaves out one in the queue", () => {
+    expect(activity.activities).toHaveLength(1);
+    expect(activity.activities[0]).toMatchObject({
+      id: `task:${TASK_ID}`,
+      subject: {
+        kind: "task",
+        taskId: TASK_ID,
+        title: "Add a filter",
+        initiativeId: INITIATIVE_ID,
+      },
+      link: { kind: "task", taskId: TASK_ID },
+      since: hoursAgo(3),
+    });
+    expect(activity.activities[0]?.sessions.map(({ roleKey }) => roleKey)).toEqual([
+      "cto",
+      "developer",
+    ]);
+  });
+
+  it("names the Stage a Stage Thread works after its Task's current Stage", () => {
     const activity = activityOf(
       partsWith({
         started: [
           {
-            task: activityTask({ state: "waiting-on-you", createdAt: hoursAgo(10) }),
-            stateChanges: [
-              { to: "waiting-on-you", at: hoursAgo(6) },
-              { to: "in-progress", at: hoursAgo(5) },
-              { to: "waiting-on-you", at: hoursAgo(2) },
-            ],
-            stages: [],
+            task: activityTask(),
+            stages: [stage("Implement", "running", "run-1", hoursAgo(2))],
           },
+        ],
+        threadSessions: [threadSession()],
+      }),
+    );
+    expect(activity.activities[0]?.sessions[0]).toMatchObject({ stageName: "Implement" });
+  });
+
+  it("groups an Initiative's Threads on the Initiative, and a chat on its Thread", () => {
+    const activity = activityOf(
+      partsWith({
+        initiativeTitles: new Map([[INITIATIVE_ID, "Revamp Activity"]]),
+        threadSessions: [
+          threadSession({
+            subject: { kind: "initiative", initiativeId: INITIATIVE_ID },
+            sessionKind: "thread",
+            roleKey: "planner",
+            since: hoursAgo(2),
+          }),
+          threadSession({
+            threadId: CHAT_THREAD_ID,
+            subject: { kind: "chat", threadId: CHAT_THREAD_ID, roleKey: "cto", title: undefined },
+            sessionKind: "chat",
+            roleKey: "cto",
+            state: "waiting",
+            waitingOn: { kind: "reply", question: undefined },
+            since: hoursAgo(1),
+          }),
+        ],
+      }),
+    );
+
+    expect(activity.activities.map(({ id }) => id)).toEqual([
+      `chat:${CHAT_THREAD_ID}`,
+      `initiative:${INITIATIVE_ID}`,
+    ]);
+    expect(activity.activities[0]).toMatchObject({
+      subject: { kind: "chat", title: "New chat" },
+      link: { kind: "chat", roleKey: "cto", threadId: CHAT_THREAD_ID },
+    });
+    expect(activity.activities[1]).toMatchObject({
+      subject: { kind: "initiative", title: "Revamp Activity" },
+      link: { kind: "initiative", initiativeId: INITIATIVE_ID },
+    });
+  });
+
+  it("lists a Task waiting at a Gate as a waiting session of The Office", () => {
+    const activity = activityOf(
+      partsWith({
+        started: [
           {
-            task: activityTask({ id: OTHER_TASK_ID, state: "ready" }),
-            stateChanges: [],
-            stages: [],
+            task: activityTask({ state: "waiting-on-you" }),
+            stages: [
+              stage("Implement", "done", "run-1", hoursAgo(4), hoursAgo(3)),
+              stage("Approve", "waiting-on-you", "run-2", hoursAgo(2), undefined, "gate"),
+            ],
           },
         ],
       }),
-      new Set(),
-      NOW,
     );
 
-    expect(activity.items).toEqual([
-      expect.objectContaining({
-        kind: "task",
-        id: `task:${TASK_ID}`,
-        taskId: TASK_ID,
-        state: "waiting-on-you",
+    expect(activity.activities).toHaveLength(1);
+    expect(activity.activities[0]?.sessions).toEqual([
+      {
+        threadId: undefined,
+        roleKey: undefined,
+        sessionKind: "gate",
+        stageName: "Approve",
+        state: "waiting",
+        waitingOn: { kind: "gate", question: undefined },
         since: hoursAgo(2),
-        ended: false,
-        endedAt: undefined,
-        link: { kind: "task", taskId: TASK_ID },
-      }),
+      },
     ]);
   });
 
-  it("takes a Task's creation as its since when no state change was kept", () => {
-    const activity = activityOf(
-      partsWith({
-        started: [{ task: activityTask({ createdAt: hoursAgo(4) }), stateChanges: [], stages: [] }],
-      }),
-      new Set(),
-      NOW,
-    );
-
-    expect(activity.items[0]?.since).toEqual(hoursAgo(4));
+  it("lists a Task running a Script or Publish Stage as a working session of The Office", () => {
+    for (const kind of ["script", "publish"]) {
+      const activity = activityOf(
+        partsWith({
+          started: [
+            {
+              task: activityTask(),
+              stages: [stage("Lint", "running", "run-1", hoursAgo(1), undefined, kind)],
+            },
+          ],
+        }),
+      );
+      expect(activity.activities[0]?.sessions[0]).toMatchObject({
+        roleKey: undefined,
+        sessionKind: "stage",
+        stageName: "Lint",
+        state: "working",
+      });
+    }
   });
 
-  it("lists a Task whose current Stage failed as failed-task, keyed by that run, once the Stage ran last", () => {
-    const failedAt = hoursAgo(1);
+  it("leaves out a Paused or queued Task with no active session", () => {
     const activity = activityOf(
       partsWith({
         started: [
           {
             task: activityTask({ state: "paused" }),
-            stateChanges: [],
-            stages: [
-              stage("Plan", "done", "run-1", hoursAgo(4), hoursAgo(3)),
-              stage("Tests", "failed", "run-2", hoursAgo(2), failedAt),
-            ],
+            stages: [stage("Implement", "paused", "run-1", hoursAgo(2))],
           },
         ],
       }),
-      new Set(),
-      NOW,
     );
+    expect(activity).toEqual({ activities: [], otherWork: [], count: 0 });
+  });
 
-    expect(activity.items).toEqual([
+  it("leaves out sessions on an Off-board Task, which is listed as its own kind", () => {
+    const activity = activityOf(
+      partsWith({
+        started: [{ task: activityTask(), stages: [] }],
+        offBoardTasks: [offBoardTask({})],
+        threadSessions: [threadSession()],
+      }),
+    );
+    expect(activity.activities).toEqual([]);
+    expect(activity.otherWork).toHaveLength(1);
+  });
+
+  it("sorts the activities by their earliest session, newest first", () => {
+    const other = activityTask({ id: OTHER_TASK_ID, title: "Other" });
+    const activity = activityOf(
+      partsWith({
+        otherTasks: [other, activityTask()],
+        threadSessions: [
+          threadSession({ since: hoursAgo(5) }),
+          threadSession({ subject: { kind: "task", taskId: OTHER_TASK_ID }, since: hoursAgo(1) }),
+        ],
+      }),
+    );
+    expect(activity.activities.map(({ id }) => id)).toEqual([
+      `task:${OTHER_TASK_ID}`,
+      `task:${TASK_ID}`,
+    ]);
+  });
+});
+
+describe("activityOf, the other work", () => {
+  it("lists a Task whose current Stage failed or stopped, keyed by that run, and not with a Decision open", () => {
+    const failedAt = hoursAgo(1);
+    const stalled = (state: string, openDecisionTaskIds: Set<string>) =>
+      activityOf(
+        partsWith({
+          openDecisionTaskIds,
+          started: [
+            {
+              task: activityTask({ state: "paused" }),
+              stages: [
+                stage("Plan", "done", "run-1", hoursAgo(4), hoursAgo(3)),
+                stage("Tests", state, "run-2", hoursAgo(2), failedAt),
+              ],
+            },
+          ],
+        }),
+      );
+
+    expect(stalled("failed", new Set()).otherWork).toEqual([
       expect.objectContaining({
         kind: "failed-task",
         id: `failed-task:${TASK_ID}:run-2`,
         stageName: "Tests",
         since: failedAt,
-        ended: true,
-        endedAt: failedAt,
       }),
     ]);
+    expect(stalled("stopped", new Set()).otherWork[0]).toMatchObject({ kind: "stopped-task" });
+    expect(stalled("failed", new Set([TASK_ID])).otherWork).toEqual([]);
   });
 
-  it("lists a stopped Stage as stopped-task, and a failed or stopped one with a Decision open as a task", () => {
-    const stopped = {
-      task: activityTask({ state: "paused" }),
-      stateChanges: [],
-      stages: [stage("Implement", "stopped", "run-3", hoursAgo(2), hoursAgo(1))],
-    };
-    const failedWithDecision = {
-      task: activityTask({ id: OTHER_TASK_ID, state: "waiting-on-you" }),
-      stateChanges: [],
-      stages: [stage("Tests", "failed", "run-4", hoursAgo(2), hoursAgo(1))],
-    };
-
-    const activity = activityOf(
-      partsWith({
-        started: [stopped, failedWithDecision],
-        openDecisionTaskIds: new Set([OTHER_TASK_ID]),
-      }),
-      new Set(),
-      NOW,
-    );
-
-    expect(activity.items.map(({ kind, id }) => ({ kind, id }))).toEqual([
-      { kind: "task", id: `task:${OTHER_TASK_ID}` },
-      { kind: "stopped-task", id: `stopped-task:${TASK_ID}:run-3` },
-    ]);
-  });
-
-  it("lists a Task Done as ended, since it was Done", () => {
-    const doneAt = hoursAgo(3);
-    const activity = activityOf(
-      partsWith({ done: [activityTask({ state: "done", endedAt: doneAt })] }),
-      new Set(),
-      NOW,
-    );
-
-    expect(activity.items).toEqual([
-      expect.objectContaining({
-        kind: "task",
-        id: `task:${TASK_ID}:done`,
-        state: "done",
-        since: doneAt,
-        ended: true,
-        endedAt: doneAt,
-      }),
-    ]);
-  });
-
-  it("lists each Off-board Task once, as its own kind, with its Stage, its tokens and none waiting for Start", () => {
+  it("lists each Off-board Task once, as its own kind, and none ready, Done or Dropped", () => {
     const activity = activityOf(
       partsWith({
         offBoardTasks: [
           offBoardTask({}),
+          offBoardTask({ taskId: OTHER_TASK_ID, status: { state: "ready" } }),
           offBoardTask({
-            taskId: OTHER_TASK_ID,
-            kind: "run-environment-setup",
-            title: "Set up the run environment",
-            status: { state: "paused" },
-            currentStage: "Set up",
-            since: hoursAgo(1),
-            tokens: 0,
+            taskId: "00000000-0000-4000-8000-00000000a003",
+            status: { state: "done" },
           }),
           offBoardTask({
-            taskId: THIRD_TASK_ID,
-            status: { state: "ready" },
-            currentStage: undefined,
+            taskId: "00000000-0000-4000-8000-00000000a004",
+            status: { state: "dropped" },
+          }),
+          offBoardTask({
+            taskId: "00000000-0000-4000-8000-00000000a005",
+            kind: "run-environment-setup",
+            status: { state: "queued", place: 2, shortReasons: ["Waiting for a slot"] },
           }),
         ],
       }),
-      new Set(),
-      NOW,
     );
 
-    expect(activity.items).toEqual([
+    expect(activity.otherWork.map(({ kind }) => kind).toSorted()).toEqual([
+      "onboarding",
+      "run-environment-set-up",
+    ]);
+    expect(activity.otherWork).toContainEqual(
       expect.objectContaining({
         kind: "run-environment-set-up",
-        id: `run-environment-set-up:${OTHER_TASK_ID}`,
-        taskId: OTHER_TASK_ID,
-        state: "paused",
-        stageName: "Set up",
-        tokens: 0,
-        queued: null,
-        since: hoursAgo(1),
-        ended: false,
-        link: { kind: "task", taskId: OTHER_TASK_ID },
-      }),
-      expect.objectContaining({
-        kind: "onboarding",
-        id: `onboarding:${TASK_ID}`,
-        state: "in-progress",
-        stageName: "Survey",
-        tokens: 212_000,
-        queued: null,
-        since: hoursAgo(2),
-        ended: false,
-      }),
-    ]);
-  });
-
-  it("lists a queued Off-board Task with its place and short reasons, before it started", () => {
-    const activity = activityOf(
-      partsWith({
-        offBoardTasks: [
-          offBoardTask({
-            status: { state: "queued", place: 1, shortReasons: ["Project limit reached (1)"] },
-            currentStage: undefined,
-            tokens: 0,
-          }),
-        ],
-      }),
-      new Set(),
-      NOW,
-    );
-
-    expect(activity.items).toEqual([
-      expect.objectContaining({
-        kind: "onboarding",
         state: "queued",
-        stageName: null,
-        queued: { place: 1, shortReasons: ["Project limit reached (1)"] },
-        ended: false,
+        queued: { place: 2, shortReasons: ["Waiting for a slot"] },
       }),
-    ]);
-  });
-
-  it("lists a failed Off-board Task, out of tries, as running at the Stage it failed at", () => {
-    const activity = activityOf(
-      partsWith({
-        offBoardTasks: [
-          offBoardTask({
-            status: { state: "failed", stageName: "Verify" },
-            currentStage: "Verify",
-          }),
-        ],
-      }),
-      new Set(),
-      NOW,
     );
-
-    expect(activity.items).toEqual([
-      expect.objectContaining({
-        kind: "onboarding",
-        id: `onboarding:${TASK_ID}`,
-        state: "failed",
-        stageName: "Verify",
-        ended: false,
-      }),
-    ]);
   });
 
-  it("ends an Off-board Task once Done or Dropped, keyed by that state, since it ended", () => {
-    const activity = activityOf(
-      partsWith({
-        offBoardTasks: [
-          offBoardTask({ status: { state: "done", endedAt: hoursAgo(3) } }),
-          offBoardTask({
-            taskId: OTHER_TASK_ID,
-            kind: "run-environment-setup",
-            status: { state: "dropped", endedAt: hoursAgo(4) },
-          }),
-        ],
-      }),
-      new Set(),
-      NOW,
-    );
-
-    expect(
-      activity.items.map(({ kind, id, ended, since }) => ({ kind, id, ended, since })),
-    ).toEqual([
-      { kind: "onboarding", id: `onboarding:${TASK_ID}:done`, ended: true, since: hoursAgo(3) },
-      {
-        kind: "run-environment-set-up",
-        id: `run-environment-set-up:${OTHER_TASK_ID}:dropped`,
-        ended: true,
-        since: hoursAgo(4),
-      },
-    ]);
-  });
-
-  it("never lists an Off-board Task as a task, failed-task or stopped-task", () => {
-    const failedStages = [stage("Verify", "failed", "run-9", hoursAgo(2), hoursAgo(1))];
-    const activity = activityOf(
-      partsWith({
-        started: [
-          // Read by Work as an Off-board Task.
-          { task: activityTask(), stateChanges: [], stages: failedStages },
-          // Made for one, though Work's list missed it, such as one archived meanwhile.
-          {
-            task: activityTask({ id: OTHER_TASK_ID, madeFor: "run-environment-setup" }),
-            stateChanges: [],
-            stages: failedStages,
-          },
-        ],
-        done: [
-          activityTask({
-            id: THIRD_TASK_ID,
-            state: "done",
-            endedAt: hoursAgo(1),
-            madeFor: "onboard",
-          }),
-        ],
-        offBoardTasks: [offBoardTask({ status: { state: "failed", stageName: "Verify" } })],
-      }),
-      new Set(),
-      NOW,
-    );
-
-    expect(activity.items.map(({ kind, id }) => ({ kind, id }))).toEqual([
-      { kind: "onboarding", id: `onboarding:${TASK_ID}` },
-    ]);
-  });
-
-  it("lists test instances Building, Running, Built or Failed, each since its state, and none Stopped", () => {
+  it("lists only test instances Building or Running, each since its state", () => {
     const activity = activityOf(
       partsWith({
         testInstances: [
-          testInstance({ id: "00000000-0000-4000-8000-000000007101", launchedAt: hoursAgo(1) }),
+          testInstance({}),
           testInstance({
-            id: "00000000-0000-4000-8000-000000007102",
+            id: "00000000-0000-4000-8000-0000000071e2",
             state: "running",
-            runningAt: hoursAgo(2),
-            initiativeId: "00000000-0000-4000-8000-0000000001a1",
+            runningAt: hoursAgo(1),
           }),
-          testInstance({
-            id: "00000000-0000-4000-8000-000000007103",
-            kind: "build-to-install",
-            state: "built",
-            endedAt: hoursAgo(4),
-          }),
-          testInstance({
-            id: "00000000-0000-4000-8000-000000007104",
-            state: "failed",
-            endedAt: hoursAgo(5),
-          }),
-          testInstance({
-            id: "00000000-0000-4000-8000-000000007105",
-            state: "stopped",
-            endedAt: hoursAgo(1),
-          }),
+          testInstance({ id: "00000000-0000-4000-8000-0000000071e3", state: "built" }),
+          testInstance({ id: "00000000-0000-4000-8000-0000000071e4", state: "failed" }),
         ],
       }),
-      new Set(),
-      NOW,
     );
-
-    expect(
-      activity.items.map(({ id, since, ended, link }) => ({ id, since, ended, link })),
-    ).toEqual([
-      {
-        id: "test-instance:00000000-0000-4000-8000-000000007101",
-        since: hoursAgo(1),
-        ended: false,
-        link: { kind: "project", projectId: "office" },
-      },
-      {
-        id: "test-instance:00000000-0000-4000-8000-000000007102",
-        since: hoursAgo(2),
-        ended: false,
-        link: { kind: "initiative", initiativeId: "00000000-0000-4000-8000-0000000001a1" },
-      },
-      {
-        id: "test-instance:00000000-0000-4000-8000-000000007103:built",
-        since: hoursAgo(4),
-        ended: true,
-        link: { kind: "project", projectId: "office" },
-      },
-      {
-        id: "test-instance:00000000-0000-4000-8000-000000007104:failed",
-        since: hoursAgo(5),
-        ended: true,
-        link: { kind: "project", projectId: "office" },
-      },
-    ]);
+    expect(activity.otherWork.map(({ since }) => since)).toEqual([hoursAgo(1), hoursAgo(3)]);
   });
 
-  it("lists a running Project command run since its start, leading to its Project", () => {
+  it("lists a running Project command run since its start", () => {
     const activity = activityOf(
       partsWith({
         actionRuns: [
           {
-            id: "00000000-0000-4000-8000-000000007201",
+            id: "00000000-0000-4000-8000-0000000000a1",
             projectId: "office",
-            actionKey: "build-web",
-            actionName: "Build web",
-            branch: "fix-login",
-            startedBy: "Ann Lee",
+            actionKey: "release",
+            actionName: "Release",
+            branch: "main",
+            startedBy: "Ann",
             startedAt: hoursAgo(1),
           },
         ],
       }),
-      new Set(),
-      NOW,
     );
-
-    expect(activity.items).toEqual([
-      {
+    expect(activity.otherWork).toEqual([
+      expect.objectContaining({
         kind: "action-run",
-        id: "action-run:00000000-0000-4000-8000-000000007201",
-        projectId: "office",
-        title: "Build web",
         link: { kind: "project", projectId: "office" },
-        runId: "00000000-0000-4000-8000-000000007201",
-        actionKey: "build-web",
-        branch: "fix-login",
-        startedBy: "Ann Lee",
         since: hoursAgo(1),
-        ended: false,
-        endedAt: undefined,
-      },
+      }),
     ]);
   });
 
-  it("lists CI runs, one going since it started and one finished as ended since its last update", () => {
+  it("lists only CI runs queued, waiting or running", () => {
     const activity = activityOf(
       partsWith({
-        ciRuns: [ciRun({ id: 41 }), ciRun({ id: 42, status: "succeeded", updatedAt: hoursAgo(2) })],
+        ciRuns: [
+          ciRun({}),
+          ciRun({ id: 42, status: "queued" }),
+          ciRun({ id: 43, status: "success" }),
+          ciRun({ id: 44, status: "failure" }),
+        ],
       }),
-      new Set(),
-      NOW,
     );
-
-    expect(activity.items).toEqual([
-      expect.objectContaining({
-        kind: "ci-run",
-        id: "ci-run:office:41:1",
-        status: "running",
-        since: hoursAgo(1),
-        ended: false,
-        link: { kind: "url", url: "https://github.com/acme/office/actions/runs/41" },
-      }),
-      expect.objectContaining({
-        kind: "ci-run",
-        id: "ci-run:office:42:1:ended",
-        status: "succeeded",
-        since: hoursAgo(2),
-        ended: true,
-        endedAt: hoursAgo(2),
-      }),
+    expect(activity.otherWork.map((item) => (item.kind === "ci-run" ? item.runId : 0))).toEqual([
+      41, 42,
     ]);
   });
 
-  it("lists environment checks, running since started and finished since finished", () => {
+  it("lists only an environment check running now", () => {
+    const check = { projectId: "office", state: "running", startedAt: hoursAgo(1) };
     const activity = activityOf(
       partsWith({
         environmentChecks: [
-          { projectId: "office", state: "running", startedAt: hoursAgo(1), finishedAt: undefined },
-          {
-            projectId: "shop",
-            state: "failed",
-            startedAt: hoursAgo(3),
-            finishedAt: hoursAgo(2),
-          },
+          { ...check, finishedAt: undefined },
+          { ...check, projectId: "other", state: "passed", finishedAt: hoursAgo(0.5) },
         ],
       }),
-      new Set(),
-      NOW,
     );
-
-    expect(
-      activity.items.map(({ kind, projectId, since, ended }) => ({
-        kind,
-        projectId,
-        since,
-        ended,
-      })),
-    ).toEqual([
-      { kind: "environment-check", projectId: "office", since: hoursAgo(1), ended: false },
-      { kind: "environment-check", projectId: "shop", since: hoursAgo(2), ended: true },
+    expect(activity.otherWork).toEqual([
+      expect.objectContaining({ kind: "environment-check", projectId: "office" }),
     ]);
   });
 
-  it("lists Connected devices since they connected, never ended, and none Disconnected", () => {
+  it("lists Connected devices since they connected, and none Disconnected", () => {
     const device = {
       id: "00000000-0000-4000-8000-00000000d001",
       taskId: TASK_ID,
@@ -590,106 +462,27 @@ describe("activityOf", () => {
           { ...device, id: "00000000-0000-4000-8000-00000000d002", state: "disconnected" },
         ],
       }),
-      new Set(),
-      NOW,
     );
-
-    expect(activity.items).toEqual([
+    expect(activity.otherWork).toEqual([
       expect.objectContaining({
         kind: "connected-device",
-        id: `connected-device:${device.id}`,
         since: hoursAgo(2),
-        ended: false,
         link: { kind: "task", taskId: TASK_ID },
       }),
     ]);
   });
 
-  it("lists only pull requests ready to merge, since last checked", () => {
-    const ready = pullRequest({});
+  it("counts the activities and the items of other work listed", () => {
     const activity = activityOf(
       partsWith({
-        pullRequests: [
-          ready,
-          pullRequest({ id: "pr-merged", state: "merged" }),
-          pullRequest({ id: "pr-conflicting", mergeable: "no" }),
-          pullRequest({ id: "pr-failing", checks: "failing" }),
-          pullRequest({ id: "pr-stale", stale: true }),
-          pullRequest({ id: "pr-unchecked", checks: "none", checkedAt: null }),
-        ],
+        otherTasks: [activityTask()],
+        threadSessions: [threadSession()],
+        ciRuns: [ciRun({}), ciRun({ id: 43, status: "success" })],
+        testInstances: [testInstance({})],
       }),
-      new Set(),
-      NOW,
     );
-
-    expect(activity.items.map(({ id, since }) => ({ id, since }))).toEqual([
-      { id: `pull-request:${ready.id}`, since: hoursAgo(1) },
-      { id: "pull-request:pr-unchecked", since: hoursAgo(5) },
-    ]);
-  });
-
-  it("leaves out ended items the user has seen, never running ones, and counts what is left", () => {
-    const parts = partsWith({
-      ciRuns: [
-        ciRun({ id: 41 }),
-        ciRun({ id: 42, status: "failed" }),
-        ciRun({ id: 43, status: "cancelled" }),
-      ],
-    });
-
-    const activity = activityOf(
-      parts,
-      new Set(["ci-run:office:41:1", "ci-run:office:42:1:ended"]),
-      NOW,
-    );
-
-    expect(activity.items.map(({ id }) => id)).toEqual([
-      "ci-run:office:41:1",
-      "ci-run:office:43:1:ended",
-    ]);
-    expect(activity.count).toBe(2);
-  });
-
-  it(`leaves out an ended item once it ended over ${ENDED_KEPT_DAYS} days ago, seen or not`, () => {
-    const cut = NOW.getTime() - ENDED_KEPT_DAYS * DAY_MS;
-    const activity = activityOf(
-      partsWith({
-        ciRuns: [
-          ciRun({ id: 41, status: "succeeded", updatedAt: new Date(cut) }),
-          ciRun({ id: 42, status: "succeeded", updatedAt: new Date(cut - 1) }),
-          ciRun({ id: 43, startedAt: new Date(cut - DAY_MS) }),
-        ],
-      }),
-      new Set(),
-      NOW,
-    );
-
-    expect(activity.items.map(({ id }) => id)).toEqual([
-      "ci-run:office:43:1",
-      "ci-run:office:41:1:ended",
-    ]);
-  });
-
-  it("puts the running first, then the newest first", () => {
-    const activity = activityOf(
-      partsWith({
-        started: [{ task: activityTask({ createdAt: hoursAgo(9) }), stateChanges: [], stages: [] }],
-        ciRuns: [
-          ciRun({ id: 41, startedAt: hoursAgo(1) }),
-          ciRun({ id: 42, status: "succeeded", updatedAt: hoursAgo(0.1) }),
-          ciRun({ id: 43, status: "succeeded", updatedAt: hoursAgo(3) }),
-        ],
-      }),
-      new Set(),
-      NOW,
-    );
-
-    expect(activity.items.map(({ id }) => id)).toEqual([
-      "ci-run:office:41:1",
-      `task:${TASK_ID}`,
-      "ci-run:office:42:1:ended",
-      "ci-run:office:43:1:ended",
-    ]);
-    expect(activity.count).toBe(4);
+    expect(activity.activities).toHaveLength(1);
+    expect(activity.otherWork).toHaveLength(2);
+    expect(activity.count).toBe(3);
   });
 });

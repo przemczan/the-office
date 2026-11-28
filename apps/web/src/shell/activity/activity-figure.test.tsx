@@ -17,17 +17,23 @@ vi.mock("./use-activity-panel.ts", () => ({
   useActivityPanel: () => ({ isOpen: false, open: openPanel, close: () => undefined }),
 }));
 
-function item(id: string, ended: boolean): ActivityItem {
+function activityOf(count: number): Activity {
+  return {
+    activities: [],
+    otherWork: Array.from({ length: count }, (_, index) => item(`item-${index}`)),
+    count,
+  };
+}
+
+function item(id: string): ActivityItem {
   return {
     kind: "environment-check",
     id,
     projectId: "p1",
     title: "Environment check",
     since: "2026-11-22T12:00:00.000Z",
-    ended,
-    endedAt: ended ? "2026-11-22T12:00:00.000Z" : null,
     link: { kind: "project", projectId: "p1" },
-    state: ended ? "passed" : "running",
+    state: "running",
   };
 }
 
@@ -69,27 +75,25 @@ it("shows nothing until Activity has been read", () => {
 });
 
 it("shows the count with a live dot while anything runs, and says it all in its name", () => {
-  const figure = shown({ items: [item("a", false), item("b", true)], count: 2 });
+  const figure = shown(activityOf(2));
 
   expect(figure?.querySelector(".live-dot")).not.toBeNull();
   expect(figure?.querySelector("b")?.textContent).toBe("2");
-  expect(figure?.getAttribute("aria-label")).toBe("Activity: 1 running, 1 ended not yet seen");
+  expect(figure?.getAttribute("aria-label")).toBe("Activity: 2 running");
   expect(figure?.getAttribute("aria-haspopup")).toBe("dialog");
   expect(figure?.getAttribute("aria-expanded")).toBe("false");
 });
 
 it("has no live dot once nothing runs", () => {
-  const figure = shown({ items: [item("b", true)], count: 1 });
+  const figure = shown(activityOf(0));
 
   expect(figure?.querySelector(".live-dot")).toBeNull();
-  expect(figure?.getAttribute("aria-label")).toBe("Activity: 0 running, 1 ended not yet seen");
 });
 
 it("opens the Activity panel", () => {
-  const figure = shown({ items: [], count: 0 });
+  const figure = shown(activityOf(0));
 
   act(() => figure?.click());
 
   expect(openPanel).toHaveBeenCalledOnce();
-  expect(figure?.getAttribute("aria-label")).toBe("Activity: 0 running");
 });

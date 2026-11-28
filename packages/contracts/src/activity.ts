@@ -5,10 +5,12 @@ import { webEventSchema } from "./events.js";
 import { environmentCheckStateSchema } from "./projects.js";
 import { testInstanceKindSchema } from "./test-instances.js";
 
-/** Where an Activity item leads (spec §2.14, "Items"). */
+/** Where an Activity or an item of other running work leads (spec §2.14). */
 export const activityLinkSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
   z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
+  /** A person's chat Thread, which opens the chat drawer. */
+  z.object({ kind: z.literal("chat"), roleKey: z.string().min(1), threadId: z.uuid() }),
   z.object({ kind: z.literal("project"), projectId: z.string().min(1) }),
   /** A page on the Project's code host, such as a CI run's. */
   z.object({ kind: z.literal("url"), url: z.url() }),
@@ -17,31 +19,22 @@ export type ActivityLink = z.infer<typeof activityLinkSchema>;
 
 /** What every Activity item has, whatever its kind. */
 const activityItemFields = {
-  /** Stable across reads, and new when the item comes again, so what was seen stays seen. */
+  /** Stable across reads. */
   id: z.string().min(1),
   projectId: z.string().min(1),
   title: z.string(),
   /** When the item entered the state it is in. */
   since: z.iso.datetime(),
-  /** It finished, failed or stopped: it stays listed until the user has seen it. */
-  ended: z.boolean(),
-  endedAt: z.iso.datetime().nullable(),
   link: activityLinkSchema,
 };
 
-/** A Task's states Activity lists: at a desk, or Done once it finished. */
-export const activityTaskStateSchema = z.enum(["in-progress", "waiting-on-you", "paused", "done"]);
-export type ActivityTaskState = z.infer<typeof activityTaskStateSchema>;
-
-/** An Off-board Task's states Activity lists: queued, at a desk, failed, or ended. */
+/** An Off-board Task's states Activity lists: queued, at a desk or failed. */
 export const activityOffBoardTaskStateSchema = z.enum([
   "queued",
   "in-progress",
   "waiting-on-you",
   "paused",
   "failed",
-  "done",
-  "dropped",
 ]);
 export type ActivityOffBoardTaskState = z.infer<typeof activityOffBoardTaskStateSchema>;
 
@@ -59,18 +52,12 @@ const offBoardTaskItemFields = {
     .nullable(),
 };
 
-/** The test instance states Activity lists; a Stopped one isn't. */
-export const activityTestInstanceStateSchema = z.enum(["building", "running", "built", "failed"]);
+/** The test instance states Activity lists: only one building or running. */
+export const activityTestInstanceStateSchema = z.enum(["building", "running"]);
 export type ActivityTestInstanceState = z.infer<typeof activityTestInstanceStateSchema>;
 
-/** One thing The Office is doing, or did and the user hasn't seen yet (spec §2.14). */
+/** One piece of other running work: it is listed only while it runs or stalls (spec §2.14). */
 export const activityItemSchema = z.discriminatedUnion("kind", [
-  z.object({
-    ...activityItemFields,
-    kind: z.literal("task"),
-    taskId: z.uuid(),
-    state: activityTaskStateSchema,
-  }),
   /** A Task whose current Stage the user stopped, with no Decision open on it. */
   z.object({
     ...activityItemFields,
@@ -136,38 +123,83 @@ export const activityItemSchema = z.discriminatedUnion("kind", [
     state: connectedDeviceStateSchema.exclude(["disconnected"]),
     taskId: z.uuid(),
   }),
-  /** An open pull request ready to merge. */
-  z.object({
-    ...activityItemFields,
-    kind: z.literal("pull-request"),
-    pullRequestId: z.uuid(),
-    number: z.number().int().positive(),
-    url: z.url(),
-    taskId: z.uuid(),
-  }),
 ]);
 export type ActivityItem = z.infer<typeof activityItemSchema>;
 export type ActivityItemKind = ActivityItem["kind"];
 
+/** What a session waits on, with the Decision's one-line question when there is one. */
+export const activityWaitingOnSchema = z.object({
+  kind: z.enum(["decision", "consultant", "gate", "reply"]),
+  question: z.string().nullable(),
+});
+export type ActivityWaitingOn = z.infer<typeof activityWaitingOnSchema>;
+
+/** Who is in a session: a person, by their Role, or The Office itself (a Gate, a Script Stage). */
+export const activityPersonSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("person"), roleKey: z.string().min(1) }),
+  z.object({ kind: z.literal("the-office") }),
+]);
+export type ActivityPerson = z.infer<typeof activityPersonSchema>;
+
+/** One active session: its Agent takes a turn, or a Decision in its Thread is open (spec §2.14). */
+export const activitySessionSchema = z.object({
+  /** Null for The Office's own sessions: a Gate or a Stage with no Agent. */
+  threadId: z.uuid().nullable(),
+  person: activityPersonSchema,
+  sessionKind: z.enum(["stage", "consultation", "thread", "chat", "gate"]),
+  /** The Stage it works or waits at, when it is a Stage's. */
+  stageName: z.string().nullable(),
+  state: z.enum(["working", "waiting"]),
+  waitingOn: activityWaitingOnSchema.nullable(),
+  since: z.iso.datetime(),
+});
+export type ActivitySession = z.infer<typeof activitySessionSchema>;
+
+/** What an activity is about: a Task, an Initiative or a chat Thread. */
+export const activitySubjectSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("task"),
+    taskId: z.uuid(),
+    projectId: z.string().min(1),
+    title: z.string(),
+    initiativeId: z.uuid().nullable(),
+  }),
+  z.object({ kind: z.literal("initiative"), initiativeId: z.uuid(), title: z.string() }),
+  z.object({
+    kind: z.literal("chat"),
+    threadId: z.uuid(),
+    roleKey: z.string().min(1),
+    title: z.string(),
+  }),
+]);
+export type ActivitySubject = z.infer<typeof activitySubjectSchema>;
+
+/** One activity: every active session on one Task, Initiative or chat. */
+export const subjectActivitySchema = z.object({
+  /** Stable across reads. */
+  id: z.string().min(1),
+  subject: activitySubjectSchema,
+  link: activityLinkSchema,
+  /** The earliest of its sessions' `since`. */
+  since: z.iso.datetime(),
+  sessions: z.array(activitySessionSchema).min(1),
+});
+export type SubjectActivity = z.infer<typeof subjectActivitySchema>;
+
 /**
- * What `GET /activity` answers for the signed-in user: the running items first, then the ended
- * ones they haven't seen, newest first, and the status strip's count of both.
+ * What `GET /activity` answers for the signed-in user: the activities, newest first, below them the
+ * other running work, newest first, and the status strip's count of both.
  */
 export const activitySchema = z.object({
-  items: z.array(activityItemSchema),
+  activities: z.array(subjectActivitySchema),
+  otherWork: z.array(activityItemSchema),
   count: z.number().int().min(0),
 });
 export type Activity = z.infer<typeof activitySchema>;
 
-/** `POST /activity/seen`: the items the signed-in user has seen. */
-export const activitySeenSchema = z.object({
-  itemIds: z.array(z.string().min(1)).min(1).max(500),
-});
-export type ActivitySeen = z.infer<typeof activitySeenSchema>;
-
 /**
- * Something Activity lists changed, or a user marked items seen: each browser reads
- * `GET /activity` again, as what was seen differs per user.
+ * Something Activity lists changed: each browser reads `GET /activity` again, as the chats listed
+ * differ per user.
  */
 export const activityWebEventSchema = webEventSchema.extend({
   type: z.literal("activity.changed"),

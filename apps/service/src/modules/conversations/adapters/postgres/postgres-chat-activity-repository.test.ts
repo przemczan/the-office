@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { AnswerGivenBy } from "../../domain/decision.js";
-import { openDecision, recordDecisionAnswer } from "../../domain/thread-changes.js";
+import { logMessages, openDecision, recordDecisionAnswer } from "../../domain/thread-changes.js";
+import { aUserMessage } from "../../domain/thread.fixtures.js";
 import { ANN_LEE } from "../../domain/user.fixtures.js";
 import {
   repository,
@@ -40,6 +41,25 @@ describe("PostgresChatActivityRepository", () => {
     await repository.markSeen(thread.id, call.cardId, LATEST);
     await answered(thread.id, call.decisionId, { answeredBy: "devops" }, LATEST);
     expect(await unseenAnswerAt()).toEqual(LATEST);
+  });
+});
+
+describe("PostgresChatActivityRepository, who wrote a chat", () => {
+  it("reads the writer of the latest user message: nobody, a user, or an unclaimed one", async () => {
+    const { thread } = await aThreadWithAnswer();
+    const writerOf = async (): Promise<string | null | undefined> =>
+      (await repository.chatThread(thread.id))?.writerUserId;
+    expect(await writerOf()).toBeUndefined();
+
+    await threads.update(thread.id, (current) =>
+      logMessages(current, [aUserMessage(current, "Hi", undefined, null)], AT),
+    );
+    expect(await writerOf()).toBeNull();
+
+    await threads.update(thread.id, (current) =>
+      logMessages(current, [aUserMessage(current, "Hello")], AT),
+    );
+    expect(await writerOf()).toBe(ANN_LEE.userId);
   });
 });
 

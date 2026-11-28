@@ -5,9 +5,8 @@ import type {
   ActivityDevice,
   ActivityEnvironmentCheck,
   ActivityOffBoardTask,
-  ActivityPullRequest,
   ActivityStage,
-  ActivityStateChange,
+  ActivityThreadSession,
   ActivityTask,
   ActivityTestInstance,
 } from "../domain/activity.js";
@@ -16,7 +15,8 @@ import { ActivityDecisions } from "./activity-decisions.js";
 import { ActivityDevices } from "./activity-devices.js";
 import { ActivityEnvironmentChecks } from "./activity-environment-checks.js";
 import { ActivityOffBoardTasks } from "./activity-off-board-tasks.js";
-import { ActivityPullRequests } from "./activity-pull-requests.js";
+import { ActivityInitiatives } from "./activity-initiatives.js";
+import { ActivitySessions } from "./activity-sessions.js";
 import { ActivityStages } from "./activity-stages.js";
 import { ActivityTasks } from "./activity-tasks.js";
 import { ActivityTestInstances } from "./activity-test-instances.js";
@@ -26,7 +26,6 @@ import { ActivityActionRuns } from "./activity-action-runs.js";
 @Injectable()
 export class ActivityTasksForTests extends ActivityTasks {
   tasks: ActivityTask[] = [];
-  stateChanges = new Map<string, ActivityStateChange[]>();
 
   started(): Promise<readonly ActivityTask[]> {
     return Promise.resolve(
@@ -34,20 +33,36 @@ export class ActivityTasksForTests extends ActivityTasks {
     );
   }
 
-  doneSince(since: Date): Promise<readonly string[]> {
-    return Promise.resolve(
-      this.tasks
-        .filter(({ state, endedAt }) => state === "done" && endedAt && endedAt >= since)
-        .map(({ id }) => id),
-    );
-  }
-
   findAll(ids: readonly string[]): Promise<readonly ActivityTask[]> {
     return Promise.resolve(this.tasks.filter(({ id }) => ids.includes(id)));
   }
+}
 
-  stateChangesOf(taskId: string): Promise<readonly ActivityStateChange[]> {
-    return Promise.resolve(this.stateChanges.get(taskId) ?? []);
+/** Work's Initiatives as a test sets them: each Initiative id with its title. */
+@Injectable()
+export class ActivityInitiativesForTests extends ActivityInitiatives {
+  titles = new Map<string, string>();
+
+  titlesOf(
+    ids: readonly string[],
+  ): Promise<readonly { readonly initiativeId: string; readonly title: string }[]> {
+    return Promise.resolve(
+      ids.flatMap((initiativeId) => {
+        const title = this.titles.get(initiativeId);
+        return title === undefined ? [] : [{ initiativeId, title }];
+      }),
+    );
+  }
+}
+
+/** Conversations' sessions as a test sets them: a user's own, else `sessions`, for every user. */
+@Injectable()
+export class ActivitySessionsForTests extends ActivitySessions {
+  sessions: ActivityThreadSession[] = [];
+  sessionsOfUser = new Map<string, ActivityThreadSession[]>();
+
+  sessionsFor(userId: string): Promise<readonly ActivityThreadSession[]> {
+    return Promise.resolve(this.sessionsOfUser.get(userId) ?? this.sessions);
   }
 }
 
@@ -116,15 +131,6 @@ export class ActivityEnvironmentChecksForTests extends ActivityEnvironmentChecks
 }
 
 @Injectable()
-export class ActivityPullRequestsForTests extends ActivityPullRequests {
-  pullRequests: ActivityPullRequest[] = [];
-
-  list(): Promise<{ readonly pullRequests: readonly ActivityPullRequest[] }> {
-    return Promise.resolve({ pullRequests: this.pullRequests });
-  }
-}
-
-@Injectable()
 export class ActivityDevicesForTests extends ActivityDevices {
   devices: ActivityDevice[] = [];
 
@@ -135,6 +141,8 @@ export class ActivityDevicesForTests extends ActivityDevices {
 
 const PORTS = [
   ActivityTasksForTests,
+  ActivityInitiativesForTests,
+  ActivitySessionsForTests,
   ActivityStagesForTests,
   ActivityDecisionsForTests,
   ActivityOffBoardTasksForTests,
@@ -142,7 +150,6 @@ const PORTS = [
   ActivityActionRunsForTests,
   ActivityCiRunsForTests,
   ActivityEnvironmentChecksForTests,
-  ActivityPullRequestsForTests,
   ActivityDevicesForTests,
 ];
 
@@ -153,6 +160,8 @@ export class ActivityPortsForTestsModule {}
 export const ACTIVITY_PORTS_FOR_TESTS = {
   imports: [ActivityPortsForTestsModule],
   tasks: ActivityTasksForTests,
+  initiatives: ActivityInitiativesForTests,
+  sessions: ActivitySessionsForTests,
   stages: ActivityStagesForTests,
   decisions: ActivityDecisionsForTests,
   offBoardTasks: ActivityOffBoardTasksForTests,
@@ -160,7 +169,6 @@ export const ACTIVITY_PORTS_FOR_TESTS = {
   actionRuns: ActivityActionRunsForTests,
   ciRuns: ActivityCiRunsForTests,
   environmentChecks: ActivityEnvironmentChecksForTests,
-  pullRequests: ActivityPullRequestsForTests,
   devices: ActivityDevicesForTests,
 };
 
@@ -171,8 +179,7 @@ export function activityTask(overrides: Partial<ActivityTask> = {}): ActivityTas
     title: "Add a filter",
     projectId: "office",
     state: "in-progress",
-    createdAt: new Date("2026-11-20T09:00:00Z"),
-    endedAt: undefined,
+    initiativeId: undefined,
     ...overrides,
   };
 }

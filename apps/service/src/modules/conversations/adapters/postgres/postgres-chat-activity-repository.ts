@@ -63,6 +63,11 @@ export class PostgresChatActivityRepository extends ChatActivityRepository {
         threadId: threads.id,
         roleKey: threads.roleKey,
         state: threads.state,
+        title: threads.title,
+        writerUserId: sql<string | null>`(${newestLogged(
+          sql`${logged.body}->>'kind' = 'user'`,
+          sql`coalesce(${logged.body}->'writtenBy'->>'userId', '')`,
+        )})`,
         lastMovedAt: sql`coalesce((${newestLogged(undefined)}), ${threads.startedAt})`.mapWith(
           threads.startedAt,
         ),
@@ -78,14 +83,17 @@ export class PostgresChatActivityRepository extends ChatActivityRepository {
       .leftJoin(threadSeen, eq(threadSeen.threadId, threads.id))
       .leftJoin(seenMessage, eq(seenMessage.id, threadSeen.messageId))
       .where(which);
-    return rows.map(({ unseenAnswerAt, ...row }) => ({
+    return rows.map(({ unseenAnswerAt, title, writerUserId, ...row }) => ({
       ...row,
+      title: title ?? undefined,
+      // The empty string stands for a message with no writer; no message at all reads as null.
+      writerUserId: writerUserId === null ? undefined : writerUserId === "" ? null : writerUserId,
       unseenAnswerAt: unseenAnswerAt ?? undefined,
     }));
   }
 }
 
-function newestLogged(among: SQL | undefined): SQL {
+function newestLogged(among: SQL | undefined, column: SQL | typeof logged.at = logged.at): SQL {
   const inThread = eq(logged.threadId, threads.id);
-  return sql`select ${logged.at} from ${threadMessages} as ${sql.identifier("logged")} where ${and(inThread, among)} order by ${logged.position} desc limit 1`;
+  return sql`select ${column} from ${threadMessages} as ${sql.identifier("logged")} where ${and(inThread, among)} order by ${logged.position} desc limit 1`;
 }

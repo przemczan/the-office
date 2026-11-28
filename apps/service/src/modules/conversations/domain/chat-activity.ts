@@ -5,6 +5,13 @@ export interface ChatThreadActivity {
   readonly threadId: string;
   readonly roleKey: string;
   readonly state: ThreadState;
+  /** Undefined before its first message. */
+  readonly title: string | undefined;
+  /**
+   * Who wrote its latest user message, by the user's id: null for one from before users existed,
+   * undefined while the user has written none.
+   */
+  readonly writerUserId: string | null | undefined;
   /** Its newest message's time, or when it started while it has none. */
   readonly lastMovedAt: Date;
   /** The newest message after the last one seen that isn't the user's own; undefined when none. */

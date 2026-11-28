@@ -1,20 +1,7 @@
-/** How long an ended item stays listed for a user who hasn't seen it (spec §2.14, Defaults). */
-export const ENDED_KEPT_DAYS = 7;
-/** How long what a user has seen is kept, well past the items it hides (spec §2.14, Defaults). */
-export const SEEN_KEPT_DAYS = 30;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** The Task states at a desk, which Activity lists as running. */
 const AT_A_DESK: ReadonlySet<string> = new Set(["in-progress", "waiting-on-you", "paused"]);
-const ENDED_TEST_INSTANCE_STATES: ReadonlySet<string> = new Set(["built", "failed"]);
-const LISTED_TEST_INSTANCE_STATES: ReadonlySet<string> = new Set([
-  "building",
-  "running",
-  ...ENDED_TEST_INSTANCE_STATES,
-]);
+const LISTED_TEST_INSTANCE_STATES: ReadonlySet<string> = new Set(["building", "running"]);
 const GOING_CI_RUN_STATUSES: ReadonlySet<string> = new Set(["queued", "waiting", "running"]);
-const PASSING_CHECKS: ReadonlySet<string> = new Set(["passing", "none"]);
 
 /** A Task as Activity reads it, from Work. */
 export interface ActivityTask {
@@ -22,29 +9,21 @@ export interface ActivityTask {
   readonly title: string;
   readonly projectId: string;
   readonly state: string;
-  readonly createdAt: Date;
-  /** When it was Done or Dropped; undefined while open. */
-  readonly endedAt: Date | undefined;
+  /** The Initiative it belongs to, if any. */
+  readonly initiativeId: string | undefined;
   /** What The Office made it for, if anything: an Off-board Task's is listed as its own kind. */
   readonly madeFor?: string | undefined;
 }
 
-/** One of a Task's kept state changes. */
-export interface ActivityStateChange {
-  readonly to: string;
-  readonly at: Date;
-}
-
-/** A started Task with its state changes and its own Stages, oldest first. */
+/** A started Task with its own Stages, oldest first. */
 export interface StartedActivityTask {
   readonly task: ActivityTask;
-  readonly stateChanges: readonly ActivityStateChange[];
   readonly stages: readonly ActivityStage[];
 }
 
 /** One of a Task's Stages, with where it stands and its runs, oldest first, from Pipelines. */
 export interface ActivityStage {
-  readonly stage: { readonly name: string };
+  readonly stage: { readonly name: string; readonly kind: string };
   readonly state: string;
   readonly runs: readonly {
     readonly id: string;
@@ -83,7 +62,7 @@ export interface ActivityOffBoardTask {
       }
     | { readonly state: "running" | "waiting-on-you" | "paused" | "ready" }
     | { readonly state: "failed"; readonly stageName: string }
-    | { readonly state: "done" | "dropped"; readonly endedAt: Date | undefined };
+    | { readonly state: "done" | "dropped" };
   /** The Stage of its latest run; undefined before it started. */
   readonly currentStage: string | undefined;
   /** When it entered its state. */
@@ -146,26 +125,39 @@ export interface ActivityDevice {
   readonly connectedAt: Date;
 }
 
-export interface ActivityPullRequest {
-  readonly id: string;
-  readonly projectId: string;
-  readonly taskId: string;
-  readonly number: number;
-  readonly url: string;
-  readonly title: string;
-  readonly state: string;
-  readonly checks: string;
-  readonly mergeable: string;
-  readonly stale: boolean;
-  readonly openedAt: Date;
-  readonly checkedAt: Date | null;
+/** What an active session is about, as Conversations reads it. */
+export type ActivitySessionSubject =
+  | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string }
+  | {
+      readonly kind: "chat";
+      readonly threadId: string;
+      readonly roleKey: string;
+      readonly title: string | undefined;
+    };
+
+/** One active session of a person, as Conversations reads it (spec §2.14, "Sessions"). */
+export interface ActivityThreadSession {
+  readonly threadId: string;
+  readonly roleKey: string;
+  readonly subject: ActivitySessionSubject;
+  readonly sessionKind: "stage" | "consultation" | "thread" | "chat";
+  readonly state: "working" | "waiting";
+  readonly waitingOn:
+    | { readonly kind: "decision" | "consultant" | "reply"; readonly question: string | undefined }
+    | undefined;
+  readonly since: Date;
 }
 
 /** Everything Activity gathers from the modules that own it, for one read. */
 export interface ActivityParts {
+  /** The user's active sessions of people. */
+  readonly threadSessions: readonly ActivityThreadSession[];
+  /** The Tasks at a desk with their Stages, which hold The Office's own sessions and stalls. */
   readonly started: readonly StartedActivityTask[];
-  /** The Tasks Done within the last `ENDED_KEPT_DAYS`. */
-  readonly done: readonly ActivityTask[];
+  /** The Tasks the sessions are on, that aren't among `started`. */
+  readonly otherTasks: readonly ActivityTask[];
+  readonly initiativeTitles: ReadonlyMap<string, string>;
   /** The Task ids with a Decision open on them, waiting on the user. */
   readonly openDecisionTaskIds: ReadonlySet<string>;
   /** Every Off-board Task off the Archive. */
@@ -176,29 +168,26 @@ export interface ActivityParts {
   readonly ciRuns: readonly ActivityCiRun[];
   readonly environmentChecks: readonly ActivityEnvironmentCheck[];
   readonly devices: readonly ActivityDevice[];
-  readonly pullRequests: readonly ActivityPullRequest[];
 }
+
+export type ActivityLink =
+  | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string }
+  | { readonly kind: "chat"; readonly roleKey: string; readonly threadId: string }
+  | { readonly kind: "project"; readonly projectId: string }
+  | { readonly kind: "url"; readonly url: string };
 
 interface ItemFields {
   readonly id: string;
   readonly projectId: string;
   readonly title: string;
   readonly since: Date;
-  readonly ended: boolean;
-  readonly endedAt: Date | undefined;
   readonly link: ActivityLink;
 }
 
-export type ActivityLink =
-  | { readonly kind: "task"; readonly taskId: string }
-  | { readonly kind: "initiative"; readonly initiativeId: string }
-  | { readonly kind: "project"; readonly projectId: string }
-  | { readonly kind: "url"; readonly url: string };
-
-/** One thing The Office is doing, or did and the user hasn't seen (spec §2.14). */
+/** One piece of other running work: listed only while it runs or stalls (spec §2.14). */
 export type ActivityItem = ItemFields &
   (
-    | { readonly kind: "task"; readonly taskId: string; readonly state: string }
     | {
         readonly kind: OffBoardItemKind;
         readonly taskId: string;
@@ -245,52 +234,77 @@ export type ActivityItem = ItemFields &
         readonly state: string;
         readonly taskId: string;
       }
-    | {
-        readonly kind: "pull-request";
-        readonly pullRequestId: string;
-        readonly number: number;
-        readonly url: string;
-        readonly taskId: string;
-      }
   );
 
+/** One active session: a person's, or The Office's own (a Gate, a Stage with no Agent). */
+export interface ActivitySession {
+  /** Undefined for The Office's own sessions. */
+  readonly threadId: string | undefined;
+  /** The person's Role key; undefined for The Office. */
+  readonly roleKey: string | undefined;
+  readonly sessionKind: ActivityThreadSession["sessionKind"] | "gate";
+  readonly stageName: string | undefined;
+  readonly state: "working" | "waiting";
+  readonly waitingOn:
+    | {
+        readonly kind: "decision" | "consultant" | "gate" | "reply";
+        readonly question: string | undefined;
+      }
+    | undefined;
+  readonly since: Date;
+}
+
+export type ActivitySubject =
+  | {
+      readonly kind: "task";
+      readonly taskId: string;
+      readonly projectId: string;
+      readonly title: string;
+      readonly initiativeId: string | undefined;
+    }
+  | { readonly kind: "initiative"; readonly initiativeId: string; readonly title: string }
+  | {
+      readonly kind: "chat";
+      readonly threadId: string;
+      readonly roleKey: string;
+      readonly title: string;
+    };
+
+/** Every active session on one Task, Initiative or chat. */
+export interface SubjectActivity {
+  readonly id: string;
+  readonly subject: ActivitySubject;
+  readonly link: ActivityLink;
+  /** The earliest of its sessions'. */
+  readonly since: Date;
+  readonly sessions: readonly ActivitySession[];
+}
+
 export interface Activity {
-  readonly items: readonly ActivityItem[];
-  /** The running items and the ended ones the user hasn't seen: every item listed. */
+  readonly activities: readonly SubjectActivity[];
+  readonly otherWork: readonly ActivityItem[];
+  /** What is listed: the activities and the items of other work. */
   readonly count: number;
 }
 
-/** Where ended items start to be left out, whether seen or not. */
-export function endedCutOf(now: Date): Date {
-  return new Date(now.getTime() - ENDED_KEPT_DAYS * DAY_MS);
-}
-
-/** Before this, what a user has seen is forgotten. */
-export function seenCutOf(now: Date): Date {
-  return new Date(now.getTime() - SEEN_KEPT_DAYS * DAY_MS);
-}
+/** What a chat with no title yet is called. */
+const UNTITLED_CHAT = "New chat";
 
 /**
- * The user's Activity: every part's items, less the ended ones they have seen or that ended over
- * `ENDED_KEPT_DAYS` ago; the running first, then the newest first.
+ * The user's Activity: the active sessions grouped one activity per Task, Initiative and chat, and
+ * the other running work; each the newest first.
  */
-export function activityOf(
-  parts: ActivityParts,
-  seenIds: ReadonlySet<string>,
-  now: Date,
-): Activity {
-  const cut = endedCutOf(now).getTime();
-  const items = itemsOf(parts)
-    .filter(
-      ({ id, ended, endedAt }) => !ended || (!seenIds.has(id) && (endedAt?.getTime() ?? 0) >= cut),
-    )
-    .toSorted(
-      (first, second) =>
-        Number(first.ended) - Number(second.ended) ||
-        second.since.getTime() - first.since.getTime() ||
-        first.id.localeCompare(second.id),
-    );
-  return { items, count: items.length };
+export function activityOf(parts: ActivityParts): Activity {
+  const otherWork = itemsOf(parts).toSorted(newestFirst);
+  const activities = activitiesOf(parts).toSorted(newestFirst);
+  return { activities, otherWork, count: activities.length + otherWork.length };
+}
+
+function newestFirst(
+  first: { readonly since: Date; readonly id: string },
+  second: { readonly since: Date; readonly id: string },
+): number {
+  return second.since.getTime() - first.since.getTime() || first.id.localeCompare(second.id);
 }
 
 function itemsOf(parts: ActivityParts): ActivityItem[] {
@@ -299,96 +313,225 @@ function itemsOf(parts: ActivityParts): ActivityItem[] {
   return [
     ...parts.started
       .filter(({ task }) => onBoard(task))
-      .flatMap((started) => startedTaskItem(started, parts.openDecisionTaskIds)),
-    ...parts.done.filter(onBoard).map(doneTaskItem),
+      .flatMap((started) => stalledTaskItem(started, parts.openDecisionTaskIds)),
     ...parts.offBoardTasks.flatMap(offBoardTaskItem),
     ...parts.testInstances.flatMap(testInstanceItem),
     ...parts.actionRuns.map(actionRunItem),
-    ...parts.ciRuns.map(ciRunItem),
-    ...parts.environmentChecks.map(environmentCheckItem),
+    ...parts.ciRuns.flatMap(ciRunItem),
+    ...parts.environmentChecks.flatMap(environmentCheckItem),
     ...parts.devices.flatMap(deviceItem),
-    ...parts.pullRequests.flatMap(pullRequestItem),
   ];
+}
+
+function activitiesOf(parts: ActivityParts): SubjectActivity[] {
+  const offBoardIds = new Set(parts.offBoardTasks.map(({ taskId }) => taskId));
+  const tasks = new Map(
+    [...parts.started.map(({ task }) => task), ...parts.otherTasks].map((task) => [task.id, task]),
+  );
+  const sessionsBySubject = new Map<string, ActivitySession[]>();
+  const subjects = new Map<string, ActivitySubject>();
+  const add = (subject: ActivitySubject | undefined, session: ActivitySession): void => {
+    if (!subject) return;
+    const id = subjectIdOf(subject);
+    subjects.set(id, subject);
+    sessionsBySubject.set(id, [...(sessionsBySubject.get(id) ?? []), session]);
+  };
+
+  for (const thread of parts.threadSessions) {
+    const stageName = stageNameOf(thread, parts.started);
+    add(subjectOf(thread.subject, tasks, offBoardIds, parts.initiativeTitles), {
+      threadId: thread.threadId,
+      roleKey: thread.roleKey,
+      sessionKind: thread.sessionKind,
+      stageName,
+      state: thread.state,
+      waitingOn: thread.waitingOn,
+      since: thread.since,
+    });
+  }
+  for (const started of parts.started) {
+    if (offBoardIds.has(started.task.id) || isOffBoard(started.task)) continue;
+    const session = officeSessionOf(started.stages);
+    if (session) {
+      add(
+        subjectOf(
+          { kind: "task", taskId: started.task.id },
+          tasks,
+          offBoardIds,
+          parts.initiativeTitles,
+        ),
+        session,
+      );
+    }
+  }
+
+  return [...sessionsBySubject].flatMap(([id, sessions]) => {
+    const subject = subjects.get(id);
+    if (!subject) return [];
+    const ordered = sessions.toSorted(
+      (first, second) => first.since.getTime() - second.since.getTime(),
+    );
+    return [
+      {
+        id,
+        subject,
+        link: linkOf(subject),
+        since: ordered[0]?.since ?? new Date(0),
+        sessions: ordered,
+      },
+    ];
+  });
+}
+
+function subjectOf(
+  subject: ActivitySessionSubject,
+  tasks: ReadonlyMap<string, ActivityTask>,
+  offBoardIds: ReadonlySet<string>,
+  initiativeTitles: ReadonlyMap<string, string>,
+): ActivitySubject | undefined {
+  switch (subject.kind) {
+    case "task": {
+      const task = tasks.get(subject.taskId);
+      if (!task || offBoardIds.has(task.id) || isOffBoard(task)) return undefined;
+      return {
+        kind: "task",
+        taskId: task.id,
+        projectId: task.projectId,
+        title: task.title,
+        initiativeId: task.initiativeId,
+      };
+    }
+    case "initiative": {
+      const title = initiativeTitles.get(subject.initiativeId);
+      return title === undefined
+        ? undefined
+        : { kind: "initiative", initiativeId: subject.initiativeId, title };
+    }
+    case "chat":
+      return {
+        kind: "chat",
+        threadId: subject.threadId,
+        roleKey: subject.roleKey,
+        title: subject.title ?? UNTITLED_CHAT,
+      };
+  }
+}
+
+function subjectIdOf(subject: ActivitySubject): string {
+  switch (subject.kind) {
+    case "task":
+      return `task:${subject.taskId}`;
+    case "initiative":
+      return `initiative:${subject.initiativeId}`;
+    case "chat":
+      return `chat:${subject.threadId}`;
+  }
+}
+
+function linkOf(subject: ActivitySubject): ActivityLink {
+  switch (subject.kind) {
+    case "task":
+      return taskLink(subject.taskId);
+    case "initiative":
+      return { kind: "initiative", initiativeId: subject.initiativeId };
+    case "chat":
+      return { kind: "chat", roleKey: subject.roleKey, threadId: subject.threadId };
+  }
+}
+
+/** The Stage a Stage Thread works: its Task's current Stage, while that is running or waiting. */
+function stageNameOf(
+  thread: ActivityThreadSession,
+  started: readonly StartedActivityTask[],
+): string | undefined {
+  if (thread.sessionKind !== "stage" || thread.subject.kind !== "task") return undefined;
+  const { taskId } = thread.subject;
+  const stages = started.find(({ task }) => task.id === taskId)?.stages ?? [];
+  return currentStageOf(stages)?.stage.stage.name;
+}
+
+/**
+ * The Task's current Stage as The Office's own session: a Gate waiting on the user, or a Script
+ * or Publish Stage running, which no Agent works.
+ */
+function officeSessionOf(stages: readonly ActivityStage[]): ActivitySession | undefined {
+  const current = currentStageOf(stages);
+  if (!current) return undefined;
+  const { stage, run } = current;
+  const base = {
+    threadId: undefined,
+    roleKey: undefined,
+    stageName: stage.stage.name,
+    since: run.startedAt,
+  };
+  if (stage.stage.kind === "gate" && stage.state === "waiting-on-you") {
+    return {
+      ...base,
+      sessionKind: "gate",
+      state: "waiting",
+      waitingOn: { kind: "gate", question: undefined },
+    };
+  }
+  if (
+    (stage.stage.kind === "script" || stage.stage.kind === "publish") &&
+    stage.state === "running"
+  ) {
+    return { ...base, sessionKind: "stage", state: "working", waitingOn: undefined };
+  }
+  return undefined;
 }
 
 /**
  * A started Task, never an Off-board Task, is `failed-task` or `stopped-task` while its current
  * Stage, the one run last, is failed or stopped and no Decision is open on it, keyed by that run so
- * a later one shows again; any other is `task`, since its last state change.
+ * a later one shows again.
  */
-function startedTaskItem(
-  { task, stateChanges, stages }: StartedActivityTask,
+function stalledTaskItem(
+  { task, stages }: StartedActivityTask,
   openDecisionTaskIds: ReadonlySet<string>,
 ): ActivityItem[] {
   if (!AT_A_DESK.has(task.state)) return [];
-  const fields = { projectId: task.projectId, title: task.title, link: taskLink(task.id) };
   const current = currentStageOf(stages);
   if (
-    current &&
-    (current.stage.state === "failed" || current.stage.state === "stopped") &&
-    !openDecisionTaskIds.has(task.id)
+    !current ||
+    (current.stage.state !== "failed" && current.stage.state !== "stopped") ||
+    openDecisionTaskIds.has(task.id)
   ) {
-    const endedAt = current.run.endedAt ?? current.run.startedAt;
-    return [
-      {
-        ...fields,
-        kind: current.stage.state === "failed" ? "failed-task" : "stopped-task",
-        id: `${current.stage.state}-task:${task.id}:${current.run.id}`,
-        taskId: task.id,
-        stageName: current.stage.stage.name,
-        since: endedAt,
-        ended: true,
-        endedAt,
-      },
-    ];
+    return [];
   }
   return [
     {
-      ...fields,
-      kind: "task",
-      id: `task:${task.id}`,
+      kind: current.stage.state === "failed" ? "failed-task" : "stopped-task",
+      id: `${current.stage.state}-task:${task.id}:${current.run.id}`,
+      projectId: task.projectId,
+      title: task.title,
+      link: taskLink(task.id),
       taskId: task.id,
-      state: task.state,
-      since: enteredAt(task, stateChanges),
-      ended: false,
-      endedAt: undefined,
+      stageName: current.stage.stage.name,
+      since: current.run.endedAt ?? current.run.startedAt,
     },
   ];
 }
 
-function doneTaskItem(task: ActivityTask): ActivityItem {
-  const endedAt = task.endedAt ?? task.createdAt;
-  return {
-    kind: "task",
-    id: `task:${task.id}:done`,
-    projectId: task.projectId,
-    title: task.title,
-    link: taskLink(task.id),
-    taskId: task.id,
-    state: "done",
-    since: endedAt,
-    ended: true,
-    endedAt,
-  };
-}
-
 /**
  * An Off-board Task, listed once as its own kind while queued, at a desk or failed (a Stage out of
- * tries, its Decision open), and ended once Done or Dropped, keyed by that state; one waiting for
- * Start isn't listed.
+ * tries, its Decision open); one waiting for Start, Done or Dropped isn't listed.
  */
 function offBoardTaskItem(offBoardTask: ActivityOffBoardTask): ActivityItem[] {
   const kind = OFF_BOARD_ITEM_KINDS[offBoardTask.kind];
   const { status } = offBoardTask;
-  if (kind === undefined || status.state === "ready") return [];
-  const ended = status.state === "done" || status.state === "dropped";
-  const endedAt = ended ? (status.endedAt ?? offBoardTask.since) : undefined;
+  if (
+    kind === undefined ||
+    status.state === "ready" ||
+    status.state === "done" ||
+    status.state === "dropped"
+  ) {
+    return [];
+  }
   return [
     {
       kind,
-      id: ended
-        ? `${kind}:${offBoardTask.taskId}:${status.state}`
-        : `${kind}:${offBoardTask.taskId}`,
+      id: `${kind}:${offBoardTask.taskId}`,
       projectId: offBoardTask.projectId,
       title: offBoardTask.title,
       link: taskLink(offBoardTask.taskId),
@@ -400,26 +543,17 @@ function offBoardTaskItem(offBoardTask: ActivityOffBoardTask): ActivityItem[] {
         status.state === "queued"
           ? { place: status.place, shortReasons: status.shortReasons }
           : null,
-      since: endedAt ?? offBoardTask.since,
-      ended,
-      endedAt,
+      since: offBoardTask.since,
     },
   ];
 }
 
 function testInstanceItem(instance: ActivityTestInstance): ActivityItem[] {
   if (!LISTED_TEST_INSTANCE_STATES.has(instance.state)) return [];
-  const endedAt = ENDED_TEST_INSTANCE_STATES.has(instance.state) ? instance.endedAt : undefined;
-  const ended = endedAt !== undefined;
-  const since =
-    endedAt ??
-    (instance.state === "running"
-      ? (instance.runningAt ?? instance.launchedAt)
-      : instance.launchedAt);
   return [
     {
       kind: "test-instance",
-      id: ended ? `test-instance:${instance.id}:${instance.state}` : `test-instance:${instance.id}`,
+      id: `test-instance:${instance.id}`,
       projectId: instance.projectId,
       title: instance.targetName,
       link: instance.initiativeId
@@ -430,17 +564,14 @@ function testInstanceItem(instance: ActivityTestInstance): ActivityItem[] {
       state: instance.state,
       branch: instance.branch ?? null,
       initiativeId: instance.initiativeId ?? null,
-      since,
-      ended,
-      endedAt,
+      since:
+        instance.state === "running"
+          ? (instance.runningAt ?? instance.launchedAt)
+          : instance.launchedAt,
     },
   ];
 }
 
-/**
- * A Project command run, listed only while it runs: it leaves Activity as it ends (spec §2.14,
- * "Items"), so it is never seen ended.
- */
 function actionRunItem(run: ActivityActionRun): ActivityItem {
   return {
     kind: "action-run",
@@ -453,47 +584,44 @@ function actionRunItem(run: ActivityActionRun): ActivityItem {
     branch: run.branch,
     startedBy: run.startedBy,
     since: run.startedAt,
-    ended: false,
-    endedAt: undefined,
   };
 }
 
-function ciRunItem(run: ActivityCiRun): ActivityItem {
-  const ended = !GOING_CI_RUN_STATUSES.has(run.status);
-  const key = `ci-run:${run.projectId}:${run.id}:${run.attempt}`;
-  return {
-    kind: "ci-run",
-    id: ended ? `${key}:ended` : key,
-    projectId: run.projectId,
-    title: `${run.workflow}: ${run.title}`,
-    link: { kind: "url", url: run.url },
-    runId: run.id,
-    status: run.status,
-    url: run.url,
-    taskId: run.taskId,
-    since: ended ? run.updatedAt : (run.startedAt ?? run.updatedAt),
-    ended,
-    endedAt: ended ? run.updatedAt : undefined,
-  };
+function ciRunItem(run: ActivityCiRun): ActivityItem[] {
+  if (!GOING_CI_RUN_STATUSES.has(run.status)) return [];
+  return [
+    {
+      kind: "ci-run",
+      id: `ci-run:${run.projectId}:${run.id}:${run.attempt}`,
+      projectId: run.projectId,
+      title: `${run.workflow}: ${run.title}`,
+      link: { kind: "url", url: run.url },
+      runId: run.id,
+      status: run.status,
+      url: run.url,
+      taskId: run.taskId,
+      since: run.startedAt ?? run.updatedAt,
+    },
+  ];
 }
 
-function environmentCheckItem(check: ActivityEnvironmentCheck): ActivityItem {
-  const key = `environment-check:${check.projectId}:${check.startedAt.toISOString()}`;
-  const ended = check.finishedAt !== undefined;
-  return {
-    kind: "environment-check",
-    id: ended ? `${key}:ended` : key,
-    projectId: check.projectId,
-    title: "Environment check",
-    link: { kind: "project", projectId: check.projectId },
-    state: check.state,
-    since: check.finishedAt ?? check.startedAt,
-    ended,
-    endedAt: check.finishedAt,
-  };
+/** Only a check running now: one that finished isn't listed. */
+function environmentCheckItem(check: ActivityEnvironmentCheck): ActivityItem[] {
+  if (check.finishedAt !== undefined) return [];
+  return [
+    {
+      kind: "environment-check",
+      id: `environment-check:${check.projectId}:${check.startedAt.toISOString()}`,
+      projectId: check.projectId,
+      title: "Environment check",
+      link: { kind: "project", projectId: check.projectId },
+      state: check.state,
+      since: check.startedAt,
+    },
+  ];
 }
 
-/** A device leaves the list once Disconnected; it never ends. */
+/** A device leaves the list once Disconnected. */
 function deviceItem(device: ActivityDevice): ActivityItem[] {
   if (device.state === "disconnected") return [];
   return [
@@ -508,43 +636,8 @@ function deviceItem(device: ActivityDevice): ActivityItem[] {
       state: device.state,
       taskId: device.taskId,
       since: device.connectedAt,
-      ended: false,
-      endedAt: undefined,
     },
   ];
-}
-
-/**
- * Only a pull request ready to merge: open, mergeable, its checks passing or none, and read on its
- * last refresh. It leaves the list once merged or closed; it never ends.
- */
-function pullRequestItem(pullRequest: ActivityPullRequest): ActivityItem[] {
-  if (!isReadyToMerge(pullRequest)) return [];
-  return [
-    {
-      kind: "pull-request",
-      id: `pull-request:${pullRequest.id}`,
-      projectId: pullRequest.projectId,
-      title: pullRequest.title,
-      link: { kind: "url", url: pullRequest.url },
-      pullRequestId: pullRequest.id,
-      number: pullRequest.number,
-      url: pullRequest.url,
-      taskId: pullRequest.taskId,
-      since: pullRequest.checkedAt ?? pullRequest.openedAt,
-      ended: false,
-      endedAt: undefined,
-    },
-  ];
-}
-
-export function isReadyToMerge(pullRequest: ActivityPullRequest): boolean {
-  return (
-    pullRequest.state === "open" &&
-    pullRequest.mergeable === "yes" &&
-    PASSING_CHECKS.has(pullRequest.checks) &&
-    !pullRequest.stale
-  );
 }
 
 /** The Stage whose run started last, with that run; undefined before any Stage ran. */
@@ -559,11 +652,6 @@ function currentStageOf(
     }
   }
   return current;
-}
-
-/** When the Task moved into its state: its last change to it, else when it was made. */
-function enteredAt(task: ActivityTask, stateChanges: readonly ActivityStateChange[]): Date {
-  return stateChanges.findLast(({ to }) => to === task.state)?.at ?? task.createdAt;
 }
 
 function taskLink(taskId: string): ActivityLink {

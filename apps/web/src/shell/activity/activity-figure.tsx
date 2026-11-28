@@ -7,14 +7,13 @@ import { activityCountWords } from "./activity-words.ts";
 import { useActivityPanel } from "./use-activity-panel.ts";
 
 /**
- * After Desks in use: everything The Office is running and the ended items the user hasn't seen,
- * Office-wide, with a live dot while anything runs; it opens the Activity panel (spec 2.14).
+ * After Desks in use: everything The Office is running, Office-wide, with a live dot while anything
+ * runs; it opens the Activity panel (spec 2.14).
  */
 export function ActivityFigure(): ReactNode {
   const activity = useQuery(activityQueries.list()).data;
   const panel = useActivityPanel();
   if (!activity) return null;
-  const running = activity.items.some(({ ended }) => !ended);
   // Its separator comes with it, so the strip shows none twice before the first read.
   return (
     <>
@@ -22,7 +21,7 @@ export function ActivityFigure(): ReactNode {
         className="shell-strip-activity"
         label={
           <>
-            {running && <span className="live-dot" aria-hidden="true" />}
+            {activity.count > 0 && <span className="live-dot" aria-hidden="true" />}
             Activity
           </>
         }
@@ -39,7 +38,7 @@ export function ActivityFigure(): ReactNode {
   );
 }
 
-/** "Activity: 3 running, 2 ended not yet seen", the figure in words. */
-export function activityFigureName({ items }: Activity): string {
-  return `Activity: ${activityCountWords(items)}`;
+/** "Activity: 3 running", the figure in words. */
+export function activityFigureName({ count }: Activity): string {
+  return `Activity: ${activityCountWords(count)}`;
 }

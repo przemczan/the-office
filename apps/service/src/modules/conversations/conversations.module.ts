@@ -111,6 +111,7 @@ import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
 import { SessionThreads } from "./application/session-threads.js";
 import { ThreadCards } from "./application/thread-cards.js";
+import { ActivitySessions } from "./application/activity-sessions.js";
 import { ThreadsAtWork } from "./application/threads-at-work.js";
 import { WaitingOnTheUser } from "./application/waiting-on-the-user.js";
 import { WorkThreads } from "./application/work-threads.js";
@@ -194,6 +195,7 @@ export class ConversationsModule implements NestModule {
         ThreadService,
         SessionThreads,
         ThreadCards,
+        ActivitySessions,
         ThreadsAtWork,
         WaitingOnTheUser,
         WorkThreads,
@@ -274,6 +276,7 @@ export class ConversationsModule implements NestModule {
         ThreadService,
         SessionThreads,
         ThreadCards,
+        ActivitySessions,
         ThreadsAtWork,
         WaitingOnTheUser,
         WorkThreads,

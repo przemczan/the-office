@@ -20,6 +20,7 @@ import {
   ActivityCiRunsForTests,
   ActivityDevicesForTests,
   ActivityOffBoardTasksForTests,
+  ActivitySessionsForTests,
   ActivityTasksForTests,
   activityTask,
 } from "../../ports/activity-ports.fixtures.js";
@@ -44,12 +45,11 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  // Both users are every test's, and the seen table every file's: each test's items are its own.
+  app.get(ActivitySessionsForTests).sessions = [];
+  app.get(ActivitySessionsForTests).sessionsOfUser.clear();
   projectId = randomUUID();
   taskId = randomUUID();
-  app.get(ActivityTasksForTests).tasks = [
-    activityTask({ id: taskId, projectId, createdAt: new Date("2026-11-21T09:00:00Z") }),
-  ];
+  app.get(ActivityTasksForTests).tasks = [activityTask({ id: taskId, projectId })];
   app.get(ActivityOffBoardTasksForTests).offBoardTasks = [];
   app.get(ActivityCiRunsForTests).runs = [
     {
@@ -84,30 +84,74 @@ async function readActivity(headers: Record<string, string> = {}): Promise<Activ
   return activitySchema.parse(await response.json());
 }
 
-function markSeen(body: unknown, headers: Record<string, string> = {}): Promise<Response> {
-  return fetch(`${url}/api/activity/seen`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-  });
-}
-
 describe("GET /activity", () => {
-  it("answers the items, the running first, each since it entered its state, and the count", async () => {
+  it("answers the activities and the other running work, newest first, and the count of both", async () => {
+    app.get(ActivitySessionsForTests).sessions = [
+      {
+        threadId: randomUUID(),
+        roleKey: "developer",
+        subject: { kind: "task", taskId },
+        sessionKind: "stage",
+        state: "waiting",
+        waitingOn: { kind: "decision", question: "Which way?" },
+        since: new Date("2026-11-21T09:30:00Z"),
+      },
+    ];
+
     const activity = await readActivity();
 
-    expect(activity.items.map(({ kind, since, ended }) => ({ kind, since, ended }))).toEqual([
-      { kind: "task", since: "2026-11-21T09:00:00.000Z", ended: false },
-      { kind: "connected-device", since: "2026-11-21T08:00:00.000Z", ended: false },
-      { kind: "ci-run", since: "2026-11-21T11:00:00.000Z", ended: true },
+    expect(activity.activities).toEqual([
+      expect.objectContaining({
+        id: `task:${taskId}`,
+        subject: expect.objectContaining({ kind: "task", taskId, projectId, initiativeId: null }),
+        link: { kind: "task", taskId },
+        since: "2026-11-21T09:30:00.000Z",
+        sessions: [
+          expect.objectContaining({
+            person: { kind: "person", roleKey: "developer" },
+            sessionKind: "stage",
+            state: "waiting",
+            waitingOn: { kind: "decision", question: "Which way?" },
+          }),
+        ],
+      }),
     ]);
-    expect(activity.items[2]).toMatchObject({
-      id: `ci-run:${projectId}:41:1:ended`,
-      status: "failed",
-      endedAt: "2026-11-21T11:00:00.000Z",
-      link: { kind: "url", url: "https://github.com/acme/office/actions/runs/41" },
-    });
-    expect(activity.count).toBe(3);
+    expect(activity.otherWork.map(({ kind }) => kind)).toEqual(["connected-device"]);
+    expect(activity.count).toBe(2);
+  });
+
+  it("lists a finished CI run in neither list, and a Task with no session either", async () => {
+    const activity = await readActivity();
+
+    expect(activity.activities).toEqual([]);
+    expect(activity.otherWork.map(({ kind }) => kind)).toEqual(["connected-device"]);
+    expect(activity.count).toBe(1);
+  });
+
+  it("answers each user's own sessions, never another user's chat", async () => {
+    const threadId = randomUUID();
+    app.get(ActivitySessionsForTests).sessionsOfUser.set(SIGNED_IN_FOR_TESTS.userId, [
+      {
+        threadId,
+        roleKey: "cto",
+        subject: { kind: "chat", threadId, roleKey: "cto", title: "Plan the quarter" },
+        sessionKind: "chat",
+        state: "waiting",
+        waitingOn: { kind: "reply", question: undefined },
+        since: new Date("2026-11-21T11:00:00Z"),
+      },
+    ]);
+
+    const ofAnn = await readActivity(signedInAs(SIGNED_IN_FOR_TESTS));
+    const ofBen = await readActivity(signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS));
+
+    expect(ofAnn.activities).toEqual([
+      expect.objectContaining({
+        subject: { kind: "chat", threadId, roleKey: "cto", title: "Plan the quarter" },
+        link: { kind: "chat", roleKey: "cto", threadId },
+      }),
+    ]);
+    expect(ofBen.activities).toEqual([]);
   });
 
   it("answers each Off-board Task as its own kind, with its state, Stage, tokens and place", async () => {
@@ -138,7 +182,7 @@ describe("GET /activity", () => {
 
     const activity = await readActivity();
 
-    const offBoard = activity.items.filter(
+    const offBoard = activity.otherWork.filter(
       (item) => "taskId" in item && (item.taskId === onboardId || item.taskId === setUpId),
     );
     expect(offBoard).toEqual([
@@ -149,7 +193,6 @@ describe("GET /activity", () => {
         stageName: null,
         tokens: 0,
         queued: { place: 1, shortReasons: ["Project limit reached (1)"] },
-        endedAt: null,
       }),
       expect.objectContaining({
         kind: "run-environment-set-up",
@@ -160,29 +203,6 @@ describe("GET /activity", () => {
         queued: null,
       }),
     ]);
-  });
-});
-
-describe("POST /activity/seen", () => {
-  it("leaves the ended items out for the user who saw them only, and never a running one", async () => {
-    const response = await markSeen(
-      { itemIds: [`ci-run:${projectId}:41:1:ended`, `task:${taskId}`] },
-      signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS),
-    );
-
-    expect(response.status).toBe(204);
-    const ofBen = await readActivity(signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS));
-    expect(ofBen.items.map(({ kind }) => kind)).toEqual(["task", "connected-device"]);
-    expect(ofBen.count).toBe(2);
-    const ofAnn = await readActivity(signedInAs(SIGNED_IN_FOR_TESTS));
-    expect(ofAnn.items.map(({ kind }) => kind)).toEqual(["task", "connected-device", "ci-run"]);
-    expect(ofAnn.count).toBe(3);
-  });
-
-  it("refuses a request with no items", async () => {
-    const response = await markSeen({ itemIds: [] });
-
-    expect(response.status).toBe(400);
   });
 });
 

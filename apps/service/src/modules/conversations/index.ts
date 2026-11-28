@@ -46,6 +46,12 @@ export {
 export { ThreadRunner } from "./application/thread-runner.js";
 export { SessionThreads } from "./application/session-threads.js";
 export { ThreadCards } from "./application/thread-cards.js";
+export { ActivitySessions } from "./application/activity-sessions.js";
+export type {
+  ActiveSession,
+  ActiveSessionSubject,
+  ActiveSessionWaitingOn,
+} from "./domain/activity-sessions.js";
 export { ThreadsAtWork } from "./application/threads-at-work.js";
 export { ThreadService } from "./application/thread-service.js";
 export { WaitingOnTheUser, type InitiativeReply } from "./application/waiting-on-the-user.js";
@@ -74,11 +80,14 @@ export {
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  DeliveryMarked,
   MessagesLogged,
   ProposalApplied,
   ProposalDeclined,
   ProposalDrafted,
+  ThreadSeen,
   ThreadSessionMovedToEngine,
+  ThreadStarted,
   TokensCounted,
   TurnEnded,
 } from "./domain/conversation-events.js";

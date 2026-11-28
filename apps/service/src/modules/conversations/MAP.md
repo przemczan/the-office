@@ -15,7 +15,7 @@
 - Projects: `ProjectBases`→`BaseCheckouts`, `ProjectRecordSource`→`ProjectRecords`, `ProjectOutputMasks`→`ProjectService`, `EnvironmentChecks.check`, `RunEnvironmentSwitchRegistry` (filled by Run environments); fills `TestTargetsChatThreads`.
 - Work fills `TaskThreadSetups`, `InitiativeThreadSetups`, `WorkRecords`, `FireAlarmInThreads`, `MessageImages` and Bug-task/Initiative/Project appliers; Work and Pipelines reach Conversations through ports bound to `StageThreads`, `StageDecisions`, `ThreadRunner`, `WorkThreads`, `SessionThreads`, `DecisionService`.
 - `SessionThreads` is the one service for "which Thread is this session in" (Work, Pipelines, Devices, Test instances); People, Projects and Skills get it through `SessionPeopleForModules`. `ThreadService` serves only the Threads page; bind no other port to it.
-- Notifications: `WaitingInConversations`→`WaitingOnTheUser`; Telemetry: `ThreadsAtWork.sessionsWorking()`; Pipelines: `ConsultationsOnTasks`→`TaskConsultations`, `StageThreadMessages`.
+- Notifications: `WaitingInConversations`→`WaitingOnTheUser`; Activity: `ActivitySessions`→`ActivitySessions`; Telemetry: `ThreadsAtWork.sessionsWorking()`; Pipelines: `ConsultationsOnTasks`→`TaskConsultations`, `StageThreadMessages`.
 - Pipelines' domain takes `CHANGE_PROJECT_SETTINGS_TOOL` and `RUN_ENVIRONMENT_CHECK_TOOL` from `index.domain.ts`.
 
 ## Traps
@@ -64,7 +64,7 @@
 
 ## Public entry (`index.ts`)
 
-ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaitingOnTheUser, ConsultationsOnTasks, ConsultationOnTask, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThreadSetup, InitiativeThreadSource, InitiativeBranchReads, FireAlarmInThreads, ThreadsFireAlarm, InterruptedAnswers, SubAgentsAndProcesses, ProposalAppliers, BugTaskApplier, CreatedBugTask, ProposalApplier, SettingProposalApplier, BugTaskFields, StageDecisions, StageDecisionRequest, stageAnswerOf, StageAnswer, decisionSummary, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, SwitchFailed, StageThreadMessages, StageRunWindow, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, SessionThreads, ThreadCards, ThreadsAtWork, ThreadService, WaitingOnTheUser, InitiativeReply, WorkThreads, InitiativeThreadOpening, TaskThreadStarting, WorkRecords, ProjectWork, TaskSubject, WorkRecordSource, MessageImageOwner, MessageImages, MessageImageSource, NewMessageImage, StoredMessageImage, ConversationsModule, PlanningThreadElsewhere, DecisionAnswered, DecisionClosed, DecisionOpened, DecisionReopened, MessagesLogged, ProposalApplied, ProposalDeclined, ProposalDrafted, ThreadSessionMovedToEngine, TokensCounted, TurnEnded, ProposalService, PipelineStage, ProjectPipelineFields, ProposedInitiativeChange, ProposedPipelineChange, ProposedFeatureSwitches, ProposedProject, ProposedProjectPipelineChange, ProposedSettingChange, ProposedStageTemplateChange, CALLING_RULE, CHANGE_PROJECT_SETTINGS_TOOL, LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL, PROPOSE_PROJECT_TOOL, PERSON_READING_OFFICE_TOOLS, READ_REPOSITORY_TOOL, READ_STAGE_HISTORY_TOOL, READ_THREADS_TOOL, READING_OFFICE_TOOLS, RUN_ENVIRONMENT_CHECK_TOOL, ProposalRefused
+ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaitingOnTheUser, ConsultationsOnTasks, ConsultationOnTask, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThreadSetup, InitiativeThreadSource, InitiativeBranchReads, FireAlarmInThreads, ThreadsFireAlarm, InterruptedAnswers, SubAgentsAndProcesses, ProposalAppliers, BugTaskApplier, CreatedBugTask, ProposalApplier, SettingProposalApplier, BugTaskFields, StageDecisions, StageDecisionRequest, stageAnswerOf, StageAnswer, decisionSummary, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, SwitchFailed, StageThreadMessages, StageRunWindow, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, SessionThreads, ThreadCards, ActivitySessions, ActiveSession, ActiveSessionSubject, ActiveSessionWaitingOn, ThreadsAtWork, ThreadService, WaitingOnTheUser, InitiativeReply, WorkThreads, InitiativeThreadOpening, TaskThreadStarting, WorkRecords, ProjectWork, TaskSubject, WorkRecordSource, MessageImageOwner, MessageImages, MessageImageSource, NewMessageImage, StoredMessageImage, ConversationsModule, PlanningThreadElsewhere, DecisionAnswered, DecisionClosed, DecisionOpened, DecisionReopened, DeliveryMarked, MessagesLogged, ProposalApplied, ProposalDeclined, ProposalDrafted, ThreadSeen, ThreadSessionMovedToEngine, ThreadStarted, TokensCounted, TurnEnded, ProposalService, PipelineStage, ProjectPipelineFields, ProposedInitiativeChange, ProposedPipelineChange, ProposedFeatureSwitches, ProposedProject, ProposedProjectPipelineChange, ProposedSettingChange, ProposedStageTemplateChange, CALLING_RULE, CHANGE_PROJECT_SETTINGS_TOOL, LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL, PROPOSE_PROJECT_TOOL, PERSON_READING_OFFICE_TOOLS, READ_REPOSITORY_TOOL, READ_STAGE_HISTORY_TOOL, READ_THREADS_TOOL, READING_OFFICE_TOOLS, RUN_ENVIRONMENT_CHECK_TOOL, ProposalRefused
 
 ## Domain events
 
@@ -227,6 +227,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 ### application/
 
 - `action-proposals.ts`: ActionProposals
+- `activity-sessions.ts`: ActivitySessions
 - `allow-changes.ts`: AllowChanges
 - `approval-holds.fixtures.ts`: RunEveryOfficeToolCall
 - `approval-holds.ts`: ApprovalHolds
@@ -300,6 +301,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 
 ### domain/
 
+- `activity-sessions.ts`: ActiveSessionWaitingOn, ActiveSessionSubject, ActiveSession, activeSessionsOf
 - `brief-templates.ts`: BRIEF_MEMORY, BRIEF_PROJECTS, BRIEF_LATEST_EXCHANGES, BRIEF_ANSWERED_DECISIONS, BRIEF_OPEN_DECISION, BRIEF_OPEN_DECISION_ON_INITIATIVE, NEW_CHAT_THREAD_BRIEF, FRESH_CHAT_THREAD_BRIEF, FRESH_PERSONS_THREAD_BRIEF, TASK_THREAD_BRIEF, INITIATIVE_THREAD_BRIEF, BRIEF_OFFICE_TOOLS, BRIEF_TEMPLATES
 - `brief.ts`: Brief, BriefProject, CHAT_EXCHANGES_TOKENS, MEMORY_TOKENS, estimatedTokens, BriefMemoryNote, BriefMemory, NO_MEMORY, MemoryReach, selectMemory, newChatThreadBrief, freshChatThreadBrief, freshPersonsThreadBrief, TaskThreadRecord, taskThreadBrief, InitiativeThreadRecord, initiativeThreadBrief, knowledgeBaseLine, withKnowledgeBase, BriefToolArea, BriefOfficeTools, withOfficeToolAreas
 - `canonical-call.ts`: canonicalCall
@@ -355,7 +357,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 - `undelivered-messages.ts`: undeliveredSince, waitingMessageIds, workWithUndelivered
 - `user.fixtures.ts`: ANN_LEE, BEN_ITO, ANSWERED_BY_ANN_LEE
 - `user.ts`: UserRef, userWords, userWordsOpening, sameUser
-- Tests: brief.full.test.ts, brief.test.ts, canonical-call.full.test.ts, chat-activity.full.test.ts, consult.full.test.ts, context-policy.full.test.ts, context-policy.test.ts, conversation-tabs.full.test.ts, conversations-prompts.golden.test.ts, decision.full.test.ts, decision.test.ts, held-call.test.ts, live-view.full.test.ts, mention.full.test.ts, offered-office-tools.full.test.ts, office-tool-ruling.full.test.ts, open-page.full.test.ts, people-working.full.test.ts, proposal.full.test.ts, proposal.test.ts, session-instructions.full.test.ts, session-instructions.test.ts, stage-answer.test.ts, sub-agents-and-processes.test.ts, thread-changes.full.test.ts, thread-changes.test.ts, thread-history-words.test.ts, tool-activity.full.test.ts
+- Tests: activity-sessions.test.ts, brief.full.test.ts, brief.test.ts, canonical-call.full.test.ts, chat-activity.full.test.ts, consult.full.test.ts, context-policy.full.test.ts, context-policy.test.ts, conversation-tabs.full.test.ts, conversations-prompts.golden.test.ts, decision.full.test.ts, decision.test.ts, held-call.test.ts, live-view.full.test.ts, mention.full.test.ts, offered-office-tools.full.test.ts, office-tool-ruling.full.test.ts, open-page.full.test.ts, people-working.full.test.ts, proposal.full.test.ts, proposal.test.ts, session-instructions.full.test.ts, session-instructions.test.ts, stage-answer.test.ts, sub-agents-and-processes.test.ts, thread-changes.full.test.ts, thread-changes.test.ts, thread-history-words.test.ts, tool-activity.full.test.ts
 
 ### ports/
 

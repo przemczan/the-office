@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import {
@@ -24,17 +25,14 @@ test.afterAll(async () => {
   await repository.remove();
 });
 
-test("an environment check is followed from the strip's Activity figure to the Activity panel, marked New until seen", async ({
+test("a running environment check is followed from the strip's Activity figure to the Activity panel and leaves when it ends", async ({
   page,
 }) => {
-  const project = await quickProject(page);
+  // The check's install waits for this file, so the check runs until the test lets it end.
+  const release = path.join(repository.folder, "release-the-check");
+  const project = await quickProject(page, release);
   const started = await page.request.post(`/api/projects/${project.id}/environment-check`);
   expect(started.ok()).toBe(true);
-  // The check ends quickly; its ended item stays listed until the user has seen it.
-  await expect
-    .poll(async () => (await environmentCheckOf(page, project))?.ended, { timeout: 30_000 })
-    .toBe(true);
-  const ended = await environmentCheckOf(page, project);
 
   await page.goto("/now");
   // Only this Project's items, so what other tests leave running stays out.
@@ -43,7 +41,7 @@ test("an environment check is followed from the strip's Activity figure to the A
   await page.keyboard.press("Escape");
   await page
     .getByRole("status", { name: "Status strip" })
-    .getByRole("button", { name: /^Activity: \d+ running, \d+ ended not yet seen$/ })
+    .getByRole("button", { name: /^Activity: \d+ running$/ })
     .click();
   // A panel over the page, which stays where it was.
   await expect(page).toHaveURL(/\/now\?activity=true$/);
@@ -55,29 +53,25 @@ test("an environment check is followed from the strip's Activity figure to the A
   const group = panel.getByRole("region", { name: "Off-board Tasks and environment checks" });
   const card = group.getByRole("article", { name: /: Environment check$/ });
   await expect(card).toHaveCount(1);
-  await expect(card.getByText("New", { exact: true })).toBeVisible();
   await expect(card.getByRole("link", { name: "Environment check" })).toHaveAttribute(
     "href",
     `/projects/${project.id}/environment`,
   );
-  await expect(card).toContainText(/ for (<1 min|\d+ min)$/);
   await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "activity-panel.png") });
 
-  // Seen after a second in view: the card stays for this visit, without its mark.
+  // Once the check ends, it is no longer listed.
+  await writeFile(release, "");
   await expect
-    .poll(async () => (await activityIds(page)).includes(ended?.id ?? ""), { timeout: 30_000 })
-    .toBe(false);
-  await expect(card.getByText("New", { exact: true })).toHaveCount(0);
-  await expect(card).toHaveCount(1);
+    .poll(async () => (await environmentCheckOf(page, project)) === undefined, { timeout: 30_000 })
+    .toBe(true);
+  await expect(card).toHaveCount(0);
 
-  // The next visit leaves it out; Esc closes the panel, and the old address opens it again.
+  // Esc closes the panel, and the old address opens it again.
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
   await expect(page).toHaveURL(/\/now$/);
   await page.goto("/activity");
   await expect(page).toHaveURL(/\/now\?activity=true$/);
-  // "…in these Projects." only while another test's Project has an item.
-  await expect(panel.getByText(/^Nothing is running( in these Projects)?\.$/)).toBeVisible();
   await expect(group).toHaveCount(0);
 });
 
@@ -86,22 +80,23 @@ async function environmentCheckOf(page: Page, project: Project): Promise<Activit
   expect(response.ok()).toBe(true);
   return activitySchema
     .parse(await response.json())
-    .items.find(({ kind, projectId }) => kind === "environment-check" && projectId === project.id);
+    .otherWork.find(
+      ({ kind, projectId }) => kind === "environment-check" && projectId === project.id,
+    );
 }
 
-async function activityIds(page: Page): Promise<readonly string[]> {
-  const response = await page.request.get("/api/activity");
-  return activitySchema.parse(await response.json()).items.map(({ id }) => id);
-}
-
-async function quickProject(page: Page): Promise<Project> {
+/** A Project whose install waits until `release` exists, and whose commands end at once. */
+async function quickProject(page: Page, release: string): Promise<Project> {
   const quick = { commandLine: "node --version", rerunCommandLine: "" };
+  // Forward slashes, which Node takes on Windows too, keep the path whole in the quoted script.
+  const releasePath = release.replaceAll("\\", "/");
+  const waitForRelease = `node -e "const wait = () => require('node:fs').existsSync('${releasePath}') || setTimeout(wait, 100); wait();"`;
   const newProject: NewProject = {
     name: `Activity ${Date.now()}`,
     path: repository.path,
     baseBranch: "main",
     mark: { label: "AC", colour: "teal" },
-    installCommand: "node --version",
+    installCommand: waitForRelease,
     commands: [
       { key: "build", name: "Build", kind: "build", ...quick },
       { key: "lint", name: "Lint", kind: "lint", ...quick },

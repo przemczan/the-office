@@ -657,7 +657,7 @@ test.describe("the status strip on a phone", () => {
     await page.route(/\/api\/notifications$/, (route) => route.fulfill({ json: open }));
     // Fixed too, as other tests' work comes and goes in Activity.
     await page.route(/\/api\/activity$/, (route) =>
-      route.fulfill({ json: { items: [], count: 12 } }),
+      route.fulfill({ json: { activities: [], otherWork: [], count: 12 } }),
     );
     await stubEngines(
       page,

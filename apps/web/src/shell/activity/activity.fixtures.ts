@@ -1,4 +1,4 @@
-import type { ActivityItem } from "@the-office/contracts";
+import type { ActivityItem, SubjectActivity } from "@the-office/contracts";
 
 /** The item of one kind. */
 type ItemOf<Kind extends ActivityItem["kind"]> = Extract<ActivityItem, { readonly kind: Kind }>;
@@ -7,19 +7,30 @@ export const TASK_ID = "3f2a1b0c-4d5e-4f6a-8b7c-9d0e1f2a3b4c";
 export const INITIATIVE_ID = "7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 export const NOW = new Date("2026-11-22T12:00:00.000Z");
 
-/** An item of each kind, `minutesAgo` in its state, running unless said. */
-export function taskItem(overrides: Partial<ItemOf<"task">> = {}): ItemOf<"task"> {
+/** One active session of a Task's activity: a Developer working, unless said. */
+export function subjectActivity(overrides: Partial<SubjectActivity> = {}): SubjectActivity {
   return {
-    kind: "task",
     id: `task:${TASK_ID}`,
-    projectId: "p1",
-    title: "Add a filter",
-    since: minutesAgo(18),
-    ended: false,
-    endedAt: null,
+    subject: {
+      kind: "task",
+      taskId: TASK_ID,
+      projectId: "p1",
+      title: "Add a filter",
+      initiativeId: null,
+    },
     link: { kind: "task", taskId: TASK_ID },
-    taskId: TASK_ID,
-    state: "in-progress",
+    since: minutesAgo(18),
+    sessions: [
+      {
+        threadId: "9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+        person: { kind: "person", roleKey: "developer" },
+        sessionKind: "stage",
+        stageName: "Implement",
+        state: "working",
+        waitingOn: null,
+        since: minutesAgo(18),
+      },
+    ],
     ...overrides,
   };
 }
@@ -33,10 +44,8 @@ export function environmentCheckItem(
     projectId: "p1",
     title: "Environment check",
     since: minutesAgo(130),
-    ended: true,
-    endedAt: minutesAgo(130),
     link: { kind: "project", projectId: "p1" },
-    state: "failed",
+    state: "running",
     ...overrides,
   };
 }
@@ -48,8 +57,6 @@ export function ciRunItem(overrides: Partial<ItemOf<"ci-run">> = {}): ItemOf<"ci
     projectId: "p1",
     title: "CI run 118 · Add a filter",
     since: minutesAgo(3),
-    ended: false,
-    endedAt: null,
     link: { kind: "url", url: "https://github.com/acme/app/actions/runs/118" },
     runId: 118,
     status: "running",
@@ -68,8 +75,6 @@ export function testInstanceItem(
     projectId: "p1",
     title: "Web preview",
     since: minutesAgo(5),
-    ended: false,
-    endedAt: null,
     link: { kind: "project", projectId: "p1" },
     instanceId: "5d0c8a2e-3f6b-4a8e-9c1d-7b2e4f6a8c10",
     testInstanceKind: "hosted",
@@ -87,8 +92,6 @@ export function actionRunItem(overrides: Partial<ItemOf<"action-run">> = {}): It
     projectId: "p1",
     title: "Build web on main",
     since: minutesAgo(3),
-    ended: false,
-    endedAt: null,
     link: { kind: "project", projectId: "p1" },
     runId: "6e1d9b3f-4a7c-4b8d-9e0f-8c2d5f7b9d21",
     actionKey: "build-web",
@@ -107,8 +110,6 @@ export function failedTaskItem(
     projectId: "p1",
     title: "Fix the header",
     since: minutesAgo(60 * 50),
-    ended: true,
-    endedAt: minutesAgo(60 * 50),
     link: { kind: "task", taskId: TASK_ID },
     taskId: TASK_ID,
     stageName: "Tests",
@@ -127,8 +128,6 @@ export function offBoardTaskItem(
     projectId: "p1",
     title: "Onboard",
     since: minutesAgo(8),
-    ended: false,
-    endedAt: null,
     link: { kind: "task", taskId: OFF_BOARD_TASK_ID },
     taskId: OFF_BOARD_TASK_ID,
     state: "in-progress",

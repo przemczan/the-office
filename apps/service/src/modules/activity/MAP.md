@@ -2,18 +2,20 @@
 
 ## Owns
 
-- Activity (`ActivityModule`): everything The Office is running, read afresh on each request (`ActivityService.read`, in a read scope of its own) and merged by pure `domain/activity.ts` (`activityOf`): Tasks, failed and stopped Tasks, Off-board Tasks, test instances, Action runs, CI runs, environment checks, Connected devices, pull requests ready to merge.
-- What each user has seen (`activity_seen`, forgotten after `SEEN_KEPT_DAYS`); ended items kept until seen or `ENDED_KEPT_DAYS` old. `GET /activity`, `POST /activity/seen`, `activity.changed` (announced in the background).
+- Activity (`ActivityModule`): what The Office is running now, read afresh per request (`ActivityService.read`) and merged by pure `domain/activity.ts` (`activityOf`).
+  - Activities: active sessions grouped per Task, Initiative or chat, plus The Office's Gate and Script/Publish sessions derived from each Task's current Stage.
+  - Other running work: stalled and Off-board Tasks, test instances, Action runs, CI runs, environment checks, Connected devices.
+- `GET /activity` and `activity.changed` (announced in the background). No state of its own: `activity_seen` is unused, kept in the schema until a later release drops it.
 
 ## Talks to
 
-- Nothing calls it. Ports bound in [app.module.ts](../../app.module.ts): `ActivityTasks`, `ActivityOffBoardTasks` (Work), `ActivityStages` (Pipelines), `ActivityDecisions` (Conversations), `ActivityTestInstances`, `ActivityActionRuns`, `ActivityCiRuns`, `ActivityEnvironmentChecks`, `ActivityPullRequests` (Projects), `ActivityDevices`; each answers the module's own small types.
-- Subscribes to Work's, Pipelines', Decisions', Test instances', Actions', Projects' and Devices' events.
+- Nothing calls it. Ports bound in [app.module.ts](../../app.module.ts): `ActivityTasks`, `ActivityInitiatives`, `ActivityOffBoardTasks` (Work), `ActivityStages` (Pipelines), `ActivityDecisions`, `ActivitySessions` (Conversations), `ActivityTestInstances`, `ActivityActionRuns`, `ActivityCiRuns`, `ActivityEnvironmentChecks` (Projects), `ActivityDevices`; each answers the module's own small types.
+- Subscribes to Work's, Pipelines', Conversations', Decisions', Test instances', Actions', Projects' and Devices' events; Thread events announce only when a Thread's busy state changes.
 
 ## Traps
 
-- An ended item's id differs from the running one's (`…:ended`, `…:done`, …), so seeing it while it runs never hides it once it ends.
-- An Off-board Task is never a `task`, `failed-task` or `stopped-task` item; its `ready` status isn't listed.
+- Chats are per user: `ActivitySessions.sessionsFor(userId)` leaves out another user's chats, so every browser reads again on `activity.changed`.
+- An Off-board Task is never a `failed-task` or `stopped-task` item; its `ready` status isn't listed.
 - The domain keeps owners' states as plain strings; `adapters/http/activity-responses.ts` parses each item with contracts' `activityItemSchema`.
 
 ## Spec
@@ -33,7 +35,6 @@ ActivityModule, ActivityModuleOptions
 ## HTTP routes (under `/api`)
 
 - `GET /activity`: ActivityController.read
-- `POST /activity/seen`: ActivityController.markSeen
 
 ## Tables
 
@@ -54,8 +55,6 @@ ActivityModule, ActivityModuleOptions
 ### adapters/postgres/
 
 - `activity.schema.ts`: activitySeen
-- `postgres-activity-seen-repository.ts`: PostgresActivitySeenRepository
-- Tests: postgres-activity-seen-repository.test.ts
 
 ### adapters/websocket/
 
@@ -69,7 +68,7 @@ ActivityModule, ActivityModuleOptions
 ### domain/
 
 - `activity-events.ts`: ActivityChanged
-- `activity.ts`: ENDED_KEPT_DAYS, SEEN_KEPT_DAYS, ActivityTask, ActivityStateChange, StartedActivityTask, ActivityStage, isOffBoard, ActivityOffBoardTask, ActivityTestInstance, ActivityActionRun, ActivityCiRun, ActivityEnvironmentCheck, ActivityDevice, ActivityPullRequest, ActivityParts, ActivityLink, ActivityItem, Activity, endedCutOf, seenCutOf, activityOf, isReadyToMerge
+- `activity.ts`: ActivityTask, StartedActivityTask, ActivityStage, isOffBoard, ActivityOffBoardTask, ActivityTestInstance, ActivityActionRun, ActivityCiRun, ActivityEnvironmentCheck, ActivityDevice, ActivitySessionSubject, ActivityThreadSession, ActivityParts, ActivityLink, ActivityItem, ActivitySession, ActivitySubject, SubjectActivity, Activity, activityOf
 - Tests: activity.test.ts
 
 ### ports/
@@ -79,10 +78,10 @@ ActivityModule, ActivityModuleOptions
 - `activity-decisions.ts`: ActivityDecisions
 - `activity-devices.ts`: ActivityDevices
 - `activity-environment-checks.ts`: ActivityEnvironmentChecks
+- `activity-initiatives.ts`: ActivityInitiatives
 - `activity-off-board-tasks.ts`: ActivityOffBoardTasks
-- `activity-ports.fixtures.ts`: ActivityTasksForTests, ActivityStagesForTests, ActivityDecisionsForTests, ActivityOffBoardTasksForTests, ActivityTestInstancesForTests, ActivityActionRunsForTests, ActivityCiRunsForTests, ActivityEnvironmentChecksForTests, ActivityPullRequestsForTests, ActivityDevicesForTests, ActivityPortsForTestsModule, ACTIVITY_PORTS_FOR_TESTS, activityTask
-- `activity-pull-requests.ts`: ActivityPullRequests
-- `activity-seen-repository.ts`: ActivitySeenRepository
+- `activity-ports.fixtures.ts`: ActivityTasksForTests, ActivityInitiativesForTests, ActivitySessionsForTests, ActivityStagesForTests, ActivityDecisionsForTests, ActivityOffBoardTasksForTests, ActivityTestInstancesForTests, ActivityActionRunsForTests, ActivityCiRunsForTests, ActivityEnvironmentChecksForTests, ActivityDevicesForTests, ActivityPortsForTestsModule, ACTIVITY_PORTS_FOR_TESTS, activityTask
+- `activity-sessions.ts`: ActivitySessions
 - `activity-stages.ts`: ActivityStages
 - `activity-tasks.ts`: ActivityTasks
 - `activity-test-instances.ts`: ActivityTestInstances

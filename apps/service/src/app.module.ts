@@ -4,6 +4,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { ActionRuns, ActionsModule } from "./modules/actions/index.js";
 import { ActivityModule } from "./modules/activity/index.js";
 import {
+  ActivitySessions,
   ConsultationsOnTasks,
   ContextPolicySettingsService,
   ConversationsModule,
@@ -71,7 +72,6 @@ import {
   ProjectsFromRepositories,
   ProjectsModule,
   PullRequestRecords,
-  PullRequestWatch,
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServerOfficeActionsModule, McpServersModule } from "./modules/mcp-servers/index.js";
@@ -307,6 +307,8 @@ export class AppModule {
         ActivityModule.register({
           imports: [work, pipelines, conversations, testInstances, actions, projects, devices],
           tasks: TaskService,
+          initiatives: InitiativeService,
+          sessions: ActivitySessions,
           stages: TaskStagesService,
           decisions: DecisionService,
           offBoardTasks: OffBoardTaskReader,
@@ -314,7 +316,6 @@ export class AppModule {
           actionRuns: ActionRuns,
           ciRuns: CiRunWatch,
           environmentChecks: EnvironmentChecks,
-          pullRequests: PullRequestWatch,
           devices: ConnectedDevices,
         }),
         conversations,

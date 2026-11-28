@@ -28,7 +28,7 @@ Covers: the Activity panel, its groups (Off-board Tasks and environment checks a
   - **Connected devices**.
   - **Pull requests**: those ready to merge.
   - **Stalled Tasks**: Tasks whose Stage failed or was stopped, never an Off-board Task.
-- Each kind of [Activity item](../2.14-activity.md#what-is-listed) is in exactly one group.
+- Each kind of [Activity item](../2.14-activity.md#other-running-work) is in exactly one group.
 
 ## An item
 
@@ -45,7 +45,7 @@ Covers: the Activity panel, its groups (Off-board Tasks and environment checks a
 
 ## Seen
 
-- An ended item the user hasn't [seen](../2.14-activity.md#seen-per-user) has the New badge and an accent tint.
+- An ended item the user hasn't seen has the New badge and an accent tint.
 - It counts as seen once at least half its card has been in view for 1 s while the tab shows and the window has focus.
 - The panel sends the seen items in batches, at most one `POST /activity/seen` a second; a failed send goes again with the next.
 - An ended item shown while the panel is open stays in it, without its New badge, though a re-read no longer lists it; the next opening leaves it out.

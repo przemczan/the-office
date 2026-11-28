@@ -9,6 +9,8 @@ function aChatThread(fields: Partial<ChatThreadActivity> = {}): ChatThreadActivi
     threadId: "a-thread",
     roleKey: "planner",
     state: "waiting",
+    title: undefined,
+    writerUserId: undefined,
     lastMovedAt: EARLIER,
     unseenAnswerAt: undefined,
     ...fields,

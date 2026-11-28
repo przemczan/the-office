@@ -145,7 +145,6 @@ const NO_ACTION: readonly NoActionRoute[] = [
 
   // The browser's own: "seen", activity, refreshes and uploaded bytes.
   { route: "PUT /threads/:id/seen", reason: "Marks what the signed-in user has seen." },
-  { route: "POST /activity/seen", reason: "Marks Activity seen for the signed-in user." },
   { route: "POST /activity", reason: "Reports the signed-in user as active." },
   {
     route: "POST /pull-requests/refresh",

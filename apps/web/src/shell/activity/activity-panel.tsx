@@ -25,7 +25,7 @@ export function ActivityPanel(): ReactNode {
   return (
     <Drawer
       title="Activity"
-      description={activity && activityCountWords(activity.items)}
+      description={activity && activityCountWords(activity.count)}
       width={layout.width}
       // The edge is placed against the panel, outside its scrolling content.
       style={{ position: "relative" }}

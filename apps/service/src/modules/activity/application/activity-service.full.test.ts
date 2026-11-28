@@ -7,6 +7,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
+import { MessagesLogged } from "../../conversations/index.js";
 import { ConnectedDeviceChanged } from "../../devices/index.js";
 import { CiRunsChecked } from "../../projects/index.js";
 import { TaskStateChanged } from "../../work/index.js";
@@ -15,12 +16,19 @@ import { ActivityChanged } from "../domain/activity-events.js";
 import {
   ACTIVITY_PORTS_FOR_TESTS,
   ActivityCiRunsForTests,
+  ActivityInitiativesForTests,
+  ActivitySessionsForTests,
   activityTask,
   ActivityTasksForTests,
 } from "../ports/activity-ports.fixtures.js";
 import { ActivityService } from "./activity-service.js";
 
 const NOW = new Date("2026-11-21T12:00:00Z");
+
+/** A Thread as the events carry it; Activity reads only its id, state and open Decisions. */
+function threadIn(id: string, state: "waiting" | "answering"): never {
+  return { id, state, openDecisions: [] } as never;
+}
 
 describe("ActivityService", () => {
   let app: INestApplication;
@@ -41,7 +49,6 @@ describe("ActivityService", () => {
     ciRuns = app.get(ActivityCiRunsForTests);
     announced = [];
     events.subscribe(ActivityChanged, (event) => void announced.push(event));
-    // The seen table is shared by every test file, so each test's items are its own.
     projectId = randomUUID();
   });
 
@@ -49,7 +56,7 @@ describe("ActivityService", () => {
     await app.close();
   });
 
-  function finishedRun(id: number) {
+  function runningRun(id: number) {
     return {
       id,
       attempt: 1,
@@ -57,61 +64,81 @@ describe("ActivityService", () => {
       taskId: null,
       workflow: "CI",
       title: "Add a filter",
-      status: "succeeded",
+      status: "running",
       startedAt: new Date("2026-11-21T10:00:00Z"),
       updatedAt: new Date("2026-11-21T11:00:00Z"),
       url: `https://github.com/acme/office/actions/runs/${id}`,
     };
   }
 
-  it("hides an ended item only from the user who saw it", async () => {
-    const ann = randomUUID();
-    const ben = randomUUID();
-    ciRuns.runs = [finishedRun(41), finishedRun(42)];
-    const seenId = `ci-run:${projectId}:41:1:ended`;
-
-    await activity.markSeen(ann, [seenId]);
-
-    const ofAnn = await activity.read(ann);
-    const ofBen = await activity.read(ben);
-    expect(ofAnn.items.map(({ id }) => id)).toEqual([`ci-run:${projectId}:42:1:ended`]);
-    expect(ofAnn.count).toBe(1);
-    expect(ofBen.items.map(({ id }) => id)).toEqual([seenId, `ci-run:${projectId}:42:1:ended`]);
-    expect(ofBen.count).toBe(2);
-  });
-
-  it("lists a Task that ended again after its running item was seen", async () => {
-    const user = randomUUID();
-    const tasks = app.get(ActivityTasksForTests);
+  it("reads the sessions of the user it is read for, grouped on their Task", async () => {
     const task = activityTask({ id: randomUUID(), projectId });
-    tasks.tasks = [task];
-    await activity.markSeen(user, [`task:${task.id}`]);
-    expect((await activity.read(user)).items.map(({ id }) => id)).toEqual([`task:${task.id}`]);
+    app.get(ActivityTasksForTests).tasks = [task];
+    app.get(ActivitySessionsForTests).sessions = [
+      {
+        threadId: randomUUID(),
+        roleKey: "developer",
+        subject: { kind: "task", taskId: task.id },
+        sessionKind: "stage",
+        state: "working",
+        waitingOn: undefined,
+        since: NOW,
+      },
+    ];
 
-    tasks.tasks = [{ ...task, state: "done", endedAt: new Date("2026-11-21T11:30:00Z") }];
+    const read = await activity.read(randomUUID());
 
-    expect((await activity.read(user)).items.map(({ id }) => id)).toEqual([`task:${task.id}:done`]);
+    expect(read.activities).toHaveLength(1);
+    expect(read.activities[0]?.subject).toMatchObject({ kind: "task", title: task.title });
+    expect(read.count).toBe(1);
   });
 
-  it("forgets what was seen over 30 days ago on the next mark", async () => {
-    const user = randomUUID();
-    const schedule = app.get(Schedule) as ManualSchedule;
-    schedule.setTime(new Date("2026-10-01T12:00:00Z"));
-    ciRuns.runs = [finishedRun(41)];
-    await activity.markSeen(user, [`ci-run:${projectId}:41:1:ended`]);
+  it("lists the Initiative of a session by its title", async () => {
+    const initiativeId = randomUUID();
+    app.get(ActivityInitiativesForTests).titles.set(initiativeId, "Revamp Activity");
+    app.get(ActivitySessionsForTests).sessions = [
+      {
+        threadId: randomUUID(),
+        roleKey: "planner",
+        subject: { kind: "initiative", initiativeId },
+        sessionKind: "thread",
+        state: "waiting",
+        waitingOn: { kind: "decision", question: "Which way?" },
+        since: NOW,
+      },
+    ];
 
-    schedule.setTime(NOW);
-    await activity.markSeen(user, [`ci-run:${projectId}:99:1:ended`]);
+    const read = await activity.read(randomUUID());
 
-    expect((await activity.read(user)).items.map(({ id }) => id)).toEqual([
-      `ci-run:${projectId}:41:1:ended`,
-    ]);
+    expect(read.activities[0]?.subject).toMatchObject({
+      kind: "initiative",
+      title: "Revamp Activity",
+    });
   });
 
-  it("announces ActivityChanged once a user marks items seen", async () => {
-    await activity.markSeen(randomUUID(), ["ci-run:office:41:1:ended"]);
+  it("lists only the running CI runs, and counts them", async () => {
+    ciRuns.runs = [
+      { ...runningRun(41), status: "running" },
+      { ...runningRun(42), status: "succeeded" },
+    ];
 
+    const read = await activity.read(randomUUID());
+
+    expect(read.otherWork.map(({ id }) => id)).toEqual([`ci-run:${projectId}:41:1`]);
+    expect(read.count).toBe(1);
+  });
+
+  it("announces ActivityChanged when a Thread starts or stops being busy, not for every message", async () => {
+    const id = randomUUID();
+    await events.publish(new MessagesLogged(threadIn(id, "answering"), [], NOW, false));
     await vi.waitFor(() => expect(announced).toHaveLength(1));
+
+    await events.publish(new MessagesLogged(threadIn(id, "answering"), [], NOW, false));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(announced).toHaveLength(1);
+
+    await events.publish(new MessagesLogged(threadIn(id, "waiting"), [], NOW, false));
+    await vi.waitFor(() => expect(announced).toHaveLength(2));
   });
 
   it("announces ActivityChanged on a change of a source", async () => {

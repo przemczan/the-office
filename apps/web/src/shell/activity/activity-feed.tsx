@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Activity, ActivityItem, Project } from "@the-office/contracts";
+import type { ActivityItem, Project, SubjectActivity } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { activityQueries } from "../../api/activity.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { BlockLoader } from "../block-loader.tsx";
@@ -15,6 +15,8 @@ import type { Tone } from "../tone-words.ts";
 import { useClock } from "../use-clock.ts";
 import {
   activityPlaceOf,
+  placeOfSubject,
+  spanWords,
   detailWords,
   groupedActivity,
   inStateWords,
@@ -26,27 +28,28 @@ import {
   type ActivityPlace,
   type GroupedActivity,
 } from "./activity-words.ts";
-import { useMarkingSeen } from "./use-marking-seen.ts";
 import "./activity.css";
 
 /**
- * Everything The Office is running, by kind, and what ended that the user hasn't seen yet, each
- * marked New until its card has been looked at (spec 2.14); narrowed by the Project filter. A
- * visit lasts while the Activity panel stays open.
+ * What The Office is running: the activities, one row per Task, Initiative or chat with active
+ * sessions, then the other running work by kind (spec 2.14); narrowed by the Project filter.
  */
 export function ActivityFeed(): ReactNode {
   const activity = useQuery(activityQueries.list()).data;
   const projects = useQuery(projectQueries.list()).data;
   const { shows } = useProjectFilter();
   const clock = useClock();
-  const { items, unseen, watch } = useItemsThisVisit(activity);
   if (!activity) return <BlockLoader shape="rows" label="Loading Activity…" />;
-  const shown = items.filter(({ projectId }) => shows([projectId]));
-  const elsewhere = items.length - shown.length;
-  const groups = groupedActivity(shown);
+  // An Initiative's or a chat's activity belongs to no one Project, so the filter keeps it.
+  const activities = activity.activities.filter(
+    ({ subject }) => subject.kind !== "task" || shows([subject.projectId]),
+  );
+  const otherWork = activity.otherWork.filter(({ projectId }) => shows([projectId]));
+  const elsewhere = activity.count - activities.length - otherWork.length;
+  const groups = groupedActivity(otherWork);
   return (
     <div className="activity-feed">
-      {groups.length === 0 && (
+      {activities.length === 0 && groups.length === 0 && (
         <EmptyCard>
           <p className="activity-empty-title">
             {elsewhere > 0 ? NOTHING_RUNNING_HERE : NOTHING_RUNNING}
@@ -54,14 +57,27 @@ export function ActivityFeed(): ReactNode {
           {WHAT_SHOWS_HERE}
         </EmptyCard>
       )}
+      {activities.length > 0 && (
+        <Panel label="Sessions">
+          <PanelHeading icon="users" title="Sessions" count={String(activities.length)} />
+          <Feed>
+            {activities.map((subjectActivity) => (
+              <SubjectActivityCard
+                key={subjectActivity.id}
+                activity={subjectActivity}
+                projects={projects}
+                clock={clock}
+              />
+            ))}
+          </Feed>
+        </Panel>
+      )}
       {groups.map((grouped) => (
         <ActivityGroupPanel
           key={grouped.group.key}
           grouped={grouped}
           projects={projects}
           clock={clock}
-          unseen={unseen}
-          watch={watch}
         />
       ))}
       <InOtherProjectsNote count={elsewhere} one="item" many="items" />
@@ -69,68 +85,60 @@ export function ActivityFeed(): ReactNode {
   );
 }
 
-/**
- * The items of the last read, and the ended ones this visit showed before, so a re-read never takes
- * a row from under the reader: one seen here stays, without its New mark, until the next visit.
- */
-function useItemsThisVisit(activity: Activity | undefined): {
-  readonly items: readonly ActivityItem[];
-  readonly unseen: (item: ActivityItem) => boolean;
-  readonly watch: (itemId: string) => (card: HTMLElement | null) => void;
-} {
-  const [endedShown, setEndedShown] = useState<ReadonlyMap<string, ActivityItem>>(new Map());
-  const [lastRead, setLastRead] = useState<Activity>();
-  const [seenHere, setSeenHere] = useState<ReadonlySet<string>>(new Set());
-  const watch = useMarkingSeen((itemId) => setSeenHere((seen) => new Set(seen).add(itemId)));
-  if (activity && activity !== lastRead) {
-    setLastRead(activity);
-    setEndedShown((shown) => withEnded(shown, activity.items));
-  }
-  const read = activity?.items ?? [];
-  const inRead = new Set(read.map(({ id }) => id));
-  const items = [...read, ...[...endedShown.values()].filter(({ id }) => !inRead.has(id))];
-  return {
-    items,
-    unseen: (item) => item.ended && inRead.has(item.id) && !seenHere.has(item.id),
-    watch,
-  };
-}
-
-function withEnded(
-  shown: ReadonlyMap<string, ActivityItem>,
-  items: readonly ActivityItem[],
-): ReadonlyMap<string, ActivityItem> {
-  const ended = items.filter((item) => item.ended && !shown.has(item.id));
-  if (ended.length === 0) return shown;
-  return new Map([...shown, ...ended.map((item) => [item.id, item] as const)]);
+function SubjectActivityCard({
+  activity: { subject, since, sessions },
+  projects,
+  clock,
+}: {
+  readonly activity: SubjectActivity;
+  readonly projects: readonly Project[] | undefined;
+  readonly clock: Date;
+}): ReactNode {
+  const waiting = sessions.every(({ state }) => state === "waiting");
+  const state = waiting ? "Waiting" : "Working";
+  return (
+    <ItemCard
+      edge={waiting ? "paused" : "running"}
+      label={`${state}: ${subject.title}`}
+      className="activity-card"
+    >
+      <div className="activity-item">
+        <div className="activity-item-heading">
+          <PlaceLink place={placeOfSubject(subject)}>{subject.title}</PlaceLink>
+          {subject.kind === "task" && (
+            <ProjectChip projectId={subject.projectId} projects={projects} />
+          )}
+          <Badge size="sm" dot tone={waiting ? "warning" : "info"}>
+            {state}
+          </Badge>
+        </div>
+        <div className="activity-item-sub">
+          <span>{sessions.length === 1 ? "1 session" : `${sessions.length} sessions`}</span>
+          <span>·</span>
+          <span className="activity-item-time">
+            {state} for {spanWords(clock.getTime() - Date.parse(since))}
+          </span>
+        </div>
+      </div>
+    </ItemCard>
+  );
 }
 
 function ActivityGroupPanel({
   grouped: { group, items },
   projects,
   clock,
-  unseen,
-  watch,
 }: {
   readonly grouped: GroupedActivity;
   readonly projects: readonly Project[] | undefined;
   readonly clock: Date;
-  readonly unseen: (item: ActivityItem) => boolean;
-  readonly watch: (itemId: string) => (card: HTMLElement | null) => void;
 }): ReactNode {
   return (
     <Panel label={group.title}>
       <PanelHeading icon={group.icon} title={group.title} count={String(items.length)} />
       <Feed>
         {items.map((item) => (
-          <ActivityCard
-            key={item.id}
-            item={item}
-            projects={projects}
-            clock={clock}
-            unseen={unseen(item)}
-            watch={watch}
-          />
+          <ActivityCard key={item.id} item={item} projects={projects} clock={clock} />
         ))}
       </Feed>
     </Panel>
@@ -141,24 +149,19 @@ function ActivityCard({
   item,
   projects,
   clock,
-  unseen,
-  watch,
 }: {
   readonly item: ActivityItem;
   readonly projects: readonly Project[] | undefined;
   readonly clock: Date;
-  readonly unseen: boolean;
-  readonly watch: (itemId: string) => (card: HTMLElement | null) => void;
 }): ReactNode {
   const state = stateWords(item);
   const detail = detailWords(item);
   const kind = kindWords(item);
   return (
     <ItemCard
-      edge={edgeOf(item, state.tone)}
+      edge={edgeOf(state.tone)}
       label={`${state.label}: ${item.title}`}
-      className={unseen ? "activity-card unseen" : "activity-card"}
-      ref={unseen ? watch(item.id) : undefined}
+      className="activity-card"
     >
       <div className="activity-item">
         <div className="activity-item-heading">
@@ -168,11 +171,6 @@ function ActivityCard({
             {state.label}
           </Badge>
           {kind && <span className="activity-item-kind">{kind}</span>}
-          {unseen && (
-            <Badge size="sm" tone="accent">
-              New
-            </Badge>
-          )}
         </div>
         <div className="activity-item-sub">
           {detail && (
@@ -188,11 +186,11 @@ function ActivityCard({
   );
 }
 
-/** Running items green or amber by their state; ended ones by how they ended. */
-function edgeOf(item: ActivityItem, tone: Tone): CardEdge {
+/** Running items green or amber by their state. */
+function edgeOf(tone: Tone): CardEdge {
   if (tone === "danger") return "failed";
   if (tone === "warning") return "paused";
-  return item.ended ? "done" : "running";
+  return "running";
 }
 
 /** The item's title, opening where it lives, with its page on the code host beside when it has one. */
@@ -260,14 +258,15 @@ function PlaceLink({
           <CodeHostLink url={place.url} />
         </>
       );
-    case "pull-requests":
+    case "chat":
       return (
-        <>
-          <Link to="/work/pull-requests" className={className}>
-            {children}
-          </Link>
-          <CodeHostLink url={place.url} />
-        </>
+        <Link
+          to="/now"
+          search={{ chat: place.roleKey, thread: place.threadId }}
+          className={className}
+        >
+          {children}
+        </Link>
       );
   }
 }

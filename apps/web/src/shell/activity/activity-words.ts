@@ -1,5 +1,6 @@
 import type {
   ActivityItem,
+  ActivitySubject,
   ActivityItemKind,
   ActivityOffBoardTaskState,
 } from "@the-office/contracts";
@@ -23,9 +24,8 @@ export interface ActivityGroup {
   readonly kinds: readonly ActivityItemKind[];
 }
 
-/** The page's sections, in the order it shows them; each kind is in exactly one. */
+/** The sections of other running work, in the order the page shows them; each kind is in exactly one. */
 export const ACTIVITY_GROUPS: readonly ActivityGroup[] = [
-  { key: "tasks", title: "Tasks", icon: "list-checks", kinds: ["task"] },
   {
     key: "test-instances",
     title: "Test instances",
@@ -47,12 +47,6 @@ export const ACTIVITY_GROUPS: readonly ActivityGroup[] = [
     kinds: ["connected-device"],
   },
   {
-    key: "pull-requests",
-    title: "Pull requests",
-    icon: "git-pull-request",
-    kinds: ["pull-request"],
-  },
-  {
     key: "stalled-tasks",
     title: "Stalled Tasks",
     icon: "circle-alert",
@@ -65,19 +59,15 @@ export interface GroupedActivity {
   readonly items: readonly ActivityItem[];
 }
 
-/**
- * The groups that have items, in the page's order, each with the running items first, then the
- * newest by when it entered its state.
- */
+/** The groups that have items, in the page's order, each with the newest first by when it entered its state. */
 export function groupedActivity(items: readonly ActivityItem[]): readonly GroupedActivity[] {
   return ACTIVITY_GROUPS.map((group) => ({
     group,
-    items: items.filter(({ kind }) => group.kinds.includes(kind)).toSorted(runningThenNewest),
+    items: items.filter(({ kind }) => group.kinds.includes(kind)).toSorted(newestFirst),
   })).filter(({ items: grouped }) => grouped.length > 0);
 }
 
-function runningThenNewest(first: ActivityItem, second: ActivityItem): number {
-  if (first.ended !== second.ended) return first.ended ? 1 : -1;
+function newestFirst(first: ActivityItem, second: ActivityItem): number {
   return Date.parse(second.since) - Date.parse(first.since);
 }
 
@@ -89,8 +79,6 @@ export interface StateWords {
 
 export function stateWords(item: ActivityItem): StateWords {
   switch (item.kind) {
-    case "task":
-      return { label: TASK_STATE_NAMES[item.state], tone: TASK_STATE_TONES[item.state] };
     case "onboarding":
     case "run-environment-set-up":
       return OFF_BOARD_TASK_STATE_WORDS[item.state];
@@ -114,8 +102,6 @@ export function stateWords(item: ActivityItem): StateWords {
       return ENVIRONMENT_CHECK_STATE_WORDS[item.state];
     case "connected-device":
       return { label: DEVICE_STATE_WORDS[item.state], tone: DEVICE_STATE_TONES[item.state] };
-    case "pull-request":
-      return { label: "Ready to merge", tone: "success" };
   }
 }
 
@@ -129,8 +115,6 @@ const OFF_BOARD_TASK_STATE_WORDS: Readonly<Record<ActivityOffBoardTaskState, Sta
   },
   paused: { label: TASK_STATE_NAMES.paused, tone: TASK_STATE_TONES.paused },
   failed: { label: "Failed", tone: "danger" },
-  done: { label: TASK_STATE_NAMES.done, tone: TASK_STATE_TONES.done },
-  dropped: { label: TASK_STATE_NAMES.dropped, tone: TASK_STATE_TONES.dropped },
 };
 
 /** Which Off-board Task an item is, beside its state; none for every other kind. */
@@ -168,8 +152,6 @@ export function detailWords(item: ActivityItem): string | undefined {
       return `Stopped in ${item.stageName}`;
     case "test-instance":
       return item.branch ?? undefined;
-    case "pull-request":
-      return `#${item.number}`;
     case "action-run":
       return `${item.branch} · started by ${item.startedBy}`;
     case "onboarding":
@@ -201,11 +183,22 @@ export type ActivityPlace =
   | { readonly kind: "environment"; readonly projectId: string }
   | { readonly kind: "actions"; readonly projectId: string; readonly actionKey: string }
   | { readonly kind: "ci-runs"; readonly url: string }
-  | { readonly kind: "pull-requests"; readonly url: string };
+  | { readonly kind: "chat"; readonly roleKey: string; readonly threadId: string };
+
+/** Where an activity leads: its Task, its Initiative or its chat. */
+export function placeOfSubject(subject: ActivitySubject): ActivityPlace {
+  switch (subject.kind) {
+    case "task":
+      return { kind: "task", taskId: subject.taskId };
+    case "initiative":
+      return { kind: "initiative", initiativeId: subject.initiativeId };
+    case "chat":
+      return { kind: "chat", roleKey: subject.roleKey, threadId: subject.threadId };
+  }
+}
 
 export function activityPlaceOf(item: ActivityItem): ActivityPlace {
   switch (item.kind) {
-    case "task":
     case "failed-task":
     case "stopped-task":
     case "onboarding":
@@ -222,19 +215,15 @@ export function activityPlaceOf(item: ActivityItem): ActivityPlace {
       return { kind: "environment", projectId: item.projectId };
     case "action-run":
       return { kind: "actions", projectId: item.projectId, actionKey: item.actionKey };
-    case "pull-request":
-      return { kind: "pull-requests", url: item.url };
   }
 }
 
-/** "3 running, 2 ended not yet seen": what the strip's figure and the panel's description count. */
-export function activityCountWords(items: readonly ActivityItem[]): string {
-  const ended = items.filter((item) => item.ended).length;
-  const running = items.length - ended;
-  return `${running} running${ended > 0 ? `, ${ended} ended not yet seen` : ""}`;
+/** "3 running": what the strip's figure and the panel's description count. */
+export function activityCountWords(count: number): string {
+  return `${count} running`;
 }
 
 export const NOTHING_RUNNING = "Nothing is running.";
 export const NOTHING_RUNNING_HERE = "Nothing is running in these Projects.";
 export const WHAT_SHOWS_HERE =
-  "Tasks at a desk, test instances, CI runs, environment checks and Connected devices show here while they run.";
+  "Sessions at work, test instances, CI runs, environment checks and Connected devices show here while they run.";

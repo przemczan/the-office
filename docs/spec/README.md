@@ -27,7 +27,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Actions during the fire alarm**: [2.8 Actions during the alarm](2.8-fire-alarm.md#actions-during-the-alarm)
 - **Actions feature switch**: [2.15 The Actions feature switch](2.15-actions.md#the-actions-feature-switch); [2.1.1 Project settings](2.1.1-projects.md#project-settings)
 - **Actions safety**: [6 Actions](6-permissions-and-safety.md#actions); [2.15 Leaves the workstation](2.15-actions.md#leaves-the-workstation); [2.15 In a test instance of The Office](2.15-actions.md#in-a-test-instance-of-the-office)
-- **Activity, Activity item, seen, activity.changed**: [2.14 Activity](2.14-activity.md#activity); [2.14 What is listed](2.14-activity.md#what-is-listed); [2.14 Running and ended](2.14-activity.md#running-and-ended); [2.14 Seen per user](2.14-activity.md#seen-per-user); [2.14 The count](2.14-activity.md#the-count); screen: [Activity](screens/activity.md#activity); [Shell › Status strip](screens/shell.md#status-strip); [5.3 Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
+- **Activity, session, activity, activity.changed**: [2.14 Activity](2.14-activity.md#activity); [2.14 Sessions](2.14-activity.md#sessions); [2.14 Activities](2.14-activity.md#activities); [2.14 Other running work](2.14-activity.md#other-running-work); [2.14 The count](2.14-activity.md#the-count); screen: [Activity](screens/activity.md#activity); [Shell › Status strip](screens/shell.md#status-strip); [5.3 Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
 - **Android phone over USB, adb connect, adb serial**: [2.13 Android phone over USB](2.13-connected-devices.md#android-phone-over-usb); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Android phone over wireless debugging, adb pair, pairing code, pairing port**: [2.13 Android phone over wireless debugging](2.13-connected-devices.md#android-phone-over-wireless-debugging); [2.13 The run environment's network](2.13-connected-devices.md#the-run-environments-network); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
 - **adb key**: [2.13 The adb key](2.13-connected-devices.md#the-adb-key); [6 Connected devices](6-permissions-and-safety.md#connected-devices)
@@ -399,7 +399,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
 - [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, Install on a device, safety, limits.
 - [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, Project devices (at rest and in use, pairing one, over USB, one environment at a time, lent to a Task, removing one), the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, pairing a phone over wireless debugging, the run environment's network, what Agents see, who connects.
-- [2.14 Activity](2.14-activity.md): everything The Office is running in one list, what is listed, running and ended items, since, seen per user, the count, live updates.
+- [2.14 Activity](2.14-activity.md): active sessions per subject and the other running work, since, the count, live updates.
 - [2.15 Actions](2.15-actions.md): Action and its kinds, Leaves the workstation, what it runs from, Action runs, where they run, what The Office sets, their states, log and history, when a run stops, limits, who starts and who defines Actions, the feature switch.
 
 ### 4. UX
@@ -665,9 +665,6 @@ Where each default lives, by page:
   - [The adb key's size](2.13-connected-devices.md#the-adb-keys-size)
   - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)
   - [Browsers supported](2.13-connected-devices.md#browsers-supported)
-- 2.14 Activity
-  - [Ended items kept](2.14-activity.md#ended-items-kept)
-  - [Seen items kept](2.14-activity.md#seen-items-kept)
 - 2.15 Actions
   - [Actions at once](2.15-actions.md#actions-at-once)
   - [An Action's time limit](2.15-actions.md#an-actions-time-limit)

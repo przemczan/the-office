@@ -11,7 +11,6 @@ import {
   OFF_BOARD_TASK_ID,
   offBoardTaskItem,
   TASK_ID,
-  taskItem,
   testInstanceItem,
 } from "./activity.fixtures.ts";
 import {
@@ -26,7 +25,6 @@ import {
 } from "./activity-words.ts";
 
 const EVERY_KIND: readonly ActivityItemKind[] = [
-  "task",
   "stopped-task",
   "failed-task",
   "test-instance",
@@ -36,43 +34,39 @@ const EVERY_KIND: readonly ActivityItemKind[] = [
   "onboarding",
   "run-environment-set-up",
   "connected-device",
-  "pull-request",
 ];
 
 describe("Activity's groups", () => {
-  it("are the eight of the page, in its order, each kind in exactly one", () => {
+  it("are the six of the page, in its order, each kind in exactly one", () => {
     expect(ACTIVITY_GROUPS.map(({ title }) => title)).toEqual([
-      "Tasks",
       "Test instances",
       "Action runs",
       "CI runs",
       "Off-board Tasks and environment checks",
       "Connected devices",
-      "Pull requests",
       "Stalled Tasks",
     ]);
     const kinds = ACTIVITY_GROUPS.flatMap((group) => group.kinds);
     expect(kinds.toSorted()).toEqual(EVERY_KIND.toSorted());
   });
 
-  it("leave out a group with no items, and list the running first, then the newest", () => {
-    const done = taskItem({ id: "done", ended: true, state: "done", since: minutesAgo(1) });
-    const older = taskItem({ id: "older", since: minutesAgo(60) });
-    const newer = taskItem({ id: "newer", since: minutesAgo(5) });
+  it("leave out a group with no items, and list the newest first", () => {
+    const older = testInstanceItem({ id: "older", since: minutesAgo(60) });
+    const newer = testInstanceItem({ id: "newer", since: minutesAgo(5) });
 
-    const groups = groupedActivity([done, environmentCheckItem(), older, newer]);
+    const groups = groupedActivity([older, environmentCheckItem(), newer]);
 
     expect(groups.map(({ group }) => group.title)).toEqual([
-      "Tasks",
+      "Test instances",
       "Off-board Tasks and environment checks",
     ]);
-    expect(groups[0]?.items.map(({ id }) => id)).toEqual(["newer", "older", "done"]);
+    expect(groups[0]?.items.map(({ id }) => id)).toEqual(["newer", "older"]);
   });
 });
 
 describe("an Activity item's words", () => {
   it("say its state as its badge does", () => {
-    expect(stateWords(taskItem({ state: "waiting-on-you" }))).toEqual({
+    expect(stateWords(offBoardTaskItem({ state: "waiting-on-you" }))).toEqual({
       label: "Waiting on you",
       tone: "warning",
     });
@@ -88,8 +82,8 @@ describe("an Activity item's words", () => {
   });
 
   it("say how long it has been in its state, in whole days from a day on", () => {
-    expect(inStateWords(taskItem(), NOW)).toBe("In progress for 18 min");
-    expect(inStateWords(environmentCheckItem(), NOW)).toBe("Failed for 2h 10 min");
+    expect(inStateWords(offBoardTaskItem(), NOW)).toBe("Running for 8 min");
+    expect(inStateWords(environmentCheckItem(), NOW)).toBe("Checking for 2h 10 min");
     expect(inStateWords(failedTaskItem(), NOW)).toBe("Failed for 2 days");
     expect(spanWords(24 * 60 * 60_000)).toBe("1 day");
     expect(spanWords(-5_000)).toBe("<1 min");
@@ -98,7 +92,7 @@ describe("an Activity item's words", () => {
   it("add the Stage a stalled Task stopped in, and a test instance's branch", () => {
     expect(detailWords(failedTaskItem())).toBe("Failed in Tests");
     expect(detailWords(testInstanceItem())).toBe("office/add-a-filter");
-    expect(detailWords(taskItem())).toBeUndefined();
+    expect(detailWords(ciRunItem())).toBeUndefined();
   });
 });
 
@@ -119,7 +113,7 @@ describe("an Off-board Task's item", () => {
     expect(kindWords(offBoardTaskItem({ kind: "run-environment-set-up" }))).toBe(
       "Run environment set-up",
     );
-    expect(kindWords(taskItem())).toBeUndefined();
+    expect(kindWords(ciRunItem())).toBeUndefined();
     expect(inStateWords(offBoardTaskItem(), NOW)).toBe("Running for 8 min");
     expect(stateWords(offBoardTaskItem({ state: "failed" }))).toEqual({
       label: "Failed",
@@ -154,8 +148,7 @@ describe("an Off-board Task's item", () => {
 });
 
 describe("where an Activity item leads", () => {
-  it("is its Task, for Tasks and stalled Tasks", () => {
-    expect(activityPlaceOf(taskItem())).toEqual({ kind: "task", taskId: TASK_ID });
+  it("is its Task, for a stalled Task", () => {
     expect(activityPlaceOf(failedTaskItem())).toEqual({ kind: "task", taskId: TASK_ID });
   });
 
