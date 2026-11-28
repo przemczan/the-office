@@ -230,7 +230,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 - `activity-sessions.ts`: ActivitySessions
 - `allow-changes.ts`: AllowChanges
 - `approval-holds.fixtures.ts`: RunEveryOfficeToolCall
-- `approval-holds.ts`: ApprovalHolds
+- `approval-holds.ts`: HeldMcpToolCall, ApprovalHolds
 - `barge-ins.ts`: BargeInMessage, BargeInsAfterTurn, BargeIns
 - `briefs.ts`: Briefs
 - `bug-task-decisions.ts`: BugTaskProposal, BugTaskDecisions
@@ -245,7 +245,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 - `duties.fixtures.ts`: DutiesStandIn, dutiesProvider
 - `fire-alarm-in-threads.ts`: ThreadsFireAlarm, FireAlarmInThreads
 - `fire-alarm-lifts.ts`: HELD_BY_THE_FIRE_ALARM, FireAlarmLifts
-- `held-calls.fixtures.ts`: SESSION, CALL, request, Setup, heldCallsWith, anApproval, call
+- `held-calls.fixtures.ts`: SESSION, CALL, request, Setup, heldCallsWith, anApproval, aHeldCallApproval, call
 - `held-calls.ts`: HeldCallOutcome, HeldCallRequest, HeldCall, HeldCalls
 - `initiative-thread-setups.ts`: InitiativeThreadRequest, InitiativeThreadSetup, InitiativeThreadSource, InitiativeThreadSetups
 - `interrupted-answers.ts`: InterruptedAnswers
@@ -317,7 +317,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 - `conversations-prompts.golden.ts`: GOLDEN_OUTPUTS
 - `decision-not-found.ts`: DecisionNotFound
 - `decision.fixtures.ts`: aDecision, AT, TASK_HOME, SESSION, DRAFT, THREE_QUESTIONS, WARM, refusalOf
-- `decision.ts`: isApproval, Recommendation, isBugTask, DecisionKind, ProposedBugTask, BugTaskFields, BUG_TASK_OPTIONS, CREATE_THE_BUG_TASK, FIX_THE_BUG_NOW, ChoiceQuestion, ChoiceOfSeveralQuestion, RecommendationOfSeveral, OpenQuestion, DecisionQuestion, hasOptions, recommendedOptions, DecisionDraft, bugTaskDraft, proposedBugTaskProblems, bugTaskToCreate, QuestionAnswer, DecisionAnswer, isDismissal, oneOptionAnswer, oneWordsAnswer, AtUsersRequest, AnswerGivenBy, GivenAnswer, Answerer, answerGivenBy, PassedOn, Decision, closedDecisionRefusal, isOpen, isTheOfficesOwn, DecisionOnTask, isOnTask, onlyChoice, decisionSummary, decisionProblems, attachmentProblems, answerProblems, createsTheBugTask, fixesTheBugNow, bugTaskAnswerProblems, dismissProblems, answerForUserProblems, questionAnswerWords, formAnswerWords, OneQuestionView, oneQuestionView, OneQuestionKind, formFromOne, oneQuestionKind, OneQuestionAnswer, oneAnswerView, formAnswerFromOne
+- `decision.ts`: isApproval, Recommendation, isBugTask, DecisionKind, ProposedBugTask, BugTaskFields, BUG_TASK_OPTIONS, CREATE_THE_BUG_TASK, FIX_THE_BUG_NOW, HeldCallCard, heldCallQuestion, ChoiceQuestion, ChoiceOfSeveralQuestion, RecommendationOfSeveral, OpenQuestion, DecisionQuestion, hasOptions, recommendedOptions, DecisionDraft, bugTaskDraft, proposedBugTaskProblems, bugTaskToCreate, QuestionAnswer, DecisionAnswer, isDismissal, oneOptionAnswer, oneWordsAnswer, AtUsersRequest, AnswerGivenBy, GivenAnswer, Answerer, answerGivenBy, PassedOn, Decision, closedDecisionRefusal, isOpen, isTheOfficesOwn, DecisionOnTask, isOnTask, onlyChoice, decisionSummary, decisionProblems, attachmentProblems, answerProblems, createsTheBugTask, fixesTheBugNow, bugTaskAnswerProblems, dismissProblems, answerForUserProblems, questionAnswerWords, formAnswerWords, OneQuestionView, oneQuestionView, OneQuestionKind, formFromOne, oneQuestionKind, OneQuestionAnswer, oneAnswerView, formAnswerFromOne
 - `deletion-lock.ts`: DeletionLock, deletionLockOf, deletionLockWords
 - `hand-written-tool-groups.ts`: HAND_WRITTEN_TOOL_GROUPS, handWrittenGroupOf, CARETAKER_NEVER_TOOLS, CARETAKER_ONLY_TOOLS, withoutCaretakerNever, ActionTool, offeredToPerson
 - `held-call.ts`: HeldCallRuling, heldCallRuling

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { approvalQuestion } from "../domain/consult.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { SESSION, request, heldCallsWith, anApproval, call } from "./held-calls.fixtures.js";
 
@@ -71,9 +70,15 @@ describe("a call of an MCP tool waiting on approval", () => {
 
     expect(words).toContain("waits on the user");
     expect(words).toContain("End your turn now");
-    expect(opened[0]?.questions[0]?.question).toBe(
-      approvalQuestion('Call the github/create_issue MCP tool with {"body":"x","title":"Bug"}'),
-    );
+    expect(opened[0]?.questions[0]).toMatchObject({
+      question: "Allow Jan to create_issue (MCP server github)?",
+      heldCall: {
+        key: 'Call the github/create_issue MCP tool with {"body":"x","title":"Bug"}',
+        action: "create_issue (MCP server github)",
+        input: { title: "Bug", body: "x" },
+        callAsSent: { server: "github", tool: "create_issue", input: { title: "Bug", body: "x" } },
+      },
+    });
   });
 
   it("asks the Consultant its setting names, in their Consultation", async () => {
@@ -122,10 +127,25 @@ describe("a call of an MCP tool waiting on approval", () => {
     const approvalHolds = new ApprovalHolds();
     const { heldCalls } = heldCallsWith({ setting: { kind: "never" }, approvalHolds });
 
-    await expect(approvalHolds.of(SESSION)(call({}))).resolves.toContain(
+    await expect(approvalHolds.of(SESSION, [])(call({}))).resolves.toContain(
       "can't ask for approval yet",
     );
     heldCalls.onModuleInit();
-    await expect(approvalHolds.of(SESSION)(call({}))).resolves.toContain("waits on the user");
+    await expect(approvalHolds.of(SESSION, [])(call({}))).resolves.toContain("waits on the user");
+  });
+
+  it("gives the card the tool's description as the session's server listed it", async () => {
+    const approvalHolds = new ApprovalHolds();
+    const { heldCalls, opened } = heldCallsWith({ setting: { kind: "never" }, approvalHolds });
+    heldCalls.onModuleInit();
+    const servers = [
+      { name: "github", tools: [{ name: "create_issue", description: "Opens an issue." }] },
+    ];
+
+    await approvalHolds.of(SESSION, servers)(call({ title: "Bug" }));
+
+    expect(opened[0]?.questions[0]).toMatchObject({
+      heldCall: { action: "create_issue (MCP server github)", description: "Opens an issue." },
+    });
   });
 });

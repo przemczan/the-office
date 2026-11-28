@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { approvalQuestion } from "../domain/consult.js";
-import { CALL, request, heldCallsWith, anApproval } from "./held-calls.fixtures.js";
+import {
+  CALL,
+  request,
+  heldCallsWith,
+  anApproval,
+  aHeldCallApproval,
+} from "./held-calls.fixtures.js";
 
 describe("a call behind Change Project settings", () => {
   it("runs when the switch is Allowed", async () => {
@@ -45,6 +51,41 @@ describe("a call behind Change Project settings", () => {
     await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "proceed", roleKey: "planner" });
     await expect(heldCalls.hold(request)).resolves.toMatchObject({ kind: "held" });
     expect(opened).toHaveLength(1);
+  });
+
+  it("finds an approval asked in plain words by its call's key, once", async () => {
+    const { heldCalls, opened } = heldCallsWith({
+      setting: { kind: "ask-me" },
+      answered: [aHeldCallApproval(0)],
+    });
+
+    await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "proceed", roleKey: "planner" });
+    await expect(heldCalls.hold(request)).resolves.toMatchObject({ kind: "held" });
+    expect(opened).toHaveLength(1);
+  });
+
+  it("does not take a plain-worded approval of another call's key as its own", async () => {
+    const other = aHeldCallApproval(0, "another call");
+    const { heldCalls } = heldCallsWith({ setting: { kind: "ask-me" }, answered: [other] });
+
+    await expect(heldCalls.hold(request)).resolves.toMatchObject({ kind: "held" });
+  });
+
+  it("opens an approval with the call's card, keyed by its call, when given one", async () => {
+    const { heldCalls, opened } = heldCallsWith({ setting: { kind: "ask-me" } });
+    const card = {
+      action: "Change a Project's settings",
+      input: { install: "npm ci" },
+      callAsSent: { action: "change_project_settings", input: { install: "npm ci" } },
+    };
+
+    await heldCalls.hold({ ...request, card });
+
+    expect(opened[0]).toMatchObject({
+      questions: [
+        { question: "Allow Jan to Change a Project's settings?", heldCall: { key: CALL, ...card } },
+      ],
+    });
   });
 
   it("does not take an approval of another call as its own", async () => {

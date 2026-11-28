@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import type { ApprovalCall, OfficeToolChangedField, OfficeToolRuled } from "../../engine/index.js";
+import type { OfficeToolChangedField, OfficeToolRuled } from "../../engine/index.js";
 import {
   hardSwitchInEffect,
   HARD_SWITCH_LABELS,
@@ -8,14 +8,14 @@ import {
   type HardSwitchValue,
 } from "../../people/index.js";
 import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
-import { isApproval, onlyChoice, type Decision } from "../domain/decision.js";
+import { isApproval, onlyChoice, type Decision, type HeldCallCard } from "../domain/decision.js";
 import { heldCallRuling } from "../domain/held-call.js";
 import { mcpToolCallWords } from "../domain/mcp-tool-call.js";
 import type { Thread } from "../domain/thread.js";
 import type { UserRef } from "../domain/user.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
-import { ApprovalHolds } from "./approval-holds.js";
+import { ApprovalHolds, type HeldMcpToolCall } from "./approval-holds.js";
 import { Consultations } from "./consultations.js";
 
 /**
@@ -37,6 +37,8 @@ export interface HeldCallRequest {
   readonly why: string;
   /** The fields a call of an Office action changes, which the approval's card lists. */
   readonly fields?: readonly OfficeToolChangedField[];
+  /** The call in words for the approval card; its key is `call`. */
+  readonly card?: Omit<HeldCallCard, "key">;
 }
 
 /** What a held call is put to the approver with, behind whichever setting holds it. */
@@ -104,7 +106,7 @@ export class HeldCalls implements OnModuleInit {
    * A call of an MCP tool whose setting, as the session was given it, asks for approval: undefined
    * when it runs now, else the words the Agent reads instead of the tool's answer.
    */
-  async holdMcpToolCall(sessionId: string, call: ApprovalCall): Promise<string | undefined> {
+  async holdMcpToolCall(sessionId: string, call: HeldMcpToolCall): Promise<string | undefined> {
     const thread = await this.threads.findBySession(sessionId);
     if (!thread) return "The Office doesn't know this session's Thread.";
     const tool = `the ${call.server}/${call.tool} MCP tool`;
@@ -115,6 +117,12 @@ export class HeldCalls implements OnModuleInit {
         call: mcpToolCallWords(call),
         context: `Your Role card asks for approval of each call of ${tool}.`,
         why: `${tool} needs approval for each call.`,
+        card: {
+          action: `${call.tool} (MCP server ${call.server})`,
+          description: call.description,
+          input: call.input,
+          callAsSent: { server: call.server, tool: call.tool, input: call.input },
+        },
       },
       tool,
       call.setting,
@@ -143,6 +151,7 @@ export class HeldCalls implements OnModuleInit {
         context: request.context,
         why: request.why,
         ...(request.fields && { fields: request.fields }),
+        ...(request.card && { heldCall: { key: request.call, ...request.card } }),
       });
       const waitingOn = consultant
         ? `${consultant.name}, in a Consultation on this Task`
@@ -166,7 +175,10 @@ export class HeldCalls implements OnModuleInit {
       const choice = onlyChoice(decision);
       const given = decision.answer?.kind === "submitted" ? decision.answer.answers[0] : undefined;
       const chosen = given?.kind === "option" ? choice?.options[given.option] : undefined;
-      if (isApproval(decision) && choice?.question === question && chosen === APPROVAL_OPTIONS[0]) {
+      const asksForCall = choice?.heldCall
+        ? choice.heldCall.key === call
+        : choice?.question === question;
+      if (isApproval(decision) && asksForCall && chosen === APPROVAL_OPTIONS[0]) {
         if (await this.threads.spendApproval(decision.id)) {
           return { allowedBy: userWhoAllowed(decision) };
         }

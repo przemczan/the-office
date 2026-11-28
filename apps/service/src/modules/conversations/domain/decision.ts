@@ -66,6 +66,27 @@ export const CREATE_THE_BUG_TASK = 0;
 /** The option of a bug-task Decision that has the Agent fix the issue within its own Task. */
 export const FIX_THE_BUG_NOW = 2;
 
+/**
+ * A held call as its approval card puts it in words: the action, what it does, the record it acts
+ * on and its input without Secret values. `key` is the call in canonical form, which the call's
+ * repeat finds its approval by; the web never reads it.
+ */
+export interface HeldCallCard {
+  readonly key: string;
+  /** What the call does as the user reads it, such as "Start a Task". */
+  readonly action: string;
+  readonly description?: string | undefined;
+  readonly subject?: { readonly kind: string; readonly id: string; readonly title: string };
+  readonly input: unknown;
+  /** The call as the Agent sent it, by the tool's own name, its Secret values by name only. */
+  readonly callAsSent: unknown;
+}
+
+/** The approval question of a held call: who asks to do what, in the user's words. */
+export function heldCallQuestion(askerName: string, { action }: HeldCallCard): string {
+  return `Allow ${askerName} to ${action}?`;
+}
+
 /** A question answered by picking one of its options, the Agent's recommended one preselected. */
 export interface ChoiceQuestion {
   readonly kind: "choice";
@@ -77,6 +98,12 @@ export interface ChoiceQuestion {
    * card lists them; kept with the question, so no table changes.
    */
   readonly fields?: readonly OfficeToolChangedField[];
+  /**
+   * For the approval of a held call, the call in words, and the key its repeat finds the approval
+   * by; kept with the question like `fields`. An approval kept before it has none and is found by
+   * its question's words (`approvalQuestion`).
+   */
+  readonly heldCall?: HeldCallCard;
 }
 
 /**

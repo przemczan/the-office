@@ -484,6 +484,29 @@ export const changedFieldSchema = z.object({
 });
 export type ChangedField = z.infer<typeof changedFieldSchema>;
 
+/** The record an Office action's Proposal changes: its kind, id and title as the user reads it. */
+export const officeActionSubjectSchema = z.object({
+  kind: z.string(),
+  id: z.string(),
+  title: z.string(),
+});
+export type OfficeActionProposalSubject = z.infer<typeof officeActionSubjectSchema>;
+
+/**
+ * A held call as its approval card shows it in words: the action as the user reads it (such as
+ * "Start a Task"), what it does when known, the record it acts on, and its input with Secret
+ * values by name only, and the call as the Agent sent it, by the tool's own name, its Secret values
+ * by name only too.
+ */
+export const heldCallSchema = z.object({
+  action: z.string(),
+  description: z.string().nullable(),
+  subject: officeActionSubjectSchema.nullable(),
+  input: z.unknown(),
+  callAsSent: z.unknown(),
+});
+export type HeldCall = z.infer<typeof heldCallSchema>;
+
 /**
  * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
  * Hard switch, a request, asking a person to do something: a form of one open question, or a Bug
@@ -529,6 +552,11 @@ export const decisionSchema = z.object({
    * for any other Decision, and for an approval kept before it listed them.
    */
   fields: z.array(changedFieldSchema).nullable(),
+  /**
+   * For an approval of a held call, the call in words; null for any other Decision, and for an
+   * approval kept before it had one.
+   */
+  heldCall: heldCallSchema.nullable(),
   /**
    * The Task's Attachments it is about, of any kind, by their ids. One removed since no longer shows
    * among the Task's, while the id stays here.
@@ -704,14 +732,6 @@ export const proposedFeatureSwitchSchema = z.object({
   reason: z.string(),
 });
 export type ProposedFeatureSwitch = z.infer<typeof proposedFeatureSwitchSchema>;
-
-/** The record an Office action's Proposal changes: its kind, id and title as the user reads it. */
-export const officeActionSubjectSchema = z.object({
-  kind: z.string(),
-  id: z.string(),
-  title: z.string(),
-});
-export type OfficeActionProposalSubject = z.infer<typeof officeActionSubjectSchema>;
 
 /** What a Proposal changes, by kind; the module that owns each kind applies it. */
 export const proposedChangeSchema = z.discriminatedUnion("kind", [

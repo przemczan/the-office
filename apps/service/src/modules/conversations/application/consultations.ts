@@ -128,6 +128,7 @@ export class Consultations implements OnModuleInit {
     const draft = consultDecision(
       consult,
       consultant ? { kind: "consultant", roleKey: consultant.roleKey } : { kind: "user" },
+      await this.nameOf(askerRoleKey),
     );
     await this.decisions.open(sessionId, draft, { putTo: consultant?.roleKey, taskId });
     return consultant;

@@ -10,6 +10,7 @@ import {
   type DecisionFormAnswer as DecisionFormAnswerResponse,
   type EditedAction as EditedActionResponse,
   type DecisionQuestion as DecisionQuestionResponse,
+  type HeldCall as HeldCallResponse,
   type QuestionAnswer as QuestionAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
@@ -704,6 +705,7 @@ export function toDecisionResponse({
           ? [question.fields.map((field) => ({ ...field }))]
           : [],
       )[0] ?? null,
+    heldCall: questions.flatMap(heldCallOf)[0] ?? null,
     taskId: decision.taskId ?? null,
     roleKey: decision.roleKey ?? null,
     putTo: decision.putTo ?? null,
@@ -731,14 +733,31 @@ export function toDecisionResponse({
   };
 }
 
+/** The held call a choice question carries, without its key, which only the service reads. */
+function heldCallOf(question: DecisionQuestion): HeldCallResponse[] {
+  if (question.kind !== "choice" || !question.heldCall) return [];
+  const { action, description, subject, input, callAsSent } = question.heldCall;
+  return [
+    {
+      action,
+      description: description ?? null,
+      subject: subject ? { ...subject } : null,
+      input,
+      callAsSent,
+    },
+  ];
+}
+
 function toQuestionResponse(question: DecisionQuestion): DecisionQuestionResponse {
   switch (question.kind) {
-    case "choice":
+    case "choice": {
+      const { heldCall: _heldCall, ...asked } = question;
       return {
-        ...question,
+        ...asked,
         options: [...question.options],
         recommendation: { ...question.recommendation },
       };
+    }
     case "choice-of-several":
       return {
         ...question,

@@ -80,6 +80,7 @@ function aDecisionOn(taskId: string): Decision {
     answeredBy: null,
     atUsersRequest: null,
     fields: null,
+    heldCall: null,
     answeredByTheOffice: false,
     inStageThread: false,
     closedAt: null,

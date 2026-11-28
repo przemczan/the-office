@@ -339,6 +339,7 @@ const OUT_OF_TRIES: Decision = {
   answeredBy: null,
   atUsersRequest: null,
   fields: null,
+  heldCall: null,
   answeredByTheOffice: false,
 };
 

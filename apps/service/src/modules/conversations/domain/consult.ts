@@ -5,6 +5,8 @@ import {
   isTheOfficesOwn,
   type Decision,
   type DecisionAnswer,
+  heldCallQuestion,
+  type HeldCallCard,
   type DecisionDraft,
   recommendedOptions,
   type DecisionQuestion,
@@ -19,7 +21,10 @@ export const THE_OFFICE = "The Office";
  */
 export const APPROVAL_OPTIONS = ["Allow once", "Deny"] as const;
 
-/** The question an approval of `call` is asked with, which a granted approval is found by. */
+/**
+ * The question an approval of `call` is asked with when it has no held call card, which a granted
+ * approval is found by; an approval kept before held calls had cards is asked so.
+ */
 export function approvalQuestion(call: string): string {
   return `Allow this call? ${call}`;
 }
@@ -56,6 +61,8 @@ export type Consult =
       readonly why: string;
       /** The fields a call of an Office action changes, as the card lists them. */
       readonly fields?: readonly OfficeToolChangedField[];
+      /** For a held call, the call in words; its key is `call`. */
+      readonly heldCall?: HeldCallCard;
     }
   | {
       readonly kind: "request";
@@ -199,7 +206,11 @@ export function passedOnTo(
  * their place (spec §6: a missing person falls back to the user). The Consultant is asked the same
  * question without that line.
  */
-export function consultDecision(consult: Consult, party: ConsultedParty): DecisionDraft {
+export function consultDecision(
+  consult: Consult,
+  party: ConsultedParty,
+  askerName: string,
+): DecisionDraft {
   const person = consult.person?.trim();
   const context =
     person && party.kind === "user"
@@ -215,10 +226,13 @@ export function consultDecision(consult: Consult, party: ConsultedParty): Decisi
         questions: [
           {
             kind: "choice",
-            question: approvalQuestion(consult.call),
+            question: consult.heldCall
+              ? heldCallQuestion(askerName, consult.heldCall)
+              : approvalQuestion(consult.call),
             options: APPROVAL_OPTIONS,
             recommendation: { option: 0, reason: consult.why },
             ...(consult.fields && { fields: consult.fields }),
+            ...(consult.heldCall && { heldCall: consult.heldCall }),
           },
         ],
       };

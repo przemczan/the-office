@@ -71,7 +71,7 @@ describe("consultDecision", () => {
   } as const;
 
   it("puts the form to a Consultant as the Agent asked it", () => {
-    expect(consultDecision(consult, { kind: "consultant", roleKey: "cto" })).toEqual({
+    expect(consultDecision(consult, { kind: "consultant", roleKey: "cto" }, "Jim")).toEqual({
       kind: "form",
       context: "The export reads every Project.",
       questions: THREE_QUESTIONS,
@@ -79,7 +79,7 @@ describe("consultDecision", () => {
   });
 
   it("tells the user in whose place they answer", () => {
-    expect(consultDecision(consult, { kind: "user" }).context).toBe(
+    expect(consultDecision(consult, { kind: "user" }, "Jim").context).toBe(
       "For CTO: nobody who can be consulted fills that Role, so you answer in their place.\n\nThe export reads every Project.",
     );
   });
@@ -93,6 +93,7 @@ describe("consultDecision", () => {
         why: "No other way.",
       },
       { kind: "user" },
+      "Jim",
     );
     expect(draft).toEqual({
       kind: "approval",
@@ -105,6 +106,26 @@ describe("consultDecision", () => {
           recommendation: { option: 0, reason: "No other way." },
         },
       ],
+    });
+  });
+
+  it("asks approval of a held call in plain words, keeping its key apart", () => {
+    const heldCall = {
+      key: '{"action":"start_task","input":{"taskId":"t1"}}',
+      action: "Start a Task",
+      description: "Starts the Task.",
+      subject: { kind: "task", id: "t1", title: "Fix it" },
+      input: { taskId: "t1" },
+      callAsSent: { action: "start_task", input: { taskId: "t1" } },
+    };
+    const draft = consultDecision(
+      { kind: "approval", call: heldCall.key, context: "c", why: "w", heldCall },
+      { kind: "user" },
+      "Angela",
+    );
+    expect(draft.questions[0]).toMatchObject({
+      question: "Allow Angela to Start a Task?",
+      heldCall,
     });
   });
 });
@@ -224,6 +245,7 @@ describe("a request", () => {
           why: "Only Devops drafts Project commands.",
         },
         { kind: "consultant", roleKey: "devops" },
+        "Jim",
       ),
     ).toEqual({
       kind: "request",

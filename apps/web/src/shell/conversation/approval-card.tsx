@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { MarkdownText } from "../markdown-text.tsx";
 import { ChangedFields } from "./changed-fields.tsx";
 import { useTakeOver } from "./decision-drafts.tsx";
+import { HeldCallCard } from "./held-call-card.tsx";
 import {
   AnswerRefused,
   AnsweringHints,
@@ -40,6 +41,7 @@ export function ApprovalCard({
       <div className="message-text decision-question">
         <MarkdownText text={question.question} />
       </div>
+      {decision.heldCall && <HeldCallCard heldCall={decision.heldCall} />}
       {decision.fields && <ChangedFields fields={decision.fields} />}
       <DecisionDetail decision={decision} />
       <ConsultationNote decision={decision} />

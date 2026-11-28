@@ -297,6 +297,69 @@ describe("an approval", () => {
       answers: [{ kind: "option", option: 1 }],
     });
   });
+
+  it("shows no held call's words when it has none", async () => {
+    const root = await rendered(card(approval));
+
+    expect(root.querySelector(".held-call")).toBeNull();
+    expect(root.textContent).toContain("Install ffmpeg on the machine");
+  });
+});
+
+describe("an approval of a held call", () => {
+  const heldApproval = aDecision({
+    kind: "approval",
+    questions: [
+      {
+        kind: "choice",
+        question: "Allow Jan to Start a Task?",
+        options: ["Allow once", "Deny"],
+        recommendation: { option: 0, reason: "Start a Task needs approval for each call." },
+      },
+    ],
+    heldCall: {
+      action: "Start a Task",
+      description: "Starts the Task's Pipeline.",
+      subject: { kind: "task", id: TASK.id, title: TASK.title },
+      input: { taskId: TASK.id, note: "Go ahead.", token: "" },
+      callAsSent: { action: "start_task", input: { taskId: TASK.id, note: "Go ahead." } },
+    },
+  });
+
+  it("shows the action, its description, the record and the input in words, no raw JSON", async () => {
+    const root = await rendered(card(heldApproval));
+    const held = root.querySelector(".held-call");
+
+    expect(root.textContent).toContain("Allow Jan to Start a Task?");
+    expect(held?.querySelector(".held-call-action")?.textContent).toBe("Start a Task");
+    expect(held?.textContent).toContain("Starts the Task's Pipeline.");
+    expect(held?.querySelector("a.proposal-link")?.textContent).toBe(TASK.title);
+    const labels = [...root.querySelectorAll(".held-call-input .proposal-change-label")];
+    expect(labels.map((label) => label.textContent)).toEqual(["Task", "Note"]);
+    expect(held?.querySelector(".held-call-input")?.textContent).not.toContain('"taskId"');
+  });
+
+  it("keeps the call as sent behind a collapsed disclosure", async () => {
+    const root = await rendered(card(heldApproval));
+    const raw = root.querySelector<HTMLDetailsElement>("details.held-call-raw");
+
+    expect(raw?.open).toBe(false);
+    expect(raw?.querySelector("summary")?.textContent).toContain("Show the call as sent");
+    expect(raw?.querySelector("pre")?.textContent).toContain('"action": "start_task"');
+    expect(raw?.querySelector("pre")?.textContent).toContain('"taskId"');
+  });
+
+  it("still answers in one click", async () => {
+    await rendered(card(heldApproval));
+
+    await click(buttonNamed("Allow once"));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 0 }],
+    });
+  });
 });
 
 describe("a Decision put to a Consultant", () => {

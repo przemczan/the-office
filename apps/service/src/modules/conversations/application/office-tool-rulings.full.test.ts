@@ -250,9 +250,18 @@ describe("the ruling of an Office tool call", () => {
 
     await callWith({ title: "New title", taskId: "task-1" });
 
-    expect(opened[0]?.questions[0]?.question).toContain(
-      '{"action":"change_task_title","input":{"taskId":"task-1","title":"New title"}}',
-    );
+    expect(opened[0]?.questions[0]).toMatchObject({
+      question: expect.stringMatching(/^Allow \S+ to Change a Task's title\?$/),
+      heldCall: {
+        key: '{"action":"change_task_title","input":{"taskId":"task-1","title":"New title"}}',
+        action: "Change a Task's title",
+        input: { taskId: "task-1", title: "New title" },
+        callAsSent: {
+          action: "change_task_title",
+          input: { taskId: "task-1", title: "New title" },
+        },
+      },
+    });
   });
 
   it("refuses a call the tool's check refuses before holding it, so no approval is asked", async () => {

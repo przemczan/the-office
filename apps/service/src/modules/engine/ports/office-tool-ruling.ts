@@ -21,7 +21,7 @@ export type OfficeToolRuled =
 export interface OfficeToolRuling {
   rule(
     call: OfficeToolCall,
-    tool: Pick<OfficeTool, "name" | "authority">,
+    tool: Pick<OfficeTool, "name" | "description" | "authority">,
     input: unknown,
   ): Promise<OfficeToolRuled>;
 }

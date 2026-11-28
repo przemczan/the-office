@@ -1618,6 +1618,71 @@
   color: var(--fg-3);
 }
 
+.held-call {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+.held-call p {
+  margin: 0;
+}
+
+.held-call-action {
+  font-weight: 600;
+}
+
+.held-call-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.held-call-input li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.held-call-input .held-call-input {
+  flex: 1 1 100%;
+  padding-left: 16px;
+}
+
+.held-call-block {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.held-call-raw summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-3);
+  cursor: pointer;
+  list-style: none;
+}
+
+.held-call-raw summary::-webkit-details-marker {
+  display: none;
+}
+
+.held-call-raw[open] summary > svg {
+  transform: rotate(90deg);
+}
+
+.held-call-raw pre {
+  margin: 6px 0 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .proposal-change-label {
   width: 140px;
   font: var(--type-overline);
